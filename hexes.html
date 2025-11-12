@@ -1,0 +1,31 @@
+<body>
+
+ <script src="https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js", crossorigin="anonymous"></script>
+  
+  <script type="text/javascript">
+    async function main() {
+      let pyodide = await loadPyodide();
+      let mountDir = "/mnt";
+      pyodide.FS.mkdir(mountDir);
+      pyodide.FS.mount(pyodide.FS.filesystems.IDBFS, { root: "d:/prj/hexes" }, mountDir);
+      await pyodide.runPythonAsync(`  
+        from pyodide.http import pyfetch
+        response = await pyfetch("hexes.py")
+        with open("hexes.py", "wb") as f:
+            f.write(await response.bytes())
+        print ('python code loaded')
+    `);
+
+      let hexes = pyodide.pyimport("hexes");
+      console.log(hexes)
+      hexes.main();
+    }
+
+    main();
+  </script>
+
+
+    <canvas id="hexCanvas" width="800" height="800"></canvas>
+
+
+</body>
