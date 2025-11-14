@@ -1,6 +1,6 @@
 import dataclasses
 from typing import Sequence
-from math import cos, sin, pi, sqrt
+from math import cos, sin, pi, sqrt, floor, ceil
 from pyodide.ffi import create_proxy
 import js
 
@@ -18,7 +18,7 @@ class Hex:
             self.k = -self.i - self.j  # Enforce constraint
 
     @classmethod
-    def hex_distance(a: "Hex", b: "Hex") -> int:
+    def hex_distance(cl, a: "Hex", b: "Hex") -> int:
         return (abs(a.i - b.i) + abs(a.j - b.j) + abs(a.k - b.k)) // 2
 
     
@@ -32,6 +32,27 @@ class Hex:
 
     def neighbors(self) -> Sequence["Hex"]:
         return [self.neighbor_hex(direction) for direction in range(6)]
+    
+    def radius(self, n: int) -> Sequence["Hex"]:
+        results = []
+        for x in range(-n, n + 1):
+            for y in range(max(-n, -x - n), min(n, -x + n) + 1):
+                z = -x - y
+                results.append(Hex(self.i + x, self.j + y, self.k + z))
+        return results
+    
+    def line_to(self, other: 'Hex') -> Sequence['Hex']:
+        N = Hex.hex_distance(self, other)
+        results = []
+        for i in range(N + 1):
+            t = i / max(N, 1)
+            lerped = Hex(
+                round(self.i + (other.i - self.i) * t),
+                round(self.j + (other.j - self.j) * t),
+                round(self.k + (other.k - self.k) * t)
+            )
+            results.append(lerped)
+        return results
 
     def __add__(self, other: 'Hex') -> 'Hex':
         return Hex(self.i + other.i, self.j + other.j, self.k + other.k)
@@ -41,6 +62,9 @@ class Hex:
 
     def __mul__(self, k: int) -> 'Hex':
         return Hex(self.i * k, self.j * k, self.k * k)
+    
+    def __div__(self, k: int) -> 'Hex':
+        return Hex(round(self.i / k), round(self.j / k), round(self.k / k))
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Hex):
@@ -127,11 +151,18 @@ class HexCanvas:
         x = event.clientX - rect.left
         y = event.clientY - rect.top
         hex = self.hex_layout.pixel_to_hex(x, y)
-        if hex in self:
-            for h in hex.neighbors():
-                self.draw_hex(h, fill="#FF000027")
-            print(f"Clicked at pixel ({x}, {y}), which is in hex {hex}")
-            self.draw_hex(hex, fill="#00E1FF27")
+    
+        #self.draw_hex_line(Hex(0,0,0), hex)'
+
+        #self.draw_hex_ring(hex, 3)
+        self.draw_hex_arc(hex, 3, 0, 2)
+            # for h in self.
+
+            # if hex in self:
+            #     for h in hex.neighbors():
+            #         self.draw_hex(h, fill="#FF000027")
+            #     print(f"Clicked at pixel ({x}, {y}), which is in hex {hex}")
+            #     self.draw_hex(hex, fill="#00E1FF27")
 
     @singledispatchmethod
     def __contains__(self, hex: Hex) -> bool:
@@ -146,7 +177,42 @@ class HexCanvas:
         hex = self.hex_layout.pixel_to_hex(x, y)
         return self.__contains__(hex)
 
- 
+    def draw_hex_line(self, a: Hex, b: Hex) -> Sequence[Hex]:
+        N = Hex.hex_distance(a, b)
+        results = []
+        for i in range(N + 1):
+            t = i / max(N, 1)
+            lerped = Hex(
+                round(a.i + (b.i - a.i) * t),
+                round(a.j + (b.j - a.j) * t),
+                round(a.k + (b.k - a.k) * t)
+            )
+            results.append(lerped)
+        for h in results:
+            self.draw_hex(h, fill="#FF000027")
+
+
+    def draw_hex_ring(self, center: Hex, radius: int) -> Sequence[Hex]:
+        results = []
+        for x in range(-radius, radius + 1):
+            for y in range(max(-radius, -x - radius), min(radius, -x + radius) + 1):
+                z = -x - y
+                hex = Hex(center.i + x, center.j + y, center.k + z)
+                results.append(hex)
+        for result in results:
+            self.draw_hex(result, fill="#FF000027")
+
+    def draw_hex_arc(self, hex: Hex, radius: int, start_angle: int, end_angle: int) -> Sequence[Hex]:
+        results = []
+        for angle in range(start_angle, end_angle + 1):
+            direction = angle % 6
+            hex = hex
+            for _ in range(radius):
+                hex = hex.neighbor_hex(direction)
+            results.append(hex)
+        for result in results:
+            self.draw_hex(result, fill="#FF000027")
+
 def main():
 
 
@@ -158,12 +224,8 @@ def main():
             z = -x - y
             hex = Hex(x, y, z)
             if hex in hex_canvas:
-                r = hex.i + 19
-                g = hex.j + 19
-                b = hex.k + 19
-                fill_color = f"rgb({r*6},{g*6},{b*6})"
-
-                hex_canvas.draw_hex(hex)#, fill_color)
+                fill_color = "#7a9eb5"
+                hex_canvas.draw_hex(hex, fill=fill_color, stroke="black")
                 hex_canvas.draw_text(hex, f"{hex.i},{hex.j},{hex.k}", font="10px Arial", color="blue")
    
     hex_canvas.canvas.mouseclick = create_proxy(lambda event: hex_canvas.on_canvas_click(event, hex_canvas.context))
