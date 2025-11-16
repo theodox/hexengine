@@ -1,11 +1,15 @@
 import dataclasses
-from typing import Sequence
-from math import cos, sin, pi, sqrt, floor, ceil
+import time
+from typing import Sequence, Iterable
+from math import atan2, copysign, cos, sin, pi, sqrt, ceil, floor
 from pyodide.ffi import create_proxy
 import js
 
 from functools import singledispatchmethod
 
+TWO_PI = 2 * pi
+PI_OVER_3 = pi / 3.0
+PI_OVER_6 = pi / 6.0
 
 @dataclasses.dataclass
 class Hex:
@@ -14,57 +18,43 @@ class Hex:
     k: int
 
     def __post_init__(self):
+        self.i = round(self.i)
+        self.j = round(self.j)
+        self.k = round(self.k)
         if self.i + self.j + self.k != 0:
             self.k = -self.i - self.j  # Enforce constraint
 
-    @classmethod
-    def hex_distance(cl, a: "Hex", b: "Hex") -> int:
-        return (abs(a.i - b.i) + abs(a.j - b.j) + abs(a.k - b.k)) // 2
-
-    
-    def neighbor_hex(self, direction: int) -> "Hex":
-        directions = [
-            Hex(1, -1, 0), Hex(1, 0, -1), Hex(0, 1, -1),
-            Hex(-1, 1, 0), Hex(-1, 0, 1), Hex(0, -1, 1)
-        ]
-        dir = directions[direction % 6]
-        return Hex(self.i + dir.i, self.j + dir.j, self.k + dir.k)
-
-    def neighbors(self) -> Sequence["Hex"]:
-        return [self.neighbor_hex(direction) for direction in range(6)]
-    
-    def radius(self, n: int) -> Sequence["Hex"]:
-        results = []
-        for x in range(-n, n + 1):
-            for y in range(max(-n, -x - n), min(n, -x + n) + 1):
-                z = -x - y
-                results.append(Hex(self.i + x, self.j + y, self.k + z))
-        return results
-    
-    def line_to(self, other: 'Hex') -> Sequence['Hex']:
-        N = Hex.hex_distance(self, other)
-        results = []
-        for i in range(N + 1):
-            t = i / max(N, 1)
-            lerped = Hex(
-                round(self.i + (other.i - self.i) * t),
-                round(self.j + (other.j - self.j) * t),
-                round(self.k + (other.k - self.k) * t)
-            )
-            results.append(lerped)
-        return results
-
     def __add__(self, other: 'Hex') -> 'Hex':
         return Hex(self.i + other.i, self.j + other.j, self.k + other.k)
+    
+    def __iadd__(self, other: 'Hex') -> 'Hex':
+        self.i += other.i
+        self.j += other.j
+        self.k += other.k
+        return self
 
     def __sub__(self, other: 'Hex') -> 'Hex':
         return Hex(self.i - other.i, self.j - other.j, self.k - other.k)
 
-    def __mul__(self, k: int) -> 'Hex':
+    def __isub__(self, other: 'Hex') -> 'Hex':
+        self.i -= other.i
+        self.j -= other.j
+        self.k -= other.k
+        return self
+
+    def __mul__(self, k: float) -> 'Hex':
+        k *= 1.0
         return Hex(self.i * k, self.j * k, self.k * k)
     
-    def __div__(self, k: int) -> 'Hex':
-        return Hex(round(self.i / k), round(self.j / k), round(self.k / k))
+    def __imul__(self, k: float) -> 'Hex':
+        self.i *= k
+        self.j *= k
+        self.k *= k
+        return self
+
+    def __div__(self, k: float) -> 'Hex':
+        k *= 1.0
+        return Hex(self.i / k, self.j / k, self.k /  k)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Hex):
@@ -72,10 +62,114 @@ class Hex:
         return self.i == other.i and self.j == other.j and self.k == other.k
 
     def __hash__(self) -> int:
-        return hash((self.i, self.j, self.k))
+        return hash((self.i + 1024, self.j + 2048, self.k + 4096))
 
+    def __len__(self) -> int:
+        return max(abs(self.i), abs(self.j), abs(self.k))
+    
     def __repr__(self) -> str:
-        return f"Hex(i={self.i}, j={self.j}, k={self.k},{(self.i + self.k + self.j)==0})"
+        return f"Hex({self.i},{self.j},{self.k})"
+    
+
+def cube_round(coords):
+    q = round(coords[0])
+    r = round(coords[1])
+    s = round(coords[2])
+
+    q_diff = abs(q - coords[0])
+    r_diff = abs(r - coords[1])
+    s_diff = abs(s - coords[2])
+
+    if q_diff > r_diff and q_diff > s_diff:
+        q = -r-s
+    elif r_diff > s_diff:
+        r = -q-s
+    else:
+        s = -q-r
+    return Hex(q, r, s)
+
+def normalize(hex: Hex) -> Hex:
+    
+    i = (hex.i + 0.24999) / len(hex)
+    j = (hex.j - 0.24999) / len(hex)
+    k = -i - j
+    return Hex(round(i), round(j), round(k))
+
+def neighbors(hex: Hex) -> Iterable[Hex]:
+    for h in radial(hex, 1):
+        if h != hex:    
+            yield h
+
+def neighbor_hex(hex: Hex, direction: int) -> Hex:
+    return tuple(neighbors(hex))[direction % 6]
+
+def distance(a: Hex, b: Hex) -> int:
+    return (abs(a.i - b.i) + abs(a.j - b.j) + abs(a.k - b.k)) // 2
+
+def lerp(a: Hex, b: Hex, t: float) ->  Hex:
+    """
+    lerp the hexes with a small nudge to avoid rounding issues
+    """
+    i = a.i + (b.i - a.i) * t
+    j =  a.j + (b.j - a.j) * t
+    k = a.k + (b.k - a.k) * t
+
+    return cube_round((i, j, k))
+
+    # i += copysign( .001, i)
+    # j -= copysign( .001, i)
+    # return Hex(i , j, k)
+
+
+def line(a: Hex, b: Hex) -> Iterable[Hex]:
+    N = distance(a, b)
+   
+    for i in range(N + 1):
+        t = i / max(N, 1)
+        next_hex = lerp(a, b, t)
+        yield next_hex
+
+def path(steps: Sequence[Hex]) -> Iterable[Hex]:
+    if len(steps) < 2:
+        return
+    for idx in range(len(steps) - 1):
+        a = steps[idx]
+        b = steps[idx + 1]
+        for h in line(a, b):
+            yield h
+
+
+def radial(center: Hex, radius: int) -> Iterable[Hex]:
+    for x in range(-radius, radius + 1):
+        for y in range(max(-radius, -x - radius), min(radius, -x + radius) + 1):
+            z = -x - y
+            yield Hex(center.i + x, center.j + y, center.k + z)
+
+def ring(center: Hex, radius: int) -> Iterable[Hex]:
+    for r in radial(center, radius):
+        if distance(center, r) == radius:
+            yield r
+
+def wedge(center: Hex, radius: int, direction: int) -> Iterable[Hex]:
+    for r in radial(center, radius):
+        dir_hex = neighbor_hex(center, direction)
+        if distance(center, r) == radius and distance(center, r + dir_hex) < radius:
+            yield r
+
+def angle(start: Hex, end: Hex) -> float:
+    delta = end - start
+    angle = PI_OVER_6  # 30 degrees for flat-topped hexes
+    x = delta.i * cos(angle) + delta.j * cos(angle + 2 * PI_OVER_3) + delta.k * cos(angle + 4 * PI_OVER_3)
+    y = delta.i * sin(angle) + delta.j * sin(angle + 2 * PI_OVER_3) + delta.k * sin(angle + 4 * PI_OVER_3)
+    return (PI_OVER_3 + atan2(y, x) +  TWO_PI) % TWO_PI
+
+
+def wedge_fill(center: Hex, radius: int, start_angle: float, end_angle: float) -> Iterable[Hex]:
+    # 0.05 is 3 degrees of leeway to make sure we dont miss the 0 line
+    for rad in radial(center, radius):
+        ang = angle(center, rad)
+        if start_angle - 0.06 <= ang  <= end_angle or rad==center:
+            yield rad
 
 class HexLayout:
     """
@@ -152,17 +246,9 @@ class HexCanvas:
         y = event.clientY - rect.top
         hex = self.hex_layout.pixel_to_hex(x, y)
     
-        #self.draw_hex_line(Hex(0,0,0), hex)'
+        for h in line(Hex(0,0,0), hex):
+            self.draw_hex(h, fill="#FF000027")
 
-        #self.draw_hex_ring(hex, 3)
-        self.draw_hex_arc(hex, 3, 0, 2)
-            # for h in self.
-
-            # if hex in self:
-            #     for h in hex.neighbors():
-            #         self.draw_hex(h, fill="#FF000027")
-            #     print(f"Clicked at pixel ({x}, {y}), which is in hex {hex}")
-            #     self.draw_hex(hex, fill="#00E1FF27")
 
     @singledispatchmethod
     def __contains__(self, hex: Hex) -> bool:
@@ -201,17 +287,11 @@ class HexCanvas:
                 results.append(hex)
         for result in results:
             self.draw_hex(result, fill="#FF000027")
-
-    def draw_hex_arc(self, hex: Hex, radius: int, start_angle: int, end_angle: int) -> Sequence[Hex]:
-        results = []
-        for angle in range(start_angle, end_angle + 1):
-            direction = angle % 6
-            hex = hex
-            for _ in range(radius):
-                hex = hex.neighbor_hex(direction)
-            results.append(hex)
+    def draw_hex_arc(self, center: Hex, radius: int, start_angle: int, end_angle: int) -> Sequence[Hex]:
+        results = wedge(center, radius, start_angle)
         for result in results:
             self.draw_hex(result, fill="#FF000027")
+
 
 def main():
 
@@ -230,6 +310,13 @@ def main():
    
     hex_canvas.canvas.mouseclick = create_proxy(lambda event: hex_canvas.on_canvas_click(event, hex_canvas.context))
     hex_canvas.canvas.addEventListener("click", hex_canvas.canvas.mouseclick)
+
+    t = time.time()
+    for r in wedge_fill(Hex(0,0,0), 8, 0, 2* pi / 3):
+        hex_canvas.draw_hex(r, fill="#FF000027")    
+    print ("wedge_fill time:", (time.time() - t) * 1000.0, "ms")
+
+    print(angle(Hex(0,0,0), Hex(0,-9,9)))
 
 if __name__ == "__main__":
     main()

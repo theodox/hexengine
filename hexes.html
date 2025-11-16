@@ -12,7 +12,9 @@
         from pyodide.http import pyfetch
         response = await pyfetch("hexes.py")
         with open("hexes.py", "wb") as f:
-            f.write(await response.bytes())
+            rb = await response.bytes()
+            print (rb.decode('utf-8'))
+            f.write(rb)
         print ('python code loaded')
     `);
 
