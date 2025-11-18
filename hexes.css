@@ -1,0 +1,10 @@
+.console-output {
+  font-family: monospace;
+  font-size: 10pt;
+  color: burlywood;
+  background: hwb(0 0% 100%);
+  width: calc(100% - 24px);
+  height: 256px;
+  border: none;
+  resize: none;
+}
