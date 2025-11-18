@@ -247,9 +247,10 @@ class HexCanvas:
         x = event.clientX - rect.left
         y = event.clientY - rect.top
         hex = self.hex_layout.pixel_to_hex(x, y)
-    
+        logging.getLogger().debug(f"Clicked hex: {hex}")
         for h in line(Hex(0,0,0), hex):
             self.draw_hex(h, fill="#FF000027")
+            
 
 
     @singledispatchmethod
@@ -296,8 +297,9 @@ class HexCanvas:
 
 
 def main():
-
-    logger = dev_console.create_Logger("", js.document.getElementById("console_output"))
+    
+    dev_console.initialize("", js.document.getElementById("console_output"))
+    logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     logger.warning("Hexes demo starting...")
     
@@ -317,7 +319,7 @@ def main():
                 fill_color = "#7a9eb5"
                 hex_canvas.draw_hex(hex, fill=fill_color, stroke="black")
                 hex_canvas.draw_text(hex, f"{hex.i},{hex.j},{hex.k}", font="10px Arial", color="blue")
-                logger.debug(f"Drew hex at {hex}")
+                #logger.debug(f"Drew hex at {hex}")
     hex_canvas.canvas.mouseclick = create_proxy(lambda event: hex_canvas.on_canvas_click(event, hex_canvas.context))
     hex_canvas.canvas.addEventListener("click", hex_canvas.canvas.mouseclick)
 
