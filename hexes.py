@@ -4,7 +4,9 @@ from typing import Sequence, Iterable
 from math import atan2, copysign, cos, sin, pi, sqrt, ceil, floor
 from pyodide.ffi import create_proxy
 import js
+import logging
 
+import dev_console
 from functools import singledispatchmethod
 
 TWO_PI = 2 * pi
@@ -295,9 +297,17 @@ class HexCanvas:
 
 def main():
 
+    logger = dev_console.create_Logger("", js.document.getElementById("console_output"))
+    logger.setLevel(logging.DEBUG)
+    logger.warning("Hexes demo starting...")
+    
+    loading = js.document.getElementById("loading")
+    loading.style.display = "none"
 
     hex_canvas = HexCanvas("hexCanvas", 24)
     hex_canvas.fill_canvas("lightgrey")
+
+
 
     for x in range(-19, 20):
         for y in range(-19, 20):
@@ -307,16 +317,17 @@ def main():
                 fill_color = "#7a9eb5"
                 hex_canvas.draw_hex(hex, fill=fill_color, stroke="black")
                 hex_canvas.draw_text(hex, f"{hex.i},{hex.j},{hex.k}", font="10px Arial", color="blue")
-   
+                logger.debug(f"Drew hex at {hex}")
     hex_canvas.canvas.mouseclick = create_proxy(lambda event: hex_canvas.on_canvas_click(event, hex_canvas.context))
     hex_canvas.canvas.addEventListener("click", hex_canvas.canvas.mouseclick)
 
     t = time.time()
     for r in wedge_fill(Hex(0,0,0), 8, 0, 2* pi / 3):
         hex_canvas.draw_hex(r, fill="#FF000027")    
-    print ("wedge_fill time:", (time.time() - t) * 1000.0, "ms")
+    logger.debug(f"wedge_fill time: {time.time() - t:.4f} seconds")
 
-    print(angle(Hex(0,0,0), Hex(0,-9,9)))
+    logger.debug(f"Angle test: {angle(Hex(0,0,0), Hex(9,0,-9)):.4f} radians")
+
 
 if __name__ == "__main__":
     main()
