@@ -1,10 +1,9 @@
 <body>
 
- <script src="https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js", crossorigin="anonymous"></script>
-  
-  <style>
-    @import url("hexes.css");
-  </style>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js" , crossorigin="anonymous"></script>
+
+  <style>@import url("hexes.css");</style>
+
   <script type="text/javascript">
     async function main() {
       let pyodide = await loadPyodide();
@@ -21,8 +20,8 @@
         response = await pyfetch("dev_console.py")
         with open("dev_console.py", "wb") as f:
             rb = await response.bytes()
-            f.write(rb)        
-    `);
+            f.write(rb)`
+        );
 
       let hexes = pyodide.pyimport("hexes");
       console.log(hexes)
@@ -32,31 +31,42 @@
     main();
   </script>
 
-  <div id="output" style="background-color: darkgray; position: absolute; padding: 32px;">
-    <canvas id="hexCanvas" width="1600px", height="900px" style="margin: 32px; border: 1px solid black; border-radius: 32px;"></canvas>
+  <div id="main-frame">
+
+
+    <canvas id="map-canvas" width="1600px" , height="900px">
+    </canvas>
+
+
+    <!--- loading screen -->
     <div id="loading" style="position: absolute; top: 40%; left: 25%; width: 50%; height: 20%;">
-      <div style="position: relative; width: 100%; height: 20%; background-color: tomato; text-align: center; font-size: xx-large; padding-top: 20px; border-radius: 15px;">
+      <div
+        style="position: relative; width: 100%; height: 20%; background-color: tomato; text-align: center; font-size: xx-large; padding-top: 20px; border-radius: 15px;">
         <b>Loading...</b>
       </div>
     </div>
-        
-    <div>
-      <label>log level:</label>
-      <select id="console_level_picker" style="position: relative; right: 0px;">
-        <option value="DEBUG">Debug</option>
-        <option value="INFO" selected>Info</option>
-        <option value="WARNING">Warning</option>
-        <option value="ERROR">Error</option>
-      </select>
-    </div>
-      
-    <div id="console" style="position: relative; top: 0%; height: 256px; background-color: lightgray; border: 1px solid black; padding: 8px; font-family: monospace; font-size: small; overflow: auto;">
-  
 
-      <textarea id="console_output" class="console-output", readonly="true"></textarea>
-      
+
+    <div id="console-bg">
+
+      <div id="console-header">
+        <label id="log-level-label">log level</label>
+        <select id="log-level-picker">
+          <option value="DEBUG">Debug</option>
+          <option value="INFO" selected>Info</option>
+          <option value="WARNING">Warning</option>
+          <option value="ERROR">Error</option>
+        </select>
+      </div>
+
+      <textarea id="console" readonly="true"></textarea>
+      <textarea id="console-input"></textarea>
+
+    </div>
+
+
   </div>
 
-    
+
 
 </body>

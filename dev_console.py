@@ -11,6 +11,7 @@ standard Python logging idioms
 ROOT_LOGGER = None
 
 
+
 def initialize(name: str, textArea: js.HTMLElement) -> logging.Logger:
     global ROOT_LOGGER
     ROOT_LOGGER = logging.getLogger(name)
@@ -23,12 +24,12 @@ def initialize(name: str, textArea: js.HTMLElement) -> logging.Logger:
     TextAreaWriter.INSTANCE = handler.writer
 
     # Set up the log level selector
-    log_level_select = js.document.getElementById("console_level_picker")
+    log_level_select = js.document.getElementById("log-level-picker")
     log_level_select.addEventListener(
         "change",
         create_proxy(
             lambda event: update_log_display(
-                event, js.document.getElementById("console_output")
+                event, js.document.getElementById("console")
             )
         ),
     )
@@ -52,7 +53,7 @@ class TextAreaWriter:
     def write(self, level: int, message: str):
         self.items.append((level, message))
         if level >= self.ACTIVE_LEVEL:
-            self.textArea.value += "\n" + message
+            self.textArea.value += message + "\n"
 
     def flush(self):
         pass

@@ -1,10 +1,76 @@
-.console-output {
-  font-family: monospace;
-  font-size: 10pt;
-  color: burlywood;
-  background: hwb(0 0% 100%);
-  width: calc(100% - 24px);
-  height: 256px;
-  border: none;
-  resize: none;
+
+#map-canvas {
+    border: 1px solid black;
+    margin: 16px;
+    border-radius: 16px;
+    background-color: white
 }
+
+#console-bg {
+    position: relative;
+    height: 234px;
+    background-color: black;
+    margin-left: 16px;
+    margin-right: 16px;
+    margin-bottom: 16px;
+    padding: 16px;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#main-frame {
+    position: absolute;
+    width: 100%;
+    background-color: rgba(72, 72, 72, 0.8);
+    display: flex;
+    flex-direction: column ;
+}
+
+#console-header {
+    font-family: sans-serif;
+    font-size: 12pt;
+    color: white;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-direction: row;
+}
+
+#log-level-picker {
+    position: relative;
+    width: 100px;
+    background-color: rgb(20, 20, 20);
+    color: white;
+}
+
+#log-level-label {
+    color: rgb(131, 131, 131);
+}
+
+#console {
+    font-family: monospace;
+    font-size: 10pt;
+    line-height: 14pt;
+    color: rgb(201, 200, 200);
+    background: hwb(0 0% 100%);
+    width: 100%;
+    height: 224px;
+    border: none;
+    resize: none;
+}
+
+#console-input {
+    font-family: monospace;
+    font-size: 10pt;
+    color: rgb(255, 243, 140);
+    background: hwb(0 6% 94%);
+    width: 100%;
+    line-height: 24px;
+    height: 40px;
+    border: none;
+    resize: none;
+    top: 8px;
+ }
