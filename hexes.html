@@ -10,21 +10,13 @@
       let mountDir = "/mnt";
       pyodide.FS.mkdir(mountDir);
       pyodide.FS.mount(pyodide.FS.filesystems.IDBFS, { root: "d:/prj/hexes" }, mountDir);
-      await pyodide.runPythonAsync(`  
-        from pyodide.http import pyfetch
-        response = await pyfetch("hexes.py")
-        with open("hexes.py", "wb") as f:
-            rb = await response.bytes()
-            f.write(rb)
-        
-        response = await pyfetch("dev_console.py")
-        with open("dev_console.py", "wb") as f:
-            rb = await response.bytes()
-            f.write(rb)`
-        );
-
-      let hexes = pyodide.pyimport("hexes");
-      console.log(hexes)
+      
+      await  pyodide.loadPackage("micropip");
+      const micropip = pyodide.pyimport("micropip");
+      await micropip.install("../dist/hexes-0.1.0-py3-none-any.whl");
+     
+      let hexes = pyodide.pyimport("engine");
+      console.log(hexes.__version__);
       hexes.main();
     }
 
@@ -34,7 +26,7 @@
   <div id="main-frame">
 
 
-    <canvas id="map-canvas" width="1600px" , height="900px">
+    <canvas id="map-canvas" width="1920px" , height="1280px">
     </canvas>
 
 

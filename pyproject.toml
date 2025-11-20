@@ -1,7 +1,16 @@
 [project]
 name = "hexes"
 version = "0.1.0"
-description = "Add your description here"
+description = "hmtl game board with hexagonal tiles"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = []
+authors = [
+    {name = "Steve Theodore", email = "theodox@gmail.com"}
+]
+
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel", "build"]
+build-backend = "setuptools.build_meta" 
+

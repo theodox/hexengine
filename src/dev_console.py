@@ -10,7 +10,7 @@ standard Python logging idioms
 
 ROOT_LOGGER = None
 
-
+__version__ = "0.1.0"
 
 def initialize(name: str, textArea: js.HTMLElement) -> logging.Logger:
     global ROOT_LOGGER
@@ -48,7 +48,7 @@ class TextAreaWriter:
 
     def __init__(self, textArea: js.HTMLElement):
         self.textArea = textArea
-        self.items = []
+        self.items = [(50, __version__)]
 
     def write(self, level: int, message: str):
         self.items.append((level, message))
