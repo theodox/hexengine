@@ -10,7 +10,7 @@ import dev_console
 from document import element
 from map import HexCanvas
 from hexes.math import Hex, cube_round, normalize, neighbors, neighbor_hex, distance, lerp, line
-from hexes.shapes import path, radius, ring, wedge, angle
+from hexes.shapes import path, radius, ring, wedge, angle, convex_hull
 
 __version__ = "0.1.0"
 
@@ -43,6 +43,17 @@ def main():
     )
     hex_canvas.canvas.addEventListener("click", hex_canvas.canvas.mouseclick)
 
+
+    examples = [Hex(-5, 0, 5),
+                Hex(0,0,0) , Hex(-2, 0, 2),Hex(2, 7, 5), Hex(8, 1, -9), Hex(3, -6, 3)]
+    hex_canvas.draw_hexes(examples, fill="#E28F1391", stroke="green")
+    hull = convex_hull(examples)
+    logger.debug(f"Convex hull of examples: {hull}")
+
+    hex_canvas.draw_hexes(hull, fill="#1A121549", stroke="blue")
+    
+    outline = path(hull + [hull[0]])
+    hex_canvas.draw_hexes(outline, fill="#2120165C", stroke="red")
     t = time.time()
     #for r in wedge_fill(Hex(0, 0, 0), 8, 0, 2 * pi / 3):
     #    hex_canvas.draw_hex(r, fill="#FF000027")

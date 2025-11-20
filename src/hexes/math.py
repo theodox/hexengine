@@ -41,7 +41,7 @@ def neighbors(hex: Hex) -> Iterable[Hex]:
         yield hex + hex_offset
 
 def neighbor_hex(hex: Hex, direction: int) -> Hex:
-    yield hex + _NEIGHBOR_OFFSETS[direction % 6]
+    return hex + _NEIGHBOR_OFFSETS[direction % 6]
 
 def distance(a: Hex, b: Hex) -> int:
     return len(b - a)

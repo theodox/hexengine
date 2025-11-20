@@ -35,9 +35,13 @@ class Hex:
     def __imul__(self, k: float) -> "Hex":
         raise NotImplementedError("In-place multiplication is not supported for Hex")
 
-    def __div__(self, k: float) -> "Hex":
+    def __truediv__(self, k: float) -> "Hex":
         k *= 1.0
         return Hex(self.i / k, self.j / k, self.k / k)
+    
+    def __floordiv__(self, k: float) -> "Hex":
+        k *= 1.0
+        return Hex(self.i // k, self.j // k, self.k // k)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Hex):
