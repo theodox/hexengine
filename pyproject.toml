@@ -1,9 +1,9 @@
 [project]
 name = "hexes"
 version = "0.1.0"
-description = "hmtl game board with hexagonal tiles"
+description = "HTML game board with hexagonal tiles - Pyodide compatible"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.11"  # Pyodide supports 3.11+
 dependencies = []
 authors = [
     {name = "Steve Theodore", email = "theodox@gmail.com"}
@@ -12,5 +12,6 @@ authors = [
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel", "build"]
-build-backend = "setuptools.build_meta" 
+build-backend = "setuptools.build_meta"
+
 

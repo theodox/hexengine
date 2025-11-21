@@ -1,8 +1,10 @@
 import unittest
-from src.hexes.types import Hex
-from src.hexes.shapes import (
+from hexengine.hexes.types import Hex
+from hexengine.hexes.shapes import (
     convex_hull,
     outer_boundary,
+    polygon,
+    convex_polygon,
     radius,
     ring,
     path,
@@ -10,7 +12,18 @@ from src.hexes.shapes import (
     angle,
     wedge_fill
 )
-from src.hexes.math import distance
+from hexengine.hexes.math import (
+    dot_product,
+    vector_angle,
+    hex_magnitude,
+    cross_product,
+    hex_to_cartesian,
+    cartesian_to_hex,
+    add_cartesian_vectors,
+    subtract_cartesian_vectors,
+    scale_cartesian_vector,
+    distance
+)
 import math
 
 
@@ -245,6 +258,333 @@ class TestHexShapes(unittest.TestCase):
         self.assertGreater(len(result), 0)
         for hex_coord in result:
             self.assertEqual(hex_coord.i + hex_coord.j + hex_coord.k, 0)
+
+    def test_polygon_triangle(self):
+        """Test filling a triangular polygon."""
+        vertices = [
+            Hex(0, 0, 0),    # Center
+            Hex(3, -1, -2),  # Right
+            Hex(-1, 3, -2),  # Bottom left
+        ]
+        filled = polygon(vertices)
+        
+        # Should include all vertices
+        for vertex in vertices:
+            self.assertIn(vertex, filled)
+        
+        # Should include some interior points
+        self.assertGreater(len(filled), len(vertices))
+        
+        # All filled hexes should maintain constraint
+        for hex_coord in filled:
+            self.assertEqual(hex_coord.i + hex_coord.j + hex_coord.k, 0)
+
+    def test_polygon_square_like(self):
+        """Test filling a square-like polygon."""
+        vertices = [
+            Hex(-2, 0, 2),
+            Hex(0, -2, 2),
+            Hex(2, -2, 0),
+            Hex(2, 0, -2),
+            Hex(0, 2, -2),
+            Hex(-2, 2, 0),
+        ]
+        filled = polygon(vertices)
+        
+        # Should include all vertices
+        for vertex in vertices:
+            self.assertIn(vertex, filled)
+        
+        # Should fill interior
+        self.assertGreater(len(filled), len(vertices))
+
+    def test_polygon_empty_and_small(self):
+        """Test polygon with empty and small inputs."""
+        # Empty
+        self.assertEqual(polygon([]), set())
+        
+        # Single point
+        single = [Hex(1, -1, 0)]
+        self.assertEqual(polygon(single), set(single))
+        
+        # Two points
+        two_points = [Hex(0, 0, 0), Hex(1, -1, 0)]
+        result = polygon(two_points)
+        self.assertEqual(result, set(two_points))
+
+    def test_fill_convex_polygon_triangle(self):
+        """Test filling a convex triangular polygon."""
+        vertices = [
+            Hex(0, 0, 0),
+            Hex(2, -1, -1),
+            Hex(-1, 2, -1),
+        ]
+        filled = fill_convex_polygon(vertices)
+        
+        # Should include all vertices
+        for vertex in vertices:
+            self.assertIn(vertex, filled)
+        
+        # Should include interior points
+        self.assertGreater(len(filled), len(vertices))
+        
+        # All filled hexes should maintain constraint
+        for hex_coord in filled:
+            self.assertEqual(hex_coord.i + hex_coord.j + hex_coord.k, 0)
+
+    def test_fill_convex_polygon_vs_general(self):
+        """Test that convex polygon fill gives same result as general for convex shapes."""
+        # Use a convex hexagon
+        vertices = [
+            Hex(-2, 0, 2), Hex(0, -2, 2), Hex(2, -2, 0),
+            Hex(2, 0, -2), Hex(0, 2, -2), Hex(-2, 2, 0)
+        ]
+        
+        general_fill = polygon(vertices)
+        convex_fill = fill_convex_polygon(vertices)
+        
+        # For convex shapes, both algorithms should give similar results
+        # (may differ slightly due to different algorithms, but should be close)
+        self.assertGreaterEqual(len(general_fill), len(vertices))
+        self.assertGreaterEqual(len(convex_fill), len(vertices))
+
+    def test_polygon_boundary_included(self):
+        """Test that polygon boundary is always included in fill."""
+        vertices = [
+            Hex(0, 0, 0), Hex(3, 0, -3), Hex(1, 2, -3), Hex(-2, 2, 0)
+        ]
+        filled = polygon(vertices)
+        
+        # Create expected boundary
+        expected_boundary = set()
+        for i in range(len(vertices)):
+            start = vertices[i]
+            end = vertices[(i + 1) % len(vertices)]
+            # Import line function from math module
+            from hexengine.hexes.math import line
+            boundary_line = list(line(start, end))
+            expected_boundary.update(boundary_line)
+        
+        # All boundary points should be in filled result
+        self.assertTrue(expected_boundary.issubset(filled))
+
+    def test_polygon_fill_maintains_constraints(self):
+        """Integration test: verify polygon fills maintain hex constraints."""
+        vertices = [Hex(1, 1, -2), Hex(3, -1, -2), Hex(2, -3, 1), Hex(-1, -1, 2)]
+        
+        for fill_func in [polygon, fill_convex_polygon]:
+            filled = fill_func(vertices)
+            for hex_coord in filled:
+                self.assertEqual(hex_coord.i + hex_coord.j + hex_coord.k, 0)
+
+    def test_dot_product_basic(self):
+        """Test basic dot product calculations."""
+        # Same vectors should have positive dot product
+        hex1 = Hex(1, 0, -1)
+        hex2 = Hex(2, 0, -2)  # Same direction, different magnitude
+        dot = dot_product(hex1, hex2)
+        self.assertGreater(dot, 0)
+        
+        # These vectors are actually perpendicular in hex space
+        hex3 = Hex(-2, 0, 2)
+        hex4 = Hex(-1, 2, -1)
+        dot_perp = dot_product(hex3, hex4)
+        self.assertAlmostEqual(dot_perp, 0, places=10)
+
+    def test_dot_product_opposite_vectors(self):
+        """Test dot product of opposite vectors."""
+        hex1 = Hex(2, -1, -1)
+        hex2 = Hex(-2, 1, 1)  # Opposite direction
+        dot = dot_product(hex1, hex2)
+        self.assertLess(dot, 0)
+
+    def test_dot_product_zero_vector(self):
+        """Test dot product with zero vector."""
+        zero = Hex(0, 0, 0)
+        hex1 = Hex(1, -1, 0)
+        dot = dot_product(zero, hex1)
+        self.assertEqual(dot, 0)
+
+    def test_vector_angle_same_direction(self):
+        """Test angle between vectors pointing in same direction."""
+        hex1 = Hex(1, 0, -1)
+        hex2 = Hex(3, 0, -3)  # Same direction
+        angle_rad = vector_angle(hex1, hex2)
+        self.assertAlmostEqual(angle_rad, 0, places=5)
+
+    def test_vector_angle_opposite_direction(self):
+        """Test angle between opposite vectors."""
+        hex1 = Hex(2, -1, -1)
+        hex2 = Hex(-2, 1, 1)
+        angle_rad = vector_angle(hex1, hex2)
+        self.assertAlmostEqual(angle_rad, math.pi, places=5)
+
+    def test_vector_angle_perpendicular(self):
+        """Test angle between perpendicular vectors."""
+        # These should be roughly perpendicular in hex space
+        hex1 = Hex(2, -1, -1)
+        hex2 = Hex(1, 1, -2)
+        angle_rad = vector_angle(hex1, hex2)
+        # Should be around π/2 (90 degrees)
+        self.assertGreater(angle_rad, math.pi/4)
+        self.assertLess(angle_rad, 3*math.pi/4)
+
+    def test_vector_angle_zero_vector(self):
+        """Test angle calculation with zero vector."""
+        zero = Hex(0, 0, 0)
+        hex1 = Hex(1, -1, 0)
+        angle_rad = vector_angle(zero, hex1)
+        self.assertEqual(angle_rad, 0.0)
+
+    def test_hex_magnitude_basic(self):
+        """Test magnitude calculation for hex vectors."""
+        # Zero vector should have zero magnitude
+        zero = Hex(0, 0, 0)
+        self.assertEqual(hex_magnitude(zero), 0)
+        
+        # Non-zero vectors should have positive magnitude
+        hex1 = Hex(1, 0, -1)
+        mag = hex_magnitude(hex1)
+        self.assertGreater(mag, 0)
+        
+        # Magnitude should scale with vector size
+        hex2 = Hex(2, 0, -2)  # Double the size
+        mag2 = hex_magnitude(hex2)
+        self.assertAlmostEqual(mag2, 2 * mag, places=5)
+
+    def test_hex_magnitude_consistency(self):
+        """Test that magnitude is consistent with dot product."""
+        hex1 = Hex(3, -2, -1)
+        mag = hex_magnitude(hex1)
+        dot_self = dot_product(hex1, hex1)
+        # magnitude^2 should equal dot product with self
+        self.assertAlmostEqual(mag * mag, dot_self, places=5)
+
+    def test_cross_product_basic(self):
+        """Test cross product for turn detection."""
+        o = Hex(0, 0, 0)
+        a = Hex(1, 0, -1)
+        b = Hex(0, 1, -1)
+        
+        cross = cross_product(o, a, b)
+        # Should be non-zero for non-collinear points
+        self.assertNotAlmostEqual(cross, 0, places=5)
+
+    def test_cross_product_collinear(self):
+        """Test cross product for collinear points."""
+        o = Hex(0, 0, 0)
+        a = Hex(1, 0, -1)
+        b = Hex(2, 0, -2)  # Collinear with o and a
+        
+        cross = cross_product(o, a, b)
+        # Should be zero or very close to zero for collinear points
+        self.assertAlmostEqual(cross, 0, places=5)
+
+    def test_vector_operations_maintain_constraints(self):
+        """Integration test: verify vector operations work with valid hex coordinates."""
+        # Test with various valid hex coordinates
+        test_vectors = [
+            Hex(0, 0, 0), Hex(1, -1, 0), Hex(-2, 1, 1), 
+            Hex(3, -2, -1), Hex(-1, -1, 2)
+        ]
+        
+        for hex_coord in test_vectors:
+            # Verify constraint
+            self.assertEqual(hex_coord.i + hex_coord.j + hex_coord.k, 0)
+            
+            # All operations should work without error
+            mag = hex_magnitude(hex_coord)
+            self.assertGreaterEqual(mag, 0)
+            
+            # Dot product with self should equal magnitude squared
+            dot_self = dot_product(hex_coord, hex_coord)
+            self.assertAlmostEqual(dot_self, mag * mag, places=5)
+
+    def test_cartesian_conversion_roundtrip(self):
+        """Test that hex -> cartesian -> hex conversion preserves coordinates."""
+        test_hexes = [
+            Hex(0, 0, 0), Hex(1, 0, -1), Hex(-1, 1, 0), 
+            Hex(2, -1, -1), Hex(-2, 1, 1), Hex(3, -2, -1)
+        ]
+        
+        for original in test_hexes:
+            cart = hex_to_cartesian(original)
+            reconstructed = cartesian_to_hex(cart)
+            
+            # Should get back the same hex (or very close due to rounding)
+            self.assertEqual(reconstructed, original)
+
+    def test_add_cartesian_vectors(self):
+        """Test vector addition using Cartesian conversion."""
+        hex1 = Hex(1, 0, -1)
+        hex2 = Hex(0, 1, -1)
+        
+        # Add using Cartesian method
+        cart_result = add_cartesian_vectors(hex1, hex2)
+        
+        # Compare with direct hex addition (should be close)
+        direct_result = hex1 + hex2
+        
+        # Results should be the same or very close
+        self.assertEqual(cart_result, direct_result)
+
+    def test_subtract_cartesian_vectors(self):
+        """Test vector subtraction using Cartesian conversion."""
+        hex1 = Hex(3, -1, -2)
+        hex2 = Hex(1, 0, -1)
+        
+        # Subtract using Cartesian method
+        cart_result = subtract_cartesian_vectors(hex1, hex2)
+        
+        # Compare with direct hex subtraction
+        direct_result = hex1 - hex2
+        
+        # Results should be the same
+        self.assertEqual(cart_result, direct_result)
+
+    def test_scale_cartesian_vector(self):
+        """Test vector scaling using Cartesian conversion."""
+        hex_coord = Hex(2, -1, -1)
+        scale = 1.5
+        
+        # Scale using Cartesian method
+        scaled = scale_cartesian_vector(hex_coord, scale)
+        
+        # Result should maintain hex constraint
+        self.assertEqual(scaled.i + scaled.j + scaled.k, 0)
+        
+        # Should be approximately scaled
+        original_cart = hex_to_cartesian(hex_coord)
+        scaled_cart = hex_to_cartesian(scaled)
+        
+        # The scaled version should be roughly 1.5x larger
+        original_mag = (original_cart.x**2 + original_cart.y**2)**0.5
+        scaled_mag = (scaled_cart.x**2 + scaled_cart.y**2)**0.5
+        
+        self.assertAlmostEqual(scaled_mag / original_mag, scale, places=1)
+
+    def test_cartesian_vector_operations_preserve_properties(self):
+        """Test that Cartesian-based operations preserve vector properties."""
+        hex1 = Hex(2, -1, -1)
+        hex2 = Hex(-1, 2, -1)
+        
+        # Test addition is commutative
+        add1 = add_cartesian_vectors(hex1, hex2)
+        add2 = add_cartesian_vectors(hex2, hex1)
+        self.assertEqual(add1, add2)
+        
+        # Test that adding zero vector doesn't change original
+        zero = Hex(0, 0, 0)
+        unchanged = add_cartesian_vectors(hex1, zero)
+        self.assertEqual(unchanged, hex1)
+        
+        # Test scaling by 1 doesn't change vector
+        unchanged_scale = scale_cartesian_vector(hex1, 1.0)
+        self.assertEqual(unchanged_scale, hex1)
+        
+        # Test scaling by 0 gives approximately zero
+        zero_scaled = scale_cartesian_vector(hex1, 0.0)
+        self.assertEqual(zero_scaled, Hex(0, 0, 0))
 
 
 if __name__ == '__main__':

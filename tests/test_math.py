@@ -1,7 +1,7 @@
 import unittest
-import math
-from src.hexes.types import Hex
-from src.hexes.math import (
+import dataclasses
+from hexengine.hexes.types import Hex
+from hexengine.hexes.math import (
     _NEIGHBOR_OFFSETS,
     cube_round,
     normalize,
@@ -11,7 +11,17 @@ from src.hexes.math import (
     lerp,
     line,
     rotate_left,
-    rotate_right
+    rotate_right,
+    # New vector operations
+    hex_to_cartesian,
+    cartesian_to_hex,
+    dot_product,
+    cross_product,
+    vector_angle,
+    hex_magnitude,
+    add_cartesian_vectors,
+    subtract_cartesian_vectors,
+    scale_cartesian_vector
 )
 
 

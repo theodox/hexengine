@@ -1,6 +1,6 @@
 import unittest
 import dataclasses
-from src.hexes.types import Hex
+from hexengine.hexes.types import Hex
 
 
 class TestHex(unittest.TestCase):

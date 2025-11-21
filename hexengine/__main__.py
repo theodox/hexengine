@@ -9,19 +9,26 @@ import logging
 import dev_console
 from document import element
 from map import HexCanvas
-from hexes.math import Hex, cube_round, normalize, neighbors, neighbor_hex, distance, lerp, line
-from hexes.shapes import path, radius, ring, wedge, angle, convex_hull
+from .hexes.math import Hex
+from .hexes.shapes import  angle, convex_hull, path, polygon#, convex_polygon
 
 __version__ = "0.1.0"
 
 
 
+# async def delay(ms: int):
+#     promise = js.Promise.create(lambda resolve, reject: js.setTimeout(resolve, ms))
+#     await promise
 
 def main():
     dev_console.initialize("", element("console"))
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     logger.warning("Hexes demo starting...")
+
+    logger.debug(f"Hexes version: {__version__}")
+    logger.debug(f"dir(hexes.shapes): {dir()}")
+
 
     hex_canvas = HexCanvas("map-canvas", 24)
 
@@ -61,6 +68,6 @@ def main():
 
     logger.debug(f"Angle test: {angle(Hex(0, 0, 0), Hex(9, 0, -9)):.4f} radians")
 
+    #wait delay(1000)
+    hex_canvas.draw_hexes(polygon(hull), fill="#E28F1391", stroke="green")
 
-if __name__ == "__main__":
-    main()

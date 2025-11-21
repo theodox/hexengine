@@ -15,7 +15,7 @@
       const micropip = pyodide.pyimport("micropip");
       await micropip.install("../dist/hexes-0.1.0-py3-none-any.whl");
      
-      let hexes = pyodide.pyimport("engine");
+      let hexes = pyodide.pyimport("hexengine.__main__");
       console.log(hexes.__version__);
       hexes.main();
     }
