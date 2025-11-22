@@ -1,17 +1,17 @@
-import dataclasses
 import time
 from typing import Sequence, Iterable
 from math import atan2, copysign, cos, sin, pi, sqrt, ceil, floor
 from pyodide.ffi import create_proxy
 import js
 import logging
+import sys
 
 import dev_console
 from document import element
 from map import HexCanvas
 from .hexes.math import Hex
 from .hexes.shapes import  angle, convex_hull, path, polygon#, convex_polygon
-
+from .excepthook import install_exception_hook
 __version__ = "0.1.0"
 
 
@@ -25,6 +25,7 @@ def main():
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     logger.warning("Hexes demo starting...")
+    install_exception_hook(logger)
 
     logger.debug(f"Hexes version: {__version__}")
     logger.debug(f"dir(hexes.shapes): {dir()}")
@@ -71,3 +72,5 @@ def main():
     #wait delay(1000)
     hex_canvas.draw_hexes(polygon(hull), fill="#E28F1391", stroke="green")
 
+    print(sys.excepthook)
+    print (10 /0)
