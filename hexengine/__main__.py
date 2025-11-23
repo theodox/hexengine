@@ -10,10 +10,13 @@ from . import dev_console
 from .document import element
 from .map import HexCanvas
 from .hexes.math import Hex
-from .hexes.shapes import  angle, convex_hull, path, polygon#, convex_polygon
+from .hexes.shapes import  angle, convex_hull, path, polygon, line#, convex_polygon
 from .excepthook import install_exception_hook
-__version__ = "0.1.0"
+from .game import Game
+__version__ = "0.1.1"
 
+
+GAME = None
 
 def main():
     dev_console.initialize("", element("console"), element("console-input"), globals())
@@ -25,8 +28,10 @@ def main():
     logger.debug(f"Hexes version: {__version__}")
     logger.debug(f"dir(hexes.shapes): {dir()}")
 
+    global GAME
+    GAME = Game("map-canvas", 24)
 
-    hex_canvas = HexCanvas("map-canvas", 24)
+    hex_canvas = GAME.canvas
 
     loading = element("loading")
     loading.style.display = "none"

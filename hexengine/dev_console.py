@@ -89,14 +89,31 @@ class TextAreaReader:
             )
         self.logger = logging.getLogger("input")
         self.logger.debug("TextAreaReader initialized")
+        self.history = []
+        self.history_index = -1
 
     def on_keyup(self, event):
+
+        if event.key == "ArrowUp":
+            if self.history:
+                self.history_index = max(0, self.history_index - 1)
+                self.textArea.value = self.history[self.history_index]
+            return
+        elif event.key == "ArrowDown":
+            if self.history:
+                self.history_index = min(len(self.history) - 1, self.history_index + 1)
+                self.textArea.value = self.history[self.history_index]
+            return
+
         if event.key != "Enter":
             return
-        self.logger.debug(f"Input: {self.textArea.value}")
+        
+        self.history.append(self.textArea.value.strip())
+        self.history_index = len(self.history)
+        self.logger.debug(f"> {self.textArea.value.strip()}")
         try:
             self.logger.debug(
-            eval(self.textArea.value, self.game_globals)
+            ("> " + str(eval(self.textArea.value, self.game_globals))).strip()
             )
         except Exception as e:
             self.logger.error(f"Error executing input: {e}")
