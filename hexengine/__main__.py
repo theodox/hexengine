@@ -6,22 +6,17 @@ import js
 import logging
 import sys
 
-import dev_console
-from document import element
-from map import HexCanvas
+from . import dev_console
+from .document import element
+from .map import HexCanvas
 from .hexes.math import Hex
 from .hexes.shapes import  angle, convex_hull, path, polygon#, convex_polygon
 from .excepthook import install_exception_hook
 __version__ = "0.1.0"
 
 
-
-# async def delay(ms: int):
-#     promise = js.Promise.create(lambda resolve, reject: js.setTimeout(resolve, ms))
-#     await promise
-
 def main():
-    dev_console.initialize("", element("console"))
+    dev_console.initialize("", element("console"), element("console-input"), globals())
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     logger.warning("Hexes demo starting...")
@@ -71,6 +66,7 @@ def main():
 
     #wait delay(1000)
     hex_canvas.draw_hexes(polygon(hull), fill="#E28F1391", stroke="green")
+
 
     print(sys.excepthook)
     print (10 /0)

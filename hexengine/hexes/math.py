@@ -19,6 +19,9 @@ for i in range(-1,2):
 
 
 def cube_round(coords):
+    """
+    Rounds fractional cube coordinates to the nearest hex.
+    """
     q = round(coords[0])
     r = round(coords[1])
     s = round(coords[2])

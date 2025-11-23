@@ -1,11 +1,12 @@
-from hexes.types import Hex
 from math import sqrt, cos, sin, pi
 import js  # pyright: ignore[reportMissingImports]
 from typing import Sequence, Iterable
 import logging
-import hexes.shapes as shapes
 from functools import singledispatchmethod
-from document import element
+
+from .hexes.types import Hex
+from .hexes import shapes
+from .document import element
 
 class HexLayout:
     """
@@ -121,37 +122,6 @@ class HexCanvas:
         sx = self._canvas.width / rect.width
         sy = self._canvas.height / rect.height
         return (x *sx, y * sy)
-    
 
-"""
-def draw_hex_line(self, a: Hex, b: Hex) -> Sequence[Hex]:
-        N = Hex.hex_distance(a, b)
-        results = []
-        for i in range(N + 1):
-            t = i / max(N, 1)
-            lerped = Hex(
-                round(a.i + (b.i - a.i) * t),
-                round(a.j + (b.j - a.j) * t),
-                round(a.k + (b.k - a.k) * t),
-            )
-            results.append(lerped)
-        for h in results:
-            self.draw_hex(h, fill="#FF000027")
 
-    def draw_hex_ring(self, center: Hex, radius: int) -> Sequence[Hex]:
-        results = []
-        for x in range(-radius, radius + 1):
-            for y in range(max(-radius, -x - radius), min(radius, -x + radius) + 1):
-                z = -x - y
-                hex = Hex(center.i + x, center.j + y, center.k + z)
-                results.append(hex)
-        for result in results:
-            self.draw_hex(result, fill="#FF000027")
-
-    def draw_hex_arc(
-        self, center: Hex, radius: int, start_angle: int, end_angle: int
-    ) -> Sequence[Hex]:
-        results = shapes.wedge(center, radius, start_angle, end_angle)
-        for result in results:
-            self.draw_hex(result, fill="#FF000027")
-"""
+  
