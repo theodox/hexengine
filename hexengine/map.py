@@ -3,10 +3,11 @@ import js  # pyright: ignore[reportMissingImports]
 from typing import Sequence, Iterable
 import logging
 from functools import singledispatchmethod
-
+from pyodide.ffi import create_proxy
 from .hexes.types import Hex
 from .hexes import shapes
 from .document import element
+
 
 class HexLayout:
     """
@@ -40,6 +41,31 @@ class HexLayout:
             corners.append((corner_x, corner_y))
         return corners
 
+class Handler:
+    def __init__(self, owner, event_type: str):
+        self._handlers = []
+        self._owner = owner
+        self._event_type = event_type
+        self.proxy = create_proxy(self._handle_event)
+        self._owner.addEventListener(event_type, self.proxy)
+
+    def _handle_event(self, event):
+        logging.getLogger().debug(f"Handling event {event} in {self}")
+        for handler in self._handlers:
+            handler(event, self._owner.getContext("2d"))
+
+    def __lt__(self, handler):  
+        # use < to add a handler
+        logging.getLogger().debug(f"Adding handler {handler} to {self}")
+        self._handlers.append( create_proxy(handler))
+        return self
+
+    def __isub__(self, handler):
+        raise NotImplemented
+
+    def __repr__(self):
+        return f"<Handler event_type={self._event_type} owner={self._owner}>"
+
 class HexCanvas:
     """
     A canvas for drawing hexagons.
@@ -52,13 +78,23 @@ class HexCanvas:
         )
         self._hex_width = hex_size * 2
         self._hex_height = (3**0.5) * hex_size
-
+        self._click_handler = Handler(self._canvas, "click")
+        self._dblclick_handler = Handler(self._canvas, "dblclick")
+        
     @property
     def canvas(self) -> js.HTMLCanvasElement:
         return self._canvas
     @property
     def context(self) -> js.CanvasRenderingContext2D:
         return self._context
+    
+    @property
+    def on_click(self):
+        return self._click_handler
+    
+    @property
+    def on_dblclick(self):
+        return self._dblclick_handler
 
     def draw_hex(self, hex: Hex, fill="white", stroke="black"):
         points = self._hex_layout.hex_corners(hex)
@@ -89,13 +125,7 @@ class HexCanvas:
         self._context.font = font
         self._context.fillText(text, x - self._hex_width / 4, y)
 
-    def on_canvas_click(self, event, context):
-        x, y = self.get_click_coords(event)
-        hex = self._hex_layout.pixel_to_hex(x, y)
-        logging.getLogger().debug(f"Clicked hex: {hex}")
-        for h in shapes.line(Hex(0, 0, 0), hex):
-            self.draw_hex(h, fill="#FF000027")
-
+ 
     @singledispatchmethod
     def __contains__(self, hex: Hex) -> bool:
         """

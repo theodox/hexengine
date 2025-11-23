@@ -32,8 +32,8 @@ def main():
     logger.debug(f"Hexes version: {__version__}")
     logger.debug(f"dir(hexes.shapes): {dir()}")
 
-    global GAME
-    GAME = Game("map-canvas", 24)
+    global GAME, MAP
+    GAME = Game("map-canvas", 23)
 
     MAP = hex_canvas = GAME.canvas
 
@@ -47,12 +47,17 @@ def main():
                 if h in hex_canvas:
                     yield h
 
-    hex_canvas.draw_hexes(map_fill(19), fill="#d3d3d3", stroke="black")
+    hex_canvas.draw_hexes(map_fill(28), fill="#d3d3d3", stroke="black")
     
-    hex_canvas.canvas.mouseclick = create_proxy(
-        lambda event: hex_canvas.on_canvas_click(event, hex_canvas.context)
-    )
-    hex_canvas.canvas.addEventListener("click", hex_canvas.canvas.mouseclick)
+    def on_canvas_click(event, context):
+        x, y = hex_canvas.get_click_coords(event)
+        hex = hex_canvas._hex_layout.pixel_to_hex(x, y)
+        logging.getLogger().debug(f"Clicked hex: {hex}")
+        for h in line(Hex(0, 0, 0), hex):
+            hex_canvas.draw_hex(h, fill="#FF000027")
+    
+    hex_canvas.on_click < on_canvas_click
+ 
 
 
     examples = [Hex(-5, 0, 5),
