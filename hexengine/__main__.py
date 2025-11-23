@@ -17,8 +17,12 @@ __version__ = "0.1.1"
 
 
 GAME = None
+MAP = None
 
 def main():
+    loading = element("loading")
+    loading.style.display = "none"
+    
     dev_console.initialize("", element("console"), element("console-input"), globals())
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
@@ -31,10 +35,9 @@ def main():
     global GAME
     GAME = Game("map-canvas", 24)
 
-    hex_canvas = GAME.canvas
+    MAP = hex_canvas = GAME.canvas
 
-    loading = element("loading")
-    loading.style.display = "none"
+
 
     def map_fill(size: int) -> Iterable[Hex]:
         for x in range(-size, size + 1):
