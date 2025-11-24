@@ -1,10 +1,14 @@
 import logging
-from .map import HexCanvas
-
+from .map import Map
+from .document import element
 
 class Game():
-    def __init__(self, canvas_id: str, hex_size: float  = 30.0):
+    def __init__(self):
         self.running = True
-        self.canvas = HexCanvas(canvas_id, hex_size)
+        map = element("map-canvas")
+        svg = element("map-svg")
+        assert map is not None, "Map canvas element not found"
+        assert svg is not None, "Map SVG element not found"
+        self.canvas = Map(map, svg)
         self.logger = logging.getLogger("game")
         self.logger.info("Game initialized")

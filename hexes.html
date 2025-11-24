@@ -2,7 +2,9 @@
 
   <script src="https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js" , crossorigin="anonymous"></script>
 
-  <style>@import url("hexes.css");</style>
+  <style>
+    @import url("hexes.css");
+  </style>
 
   <script type="text/javascript">
     async function main() {
@@ -10,11 +12,11 @@
       let mountDir = "/mnt";
       pyodide.FS.mkdir(mountDir);
       pyodide.FS.mount(pyodide.FS.filesystems.IDBFS, { root: "d:/prj/hexes" }, mountDir);
-      
-      await  pyodide.loadPackage("micropip");
+
+      await pyodide.loadPackage("micropip");
       const micropip = pyodide.pyimport("micropip");
       await micropip.install("../dist/hexes-0.1.0-py3-none-any.whl");
-     
+
       let hexes = pyodide.pyimport("hexengine.__main__");
       console.log(hexes.__version__);
       hexes.main();
@@ -24,11 +26,11 @@
   </script>
 
   <div id="main-frame">
-
-
-    <canvas id="map-canvas" width="1920px" , height="1280px">
-    </canvas>
-
+    <!--- map canvas and svg overlay --->
+    <div id="map-container">
+      <canvas id="map-canvas" data-hexsize="23"></canvas>
+      <svg id="map-svg"></svg>
+    </div>
 
     <!--- loading screen -->
     <div id="loading" style="position: absolute; top: 40%; left: 25%; width: 50%; height: 20%;">
@@ -37,7 +39,6 @@
         <b>Loading...</b>
       </div>
     </div>
-
 
     <div id="console-bg">
 

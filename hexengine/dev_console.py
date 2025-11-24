@@ -1,5 +1,6 @@
 import logging
 import js                               # pyright: ignore[reportMissingImports]
+from .document import element
 
 from pyodide.ffi import create_proxy     # pyright: ignore[reportMissingImports]
 
@@ -12,14 +13,19 @@ ROOT_LOGGER = None
 
 __version__ = "0.1.0"
 
-def initialize(name: str, 
-               textArea: js.HTMLElement, 
-               inputArea: js.HTMLElement,
-               game_globals) -> logging.Logger:
+def initialize(name: str, game_globals) -> logging.Logger:
+    
+    textArea = element("console")
+    assert textArea is not None, "Console text area not found"
+    inputArea = element("console-input")
+    assert inputArea is not None, "Console input area not found"
+    log_level_select = element("log-level-picker")
+    assert log_level_select is not None, "Log level picker not found"
+
     global ROOT_LOGGER
     ROOT_LOGGER = logging.getLogger(name)
     handler = DevLogHandler(textArea)
-    handler.setFormatter(logging.Formatter("{levelname} - {message}", style="{"))
+    handler.setFormatter(logging.Formatter(" {message}", style="{"))
     ROOT_LOGGER.addHandler(handler)
     ROOT_LOGGER.setLevel(logging.DEBUG)
 
@@ -27,13 +33,10 @@ def initialize(name: str,
     TextAreaWriter.INSTANCE = handler.writer
 
     # Set up the log level selector
-    log_level_select = js.document.getElementById("log-level-picker")
     log_level_select.addEventListener(
         "change",
         create_proxy(
-            lambda event: update_log_display(
-                event, js.document.getElementById("console")
-            )
+            lambda event: update_log_display(event, textArea)
         ),
     )
 
