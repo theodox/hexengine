@@ -1,3 +1,4 @@
+import logging
 import js  # pyright: ignore[reportMissingImports]
 from typing import Iterable
 from functools import singledispatchmethod
@@ -11,33 +12,33 @@ class SVGCanvas:
     def __init__(self, svg_element: js.SVGElement):
         self._svg = svg_element
 
-    @property
-    def on_click(self):
-        return self._click_handler
+    # @property
+    # def on_click(self):
+    #     return self._click_handler
     
-    @property
-    def on_dblclick(self):
-        return self._dblclick_handler
+    # @property
+    # def on_dblclick(self):
+    #     return self._dblclick_handler
 
-    @property
-    def on_drag(self):
-        return self._drag_handler
+    # @property
+    # def on_drag(self):
+    #     return self._drag_handler
     
-    @property
-    def on_mouse_down(self):
-        return self._mouse_down_handler
+    # @property
+    # def on_mouse_down(self):
+    #     return self._mouse_down_handler
     
-    @property
-    def on_mouse_up(self):
-        return self._mouse_up_handler
+    # @property
+    # def on_mouse_up(self):
+    #     return self._mouse_up_handler
 
-    def get_click_coords(self, event) -> tuple[float, float]:
-        rect = event.target.getBoundingClientRect()
-        x = event.clientX - rect.left
-        y = event.clientY - rect.top
-        sx = self._svg.width.baseVal.value / rect.width
-        sy = self._svg.height.baseVal.value / rect.height
-        return (x *sx, y * sy)
+    # def get_click_coords(self, event) -> tuple[float, float]:
+    #     rect = event.target.getBoundingClientRect()
+    #     x = event.clientX - rect.left
+    #     y = event.clientY - rect.top
+    #     sx = self._svg.width.baseVal.value / rect.width
+    #     sy = self._svg.height.baseVal.value / rect.height
+    #     return (x *sx, y * sy)
 
 class MapCanvas:
     """
@@ -118,8 +119,10 @@ class Map:
     A canvas for drawing hexagons.
     """
     def __init__(self, 
+                 container_element: js.HTMLElement,
                  canvas_element: js.HTMLCanvasElement, 
                  svg_element: js.SVGElement):  
+        self._container = container_element
         self._canvas = MapCanvas(canvas_element)
         self._svg = SVGCanvas(svg_element)
 
@@ -139,6 +142,17 @@ class Map:
         self._hex_width = self._hex_size * 2
         self._hex_height = (3**0.5) * self._hex_size
 
+        self._clickHandler = Handler(self._container, "click")
+        self._clickHandler < self.on_click
+      
+    def on_click(self, *args):
+        logging.getLogger("map").info(f"Container clicked {args}")
+        pix = self.get_click_coords(args[0])
+        logging.getLogger("map").info(f"Clicked at hex {pix}")
+        hex = self._hex_layout.pixel_to_hex(*pix)
+        logging.getLogger("map").info(f"Clicked at hex {hex}")
+        self.canvas.draw_hex(hex, fill="#FF000027")
+
     @property
     def hex_size(self) -> float:
         return self._hex_size
@@ -155,7 +169,13 @@ class Map:
     def svg (self) -> MapCanvas:
         return self._svg
     
-
+    def get_click_coords(self, event) -> tuple[float, float]:
+        rect = event.target.getBoundingClientRect()
+        x = event.clientX - rect.left
+        y = event.clientY - rect.top
+        sx = self._canvas.canvas.width / rect.width
+        sy = self._canvas.canvas.height / rect.height
+        return (x *sx, y * sy)
     # def draw_hex(self, hex: Hex, fill="white", stroke="black"):
     #     points = self._hex_layout.hex_corners(hex)
     #     points.append(points[0])  # Close the hexagon
