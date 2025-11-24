@@ -10,5 +10,8 @@ class Game():
         assert map is not None, "Map canvas element not found"
         assert svg is not None, "Map SVG element not found"
         self.canvas = Map(map, svg)
+        
         self.logger = logging.getLogger("game")
         self.logger.info("Game initialized")
+
+        

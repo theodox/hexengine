@@ -15,6 +15,7 @@ class Handler:
 
     def _handle_event(self, event):
         for handler in self._handlers:
+            print ("!! Invoking handler ", handler)
             handler(event, self._owner)
 
     def __lt__(self, handler):  

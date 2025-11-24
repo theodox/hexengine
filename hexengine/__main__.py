@@ -35,8 +35,9 @@ def main():
     GAME = Game()
 
     MAP = hex_canvas = GAME.canvas
+    MAP.canvas.draw_line(0, 0, 200, 200, stroke="red")
 
-    MAP.canvas.draw_hexes(line(Hex(0, 0, 0), Hex(5, -5, 0)), fill="#FF000027")
+    #MAP.canvas.draw_hexes(path([TL, TR, BR, BL, TL]), fill="#D3D3D3", stroke="black")
 
     # def map_fill(size: int) -> Iterable[Hex]:
     #     for x in range(-size, size + 1):
