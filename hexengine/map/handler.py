@@ -13,10 +13,25 @@ class Handler:
         self.proxy = create_proxy(self._handle_event)
         self._owner.addEventListener(event_type, self.proxy)
 
+          
     def _handle_event(self, event):
+        
+        # handle the click coordinates for canvas elements
+        rect = event.target.getBoundingClientRect()
+        x = event.clientX - rect.left
+        y = event.clientY - rect.top
+        if hasattr(self._owner, 'width'):
+            sx = self._owner.width/ rect.width
+        else:
+            sx  = 1.0
+
+        if hasattr(self._owner, 'height'):
+            sy = self._owner.height / rect.height
+        else:
+            sy = 1.0
+
         for handler in self._handlers:
-            print ("!! Invoking handler ", handler)
-            handler(event, self._owner)
+            handler(event, self._owner, (x * sx, y * sy))
 
     def __lt__(self, handler):  
         # use < to add a handler

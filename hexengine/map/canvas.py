@@ -12,33 +12,6 @@ class SVGCanvas:
     def __init__(self, svg_element: js.SVGElement):
         self._svg = svg_element
 
-    # @property
-    # def on_click(self):
-    #     return self._click_handler
-    
-    # @property
-    # def on_dblclick(self):
-    #     return self._dblclick_handler
-
-    # @property
-    # def on_drag(self):
-    #     return self._drag_handler
-    
-    # @property
-    # def on_mouse_down(self):
-    #     return self._mouse_down_handler
-    
-    # @property
-    # def on_mouse_up(self):
-    #     return self._mouse_up_handler
-
-    # def get_click_coords(self, event) -> tuple[float, float]:
-    #     rect = event.target.getBoundingClientRect()
-    #     x = event.clientX - rect.left
-    #     y = event.clientY - rect.top
-    #     sx = self._svg.width.baseVal.value / rect.width
-    #     sy = self._svg.height.baseVal.value / rect.height
-    #     return (x *sx, y * sy)
 
 class MapCanvas:
     """
@@ -143,15 +116,31 @@ class Map:
         self._hex_height = (3**0.5) * self._hex_size
 
         self._clickHandler = Handler(self._container, "click")
-        self._clickHandler < self.on_click
+        self._dblclickHandler = Handler(self._container, "dblclick")
+        self._dragHandler = Handler(self._container, "mousemove")
+        self._mouse_downHandler = Handler(self._container, "mousedown")
+        self._mouse_upHandler = Handler(self._container, "mouseup")
+        
       
-    def on_click(self, *args):
-        logging.getLogger("map").info(f"Container clicked {args}")
-        pix = self.get_click_coords(args[0])
-        logging.getLogger("map").info(f"Clicked at hex {pix}")
-        hex = self._hex_layout.pixel_to_hex(*pix)
-        logging.getLogger("map").info(f"Clicked at hex {hex}")
-        self.canvas.draw_hex(hex, fill="#FF000027")
+    @property
+    def on_click(self):
+        return self._clickHandler
+    
+    @property
+    def on_dblclick(self):
+        return self._dblclickHandler
+    
+    @property
+    def on_drag(self):
+        return self._dragHandler
+    
+    @property
+    def on_mouse_down(self):
+        return self._mouse_downHandler
+    
+    @property
+    def on_mouse_up(self):
+        return self._mouse_upHandler    
 
     @property
     def hex_size(self) -> float:
@@ -168,25 +157,18 @@ class Map:
     @property
     def svg (self) -> MapCanvas:
         return self._svg
-    
-    def get_click_coords(self, event) -> tuple[float, float]:
-        rect = event.target.getBoundingClientRect()
-        x = event.clientX - rect.left
-        y = event.clientY - rect.top
-        sx = self._canvas.canvas.width / rect.width
-        sy = self._canvas.canvas.height / rect.height
-        return (x *sx, y * sy)
-    # def draw_hex(self, hex: Hex, fill="white", stroke="black"):
-    #     points = self._hex_layout.hex_corners(hex)
-    #     points.append(points[0])  # Close the hexagon
-    #     self._context.beginPath()
-    #     self._context.strokeStyle = stroke
-    #     self._context.fillStyle = fill
-    #     for p in points:
-    #         self._context.lineTo(*p)
-    #         self._context.stroke()
-    #     self._context.closePath()
-    #     self._context.fill()
+
+    def draw_hex(self, hex: Hex, fill="white", stroke="black"):
+        points = self._hex_layout.hex_corners(hex)
+        points.append(points[0])  # Close the hexagon
+        self.canvas.context.beginPath()
+        self.canvas.context.strokeStyle = stroke
+        self.canvas.context.fillStyle = fill
+        for p in points:
+            self.canvas.context.lineTo(*p)
+            self.canvas.context.stroke()
+        self.canvas.context.closePath()
+        self.canvas.context.fill()
 
     # def draw_hexes(
     #     self,
