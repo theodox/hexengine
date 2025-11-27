@@ -2,10 +2,12 @@ import logging
 import js  # pyright: ignore[reportMissingImports]
 from typing import Iterable
 from functools import singledispatchmethod
-from ..hexes.types import Hex
+from ..hexes.types import Hex, CartesianInt
 from ..document import element
 from .layout import HexLayout
 from .handler import Handler
+from ..hexes.shapes import polygon, convex_polygon
+import ..hexes.math as hex_math
 
 class SVGCanvas:
     
@@ -40,9 +42,21 @@ class MapCanvas:
         self._hex_layout = hex_layout
         self.hex_color = hex_color
         self.hex_stroke = hex_stroke
-        logging.getLogger().debug(f"Canvas size set to {self._canvas.width}x{self._canvas.height}")
-        self.draw_hex_rect(Hex(-10, -10, 20), Hex(40, 40, -30), fill="#00000000", stroke=self.hex_color, stroke_width=self.hex_stroke)
+
+        w = int(self._canvas.width / hex_layout.size)
+        h = int(self._canvas.height / hex_layout.size)
+
+
+        start = Hex(0,0,0)
+        br = hex_math.cartesian_int_to_hex(CartesianInt(int(w), int(h)))
         
+        logging.getLogger().debug(f"Canvas size set to {self._canvas.width}x{self._canvas.height}")
+        self.draw_hex_rect(
+            start, br,
+            fill="#00000000", 
+            stroke=self.hex_color, 
+            stroke_width=self.hex_stroke)
+
         
     @property
     def canvas(self) -> js.HTMLCanvasElement:
@@ -86,17 +100,21 @@ class MapCanvas:
 
     def draw_hex_rect(
         self,
-        bottom_left: Hex,
-        top_right: Hex,
+        top_left: CartesianInt,
+        bottom_right: CartesianInt,
         fill="white",
         stroke="black",
         stroke_width=1
     ):
-        for i in range(bottom_left.i, top_right.i + 1):
-            for j in range(bottom_left.j, top_right.j + 1):
-                k = -i - j
-                hex = Hex(i, j, k)
-                self.draw_hex(hex, fill=fill, stroke=stroke, stroke_width=stroke_width)
+        #size = hex_math.hex_to_cartesian(bottom_right)
+
+        bl = hex_math.cartesian_int_to_hex(CartesianInt(0, bottom_right.y)  )
+        tr = hex_math.cartesian_int_to_hex(CartesianInt(bottom_right.x, 0)  )
+      
+        
+        rect = convex_polygon((top_left, tr, bottom_right, bl))
+        logging.getLogger().warning(f"Drawing hex rect: {(top_left, tr, bottom_right, bl)}")
+        self.draw_hexes(rect, fill=fill, stroke=stroke, stroke_width=stroke_width)
 
 class Map:
     """
@@ -112,6 +130,7 @@ class Map:
         self._hex_size= canvas_element.getAttribute("data-hexsize")
         self._hex_color = canvas_element.getAttribute("data-hexcolor")
         self._hex_stroke = int(canvas_element.getAttribute("data-hexstroke"))
+        self._hex_margin = int(canvas_element.getAttribute("data-hexmargin"))
         logging.getLogger().warning(f"Hex size: {self._hex_size}, color: {self._hex_color}, stroke: {self._hex_stroke}")
         
         if self._hex_size is not None:
@@ -121,8 +140,8 @@ class Map:
 
         self._hex_layout = HexLayout(
             self._hex_size, 
-            canvas_element.width / 2, 
-            canvas_element.height / 2
+            self._hex_size + self._hex_margin,
+            self._hex_size + self._hex_margin
         )
 
         self._canvas = MapCanvas(canvas_element, self._hex_layout, self._hex_color, self._hex_stroke)
@@ -177,8 +196,7 @@ class Map:
     def draw_hexes(
         self, hexes: Iterable[Hex], fill="white", stroke="black"):
         for hex in hexes:
-            self.draw_hex(hex, fill=fill, stroke=stroke)
-        
+            self.draw_hex(hex, fill=fill, stroke=stroke)        
 
     def draw_bg_hex(self, hex: Hex, fill="white", stroke="black"):
         points = self._hex_layout.hex_corners(hex)

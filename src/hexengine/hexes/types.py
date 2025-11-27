@@ -2,6 +2,41 @@
 import dataclasses
 
 @dataclasses.dataclass(frozen=True)
+class Cartesian:
+    x: float
+    y: float
+
+@dataclasses.dataclass(frozen=True)
+class CartesianInt:
+    x: int
+    y: int
+
+    def __eq__(self, value):
+        if not isinstance(value, CartesianInt):
+            return NotImplemented
+        return self.x == value.x and self.y == value.y
+    
+    def __hash__(self) -> int:
+        return hash((self.x - 4096, self.y - 2048))
+    
+    def __repr__(self) -> str:
+        return f"CartesianInt({self.x},{self.y})"
+    
+    def __add__(self, other: "CartesianInt") -> "CartesianInt":
+        return CartesianInt(self.x + other.x, self.y + other.y)
+    
+    def __sub__(self, other: "CartesianInt") -> "CartesianInt":
+        return CartesianInt(self.x - other.x, self.y - other.y)
+    
+    def __mul__(self, k: int) -> "CartesianInt":
+        return CartesianInt(self.x * k, self.y * k) 
+    
+    def __truediv__(self, k: int) -> "CartesianInt":
+        return CartesianInt(self.x // k, self.y // k)
+    
+
+        
+@dataclasses.dataclass(frozen=True)
 class Hex:
     i: int
     j: int

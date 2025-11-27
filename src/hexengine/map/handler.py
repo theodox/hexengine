@@ -2,7 +2,7 @@ import logging
 from pyodide.ffi import create_proxy
 
 HANDLER_LOGGER = logging.getLogger("handler")
-HANDLER_LOGGER.setLevel(logging.INFO)
+HANDLER_LOGGER.setLevel(logging.DEBUG)
 
 class Handler:
     """
@@ -17,7 +17,7 @@ class Handler:
 
           
     def _handle_event(self, event):
-        logging.getLogger().debug(f"{dir(event)}")
+        #logging.getLogger().debug(f"{dir(event)}")
         # handle the click coordinates for canvas elements
         rect = event.target.getBoundingClientRect()
         x = event.clientX - rect.left

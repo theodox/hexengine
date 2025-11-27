@@ -21,4 +21,4 @@ class Game():
         logging.getLogger("map").info(f"Container clicked {args}")
         hex = self.canvas._hex_layout.pixel_to_hex(*args[-1])
         self.canvas.draw_hex(hex, fill="#D6FFDCFF", stroke="#00000000")
-        self.canvas.draw_text(hex, f"{hex.i},{hex.j}{hex.k}", font="10px Arial")
+        logging.getLogger("map").info(f"{hex.i},{hex.j},{hex.k}")

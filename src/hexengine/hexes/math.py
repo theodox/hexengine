@@ -1,9 +1,6 @@
-from .types import Hex
+from .types import Hex, Cartesian, CartesianInt
 from typing import Iterable
 from collections import namedtuple
-
-# Cartesian coordinate representation
-Cartesian = namedtuple("Cartesian", ["x", "y"])
 
 # Constants for hex to cartesian conversion
 THREE_HALF_POWER = 3 ** 0.5 / 2
@@ -86,6 +83,11 @@ def hex_to_cartesian(hex_coord: Hex) -> Cartesian:
     y = THREE_HALF_POWER * hex_coord.j
     return Cartesian(x, y)
 
+def hex_to_cartesian_int(hex_coord: Hex) -> CartesianInt:
+    """Convert hex coordinates to integer Cartesian coordinates."""
+    x = int(round(hex_coord.i + 0.5 * hex_coord.j))
+    y = int(round(THREE_HALF_POWER * hex_coord.j))
+    return CartesianInt(x, y)
 
 def cartesian_to_hex(cartesian: Cartesian) -> Hex:
     """Convert Cartesian coordinates back to hex coordinates."""
@@ -100,24 +102,31 @@ def cartesian_to_hex(cartesian: Cartesian) -> Hex:
     # Round to nearest valid hex coordinate
     return cube_round((i, j, k))
 
+def cartesian_int_to_hex(cartesian: CartesianInt) -> Hex:
+    """Convert integer Cartesian coordinates back to hex coordinates."""
+    j = cartesian.y / THREE_HALF_POWER
+    i = cartesian.x - 0.5 * j
+    k = -i - j
+    
+    # Round to nearest valid hex coordinate
+    return cube_round((i, j, k))    
 
 # Vector operations using Cartesian conversion
 def add_cartesian_vectors(hex1: Hex, hex2: Hex) -> Hex:
     """Add two hex vectors by converting to Cartesian, adding, and converting back."""
-    cart1 = hex_to_cartesian(hex1)
-    cart2 = hex_to_cartesian(hex2)
+    cart1 = hex_to_cartesian_int(hex1)
+    cart2 = hex_to_cartesian_int(hex2)
     
-    result_cart = Cartesian(cart1.x + cart2.x, cart1.y + cart2.y)
-    return cartesian_to_hex(result_cart)
-
+    result_cart = cart1 + cart2
+    return cartesian_int_to_hex(result_cart)
 
 def subtract_cartesian_vectors(hex1: Hex, hex2: Hex) -> Hex:
     """Subtract two hex vectors by converting to Cartesian, subtracting, and converting back."""
-    cart1 = hex_to_cartesian(hex1)
-    cart2 = hex_to_cartesian(hex2)
+    cart1 = hex_to_cartesian_int(hex1)
+    cart2 = hex_to_cartesian_int(hex2)
     
-    result_cart = Cartesian(cart1.x - cart2.x, cart1.y - cart2.y)
-    return cartesian_to_hex(result_cart)
+    result_cart = cart1 - cart2
+    return cartesian_int_to_hex(result_cart)
 
 
 def scale_cartesian_vector(hex_coord: Hex, scale: float) -> Hex:
