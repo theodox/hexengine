@@ -1,6 +1,8 @@
 import logging
 from pyodide.ffi import create_proxy
 
+HANDLER_LOGGER = logging.getLogger("handler")
+HANDLER_LOGGER.setLevel(logging.INFO)
 
 class Handler:
     """
