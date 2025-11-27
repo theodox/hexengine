@@ -15,7 +15,7 @@ class Handler:
 
           
     def _handle_event(self, event):
-        
+        logging.getLogger().debug(f"{dir(event)}")
         # handle the click coordinates for canvas elements
         rect = event.target.getBoundingClientRect()
         x = event.clientX - rect.left

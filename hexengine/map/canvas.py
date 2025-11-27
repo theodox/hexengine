@@ -9,35 +9,34 @@ from .handler import Handler
 
 class SVGCanvas:
     
-    def __init__(self, svg_element: js.SVGElement):
+    def __init__(self, svg_element: js.SVGElement, hex_layout: HexLayout):
         self._svg = svg_element
+        self._hex_layout = hex_layout   
+
+    def draw_hex(self, hex: Hex, fill="white", stroke="black"):
+        points = self._hex_layout.hex_corners(hex)
+        pointsString = ' '.join([f"{x},{y}" for x, y in points])
+        polygon = js.document.createElementNS("http://www.w3.org/2000/svg", "polygon");   
+        polygon.setAttribute("points", pointsString)
+        polygon.setAttribute("fill", fill)
+        polygon.setAttribute("stroke", stroke)
+        self._svg.appendChild(polygon)
 
 
 class MapCanvas:
     """
     The background bitmap canvas for drawing hexagons.
     """
-    def __init__(self, canvas_element: str):  
+    def __init__(self, canvas_element: str, hex_layout: HexLayout):  
         self._canvas = canvas_element
-        
+        self._context = self._canvas.getContext("2d")
         # Set canvas internal resolution to match CSS display size
         rect = self._canvas.getBoundingClientRect()
         self._canvas.width = int(rect.width)
         self._canvas.height = int(rect.height)
+        self.hex_layout = hex_layout
         
-        hex_data = self._canvas.getAttribute("data-hexsize")
-        if hex_data is not None:
-            hex_size = float(hex_data)
-        else:
-            hex_size = 24.0
-        self._context = self._canvas.getContext("2d")
-        self._hex_layout = HexLayout(
-            hex_size, self._canvas.width / 2, self._canvas.height / 2
-        )
-       
-        self._hex_width = hex_size * 2
-        self._hex_height = (3**0.5) * hex_size
-  
+        
     @property
     def canvas(self) -> js.HTMLCanvasElement:
         return self._canvas
@@ -96,8 +95,7 @@ class Map:
                  canvas_element: js.HTMLCanvasElement, 
                  svg_element: js.SVGElement):  
         self._container = container_element
-        self._canvas = MapCanvas(canvas_element)
-        self._svg = SVGCanvas(svg_element)
+       
 
         self._hex_size= canvas_element.getAttribute("data-hexsize")
         
@@ -112,8 +110,11 @@ class Map:
             canvas_element.height / 2
         )
        
-        self._hex_width = self._hex_size * 2
-        self._hex_height = (3**0.5) * self._hex_size
+        # self._hex_width = self._hex_size * 2
+        # self._hex_height = (3**0.5) * self._hex_size
+
+        self._canvas = MapCanvas(canvas_element, self._hex_layout)
+        self._svg = SVGCanvas(svg_element, self._hex_layout)
 
         self._clickHandler = Handler(self._container, "click")
         self._dblclickHandler = Handler(self._container, "dblclick")
@@ -157,8 +158,17 @@ class Map:
     @property
     def svg (self) -> MapCanvas:
         return self._svg
-
+    
     def draw_hex(self, hex: Hex, fill="white", stroke="black"):
+        self._svg.draw_hex(hex, fill=fill, stroke=stroke)
+
+    def draw_hexes(
+        self, hexes: Iterable[Hex], fill="white", stroke="black"):
+        for hex in hexes:
+            self.draw_hex(hex, fill=fill, stroke=stroke)
+        
+
+    def draw_bg_hex(self, hex: Hex, fill="white", stroke="black"):
         points = self._hex_layout.hex_corners(hex)
         points.append(points[0])  # Close the hexagon
         self.canvas.context.beginPath()
@@ -170,47 +180,13 @@ class Map:
         self.canvas.context.closePath()
         self.canvas.context.fill()
 
-    # def draw_hexes(
-    #     self,
-    #     hexes: Iterable[Hex],
-    #     fill="white",
-    #     stroke="black",
-    # ):
-    #     for hex in hexes:
-    #         self.draw_hex(hex, fill=fill, stroke=stroke)
 
-    # def draw_text(
-    #     self, hex: Hex, text: str, font: str = "10px Arial", color: str = "black"
-    # ):
-    #     x, y = self._hex_layout.hex_to_pixel(hex)
-    #     self._context.fillStyle = color
-    #     self._context.font = font
-    #     self._context.fillText(text, x - self._hex_width / 4, y)
+    def draw_text(
+        self, hex: Hex, text: str, font: str = "10px Arial", color: str = "black"
+    ):
+        x, y = self._hex_layout.hex_to_pixel(hex)
+        self.canvas._context.fillStyle = color
+        self.canvas._context.font = font
+        self.canvas._context.fillText(text, x - 6, y)
 
  
-    # @singledispatchmethod
-    # def __contains__(self, hex: Hex) -> bool:
-    #     """
-    #     Returns True if the hex is fully within the canvas bounds."""
-    #     for p in self._hex_layout.hex_corners(hex):
-    #         x, y = p
-    #         if not (0 <= x <= self._canvas.canvas.width and 0 <= y <= self._canvas.canvas.height):
-    #             return False
-    #     return True
-
-    # @__contains__.register
-    # def __contains_pixel__(self, x: float, y: float) -> bool:
-    #     """
-    #     Returns True if the pixel coordinates are within the canvas bounds.
-    #     """
-    #     hex = self._hex_layout.pixel_to_hex(x, y)
-    #     return self.__contains__(hex)
-
-    
-    # def get_click_coords(self, event) -> tuple[float, float]:
-    #     rect = event.target.getBoundingClientRect()
-    #     x = event.clientX - rect.left
-    #     y = event.clientY - rect.top
-    #     sx = self._canvas.canvas.width / rect.width
-    #     sy = self._canvas.canvas.height / rect.height
-    #     return (x *sx, y * sy)

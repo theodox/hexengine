@@ -1,0 +1,119 @@
+[33mcommit 688b80213bcf88bf39fe635edef622993da1f853[m[33m ([m[1;36mHEAD -> [m[1;32mmaster[m[33m)[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Tue Nov 25 21:14:58 2025 -0800
+
+    event forwarding working
+
+[33mcommit 25b8483d7f8a6dca4e059f933c15ca520193ca49[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Sun Nov 23 21:19:50 2025 -0800
+
+    event forwarding roughed in
+
+[33mcommit 743c5a8d8ceab11a8ff72edef4caaf4d15d81390[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Sun Nov 23 20:52:57 2025 -0800
+
+    continuing rework, no event support yet
+
+[33mcommit c2ec913d5a98271d3433d66dbd5b72ec4f5121bc[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Sun Nov 23 19:03:21 2025 -0800
+
+    a lot of layout refactoring
+
+[33mcommit 08c0dcc21c0e247fc4e2d453ba831ba2b22c22d6[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Sat Nov 22 21:10:14 2025 -0800
+
+    event handler rough in
+
+[33mcommit 0c5ac7177fc42d952117cb9626059b8a6b0d45d4[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Sat Nov 22 20:18:42 2025 -0800
+
+    starting with game class
+
+[33mcommit ff191a8feb8e6c523e04551544d0fdac11e36343[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Sat Nov 22 20:13:55 2025 -0800
+
+    starting with game class
+
+[33mcommit e623cf96b817bdf66513e11574650bef8f72cb4b[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Sat Nov 22 19:14:28 2025 -0800
+
+    rudimentary input console
+
+[33mcommit 4187d516f6f78c306ccb0d1df9bf734dba10dd5a[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Fri Nov 21 18:39:04 2025 -0800
+
+    added logging except hook
+
+[33mcommit f6c2a4e014631e397ff235f38b705c33b51311c0[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Thu Nov 20 20:09:38 2025 -0800
+
+    refactor into single rooted module
+
+[33mcommit 38fd48be90f0fe732180b04eaa42de38037c9447[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Wed Nov 19 21:57:47 2025 -0800
+
+    basic tests, add convex hull
+
+[33mcommit d6d3f7a256069d549d2d31a8fb803a3315bd97ec[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Wed Nov 19 21:31:50 2025 -0800
+
+    reorg to build as a package
+
+[33mcommit fa917cc9022a4365a0f1609efa883d5d1b2fe1a3[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Tue Nov 18 19:05:31 2025 -0800
+
+    more css  work, added properly transformed clicks
+
+[33mcommit a8c2119308abc68d260e998f138125b7f4aa33d4[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Mon Nov 17 21:25:42 2025 -0800
+
+    css stab
+
+[33mcommit 93e10f70194ad6dac61a443272636122fb97837f[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Mon Nov 17 21:16:19 2025 -0800
+
+    logging cleanup
+
+[33mcommit eb3a2fbc02e516a58e670df53858de1d2718faa4[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Mon Nov 17 20:45:22 2025 -0800
+
+    rudimentary logging
+
+[33mcommit 31114bcc214244bf5e90db65410b45a3341d15e4[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Sat Nov 15 22:03:20 2025 -0800
+
+    more drawing funtions
+
+[33mcommit 506ed8cb5d4e7bce46a33605c338e044a49db35c[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Thu Nov 13 20:38:54 2025 -0800
+
+    drawing experiments
+
+[33mcommit 982cd2fd17d8b57b692829247c7b798d567cff4c[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Tue Nov 11 23:14:56 2025 -0800
+
+    start cleanup
+
+[33mcommit c8eb3b7c7b5c8a69d4621f4ea348314103493fd2[m
+Author: Steve Theodore <theodox@gmail.com>
+Date:   Tue Nov 11 20:54:16 2025 -0800
+
+    draws hexes and basic clicks
