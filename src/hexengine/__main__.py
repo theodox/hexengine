@@ -9,19 +9,21 @@ import sys
 from . import dev_console
 from .document import element
 from .hexes.math import Hex
-from .hexes.shapes import  angle, convex_hull, path, polygon, line#, convex_polygon
+from .hexes.shapes import angle, convex_hull, path, polygon, line  # , convex_polygon
 from .excepthook import install_exception_hook
 from .game import Game
+
 __version__ = "0.1.1"
 
 
 GAME = None
 MAP = None
 
+
 def main():
     loading = element("loading")
     loading.style.display = "none"
-    
+
     dev_console.initialize("", globals())
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)

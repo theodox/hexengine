@@ -1,6 +1,7 @@
 import sys
 import logging
 
+
 def excepthook(exc_type, exc_value, exc_traceback):
     """Custom exception hook to log uncaught exceptions."""
     if issubclass(exc_type, KeyboardInterrupt):
@@ -9,7 +10,9 @@ def excepthook(exc_type, exc_value, exc_traceback):
         return
     else:
         logger = logging.getLogger()
-        logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+        logger.error(
+            "Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback)
+        )
 
 
 def install_exception_hook(logger: logging.Logger = None):

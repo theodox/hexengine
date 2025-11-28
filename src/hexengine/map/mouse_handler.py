@@ -13,7 +13,6 @@ class MouseHandler:
         self.start = None
         self.end = None
 
-
     def reset(self):
         self.start = None
         self.end = None
@@ -41,7 +40,7 @@ class MouseHandler:
         line = shapes.line(
             self.canvas._hex_layout.pixel_to_hex(*self.start),
             self.canvas._hex_layout.pixel_to_hex(*self.end),
-        )   
+        )
         if self.start == self.end:
             self.logger.warning("mouse up with no movement")
             self.reset()

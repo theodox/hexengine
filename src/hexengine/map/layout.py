@@ -6,17 +6,23 @@ class HexLayout:
     """
     Converts between hex coordinates and pixel coordinates for flat-topped hexagons
     """
-    
-    '''
+
+    """
     rect = event.target.getBoundingClientRect()
             x = event.clientX - rect.left
             y = event.clientY - rect.top
             sx = self._svg.width.baseVal.value / rect.width
             sy = self._svg.height.baseVal.value / rect.height
             return (x *sx, y * sy)
-    '''
+    """
 
-    def __init__(self, size: float, origin_x: float = 0.0, origin_y: float = 0.0, margin: float = 0.0):
+    def __init__(
+        self,
+        size: float,
+        origin_x: float = 0.0,
+        origin_y: float = 0.0,
+        margin: float = 0.0,
+    ):
         self.size = size
         self.origin_x = origin_x
         self.origin_y = origin_y

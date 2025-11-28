@@ -2,7 +2,8 @@ import logging
 from .map import Map
 from .document import element
 
-class Game():
+
+class Game:
     def __init__(self):
         self.running = True
         container = element("map-container")
@@ -11,7 +12,7 @@ class Game():
         assert map is not None, "Map canvas element not found"
         assert svg is not None, "Map SVG element not found"
         self.canvas = Map(container, map, svg)
-        
+
         self.logger = logging.getLogger("game")
         self.logger.info("Game initialized")
 

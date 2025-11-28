@@ -1,8 +1,8 @@
 import logging
-import js                               # pyright: ignore[reportMissingImports]
+import js  # pyright: ignore[reportMissingImports]
 from .document import element
 
-from pyodide.ffi import create_proxy     # pyright: ignore[reportMissingImports]
+from pyodide.ffi import create_proxy  # pyright: ignore[reportMissingImports]
 
 """
 A development console that logs messages to a text area in the web page, using
@@ -13,8 +13,8 @@ ROOT_LOGGER = None
 
 __version__ = "0.1.0"
 
+
 def initialize(name: str, game_globals) -> logging.Logger:
-    
     textArea = element("console")
     assert textArea is not None, "Console text area not found"
     inputArea = element("console-input")
@@ -35,19 +35,19 @@ def initialize(name: str, game_globals) -> logging.Logger:
     # Set up the log level selector
     log_level_select.addEventListener(
         "change",
-        create_proxy(
-            lambda event: update_log_display(event, textArea)
-        ),
+        create_proxy(lambda event: update_log_display(event, textArea)),
     )
 
     TextAreaReader.INSTANCE = TextAreaReader(inputArea, game_globals)
     ROOT_LOGGER.debug("Dev console initialized")
+
 
 def update_log_display(event, textArea: js.HTMLElement):
     level_str = event.target.value
     level = getattr(logging, level_str.upper(), logging.DEBUG)
     TextAreaWriter.set_active_level(level)
     TextAreaWriter.update(level)
+
 
 class TextAreaWriter:
     ACTIVE_LEVEL = logging.DEBUG
@@ -76,25 +76,22 @@ class TextAreaWriter:
         js.console.log(slf)
         messages = [msg for lvl, msg in slf.items if lvl >= level]
         slf.textArea.value = "\n".join(messages or ["-"])
-        slf.textArea.scrollTop = slf.textArea.scrollHeight 
+        slf.textArea.scrollTop = slf.textArea.scrollHeight
+
 
 class TextAreaReader:
     INSTANCE = None
 
-    def __init__(self, textArea: js.HTMLElement, game_globals:dict):
-        self.textArea = textArea    
+    def __init__(self, textArea: js.HTMLElement, game_globals: dict):
+        self.textArea = textArea
         self.game_globals = game_globals
-        self.textArea.addEventListener(
-            "keyup",
-            create_proxy(self.on_keyup)
-            )
+        self.textArea.addEventListener("keyup", create_proxy(self.on_keyup))
         self.logger = logging.getLogger("input")
         self.logger.debug("TextAreaReader initialized")
         self.history = []
         self.history_index = -1
 
     def on_keyup(self, event):
-
         if event.key == "ArrowUp":
             if self.history:
                 self.history_index = max(0, self.history_index - 1)
@@ -108,18 +105,19 @@ class TextAreaReader:
 
         if event.key != "Enter":
             return
-        
+
         self.history.append(self.textArea.value.strip())
         self.history_index = len(self.history)
         self.logger.debug(f"> {self.textArea.value.strip()}")
         try:
             self.logger.debug(
-            ("> " + str(eval(self.textArea.value, self.game_globals))).strip()
+                ("> " + str(eval(self.textArea.value, self.game_globals))).strip()
             )
         except Exception as e:
             self.logger.error(f"Error executing input: {e}")
 
         self.textArea.value = ""
+
 
 class DevLogHandler(logging.Handler):
     def __init__(self, textArea: js.HTMLElement):
