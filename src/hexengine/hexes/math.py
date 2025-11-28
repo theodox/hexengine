@@ -3,7 +3,8 @@ from typing import Iterable
 from collections import namedtuple
 
 # Constants for hex to cartesian conversion
-THREE_HALF_POWER = 3 ** 0.5 / 2
+SQRT_THREE = 3 ** 0.5
+THREE_HALF_POWER = SQRT_THREE / 2
 
 
 _NEIGHBOR_OFFSETS = []
@@ -78,34 +79,35 @@ def rotate_right(hex: Hex) -> Hex:
 
 # Cartesian coordinate conversion functions
 def hex_to_cartesian(hex_coord: Hex) -> Cartesian:
-    """Convert hex coordinates to Cartesian coordinates."""
-    x = hex_coord.i + 0.5 * hex_coord.j
-    y = THREE_HALF_POWER * hex_coord.j
+    """Convert hex coordinates to Cartesian coordinates (flat-top orientation)."""
+    x = 1.5 * hex_coord.i
+    y = SQRT_THREE * (hex_coord.j + hex_coord.i * 0.5)
     return Cartesian(x, y)
 
 def hex_to_cartesian_int(hex_coord: Hex) -> CartesianInt:
-    """Convert hex coordinates to integer Cartesian coordinates."""
-    x = int(round(hex_coord.i + 0.5 * hex_coord.j))
-    y = int(round(THREE_HALF_POWER * hex_coord.j))
+    """Convert hex coordinates to integer Cartesian coordinates (flat-top orientation)."""
+    x = int(round(1.5 * hex_coord.i))
+    y = int(round(SQRT_THREE * (hex_coord.j + hex_coord.i * 0.5)))
     return CartesianInt(x, y)
 
 def cartesian_to_hex(cartesian: Cartesian) -> Hex:
-    """Convert Cartesian coordinates back to hex coordinates."""
+    """Convert Cartesian coordinates back to hex coordinates (flat-top orientation)."""
     # Reverse the hex_to_cartesian transformation
-    # x = i + 0.5 * j  =>  i = x - 0.5 * j
-    # y = (√3/2) * j   =>  j = y / (√3/2) = (2/√3) * y
+    # x = 1.5 * i           =>  i = x / 1.5 = (2/3) * x
+    # y = √3 * (j + i/2)    =>  y = √3*j + (√3/2)*i
+    #                       =>  j = (y - (√3/2)*i) / √3 = y/√3 - i/2
     
-    j = cartesian.y / THREE_HALF_POWER
-    i = cartesian.x - 0.5 * j
+    i = (2.0 / 3.0) * cartesian.x
+    j = cartesian.y / SQRT_THREE - i * 0.5
     k = -i - j
     
     # Round to nearest valid hex coordinate
     return cube_round((i, j, k))
 
 def cartesian_int_to_hex(cartesian: CartesianInt) -> Hex:
-    """Convert integer Cartesian coordinates back to hex coordinates."""
-    j = cartesian.y / THREE_HALF_POWER
-    i = cartesian.x - 0.5 * j
+    """Convert integer Cartesian coordinates back to hex coordinates (flat-top orientation)."""
+    i = (2.0 / 3.0) * cartesian.x
+    j = cartesian.y / SQRT_THREE - i * 0.5
     k = -i - j
     
     # Round to nearest valid hex coordinate

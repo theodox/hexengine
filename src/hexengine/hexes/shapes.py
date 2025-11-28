@@ -9,7 +9,8 @@ from math import cos, sin, atan2, pi
 TWO_PI = 2 * pi
 PI_OVER_3 = pi / 3.0
 PI_OVER_6 = pi / 6.0
-THREE_HALF_POWER = 3 ** 0.5 / 2
+SQRT_THREE = 3 ** 0.5
+THREE_HALF_POWER = SQRT_THREE / 2
 
 
 def path(steps: Sequence[Hex]) -> Iterable[Hex]:
@@ -212,8 +213,8 @@ def _point_in_polygon(point: Hex, vertices: Sequence[Hex]) -> bool:
     Adapted for hexagonal coordinates by converting to Cartesian.
     """
     def hex_to_cartesian(hex_coord: Hex) -> tuple[float, float]:
-        x = hex_coord.i + 0.5 * hex_coord.j
-        y = THREE_HALF_POWER * hex_coord.j
+        x = 1.5 * hex_coord.i
+        y = SQRT_THREE * (hex_coord.j + hex_coord.i * 0.5)
         return (x, y)
     
     px, py = hex_to_cartesian(point)

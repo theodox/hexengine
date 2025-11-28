@@ -7,7 +7,7 @@ from ..document import element
 from .layout import HexLayout
 from .handler import Handler
 from ..hexes.shapes import polygon, convex_polygon
-import ..hexes.math as hex_math
+from ..hexes.math import hex_to_cartesian_int, cartesian_int_to_hex
 
 class SVGCanvas:
     
@@ -43,12 +43,21 @@ class MapCanvas:
         self.hex_color = hex_color
         self.hex_stroke = hex_stroke
 
-        w = int(self._canvas.width / hex_layout.size)
-        h = int(self._canvas.height / hex_layout.size)
-
+        w = int(hex_layout.size)
+        h = int(hex_layout.size)
+        logging.getLogger().debug(f"Canvas size: {self._canvas.width}x{self._canvas.height}, hex size: {hex_layout.size}, grid size: {w}x{h}")  
 
         start = Hex(0,0,0)
-        br = hex_math.cartesian_int_to_hex(CartesianInt(int(w), int(h)))
+        br = cartesian_int_to_hex(CartesianInt(int(w), int(h)))
+
+        tl = cartesian_int_to_hex(CartesianInt(0,0))
+        br =cartesian_int_to_hex(CartesianInt(40, 0))
+        
+        logging.getLogger().debug(f"Drawing hex rect from {tl} to {br}")
+        self.draw_hex(tl, fill="#E1FF00FF", stroke=self.hex_color   )
+        self.draw_hex(br, fill="#FF0000FF", stroke=self.hex_color   )
+        
+        return
         
         logging.getLogger().debug(f"Canvas size set to {self._canvas.width}x{self._canvas.height}")
         self.draw_hex_rect(
@@ -106,13 +115,13 @@ class MapCanvas:
         stroke="black",
         stroke_width=1
     ):
-        #size = hex_math.hex_to_cartesian(bottom_right)
-
-        bl = hex_math.cartesian_int_to_hex(CartesianInt(0, bottom_right.y)  )
-        tr = hex_math.cartesian_int_to_hex(CartesianInt(bottom_right.x, 0)  )
-      
+        br = hex_to_cartesian_int(bottom_right)
+        bl = CartesianInt(0, br.y)  
+        tr = CartesianInt(br.x, 0) 
+        logging.getLogger().warning(f"Drawing hex rect corners: {tr}, {br}, {bl}")
         
         rect = convex_polygon((top_left, tr, bottom_right, bl))
+
         logging.getLogger().warning(f"Drawing hex rect: {(top_left, tr, bottom_right, bl)}")
         self.draw_hexes(rect, fill=fill, stroke=stroke, stroke_width=stroke_width)
 
