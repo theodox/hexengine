@@ -1,16 +1,14 @@
 #map-container {
     position: relative;
-    width: 1600px;
-    height: 900px;
-    margin: 16px;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
 }
 
 #map-bg {
     position: absolute;
     width: 100%;
     height: 100%;
-    top: 0px;
-    left: 0px;
     background-color: rgb(200, 200, 200);
     z-index: 0;
 }
@@ -39,11 +37,8 @@
     position: relative;
     height: 234px;
     background-color: black;
-    margin-left: 16px;
-    margin-right: 16px;
-    margin-bottom: 16px;
     padding: 16px;
-    border-radius: 16px;
+    border-radius: 4px;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -51,10 +46,11 @@
 
 #main-frame {
     position: absolute;
-
+    width: 90%;
     background-color: rgba(72, 72, 72, 0.8);
     display: flex;
     flex-direction: column;
+    padding: 8px;
 }
 
 #console-header {
@@ -84,7 +80,7 @@
     font-size: 10pt;
     line-height: 14pt;
     color: rgb(201, 200, 200);
-    background: hwb(0 0% 100%);
+    background: hwb(0 0% 100% / 0.332);
     width: 100%;
     height: 224px;
     border: none;

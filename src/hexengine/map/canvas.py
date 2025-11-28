@@ -55,29 +55,34 @@ class MapCanvas:
         self.hex_color = hex_color
         self.hex_stroke = hex_stroke
 
-        w = (self._canvas.width - (self._hex_layout.origin_x * 2)) // int(
-            hex_layout.size
-        )
-        h = (self._canvas.height - (self._hex_layout.origin_y * 2)) // int(
-            hex_layout.size
-        )  # * SQRT_THREE)
+        hs = int(hex_layout.size)
+
+        w = (self._canvas.width - (self._hex_layout.origin_x * 2)) //  hs
+        h = (self._canvas.height - (self._hex_layout.origin_y * 2)) // hs
 
         logging.getLogger().info(
-            f"Canvas size: {w}x{h}, hex size: {hex_layout.size}, grid size: {w}x{h}"
+            f"Canvas size: {w}x{h}\n    hex size: {hex_layout.size}\n    grid size: {self._canvas.width}x{self._canvas.height}"
         )
 
-        start = Hex(0, 0, 0)
-        br = Hex.from_cartesian(Cartesian(w, h))
+        # this is sloppy way to draw the grid background
+        # overlay -- the slop is there to extend the hex lines
+        # past the edges of the canvas to avoid gaps, but
+        # this is not the best way to do this.
+        start = Hex.from_cartesian(Cartesian(-2, -2))
+        br = Hex.from_cartesian(Cartesian(w+2, h+2))
 
-        logging.getLogger().debug(
-            f"Canvas size set to {self._canvas.width}x{self._canvas.height}"
-        )
         self.draw_hex_rect(
             start,
             br,
             fill="#00000000",
             stroke=self.hex_color,
             stroke_width=self.hex_stroke,
+        )
+
+        test = Hex.from_cartesian(Cartesian(10,10))
+        test2 = Hex.from_cartesian(Cartesian(20,20))
+        self.draw_hex_rect(
+           test, test2, fill="#29E11433", stroke="#000000FF", stroke_width=0
         )
 
     @property
@@ -128,20 +133,15 @@ class MapCanvas:
     ):
         tl = Cartesian.from_hex(top_left)
         br = Cartesian.from_hex(bottom_right)
-        bl = Cartesian(0, br.y)
-        tr = Cartesian(br.x, 0)
-        logging.getLogger().warning(f"Drawing hex rect corners:{tl} {tr}, {br}, {bl}")
-
-        a = Hex.from_cartesian(tl)
-        b = Hex.from_cartesian(tr)
-        c = Hex.from_cartesian(br)
-        d = Hex.from_cartesian(bl)
-
-        rect = convex_polygon((a, b, c, d))
-        self.draw_hexes(rect, fill=fill, stroke=stroke, stroke_width=stroke_width)
+        for x in range(tl.x, br.x + 1):
+            for y in range(tl.y, br.y + 1):
+                h = cartesian_int_to_hex(Cartesian(x, y))
+                #logging.getLogger().debug(f"Drawing hex at {h} for cartesian {x},{y}")
+                self.draw_hex(h, fill=fill, stroke=stroke, stroke_width=stroke_width)
 
 
 class Map:
+
     """
     A canvas for drawing hexagons.
     """
