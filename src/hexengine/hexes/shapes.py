@@ -1,7 +1,6 @@
 from .types import Hex
 from .math import (
-    line, neighbor_hex, distance, neighbors, cross_product, Cartesian
-)
+    line, neighbor_hex, distance, neighbors, cross_product)
 
 from typing import Iterable, Sequence, Set, List
 from math import cos, sin, atan2, pi

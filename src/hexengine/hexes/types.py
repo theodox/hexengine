@@ -2,15 +2,15 @@
 import dataclasses
 
 @dataclasses.dataclass(frozen=True)
-class Cartesian:
-    x: float
-    y: float
-
-@dataclasses.dataclass(frozen=True)
 class CartesianInt:
     x: int
     y: int
 
+    def __post_init__(self):
+        # force these to be integers
+        object.__setattr__(self, 'x', round(self.x))
+        object.__setattr__(self, 'y', round(self.y))
+ 
     def __eq__(self, value):
         if not isinstance(value, CartesianInt):
             return NotImplemented
