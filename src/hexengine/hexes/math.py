@@ -1,4 +1,4 @@
-from .types import Hex, CartesianInt
+from .types import Hex, Cartesian
 from typing import Iterable
 
 # Constants for hex to cartesian conversion
@@ -75,13 +75,13 @@ def rotate_left(hex: Hex) -> Hex:
 def rotate_right(hex: Hex) -> Hex:
     return Hex(-hex.j, -hex.k, -hex.i)
 
-def hex_to_cartesian_int(hex_coord: Hex) -> CartesianInt:
+def hex_to_cartesian_int(hex_coord: Hex) -> Cartesian:
     """Convert hex coordinates to integer Cartesian coordinates (flat-top orientation)."""
     x = int(round(1.5 * hex_coord.i))
     y = int(round(SQRT_THREE * (hex_coord.j + hex_coord.i * 0.5)))
-    return CartesianInt(x, y)
+    return Cartesian(x, y)
 
-def cartesian_int_to_hex(cartesian: CartesianInt) -> Hex:
+def cartesian_int_to_hex(cartesian: Cartesian) -> Hex:
     """Convert integer Cartesian coordinates back to hex coordinates (flat-top orientation)."""
     i = (2.0 / 3.0) * cartesian.x
     j = cartesian.y / SQRT_THREE - i * 0.5

@@ -2,7 +2,7 @@ import logging
 import js  # pyright: ignore[reportMissingImports]
 from typing import Iterable
 from functools import singledispatchmethod
-from ..hexes.types import Hex, CartesianInt
+from ..hexes.types import Hex, Cartesian
 from ..document import element
 from .layout import HexLayout
 from .handler import Handler
@@ -49,7 +49,7 @@ class MapCanvas:
         logging.getLogger().info(f"Canvas size: {w}x{h}, hex size: {hex_layout.size}, grid size: {w}x{h}")  
 
         start = Hex(0,0,0)
-        br = cartesian_int_to_hex(CartesianInt(int(w), int(h)))
+        br = Hex.from_cartesian(Cartesian(w, h))
         
         logging.getLogger().debug(f"Canvas size set to {self._canvas.width}x{self._canvas.height}")
         self.draw_hex_rect(
@@ -101,22 +101,22 @@ class MapCanvas:
 
     def draw_hex_rect(
         self,
-        top_left: CartesianInt,
-        bottom_right: CartesianInt,
+        top_left: Cartesian,
+        bottom_right: Cartesian,
         fill="white",
         stroke="black",
         stroke_width=1
     ):
-        tl = hex_to_cartesian_int(top_left)
-        br = hex_to_cartesian_int(bottom_right)
-        bl = CartesianInt(0, br.y)  
-        tr = CartesianInt(br.x, 0) 
+        tl = Cartesian.from_hex(top_left)
+        br = Cartesian.from_hex(bottom_right)
+        bl = Cartesian(0, br.y)  
+        tr = Cartesian(br.x, 0) 
         logging.getLogger().warning(f"Drawing hex rect corners:{tl} {tr}, {br}, {bl}")
         
-        a = cartesian_int_to_hex(tl)
-        b = cartesian_int_to_hex(tr)    
-        c = cartesian_int_to_hex(br)
-        d = cartesian_int_to_hex(bl)
+        a = Hex.from_cartesian(tl)
+        b = Hex.from_cartesian(tr)    
+        c = Hex.from_cartesian(br)
+        d = Hex.from_cartesian(bl)
 
         rect = convex_polygon((a, b, c, d))
         self.draw_hexes(rect, fill=fill, stroke=stroke, stroke_width=stroke_width)

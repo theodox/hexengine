@@ -1,8 +1,12 @@
 
 import dataclasses
 
+# Constants for hex to cartesian conversion
+SQRT_THREE = 3 ** 0.5
+THREE_HALF_POWER = SQRT_THREE / 2
+
 @dataclasses.dataclass(frozen=True)
-class CartesianInt:
+class Cartesian:
     x: int
     y: int
 
@@ -12,7 +16,7 @@ class CartesianInt:
         object.__setattr__(self, 'y', round(self.y))
  
     def __eq__(self, value):
-        if not isinstance(value, CartesianInt):
+        if not isinstance(value, Cartesian):
             return NotImplemented
         return self.x == value.x and self.y == value.y
     
@@ -20,20 +24,27 @@ class CartesianInt:
         return hash((self.x - 4096, self.y - 2048))
     
     def __repr__(self) -> str:
-        return f"CartesianInt({self.x},{self.y})"
+        return f"Cartesian({self.x},{self.y})"
     
-    def __add__(self, other: "CartesianInt") -> "CartesianInt":
-        return CartesianInt(self.x + other.x, self.y + other.y)
+    def __add__(self, other: "Cartesian") -> "Cartesian":
+        return Cartesian(self.x + other.x, self.y + other.y)
     
-    def __sub__(self, other: "CartesianInt") -> "CartesianInt":
-        return CartesianInt(self.x - other.x, self.y - other.y)
+    def __sub__(self, other: "Cartesian") -> "Cartesian":
+        return Cartesian(self.x - other.x, self.y - other.y)
     
-    def __mul__(self, k: int) -> "CartesianInt":
-        return CartesianInt(self.x * k, self.y * k) 
+    def __mul__(self, k: int) -> "Cartesian":
+        return Cartesian(self.x * k, self.y * k) 
     
-    def __truediv__(self, k: int) -> "CartesianInt":
-        return CartesianInt(self.x // k, self.y // k)
+    def __truediv__(self, k: int) -> "Cartesian":
+        return Cartesian(self.x // k, self.y // k)
     
+    @classmethod
+    def from_hex(cls, hex_coord: "Hex") -> "Cartesian":
+        """Convert hex coordinates to integer Cartesian coordinates (flat-top orientation)."""
+        x = int(round(1.5 * hex_coord.i))
+        y = int(round(SQRT_THREE * (hex_coord.j + hex_coord.i * 0.5)))
+        return cls(x, y)
+
 
         
 @dataclasses.dataclass(frozen=True)
@@ -91,3 +102,26 @@ class Hex:
     
     def __hash__(self) -> int:
         return hash((self.i + 1024, self.j + 2048, self.k + 4096))
+    
+    @classmethod
+    def from_cartesian(cls, cartesian: Cartesian) -> "Hex":
+        # duplicate of function in math.py but needed here to avoid circular imports
+        i = (2.0 / 3.0) * cartesian.x
+        j = cartesian.y / SQRT_THREE - i * 0.5
+        k = -i - j        
+        
+        q = round(i)
+        r = round(j)
+        s = round(k)
+
+        q_diff = abs(q - i)
+        r_diff = abs(r - j)
+        s_diff = abs(s - k)
+
+        if q_diff > r_diff and q_diff > s_diff:
+            q = -r - s
+        elif r_diff > s_diff:
+            r = -q - s
+        else:
+            s = -q - r
+        return cls(q, r, s)
