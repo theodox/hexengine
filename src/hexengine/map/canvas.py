@@ -7,7 +7,7 @@ from ..document import element
 from .layout import HexLayout
 from .handler import Handler
 from ..hexes.shapes import polygon, convex_polygon
-from ..hexes.math import hex_to_cartesian_int, cartesian_int_to_hex
+from ..hexes.math import hex_to_cartesian_int, cartesian_int_to_hex, SQRT_THREE
 
 class SVGCanvas:
     
@@ -43,21 +43,13 @@ class MapCanvas:
         self.hex_color = hex_color
         self.hex_stroke = hex_stroke
 
-        w = int(hex_layout.size)
-        h = int(hex_layout.size)
-        logging.getLogger().debug(f"Canvas size: {self._canvas.width}x{self._canvas.height}, hex size: {hex_layout.size}, grid size: {w}x{h}")  
+        w = (self._canvas.width - (self._hex_layout.origin_x * 2)) // int(hex_layout.size)
+        h = (self._canvas.height - (self._hex_layout.origin_y * 2))// int(hex_layout.size)# * SQRT_THREE)
+
+        logging.getLogger().info(f"Canvas size: {w}x{h}, hex size: {hex_layout.size}, grid size: {w}x{h}")  
 
         start = Hex(0,0,0)
         br = cartesian_int_to_hex(CartesianInt(int(w), int(h)))
-
-        tl = cartesian_int_to_hex(CartesianInt(0,0))
-        br =cartesian_int_to_hex(CartesianInt(40, 0))
-        
-        logging.getLogger().debug(f"Drawing hex rect from {tl} to {br}")
-        self.draw_hex(tl, fill="#E1FF00FF", stroke=self.hex_color   )
-        self.draw_hex(br, fill="#FF0000FF", stroke=self.hex_color   )
-        
-        return
         
         logging.getLogger().debug(f"Canvas size set to {self._canvas.width}x{self._canvas.height}")
         self.draw_hex_rect(
@@ -115,14 +107,18 @@ class MapCanvas:
         stroke="black",
         stroke_width=1
     ):
+        tl = hex_to_cartesian_int(top_left)
         br = hex_to_cartesian_int(bottom_right)
         bl = CartesianInt(0, br.y)  
         tr = CartesianInt(br.x, 0) 
-        logging.getLogger().warning(f"Drawing hex rect corners: {tr}, {br}, {bl}")
+        logging.getLogger().warning(f"Drawing hex rect corners:{tl} {tr}, {br}, {bl}")
         
-        rect = convex_polygon((top_left, tr, bottom_right, bl))
+        a = cartesian_int_to_hex(tl)
+        b = cartesian_int_to_hex(tr)    
+        c = cartesian_int_to_hex(br)
+        d = cartesian_int_to_hex(bl)
 
-        logging.getLogger().warning(f"Drawing hex rect: {(top_left, tr, bottom_right, bl)}")
+        rect = convex_polygon((a, b, c, d))
         self.draw_hexes(rect, fill=fill, stroke=stroke, stroke_width=stroke_width)
 
 class Map:
