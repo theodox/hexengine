@@ -19,8 +19,6 @@ from hexengine.hexes.math import (
     cross_product,
     hex_to_cartesian,
     cartesian_to_hex,
-    add_cartesian_vectors,
-    subtract_cartesian_vectors,
     scale_cartesian_vector,
     distance
 )
@@ -514,35 +512,7 @@ class TestHexShapes(unittest.TestCase):
             # Should get back the same hex (or very close due to rounding)
             self.assertEqual(reconstructed, original)
 
-    def test_add_cartesian_vectors(self):
-        """Test vector addition using Cartesian conversion."""
-        hex1 = Hex(1, 0, -1)
-        hex2 = Hex(0, 1, -1)
-        
-        # Add using Cartesian method
-        cart_result = add_cartesian_vectors(hex1, hex2)
-        
-        # Compare with direct hex addition (should be close)
-        direct_result = hex1 + hex2
-        
-        # Results should be the same or very close
-        self.assertEqual(cart_result, direct_result)
-
     def test_subtract_cartesian_vectors(self):
-        """Test vector subtraction using Cartesian conversion."""
-        hex1 = Hex(3, -1, -2)
-        hex2 = Hex(1, 0, -1)
-        
-        # Subtract using Cartesian method
-        cart_result = subtract_cartesian_vectors(hex1, hex2)
-        
-        # Compare with direct hex subtraction
-        direct_result = hex1 - hex2
-        
-        # Results should be the same
-        self.assertEqual(cart_result, direct_result)
-
-    def test_scale_cartesian_vector(self):
         """Test vector scaling using Cartesian conversion."""
         hex_coord = Hex(2, -1, -1)
         scale = 1.5
@@ -562,29 +532,6 @@ class TestHexShapes(unittest.TestCase):
         scaled_mag = (scaled_cart.x**2 + scaled_cart.y**2)**0.5
         
         self.assertAlmostEqual(scaled_mag / original_mag, scale, places=1)
-
-    def test_cartesian_vector_operations_preserve_properties(self):
-        """Test that Cartesian-based operations preserve vector properties."""
-        hex1 = Hex(2, -1, -1)
-        hex2 = Hex(-1, 2, -1)
-        
-        # Test addition is commutative
-        add1 = add_cartesian_vectors(hex1, hex2)
-        add2 = add_cartesian_vectors(hex2, hex1)
-        self.assertEqual(add1, add2)
-        
-        # Test that adding zero vector doesn't change original
-        zero = Hex(0, 0, 0)
-        unchanged = add_cartesian_vectors(hex1, zero)
-        self.assertEqual(unchanged, hex1)
-        
-        # Test scaling by 1 doesn't change vector
-        unchanged_scale = scale_cartesian_vector(hex1, 1.0)
-        self.assertEqual(unchanged_scale, hex1)
-        
-        # Test scaling by 0 gives approximately zero
-        zero_scaled = scale_cartesian_vector(hex1, 0.0)
-        self.assertEqual(zero_scaled, Hex(0, 0, 0))
 
 
 if __name__ == '__main__':

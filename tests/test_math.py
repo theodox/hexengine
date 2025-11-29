@@ -19,8 +19,6 @@ from hexengine.hexes.math import (
     cross_product,
     vector_angle,
     hex_magnitude,
-    add_cartesian_vectors,
-    subtract_cartesian_vectors,
     scale_cartesian_vector
 )
 

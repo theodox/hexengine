@@ -1,5 +1,7 @@
-from .types import Hex
+import logging
+from .types import Cartesian, Hex
 from .math import line, neighbor_hex, distance, neighbors, cross_product
+from functools import singledispatch
 
 from typing import Iterable, Sequence, Set, List
 from math import cos, sin, atan2, pi
@@ -10,7 +12,9 @@ PI_OVER_6 = pi / 6.0
 SQRT_THREE = 3**0.5
 THREE_HALF_POWER = SQRT_THREE / 2
 
+_LOGGER = logging.getLogger()
 
+@singledispatch
 def path(steps: Sequence[Hex]) -> Iterable[Hex]:
     """
     Yields all hexes along a path defined by a sequence of hexes.
@@ -23,7 +27,21 @@ def path(steps: Sequence[Hex]) -> Iterable[Hex]:
         for h in line(a, b):
             yield h
 
+@path.register(Cartesian)
+def _path(steps: Sequence[Cartesian]) -> Iterable[Hex]:
+    """
+    Yields all hexes along a path defined by a sequence of Cartesian coordinates.
+    """
+    if len(steps) < 2:
+        return
+    for idx in range(len(steps) - 1):
+        a = Hex.from_cartesian(steps[idx])
+        b = Hex.from_cartesian(steps[idx + 1])
+        for h in line(a, b):
+            yield h
 
+
+@singledispatch
 def radius(center: Hex, radius: int) -> Iterable[Hex]:
     """
     Yields all hexes within a given radius from the center hex.
@@ -33,7 +51,18 @@ def radius(center: Hex, radius: int) -> Iterable[Hex]:
             z = -x - y
             yield Hex(center.i + x, center.j + y, center.k + z)
 
-
+@radius.register(Cartesian)
+def _radius(center: Cartesian, radius: int) -> Iterable[Hex]:
+    """
+    Yields all hexes within a given radius from the center Cartesian coordinate.
+    """
+    center_hex = Hex.from_cartesian(center)
+    for x in range(-radius, radius + 1):
+        for y in range(max(-radius, -x - radius), min(radius, -x + radius) + 1):
+            z = -x - y
+            yield Hex(center_hex.i + x, center_hex.j + y, center_hex.k + z) 
+            
+@singledispatch
 def ring(center: Hex, rad_distance: int) -> Iterable[Hex]:
     """
     Yields all hexes exactly at a given radius from the center hex.
@@ -41,6 +70,16 @@ def ring(center: Hex, rad_distance: int) -> Iterable[Hex]:
     for r in radius(center, rad_distance):
         if distance(center, r) == rad_distance:
             yield r
+
+@ring.register(Cartesian)
+def _ring(center: Cartesian, rad_distance: int) -> Iterable[Hex]:
+    """
+    Yields all hexes exactly at a given radius from the center Cartesian coordinate.
+    """
+    center_hex = Hex.from_cartesian(center)
+    for r in radius(center_hex, rad_distance):
+        if distance(center_hex, r) == rad_distance:
+            yield r 
 
 
 def wedge(center: Hex, rad_distance: int, direction: int) -> Iterable[Hex]:
@@ -54,6 +93,30 @@ def wedge(center: Hex, rad_distance: int, direction: int) -> Iterable[Hex]:
             and distance(center, r + dir_hex) < rad_distance
         ):
             yield r
+
+
+def rectangle_from_corners(corner1: Hex, corner2: Hex) -> Iterable[Hex]:
+    """
+    Yields all hexes within the rectangle defined by two corner hexes.
+    The rectangle is axis-aligned in Cartesian coordinates.
+    
+    Note: Since multiple integer Cartesian coordinates can map to the same hex
+    (because hex cells are larger than 1 unit), this function deduplicates results.
+    """
+    cc1 = Cartesian.from_hex(corner1)
+    cc2 = Cartesian.from_hex(corner2)
+    min_x = min(cc1.x, cc2.x)
+    max_x = max(cc1.x, cc2.x)
+    min_y = min(cc1.y, cc2.y)
+    max_y = max(cc1.y, cc2.y)
+    
+    seen = set()  # we can't guarantee uniqueness otherwise
+    for x in range(min_x, max_x + 1):
+        for y in range(min_y, max_y + 1):
+            h = Hex.from_cartesian(Cartesian(x, y))
+            if h not in seen:
+                seen.add(h)
+                yield h
 
 
 def angle(start: Hex, end: Hex) -> float:

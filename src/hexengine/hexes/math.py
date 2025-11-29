@@ -79,42 +79,6 @@ def rotate_right(hex: Hex) -> Hex:
     return Hex(-hex.j, -hex.k, -hex.i)
 
 
-def hex_to_cartesian_int(hex_coord: Hex) -> Cartesian:
-    """Convert hex coordinates to integer Cartesian coordinates (flat-top orientation)."""
-    x = int(round(1.5 * hex_coord.i))
-    y = int(round(SQRT_THREE * (hex_coord.j + hex_coord.i * 0.5)))
-    return Cartesian(x, y)
-
-
-def cartesian_int_to_hex(cartesian: Cartesian) -> Hex:
-    """Convert integer Cartesian coordinates back to hex coordinates (flat-top orientation)."""
-    i = (2.0 / 3.0) * cartesian.x
-    j = cartesian.y / SQRT_THREE - i * 0.5
-    k = -i - j
-
-    # Round to nearest valid hex coordinate
-    return cube_round((i, j, k))
-
-
-# Vector operations using Cartesian conversion
-def add_cartesian_vectors(hex1: Hex, hex2: Hex) -> Hex:
-    """Add two hex vectors by converting to Cartesian, adding, and converting back."""
-    cart1 = hex_to_cartesian_int(hex1)
-    cart2 = hex_to_cartesian_int(hex2)
-
-    result_cart = cart1 + cart2
-    return cartesian_int_to_hex(result_cart)
-
-
-def subtract_cartesian_vectors(hex1: Hex, hex2: Hex) -> Hex:
-    """Subtract two hex vectors by converting to Cartesian, subtracting, and converting back."""
-    cart1 = hex_to_cartesian_int(hex1)
-    cart2 = hex_to_cartesian_int(hex2)
-
-    result_cart = cart1 - cart2
-    return cartesian_int_to_hex(result_cart)
-
-
 def dot_product(a: Hex, b: Hex) -> float:
     """
     Calculate dot product of two hex vectors.
@@ -132,8 +96,8 @@ def dot_product(a: Hex, b: Hex) -> float:
     - Negative: Vectors point in opposite directions
     - Magnitude: Related to the cosine of angle between vectors
     """
-    a_cart = hex_to_cartesian_int(a)
-    b_cart = hex_to_cartesian_int(b)
+    a_cart = Cartesian.from_hex(a)
+    b_cart = Cartesian.from_hex(b)
     return float(a_cart.x) * float(b_cart.x) + float(a_cart.y) * float(b_cart.y)
 
 
@@ -149,9 +113,9 @@ def cross_product(o: Hex, a: Hex, b: Hex) -> float:
         - Negative: Clockwise turn (right turn)
         - Zero: Collinear points
     """
-    o_cart = hex_to_cartesian_int(o)
-    a_cart = hex_to_cartesian_int(a)
-    b_cart = hex_to_cartesian_int(b)
+    o_cart = Cartesian.from_hex(o)
+    a_cart = Cartesian.from_hex(a)
+    b_cart = Cartesian.from_hex(b)
     return (float(a_cart.x) - float(o_cart.x)) * (float(b_cart.y) - float(o_cart.y)) - (
         float(a_cart.y) - float(o_cart.y)
     ) * (float(b_cart.x) - float(o_cart.x))
@@ -173,8 +137,8 @@ def vector_angle(a: Hex, b: Hex) -> float:
     dot = dot_product(a, b)
 
     # Calculate magnitudes using Cartesian coordinates
-    a_cart = hex_to_cartesian_int(a)
-    b_cart = hex_to_cartesian_int(b)
+    a_cart = Cartesian.from_hex(a)
+    b_cart = Cartesian.from_hex(b)
 
     mag_a = sqrt(float(a_cart.x) * float(a_cart.x) + float(a_cart.y) * float(a_cart.y))
     mag_b = sqrt(float(b_cart.x) * float(b_cart.x) + float(b_cart.y) * float(b_cart.y))
@@ -199,5 +163,5 @@ def hex_magnitude(hex_coord: Hex) -> float:
     """
     from math import sqrt
 
-    cart = hex_to_cartesian_int(hex_coord)
+    cart = Cartesian.from_hex(hex_coord)
     return sqrt(float(cart.x) * float(cart.x) + float(cart.y) * float(cart.y))

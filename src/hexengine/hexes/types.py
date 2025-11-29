@@ -104,7 +104,7 @@ class Hex:
 
     @classmethod
     def from_cartesian(cls, cartesian: Cartesian) -> "Hex":
-        # duplicate of function in math.py but needed here to avoid circular imports
+        """Convert integer Cartesian coordinates to hex coordinates (flat-top orientation)."""
         i = (2.0 / 3.0) * cartesian.x
         j = cartesian.y / SQRT_THREE - i * 0.5
         k = -i - j

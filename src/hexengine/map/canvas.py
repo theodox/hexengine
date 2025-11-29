@@ -6,11 +6,11 @@ from ..hexes.types import Hex, Cartesian
 from ..document import element
 from .layout import HexLayout
 from .handler import Handler
-from ..hexes.shapes import polygon, convex_polygon
-from ..hexes.math import hex_to_cartesian_int, cartesian_int_to_hex, SQRT_THREE
+from ..hexes.shapes import polygon, convex_polygon, rectangle_from_corners
+from ..hexes.math import SQRT_THREE
 
 
-class SVGCanvas:
+class SVGLayer:
     def __init__(
         self,
         svg_element: js.SVGElement,
@@ -26,14 +26,59 @@ class SVGCanvas:
     def draw_hex(self, hex: Hex, fill="white", stroke="black"):
         points = self._hex_layout.hex_corners(hex)
         pointsString = " ".join([f"{x},{y}" for x, y in points])
-        polygon = js.document.createElementNS("http://www.w3.org/2000/svg", "polygon")
-        polygon.setAttribute("points", pointsString)
-        polygon.setAttribute("fill", fill)
-        polygon.setAttribute("stroke", stroke)
-        self._svg.appendChild(polygon)
+        poly = js.document.createElementNS("http://www.w3.org/2000/svg", "polygon")
+        poly.setAttribute("points", pointsString)
+        poly.setAttribute("fill", fill)
+        poly.setAttribute("stroke", stroke)
+        self._svg.appendChild(poly)
+
+    def draw_text(self, hex: Hex, text: str, font_size: int = 12):
+        txt = js.document.createElementNS("http://www.w3.org/2000/svg", "text")
+        x, y = self._hex_layout.hex_to_pixel(hex)
+        txt.setAttribute("x", str(x))
+        txt.setAttribute("y", str(y))
+        txt.setAttribute("font-size", str(font_size))
+        txt.setAttribute("fill", "black")
+        txt.textContent = text
+        self._svg.appendChild(txt)
+
+class UnitLayer:
+    def __init__(
+        self,
+        svg_element: js.SVGElement,
+        hex_layout: HexLayout,
+        hex_color: str,
+        hex_stroke: int,
+    ):
+        self._svg = svg_element
+        self._hex_layout = hex_layout
+        self._hex_color = hex_color
+        self._hex_stroke = hex_stroke
 
 
-class MapCanvas:
+    def draw_unit(self, hex: Hex, unit_type: str, fill="white", stroke="black"):
+        x, y = self._hex_layout.hex_to_pixel(hex)
+        x = int(round(x))
+        y = int(round(y))
+        circle = js.document.createElementNS("http://www.w3.org/2000/svg", "circle")
+        circle.setAttribute("cx", int(str(x)))
+        circle.setAttribute("cy", int(str(y)))
+        circle.setAttribute("r", str(self._hex_layout.size / 3))
+        circle.setAttribute("fill", fill)
+        circle.setAttribute("stroke", stroke)
+        self._svg.appendChild(circle)
+        txt = js.document.createElementNS("http://www.w3.org/2000/svg", "text")
+        txt.setAttribute("x", str(x))
+        txt.setAttribute("y", str(y + 4))  # Slightly below center
+        txt.setAttribute("font-size", str(self._hex_layout.size / 3))
+        txt.setAttribute("fill", "black")
+        txt.setAttribute("text-anchor", "middle")
+        txt.textContent = unit_type[0].upper()  # First letter of unit type
+        self._svg.appendChild(txt)
+        logging.getLogger().info(f"Drew unit {unit_type} at hex {hex}, pixel ({x}, {y})")
+
+
+class CanvasLayer:
     """
     The background bitmap canvas for drawing hexagons.
     """
@@ -64,25 +109,15 @@ class MapCanvas:
             f"Canvas size: {w}x{h}\n    hex size: {hex_layout.size}\n    grid size: {self._canvas.width}x{self._canvas.height}"
         )
 
-        # this is sloppy way to draw the grid background
-        # overlay -- the slop is there to extend the hex lines
-        # past the edges of the canvas to avoid gaps, but
-        # this is not the best way to do this.
-        start = Hex.from_cartesian(Cartesian(-2, -2))
-        br = Hex.from_cartesian(Cartesian(w+2, h+2))
+        start = Hex.from_cartesian(Cartesian(0, 0))
+        br = Hex.from_cartesian(Cartesian(w, h))
 
         self.draw_hex_rect(
             start,
             br,
-            fill="#00000000",
+            fill="#FFFFFF10",
             stroke=self.hex_color,
             stroke_width=self.hex_stroke,
-        )
-
-        test = Hex.from_cartesian(Cartesian(10,10))
-        test2 = Hex.from_cartesian(Cartesian(20,20))
-        self.draw_hex_rect(
-           test, test2, fill="#29E11433", stroke="#000000FF", stroke_width=0
         )
 
     @property
@@ -131,14 +166,11 @@ class MapCanvas:
         stroke="black",
         stroke_width=1,
     ):
-        tl = Cartesian.from_hex(top_left)
-        br = Cartesian.from_hex(bottom_right)
-        for x in range(tl.x, br.x + 1):
-            for y in range(tl.y, br.y + 1):
-                h = cartesian_int_to_hex(Cartesian(x, y))
-                #logging.getLogger().debug(f"Drawing hex at {h} for cartesian {x},{y}")
-                self.draw_hex(h, fill=fill, stroke=stroke, stroke_width=stroke_width)
+        rect = rectangle_from_corners(top_left, bottom_right)
+        for hex in rect:
+            self.draw_hex(hex, fill=fill, stroke=stroke, stroke_width=stroke_width)
 
+        
 
 class Map:
 
@@ -151,6 +183,7 @@ class Map:
         container_element: js.HTMLElement,
         canvas_element: js.HTMLCanvasElement,
         svg_element: js.SVGElement,
+        unit_element: js.SVGElement,
     ):
         self._container = container_element
 
@@ -173,12 +206,19 @@ class Map:
             self._hex_size + self._hex_margin,
         )
 
-        self._canvas = MapCanvas(
-            canvas_element, self._hex_layout, self._hex_color, self._hex_stroke
+        self._canvas = CanvasLayer(
+            canvas_element, self._hex_layout, 
+            self._hex_color, self._hex_stroke
         )
-        self._svg = SVGCanvas(
-            svg_element, self._hex_layout, self._hex_color, self._hex_stroke
+        self._svg = SVGLayer(
+            svg_element, self._hex_layout, 
+            self._hex_color, self._hex_stroke
         )
+        self._units = UnitLayer(
+            unit_element, self._hex_layout,
+            self._hex_color, self._hex_stroke
+        )
+
 
         self._clickHandler = Handler(self._container, "click")
         self._dblclickHandler = Handler(self._container, "dblclick")
@@ -215,11 +255,11 @@ class Map:
         return self._hex_layout
 
     @property
-    def canvas(self) -> MapCanvas:
+    def canvas(self) -> CanvasLayer:
         return self._canvas
 
     @property
-    def svg(self) -> MapCanvas:
+    def svg(self) -> CanvasLayer:
         return self._svg
 
     def draw_hex(self, hex: Hex, fill="white", stroke="black"):
@@ -228,6 +268,10 @@ class Map:
     def draw_hexes(self, hexes: Iterable[Hex], fill="white", stroke="black"):
         for hex in hexes:
             self.draw_hex(hex, fill=fill, stroke=stroke)
+
+    def draw_bg_hexes(self, hexes: Iterable[Hex], fill="white", stroke="black"):
+        for hex in hexes:
+            self.draw_bg_hex(hex, fill=fill, stroke=stroke)
 
     def draw_bg_hex(self, hex: Hex, fill="white", stroke="black"):
         points = self._hex_layout.hex_corners(hex)
@@ -241,10 +285,5 @@ class Map:
         self.canvas.context.closePath()
         self.canvas.context.fill()
 
-    def draw_text(
-        self, hex: Hex, text: str, font: str = "10px Arial", color: str = "black"
-    ):
-        x, y = self._hex_layout.hex_to_pixel(hex)
-        self.canvas._context.fillStyle = color
-        self.canvas._context.font = font
-        self.canvas._context.fillText(text, x - 6, y)
+    def draw_unit(self, hex: Hex, unit_type: str, fill="white", stroke="black"):
+        self._units.draw_unit(hex, unit_type, fill=fill, stroke=stroke)
