@@ -66,11 +66,12 @@ class UnitLayer:
         circle.setAttribute("r", str(int(self._hex_layout.size / 1.33)))
         circle.setAttribute("fill", fill)
         circle.setAttribute("stroke", stroke)
+        circle.setAttribute("id", "unit-" + unit_type)
         self._svg.appendChild(circle)
         txt = js.document.createElementNS("http://www.w3.org/2000/svg", "text")
         txt.setAttribute("x", str(x))
-        txt.setAttribute("y", str(y + 4))  # Slightly below center
-        txt.setAttribute("font-size", str(self._hex_layout.size / 3))
+        txt.setAttribute("y", str(y + 2))  # Slightly below center
+        txt.setAttribute("font-size", str(self._hex_layout.size / 2))
         txt.setAttribute("fill", "black")
         txt.setAttribute("text-anchor", "middle")
         txt.textContent = unit_type[0].upper()  # First letter of unit type

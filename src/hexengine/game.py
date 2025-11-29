@@ -23,6 +23,7 @@ class Game:
 
     def on_click(self, *args):
         logging.getLogger("map").info(f"Container clicked {args}")
+        logging.getLogger("map").info(f"{args[0].target.id} clicked")
         hex = self.canvas._hex_layout.pixel_to_hex(*args[-1])
         self.canvas.draw_hex(hex, fill="#D6FFDCFF", stroke="#00000000")
         logging.getLogger("map").info(f"{hex.i},{hex.j},{hex.k}")
