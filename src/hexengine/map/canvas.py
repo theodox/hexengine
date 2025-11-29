@@ -63,7 +63,7 @@ class UnitLayer:
         circle = js.document.createElementNS("http://www.w3.org/2000/svg", "circle")
         circle.setAttribute("cx", str(x))
         circle.setAttribute("cy", str(y))
-        circle.setAttribute("r", str(int(self._hex_layout.size)))
+        circle.setAttribute("r", str(int(self._hex_layout.size / 1.33)))
         circle.setAttribute("fill", fill)
         circle.setAttribute("stroke", stroke)
         self._svg.appendChild(circle)
