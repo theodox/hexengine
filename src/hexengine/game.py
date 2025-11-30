@@ -18,8 +18,13 @@ class Game:
         self.logger.info("Game initialized")
 
         self.canvas.on_click < self.on_click
+        
+        u = self.canvas.add_unit("unit1", "soldier")
+        
+        u.position = Hex(4,4,-8)
+        u.visible = True
 
-        self.canvas.draw_unit(Hex(7, 5, -12), unit_type="soldier", fill="#FF0000", stroke="#000000") 
+        #self.canvas.draw_unit(Hex(7, 5, -12), unit_type="soldier", fill="#FF0000", stroke="#000000") 
 
     def on_click(self, *args):
         logging.getLogger("map").info(f"Container clicked {args}")

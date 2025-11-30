@@ -8,7 +8,7 @@ from .layout import HexLayout
 from .handler import Handler
 from ..hexes.shapes import polygon, convex_polygon, rectangle_from_corners
 from ..hexes.math import SQRT_THREE
-
+from ..units import Unit
 
 class SVGLayer:
     def __init__(
@@ -42,6 +42,7 @@ class SVGLayer:
         txt.textContent = text
         self._svg.appendChild(txt)
 
+
 class UnitLayer:
     def __init__(
         self,
@@ -54,31 +55,37 @@ class UnitLayer:
         self._hex_layout = hex_layout
         self._hex_color = hex_color
         self._hex_stroke = hex_stroke
+        self.units = {}
 
 
-    def draw_unit(self, hex: Hex, unit_type: str, fill="white", stroke="black"):
-        x, y = self._hex_layout.hex_to_pixel(hex)
-        x = int(round(x))
-        y = int(round(y))
-        circle = js.document.createElementNS("http://www.w3.org/2000/svg", "circle")
-        circle.setAttribute("cx", str(x))
-        circle.setAttribute("cy", str(y))
-        circle.setAttribute("r", str(int(self._hex_layout.size / 1.33)))
-        circle.setAttribute("fill", fill)
-        circle.setAttribute("stroke", stroke)
-        circle.setAttribute("id", "unit-" + unit_type)
-        self._svg.appendChild(circle)
-        txt = js.document.createElementNS("http://www.w3.org/2000/svg", "text")
-        txt.setAttribute("x", str(x))
-        txt.setAttribute("y", str(y + 2))  # Slightly below center
-        txt.setAttribute("font-size", str(self._hex_layout.size / 2))
-        txt.setAttribute("fill", "black")
-        txt.setAttribute("text-anchor", "middle")
-        txt.textContent = unit_type[0].upper()  # First letter of unit type
-        self._svg.appendChild(txt)
-        logging.getLogger().info(f"Drew unit {unit_type} at hex {hex}, pixel ({x}, {y})")
+    def create_unit(self, unit_id: str, unit_type: str):
+        if unit_id in self.units:
+            raise ValueError(f"Unit with id {unit_id} already exists")
+            
+        # Create new proxy for unit type
+        proxy = js.document.createElementNS("http://www.w3.org/2000/svg", "g")
+        proxy.setAttribute("id", unit_id)
+        proxy.setAttribute("data-unit-type", unit_type)
+        proxy.setAttribute("display", "none")  # Initially hidden
+        self._svg.appendChild(proxy)
+        new_unit = Unit(unit_id, proxy, self._hex_layout)
+        self.units[unit_id] = new_unit
+        return new_unit
 
-
+    def remove_unit(self, unit: Unit):
+        if unit.unit_id not in self.units:
+            raise ValueError(f"Unit with id {unit.unit_id} does not exist")
+        unit.proxy.remove()
+        del self.units[unit.unit_id]
+        
+    def get_unit(self, unit_id: str) -> Unit:
+        if unit_id not in self.units:
+            raise ValueError(f"Unit with id {unit_id} does not exist")
+        return self.units[unit_id]
+    
+    def get_units(self) -> Iterable[Unit]:
+        return self.units.values()
+    
 class CanvasLayer:
     """
     The background bitmap canvas for drawing hexagons.
@@ -103,7 +110,7 @@ class CanvasLayer:
 
         hs = int(hex_layout.size)
 
-        w = (self._canvas.width - (self._hex_layout.origin_x * 2)) //  hs
+        w = (self._canvas.width - (self._hex_layout.origin_x * 2)) // hs
         h = (self._canvas.height - (self._hex_layout.origin_y * 2)) // hs
 
         logging.getLogger().info(
@@ -171,10 +178,8 @@ class CanvasLayer:
         for hex in rect:
             self.draw_hex(hex, fill=fill, stroke=stroke, stroke_width=stroke_width)
 
-        
 
 class Map:
-
     """
     A canvas for drawing hexagons.
     """
@@ -208,18 +213,14 @@ class Map:
         )
 
         self._canvas = CanvasLayer(
-            canvas_element, self._hex_layout, 
-            self._hex_color, self._hex_stroke
+            canvas_element, self._hex_layout, self._hex_color, self._hex_stroke
         )
         self._svg = SVGLayer(
-            svg_element, self._hex_layout, 
-            self._hex_color, self._hex_stroke
+            svg_element, self._hex_layout, self._hex_color, self._hex_stroke
         )
         self._units = UnitLayer(
-            unit_element, self._hex_layout,
-            self._hex_color, self._hex_stroke
+            unit_element, self._hex_layout, self._hex_color, self._hex_stroke
         )
-
 
         self._clickHandler = Handler(self._container, "click")
         self._dblclickHandler = Handler(self._container, "dblclick")
@@ -262,6 +263,10 @@ class Map:
     @property
     def svg(self) -> CanvasLayer:
         return self._svg
+    
+    @property
+    def units(self) -> UnitLayer:
+        return self._units
 
     def draw_hex(self, hex: Hex, fill="white", stroke="black"):
         self._svg.draw_hex(hex, fill=fill, stroke=stroke)
@@ -288,3 +293,6 @@ class Map:
 
     def draw_unit(self, hex: Hex, unit_type: str, fill="white", stroke="black"):
         self._units.draw_unit(hex, unit_type, fill=fill, stroke=stroke)
+
+    def add_unit(self, unit_id: str, unit_type: str) -> Unit:
+        return self._units.create_unit(unit_id, unit_type)
