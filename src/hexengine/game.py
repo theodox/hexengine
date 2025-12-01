@@ -22,6 +22,7 @@ class Game:
         u = self.canvas.add_unit("unit1", "soldier")
         
         u.position = Hex(4,4,-8)
+        u.rotation = 60.0
         u.visible = True
 
         #self.canvas.draw_unit(Hex(7, 5, -12), unit_type="soldier", fill="#FF0000", stroke="#000000") 

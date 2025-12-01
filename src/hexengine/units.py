@@ -31,6 +31,28 @@ class Unit:
 
     def _get_position(self) -> Hex:
         return self._hex
+    
+    def _get_rotation(self) -> float:
+        transform = self.proxy.getAttribute("transform")
+        if "rotate(" in transform:
+            start = transform.index("rotate(") + len("rotate(")
+            end = transform.index(")", start)
+            angle_str = transform[start:end]
+            return float(angle_str)
+        return 0.0
+    
+    def _set_rotation(self, angle: float):
+        transform = self.proxy.getAttribute("transform")
+        # Remove existing rotation if any
+        if "rotate(" in transform:
+            start = transform.index("rotate(")
+            end = transform.index(")", start) + 1
+            transform = transform[:start] + transform[end:]
+        # Append new rotation
+        transform += f" rotate({angle})"
+        self.proxy.setAttribute("transform", transform)
+
+
 
     def __repr__(self):
         return f"<Unit id={self.unit_id} hex=({self._hex.i},{self._hex.j},{self._hex.k})>"
@@ -67,7 +89,7 @@ class Unit:
     
     visible = property(_get_visible, _set_visible)
     position = property(_get_position, _set_position)
-
+    rotation = property(_get_rotation, _set_rotation)
 
 class GameUnit:
     """A game unit with logic and state."""
