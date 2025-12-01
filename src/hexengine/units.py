@@ -73,19 +73,13 @@ class Unit:
         if h % 2 != 0:
             h += 1  
 
-
         rect.setAttribute("x", -w // 2)
         rect.setAttribute("y", -h // 2)
         rect.setAttribute("width", w)
         rect.setAttribute("height", h)
         rect.setAttribute("rx", "4")
         rect.setAttribute("ry", "4")
-        rect.setAttribute("class", self.unit_type)
         self.proxy.appendChild(rect)
-    
-
-
-
     
     visible = property(_get_visible, _set_visible)
     position = property(_get_position, _set_position)

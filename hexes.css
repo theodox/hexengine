@@ -1,3 +1,8 @@
+.soldier rect {
+    fill: rgb(185, 185, 63);
+    stroke: rgb(255, 0, 0);
+}
+
 #map-container {
     position: relative;
     width: 100%;
@@ -55,10 +60,7 @@
     gap: 8px;
 }
 
-.soldier {
-    fill: rgb(80, 80, 27);
-    stroke: rgba(0, 0, 0, 0.311);
-}
+
 
 #main-frame {
     position: absolute;
