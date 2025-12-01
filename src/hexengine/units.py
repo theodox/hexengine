@@ -7,8 +7,9 @@ from typing import TYPE_CHECKING, Iterable
 class Unit:
     """The display component of a game unit."""
 
-    def __init__(self, unit_id: str, proxy: "JSProxys", layout: HexLayout = None):
+    def __init__(self, unit_id: str, unit_type: str, proxy: "JSProxys", layout: HexLayout = None):
         self.unit_id = unit_id
+        self.unit_type = unit_type
         self.proxy = proxy
         self._hex = Hex(-1,-1,2)  # Default off-map
         self._hex_layout = layout
@@ -65,7 +66,7 @@ class Unit:
 
         # tbd - this should be delegated to a sprite manager
         rect = js.document.createElementNS("http://www.w3.org/2000/svg", "rect")
-        w = 2 * int(self._hex_layout.size / 1.33)
+        w = 2 * int(self._hex_layout.size / 1.5)
         if w % 2 != 0:
             w += 1
         h = 2 * int(self._hex_layout.size / 1.5)
@@ -79,8 +80,7 @@ class Unit:
         rect.setAttribute("height", h)
         rect.setAttribute("rx", "4")
         rect.setAttribute("ry", "4")
-        rect.setAttribute("fill", "yellow")
-        rect.setAttribute("stroke", "black")
+        rect.setAttribute("class", self.unit_type)
         self.proxy.appendChild(rect)
     
 

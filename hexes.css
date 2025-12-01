@@ -55,6 +55,11 @@
     gap: 8px;
 }
 
+.soldier {
+    fill: rgb(80, 80, 27);
+    stroke: rgba(0, 0, 0, 0.311);
+}
+
 #main-frame {
     position: absolute;
     width: 90%;
