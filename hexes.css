@@ -1,6 +1,28 @@
+
 .soldier rect {
-    fill: rgb(185, 185, 63);
-    stroke: rgb(255, 0, 0);
+    fill: rgb(59, 123, 61);
+    stroke: rgba(0, 0, 0, 0.25);
+    stroke-width: 1px;
+}
+
+.soldier:hover rect {
+    fill: rgb(140, 216, 46);
+    stroke: rgba(0, 0, 0, 0.5);
+    stroke-width: 1px;
+    cursor: pointer;
+}
+
+.soldier.active rect {
+    fill: rgb(199, 186, 43);
+}
+
+.soldier text {
+    fill: white;
+    font-size: 9pt;
+    text-anchor: middle;
+    font-family: sans-serif;
+    dominant-baseline: middle;
+    pointer-events: none;
 }
 
 #map-container {
@@ -64,7 +86,7 @@
 
 #main-frame {
     position: absolute;
-    width: 90%;
+    width: calc(100% - 32px);
     background-color: rgba(72, 72, 72, 0.8);
     display: flex;
     flex-direction: column;
