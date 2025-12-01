@@ -90,12 +90,14 @@ class Unit:
         rect.setAttribute("id", f"unit-{self.unit_id}-rect")
         rect.setAttribute("data-unit-type", self.unit_type)
         rect.setAttribute("data-unit", self.unit_id)
+        rect.setAttribute("user-select", "none")
         self.proxy.appendChild(rect)
 
         t = js.document.createElementNS("http://www.w3.org/2000/svg", "text")
         t.setAttribute("x", "0")    
         t.setAttribute("y", "5")    
         t.textContent = "2-4-8"
+        t.setAttribute("user-select", "none")
         self.proxy.appendChild(t)
     
     visible = property(_get_visible, _set_visible)

@@ -29,6 +29,7 @@ class UnitLayer:
         proxy.setAttribute("data-unit-type", unit_type)
         proxy.setAttribute("display", "none")  # Initially hidden
         proxy.setAttribute("class", unit_type)  # Initial position
+        proxy.setAttribute("user-select", "none")
         self._svg.appendChild(proxy)
         new_unit = Unit(unit_id, unit_type, proxy, self._hex_layout)
         self.units[unit_id] = new_unit

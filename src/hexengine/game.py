@@ -18,7 +18,7 @@ class Game:
         self.logger.info("Game initialized")
 
         self.canvas.on_click < self.on_click
-        
+        self.canvas.on_drag < self.on_drag
        
         # Add a test unit
         for r in range(10):
@@ -26,6 +26,7 @@ class Game:
             u.position = Hex(0, r,-r)
             u.visible = True
 
+        self.selection = None
        
     def on_click(self, *args):
         logging.getLogger("map").info(f">{args[0].target.id}< clicked")
@@ -34,6 +35,7 @@ class Game:
             unit = self.canvas.units.get_unit(unit_id)
             unit.active = not unit.active
             logging.getLogger("game").info(f"Unit {unit.unit_id} active state is now {unit.active}")
+            self.selection = unit
         else:
             h = self.canvas.hex_layout.pixel_to_hex(args[0].offsetX, args[0].offsetY)
             for u in self.canvas.units.get_units():
@@ -41,3 +43,13 @@ class Game:
                     logging.getLogger("game").info(f"Moving active unit {u.unit_id} to hex ({h.i},{h.j},{h.k})")
                     u.position = h
                     u.active = False
+            self.selection = None
+
+    def on_drag(self, *args):
+        if args[0].buttons != 1:
+            return
+        if self.selection:
+            h = self.canvas.hex_layout.pixel_to_hex(args[0].offsetX, args[0].offsetY)
+            logging.getLogger("game").info(f"Dragging unit {self.selection.unit_id} to hex ({h.i},{h.j},{h.k})")
+            self.selection.position = h
+        logging.getLogger("map").info(f"Dragging at ({args[0].offsetX},{args[0].offsetY})")
