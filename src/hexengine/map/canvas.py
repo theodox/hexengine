@@ -180,8 +180,8 @@ class Map:
             unit_element, self._hex_layout, self._hex_color, self._hex_stroke
         )
 
-        self._clickHandler = Handler(self._container, "click")
-        self._dblclickHandler = Handler(self._container, "dblclick")
+        #self._clickHandler = Handler(self._container, "click")
+        #self._dblclickHandler = Handler(self._container, "dblclick")
         self._dragHandler = Handler(self._container, "mousemove")
         self._mouse_downHandler = Handler(self._container, "mousedown")
         self._mouse_upHandler = Handler(self._container, "mouseup")

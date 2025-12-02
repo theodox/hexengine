@@ -4,14 +4,17 @@ import js
 import logging
 from typing import TYPE_CHECKING, Iterable
 
+
 class Unit:
     """The display component of a game unit."""
 
-    def __init__(self, unit_id: str, unit_type: str, proxy: "JSProxys", layout: HexLayout = None):
+    def __init__(
+        self, unit_id: str, unit_type: str, proxy: "js.Proxy", layout: HexLayout = None
+    ):
         self.unit_id = unit_id
         self.unit_type = unit_type
         self.proxy = proxy
-        self._hex = Hex(-1,-1,2)  # Default off-map
+        self._hex = Hex(-1, -1, 2)  # Default off-map
         self._hex_layout = layout
         self._create_graphics()
 
@@ -27,12 +30,11 @@ class Unit:
     def _set_position(self, hex: Hex):
         self._hex = hex
         x, y = self._hex_layout.hex_to_pixel(self._hex)
-        logging.getLogger("unit").debug(f"Setting unit {self.unit_id} position to hex ({self._hex.i},{hex.j},{hex.k}) -> pixel ({x},{y})")
         self.proxy.setAttribute("transform", f"translate({x},{y})")
 
     def _get_position(self) -> Hex:
         return self._hex
-    
+
     def _get_rotation(self) -> float:
         transform = self.proxy.getAttribute("transform")
         if "rotate(" in transform:
@@ -41,7 +43,7 @@ class Unit:
             angle_str = transform[start:end]
             return float(angle_str)
         return 0.0
-    
+
     def _set_rotation(self, angle: float):
         transform = self.proxy.getAttribute("transform")
         # Remove existing rotation if any
@@ -53,22 +55,22 @@ class Unit:
         transform += f" rotate({angle})"
         self.proxy.setAttribute("transform", transform)
 
-
     def _get_active(self) -> bool:
         return self.proxy.classList.contains("active")
-    
+
     def _set_active(self, value: bool):
         if value:
-            self.proxy.classList.add("active")  
+            self.proxy.classList.add("active")
         else:
             self.proxy.classList.remove("active")
 
     def __repr__(self):
-        return f"<Unit id={self.unit_id} hex=({self._hex.i},{self._hex.j},{self._hex.k})>"
-    
+        return (
+            f"<Unit id={self.unit_id} hex=({self._hex.i},{self._hex.j},{self._hex.k})>"
+        )
+
     def __hash__(self):
         return hash(self.unit_id)
-    
 
     def _create_graphics(self):
 
@@ -77,7 +79,7 @@ class Unit:
             w += 1
         h = 2 * int(self._hex_layout.size / 1.5)
         if h % 2 != 0:
-            h += 1  
+            h += 1
 
         rect = js.document.createElementNS("http://www.w3.org/2000/svg", "rect")
 
@@ -90,20 +92,20 @@ class Unit:
         rect.setAttribute("id", f"unit-{self.unit_id}-rect")
         rect.setAttribute("data-unit-type", self.unit_type)
         rect.setAttribute("data-unit", self.unit_id)
-        rect.setAttribute("user-select", "none")
         self.proxy.appendChild(rect)
 
         t = js.document.createElementNS("http://www.w3.org/2000/svg", "text")
-        t.setAttribute("x", "0")    
-        t.setAttribute("y", "5")    
+        t.setAttribute("x", "0")
+        t.setAttribute("y", "5")
         t.textContent = "2-4-8"
-        t.setAttribute("user-select", "none")
+        t.setAttribute("class", "unit-label")
         self.proxy.appendChild(t)
-    
+
     visible = property(_get_visible, _set_visible)
     position = property(_get_position, _set_position)
     rotation = property(_get_rotation, _set_rotation)
     active = property(_get_active, _set_active)
+
 
 class GameUnit:
     """A game unit with logic and state."""
