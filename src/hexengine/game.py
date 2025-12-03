@@ -22,9 +22,11 @@ class Game:
         assert map is not None, "Map canvas element not found"
         assert svg is not None, "Map SVG element not found"
         self.canvas = Map(container, map, svg, units)
-        self.click_time = -1000
+
+        self.click_time = js.Date.now()
         self.drag_start = (0, 0)
         self.drag_end = (0, 0)
+        self.selection = None
         self.mouse_state = MouseState.UP
 
         self.logger = logging.getLogger("game")
@@ -37,10 +39,8 @@ class Game:
         # Add a test unit
         for r in range(6):
             u = self.canvas.add_unit(f"unit{r}", "soldier")
-            u.position = Hex(0, r,-r)
+            u.position = Hex(10, r,-r -10)
             u.visible = True
-
-        self.selection = None
 
         self.dummy = element("xxx")
        
