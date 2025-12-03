@@ -50,6 +50,7 @@
     top: 0px;
     left: 0px;
     user-select: none;
+    z-index: 5;
 }
 
 #map-svg {
@@ -141,3 +142,36 @@
     resize: none;
     top: 8px;
 }
+
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+#loading {
+    position: absolute;
+    width: 50%;
+    height: 25%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(10, 38, 55, 0.425);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 32px;
+    color: rgb(217, 217, 150);
+    font-size: 24px;
+    font-family: sans-serif;
+}
+
+#loading b {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+

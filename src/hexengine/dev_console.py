@@ -40,6 +40,8 @@ def initialize(name: str, game_globals) -> logging.Logger:
 
     TextAreaReader.INSTANCE = TextAreaReader(inputArea, game_globals)
     ROOT_LOGGER.debug("Dev console initialized")
+    TextAreaWriter.set_active_level(logging.INFO)
+    TextAreaWriter.update(logging.INFO)
 
 
 def update_log_display(event, textArea: js.HTMLElement):
