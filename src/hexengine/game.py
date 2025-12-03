@@ -23,11 +23,13 @@ class Game:
         assert svg is not None, "Map SVG element not found"
         self.canvas = Map(container, map, svg, units)
 
-        self.click_time = js.Date.now()
+        self.click_time = 0
+        self.last_click_time = 0
         self.drag_start = (0, 0)
         self.drag_end = (0, 0)
         self.selection = None
         self.mouse_state = MouseState.UP
+        self.double_click_threshold = 300  # milliseconds
 
         self.logger = logging.getLogger("game")
         self.logger.info("Game initialized")
@@ -103,31 +105,35 @@ class Game:
         if not self.selection:
             self.logger.debug("Mouse up with no selection")
             return
-        
-        delta = js.Date.now() - self.click_time
-        self.click_time = js.Date.now()
+
+        current_time = js.Date.now()
         distance = self.mouse_distance()
+        self.snap_to_grid()
         if distance < 12:
-            self.logger.debug(f"Mouse up after {delta} ms, considered a click")
-            self.on_click(*args)        
-        else:
-            logging.getLogger("game").debug(f"Mouse up after {delta} ms, move distance {distance}")
-            self.snap_to_grid()
-            self.selection.active = False
-            self.selection = None
-
-
+            # Check if this is a double-click
+            time_since_last_click = current_time - self.last_click_time
+            if time_since_last_click < self.double_click_threshold:
+                self.logger.debug(f"Double-click detected ({time_since_last_click} ms)")
+                self.on_dbl_click(*args)
+                self.last_click_time = 0  # Reset to prevent triple-click
+            else:
+                self.logger.debug(f"Single click detected")
+                self.on_click(*args)
+                self.last_click_time = current_time
 
     def on_click(self, *args):
-
-        #logging.getLogger("map").debug(f">{args[0].target.id}< clicked")
-        target = args[0].target
-        self.dummy.value = f"Target id: {target.id} {self.mouse_state} {self.selection}"
-
-        self.click_time = js.Date.now()
-
         if self.selection:
-            self.snap_to_grid()
+            self.selection.active = False
+            self.selection = None
+            logging.getLogger("game").debug("Click processed, unit snapped to grid")
+        else:
+            logging.getLogger("game").debug("Click with no selection")
+
+    def on_dbl_click(self, *args):
+        logging.getLogger("game").debug("Double click detected")
+        if self.selection:
+            # Example: toggle visibility on double-click
+            self.selection.visible = not self.selection.visible
             self.selection.active = False
             self.selection = None
         else:
