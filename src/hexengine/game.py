@@ -23,8 +23,8 @@ class Game:
         assert svg is not None, "Map SVG element not found"
         self.canvas = Map(container, map, svg, units)
         self.click_time = -1000
-        self.click_start = (0, 0)
-        self.click_end = (0, 0)
+        self.drag_start = (0, 0)
+        self.drag_end = (0, 0)
         self.mouse_state = MouseState.UP
 
         self.logger = logging.getLogger("game")
@@ -41,47 +41,73 @@ class Game:
             u.visible = True
 
         self.selection = None
-       
-    def on_mouse_down(self, *args):
-        self.click_start = (args[0].offsetX, args[0].offsetY)
-        self.mouse_state = MouseState.DOWN
 
-        unit_id = args[0].target.getAttribute("data-unit")
+        self.dummy = element("xxx")
+       
+    def mouse_distance(self):
+        dx = abs(self.drag_start[0] - self.drag_end[0])
+        dy = abs(self.drag_start[1] - self.drag_end[1])
+        return (dx ** 2 + dy ** 2) ** 0.5
+
+    def on_mouse_down(self, *args):
         if self.selection:
             self.selection.active = False
 
+        # args[2] contains the properly calculated coordinates from Handler
+        self.drag_start = args[2] if len(args) > 2 else (args[0].offsetX, args[0].offsetY)
+        self.mouse_state = MouseState.DOWN
+
+        # Walk up the tree to find element with data-unit
+        target = args[0].target
+        self.dummy.value = f"Target id: {target.id} {self.mouse_state} {self.selection}"
+    
+        logging.getLogger("game").debug(f"Mouse down at {self.drag_start}, target element id: {target.id}")
+        unit_id = None
+        while target and not unit_id:
+            unit_id = target.getAttribute("data-unit")
+            if not unit_id:
+                target = target.parentElement
+        
         if unit_id:
             unit = self.canvas.units.get_unit(unit_id)
-            unit.active = not unit.active
+            unit.active = True
             self.selection = unit
-            self.logger.debug(f"Mouse down at {self.click_start}, target unit: {unit_id}")
+            self.logger.debug(f"Mouse down at {self.drag_start}, target unit: {unit_id}, active: {unit.active}")
         else:
-            self.logger.debug("Mouse down")
+            self.selection = None
+            self.logger.debug("Mouse down on background")
     
     def on_drag(self, *args):
-        self.click_end = (args[0].offsetX, args[0].offsetY)
-        self.mouse_state = MouseState.DRAGGING
         if args[0].buttons != 1:
+            self.mouse_state = MouseState.UP
             return
-        if self.selection:
-            dx = abs(self.click_start[0] - self.click_end[0])
-            dy = abs(self.click_start[1] - self.click_end[1])
-            distance = (dx ** 2 + dy ** 2) ** 0.5
-            if distance > 12:   
-                self.selection.proxy.setAttribute("transform", f"translate{self.click_end}")
-        else:
-            self.logger.debug("Dragging with no selection")
+        
+        # args[2] contains the properly calculated coordinates from Handler
+        self.drag_end = args[2] if len(args) > 2 else (args[0].offsetX, args[0].offsetY)
+        self.mouse_state = MouseState.DRAGGING
+
+        if not self.selection:
+            return
+        
+        distance = self.mouse_distance()
+        if distance > 12:
+            # Place unit directly at cursor position
+            self.selection.proxy.setAttribute("transform", f"translate({self.drag_end[0]},{self.drag_end[1]})")
 
     def on_mouse_up(self, *args):
         self.mouse_state = MouseState.UP
+        target = args[0].target
+        self.dummy.value = f"Target id: {target.id} {self.mouse_state} {self.selection}"
+
+        self.drag_end = args[2] if len(args) > 2 else (args[0].offsetX, args[0].offsetY)
         if not self.selection:
             self.logger.debug("Mouse up with no selection")
             return
+        
         delta = js.Date.now() - self.click_time
-        dx = abs(self.click_start[0] - self.click_end[0])
-        dy = abs(self.click_start[1] - self.click_end[1])
-        distance = (dx ** 2 + dy ** 2) ** 0.5
-        if distance < 20:
+        self.click_time = js.Date.now()
+        distance = self.mouse_distance()
+        if distance < 12:
             self.logger.debug(f"Mouse up after {delta} ms, considered a click")
             self.on_click(*args)        
         else:
@@ -90,9 +116,15 @@ class Game:
             self.selection.active = False
             self.selection = None
 
+
+
     def on_click(self, *args):
 
         #logging.getLogger("map").debug(f">{args[0].target.id}< clicked")
+        target = args[0].target
+        self.dummy.value = f"Target id: {target.id} {self.mouse_state} {self.selection}"
+
+        self.click_time = js.Date.now()
 
         if self.selection:
             self.snap_to_grid()
@@ -103,12 +135,12 @@ class Game:
 
     def on_dbl_click(self, *args):
         logging.getLogger("game").debug("Double click detected")
-        self.selection.visible = not self.selection.visible
+        #self.selection.visible = not self.selection.visible
         self.snap_to_grid()
         
 
     def snap_to_grid(self):
-        x, y = self.click_end
+        x, y = self.drag_end
         h = self.canvas.hex_layout.pixel_to_hex(x, y)
         self.selection.position = h
      

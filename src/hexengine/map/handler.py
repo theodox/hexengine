@@ -20,7 +20,8 @@ class Handler:
 
     def _handle_event(self, event):
         # handle the click coordinates for canvas elements
-        rect = event.target.getBoundingClientRect()
+        # Always use owner's bounding box for consistent coordinate system
+        rect = self._owner.getBoundingClientRect()
         x = event.clientX - rect.left
         y = event.clientY - rect.top
         if hasattr(self._owner, "width"):
