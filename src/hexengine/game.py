@@ -4,6 +4,7 @@ from .map import Map
 from .map.mouse_handler import MouseHandler
 from .document import element
 from .hexes.types import Hex
+from .dev_console import set_status
 import js
 
 from pyodide.ffi import create_proxy
@@ -22,6 +23,7 @@ class Game:
         map = element("map-canvas")
         svg = element("map-svg")
         units = element("map-units")
+
         assert map is not None, "Map canvas element not found"
         assert svg is not None, "Map SVG element not found"
         self.canvas = Map(container, map, svg, units)
@@ -48,8 +50,6 @@ class Game:
             u.position = Hex(10, r, -r - 10)
             u.visible = True
 
-        self.dummy = element("xxx")
-
     def mouse_distance(self):
         dx = abs(self.drag_start[0] - self.drag_end[0])
         dy = abs(self.drag_start[1] - self.drag_end[1])
@@ -58,7 +58,7 @@ class Game:
     def on_mouse_down(self, *args):
         # Prevent default to stop text selection and default drag behavior
         args[0].preventDefault()
-        
+
         # args[2] contains the properly calculated coordinates from Handler
         self.drag_start = (
             args[2] if len(args) > 2 else (args[0].offsetX, args[0].offsetY)
@@ -67,15 +67,21 @@ class Game:
 
         # Walk up the tree to find element with data-unit
         target = args[0].target
-        self.dummy.value = f"Target id: {target.id} {self.mouse_state} {self.selection}"
+        set_status(f"Target: {target} {self.mouse_state} {self.selection}")
 
-        self.logger.debug(
-            f"Mouse down at {self.drag_start}, target element id: {target.id}"
-        )
+        if target.id == "map-units":
+            # Clicked on background
+            if self.selection:
+                self.selection.active = False
+            self.selection = None
+            self.logger.debug("Mouse down on background")
+            return
+
         unit_id = None
         while target and not unit_id:
             unit_id = target.getAttribute("data-unit")
             if not unit_id:
+                self.logger.warning(f"Walking up from {target} to parent")
                 target = target.parentElement
 
         if unit_id:
@@ -93,7 +99,7 @@ class Game:
             if self.selection:
                 self.selection.active = False
             self.selection = None
-            self.logger.debug("Mouse down on background")
+            self.logger.warning("Mouse down on background")
 
     def on_drag(self, *args):
         if args[0].buttons != 1:
@@ -102,7 +108,7 @@ class Game:
 
         # Prevent default to stop text selection during drag
         args[0].preventDefault()
-        
+
         # args[2] contains the properly calculated coordinates from Handler
         self.drag_end = args[2] if len(args) > 2 else (args[0].offsetX, args[0].offsetY)
         self.mouse_state = MouseState.DRAGGING
@@ -120,7 +126,7 @@ class Game:
     def on_mouse_up(self, *args):
         self.mouse_state = MouseState.UP
         target = args[0].target
-        self.dummy.value = f"Target id: {target.id} {self.mouse_state} {self.selection}"
+        set_status(f"Target: {target} {self.mouse_state} {self.selection}")
 
         self.drag_end = args[2] if len(args) > 2 else (args[0].offsetX, args[0].offsetY)
         if not self.selection:
@@ -160,7 +166,7 @@ class Game:
             self.logger.debug("Click processed, unit snapped to grid")
         else:
             self.logger.debug("Click with no selection")
-        
+
         self.last_click_time = 0
 
     def on_dbl_click(self, *args):

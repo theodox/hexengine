@@ -89,16 +89,27 @@ class Unit:
         rect.setAttribute("height", h)
         rect.setAttribute("rx", "4")
         rect.setAttribute("ry", "4")
-        rect.setAttribute("id", f"unit-{self.unit_id}-rect")
-        rect.setAttribute("data-unit-type", self.unit_type)
         rect.setAttribute("data-unit", self.unit_id)
         self.proxy.appendChild(rect)
 
+        # remember to set 'data unit' on all elements for event handling!
+
+        c = js.document.createElementNS("http://www.w3.org/2000/svg", "circle")
+        c.setAttribute("cx", "0")  
+        c.setAttribute("cy", "-6")  
+        c.setAttribute("r", str(min(w, h) // 5))
+        c.setAttribute("class", "unit-center")
+        c.setAttribute("data-unit", self.unit_id)
+        self.proxy.appendChild(c)
+
+
         t = js.document.createElementNS("http://www.w3.org/2000/svg", "text")
         t.setAttribute("x", "0")
-        t.setAttribute("y", "5")
+        t.setAttribute("y", "12")
         t.textContent = "2-4-8"
         t.setAttribute("class", "unit-label")
+        t.setAttribute("data-unit", self.unit_id)
+
         self.proxy.appendChild(t)
 
     visible = property(_get_visible, _set_visible)

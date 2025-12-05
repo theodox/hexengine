@@ -24,6 +24,11 @@
     fill: rgb(235, 224, 110);
 }
 
+.soldier.unit-center {
+    fill: rgba(56, 189, 160, 0.75);
+    pointer-events: none;
+    user-select: none;
+}
 
 #map-container {
     position: relative;
@@ -106,6 +111,21 @@
     gap: 8px;
     flex-direction: row;
 }
+
+#status-line {
+    font-family: monospace;
+    font-size: 8pt;
+    color: rgb(255, 243, 140);
+    background: hwb(0 0% 100%);
+    width: 650px;
+    height: 24px;
+    border: none;
+    resize: none;
+    top: 8px;
+    user-select: none;
+    pointer-events: none;
+}   
+
 
 #log-level-picker {
     position: relative;

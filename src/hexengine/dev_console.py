@@ -22,6 +22,10 @@ def initialize(name: str, game_globals) -> logging.Logger:
     log_level_select = element("log-level-picker")
     assert log_level_select is not None, "Log level picker not found"
 
+    status_line = element("status-line")
+    assert status_line is not None, "Status line area not found"
+    StatusLine.INSTANCE = StatusLine(status_line)
+
     global ROOT_LOGGER
     ROOT_LOGGER = logging.getLogger(name)
     handler = DevLogHandler(textArea)
@@ -50,6 +54,8 @@ def update_log_display(event, textArea: js.HTMLElement):
     TextAreaWriter.set_active_level(level)
     TextAreaWriter.update(level)
 
+def set_status(message: str):
+    StatusLine.INSTANCE.set_status(message)
 
 class TextAreaWriter:
     ACTIVE_LEVEL = logging.DEBUG
@@ -80,6 +86,17 @@ class TextAreaWriter:
         slf.textArea.value = "\n".join(messages or ["-"])
         slf.textArea.scrollTop = slf.textArea.scrollHeight
 
+
+class StatusLine:
+    INSTANCE = None
+
+    def __init__(self, textArea: js.HTMLElement):
+        self.textArea = textArea
+        self.logger = logging.getLogger("status")
+        self.logger.debug("StatusLine initialized")
+
+    def set_status(self, message: str):
+        self.textArea.value = message
 
 class TextAreaReader:
     INSTANCE = None
