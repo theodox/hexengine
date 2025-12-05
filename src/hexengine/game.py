@@ -52,9 +52,6 @@ class Game:
         return (dx ** 2 + dy ** 2) ** 0.5
 
     def on_mouse_down(self, *args):
-        if self.selection:
-            self.selection.active = False
-
         # args[2] contains the properly calculated coordinates from Handler
         self.drag_start = args[2] if len(args) > 2 else (args[0].offsetX, args[0].offsetY)
         self.mouse_state = MouseState.DOWN
@@ -72,10 +69,16 @@ class Game:
         
         if unit_id:
             unit = self.canvas.units.get_unit(unit_id)
+            # Only clear previous selection if clicking on a different unit
+            if self.selection and self.selection != unit:
+                self.selection.active = False
             unit.active = True
             self.selection = unit
             self.logger.debug(f"Mouse down at {self.drag_start}, target unit: {unit_id}, active: {unit.active}")
         else:
+            # Clicking on background - clear selection
+            if self.selection:
+                self.selection.active = False
             self.selection = None
             self.logger.debug("Mouse down on background")
     
