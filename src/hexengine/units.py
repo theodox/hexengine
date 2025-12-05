@@ -5,7 +5,7 @@ import logging
 from typing import TYPE_CHECKING, Iterable
 
 
-class Unit:
+class DisplayUnit:
     """The display component of a game unit."""
 
     def __init__(
@@ -121,7 +121,7 @@ class Unit:
 class GameUnit:
     """A game unit with logic and state."""
 
-    def __init__(self, unit_id: str, unit_type: str, unit_display: Unit):
+    def __init__(self, unit_id: str, unit_type: str, unit_display: DisplayUnit):
         self.unit_id = unit_id
         self.unit_type = unit_type
         self.display = unit_display

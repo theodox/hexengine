@@ -9,7 +9,7 @@ from .handler import Handler
 from .unit_layer import UnitLayer
 from ..hexes.shapes import polygon, convex_polygon, rectangle_from_corners
 from ..hexes.math import SQRT_THREE
-from ..units import Unit
+from ..units import DisplayUnit
 
 class SVGLayer:
     def __init__(
@@ -252,5 +252,5 @@ class Map:
     def draw_unit(self, hex: Hex, unit_type: str, fill="white", stroke="black"):
         self._units.draw_unit(hex, unit_type, fill=fill, stroke=stroke)
 
-    def add_unit(self, unit_id: str, unit_type: str) -> Unit:
+    def add_unit(self, unit_id: str, unit_type: str) -> DisplayUnit:
         return self._units.create_unit(unit_id, unit_type)

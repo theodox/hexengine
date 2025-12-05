@@ -11,7 +11,7 @@ from .document import element
 from .hexes.math import Hex
 from .hexes.shapes import angle, convex_hull, path, polygon, line  # , convex_polygon
 from .excepthook import install_exception_hook
-from .game import Game, MouseState
+from .game import Game
 
 __version__ = "0.1.1"
 

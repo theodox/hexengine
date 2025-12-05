@@ -1,7 +1,7 @@
 import js  # pyright: ignore[reportMissingImports]
 from typing import Iterable
 from .layout import HexLayout
-from ..units import Unit
+from ..units import DisplayUnit
 
 
 class UnitLayer:
@@ -35,20 +35,20 @@ class UnitLayer:
         proxy.setAttribute("class", unit_type)  # Initial position
         proxy.setAttribute("user-select", "none")
         self._svg.appendChild(proxy)
-        new_unit = Unit(unit_id, unit_type, proxy, self._hex_layout)
+        new_unit = DisplayUnit(unit_id, unit_type, proxy, self._hex_layout)
         self.units[unit_id] = new_unit
         return new_unit
 
-    def remove_unit(self, unit: Unit):
+    def remove_unit(self, unit: DisplayUnit):
         if unit.unit_id not in self.units:
             raise ValueError(f"Unit with id {unit.unit_id} does not exist")
         unit.proxy.remove()
         del self.units[unit.unit_id]
         
-    def get_unit(self, unit_id: str) -> Unit:
+    def get_unit(self, unit_id: str) -> DisplayUnit:
         if unit_id not in self.units:
             raise ValueError(f"Unit with id {unit_id} does not exist")
         return self.units[unit_id]
     
-    def get_units(self) -> Iterable[Unit]:
+    def get_units(self) -> Iterable[DisplayUnit]:
         return self.units.values()
