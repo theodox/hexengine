@@ -6,6 +6,7 @@ from ..document import element
 from ..hexes.types import Hex
 from ..dev_console import set_status
 import js
+from ..hexes.shapes import radius
 
 from pyodide.ffi import create_proxy
 
@@ -131,6 +132,9 @@ class Game:
         self.drag_end = args[2] if len(args) > 2 else (args[0].offsetX, args[0].offsetY)
         if not self.selection:
             self.logger.debug("Mouse up with no selection")
+            hex = self.canvas.hex_layout.pixel_to_hex(*self.drag_end)
+            r =  radius(hex, 2)
+            self.canvas.draw_hexes(r, fill = "#c71c1c5c")
             return
 
         current_time = js.Date.now()
