@@ -1,10 +1,10 @@
 from enum import Enum
 import logging
-from .map import Map
-from .map.mouse_handler import MouseHandler
-from .document import element
-from .hexes.types import Hex
-from .dev_console import set_status
+from ..map import Map
+from ..map.mouse_handler import MouseHandler
+from ..document import element
+from ..hexes.types import Hex
+from ..dev_console import set_status
 import js
 
 from pyodide.ffi import create_proxy

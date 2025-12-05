@@ -5,6 +5,9 @@ from ..units import Unit
 
 
 class UnitLayer:
+    """
+    This is the display layer for game units on the map.
+    It manages the creation, updating, and removal of unit graphics."""
     def __init__(
         self,
         svg_element: js.SVGElement,
@@ -17,6 +20,7 @@ class UnitLayer:
         self._hex_color = hex_color
         self._hex_stroke = hex_stroke
         self.units = {}
+        self.map_units = {}
 
 
     def create_unit(self, unit_id: str, unit_type: str):
