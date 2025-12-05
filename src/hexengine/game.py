@@ -5,6 +5,8 @@ from .map.mouse_handler import MouseHandler
 from .document import element
 from .hexes.types import Hex
 import js
+                
+from pyodide.ffi import create_proxy
 
 class MouseState(Enum):
     UP = 0
@@ -30,6 +32,7 @@ class Game:
         self.selection = None
         self.mouse_state = MouseState.UP
         self.double_click_threshold = 300  # milliseconds
+        self.pending_click_timeout = None
 
         self.logger = logging.getLogger("game")
         self.logger.info("Game initialized")
@@ -45,7 +48,7 @@ class Game:
             u.visible = True
 
         self.dummy = element("xxx")
-       
+
     def mouse_distance(self):
         dx = abs(self.drag_start[0] - self.drag_end[0])
         dy = abs(self.drag_start[1] - self.drag_end[1])
@@ -60,7 +63,7 @@ class Game:
         target = args[0].target
         self.dummy.value = f"Target id: {target.id} {self.mouse_state} {self.selection}"
     
-        logging.getLogger("game").debug(f"Mouse down at {self.drag_start}, target element id: {target.id}")
+        self.logger.debug(f"Mouse down at {self.drag_start}, target element id: {target.id}")
         unit_id = None
         while target and not unit_id:
             unit_id = target.getAttribute("data-unit")
@@ -116,37 +119,47 @@ class Game:
             # Check if this is a double-click
             time_since_last_click = current_time - self.last_click_time
             if time_since_last_click < self.double_click_threshold:
+                # Cancel pending single click
+                if self.pending_click_timeout is not None:
+                    js.clearTimeout(self.pending_click_timeout)
+                    self.pending_click_timeout = None
                 self.logger.debug(f"Double-click detected ({time_since_last_click} ms)")
                 self.on_dbl_click(*args)
                 self.last_click_time = 0  # Reset to prevent triple-click
             else:
-                self.logger.debug(f"Single click detected")
-                self.on_click(*args)
+                # Delay single click to check for double-click
+                self.logger.debug(f"Click detected, waiting for potential double-click")
+                if self.pending_click_timeout is not None:
+                    js.clearTimeout(self.pending_click_timeout)
+
+                self.pending_click_timeout = js.setTimeout(
+                    create_proxy(lambda: self.on_click(*args)),
+                    self.double_click_threshold
+                )
                 self.last_click_time = current_time
+
 
     def on_click(self, *args):
         if self.selection:
             self.selection.active = False
             self.selection = None
-            logging.getLogger("game").debug("Click processed, unit snapped to grid")
+            self.logger.debug("Click processed, unit snapped to grid")
         else:
-            logging.getLogger("game").debug("Click with no selection")
+            self.logger.debug("Click with no selection")
+
 
     def on_dbl_click(self, *args):
-        logging.getLogger("game").debug("Double click detected")
+        self.logger.debug("Double click detected")
         if self.selection:
             # Example: toggle visibility on double-click
-            self.selection.visible = not self.selection.visible
+            #self.selection
+            self.logger.debug(f"Double click on unit {self.selection.unit_id}")
             self.selection.active = False
             self.selection = None
+            #self.selection.visible = not self.selection.visible
         else:
-            logging.getLogger("game").debug("Click with no selection")
+            self.logger.debug("double click with no selection")
 
-    def on_dbl_click(self, *args):
-        logging.getLogger("game").debug("Double click detected")
-        #self.selection.visible = not self.selection.visible
-        self.snap_to_grid()
-        
 
     def snap_to_grid(self):
         x, y = self.drag_end
