@@ -34,5 +34,10 @@ def main():
 
     global GAME, MAP
     GAME = Game()
+    MAP = GAME.canvas
 
-    MAP = hex_canvas = GAME.canvas
+    for u in range(10):
+        unit = GAME.canvas.add_unit(f"unit-{u}", "soldier")
+        unit.position = Hex(u, 0,-u)
+        unit.visible = True
+        logger.warning(f"Created unit: {unit}")

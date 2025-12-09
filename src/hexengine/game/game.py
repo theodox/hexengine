@@ -45,12 +45,6 @@ class Game:
         self.canvas.on_mouse_up < self.on_mouse_up
         self.canvas.on_drag < self.on_drag
 
-        # Add a test unit
-        for r in range(6):
-            u = self.canvas.add_unit(f"unit{r}", "soldier")
-            u.position = Hex(10, r, -r - 10)
-            u.visible = True
-
     def mouse_distance(self):
         dx = abs(self.drag_start[0] - self.drag_end[0])
         dy = abs(self.drag_start[1] - self.drag_end[1])
@@ -120,7 +114,7 @@ class Game:
         distance = self.mouse_distance()
         if distance > 12:
             # Place unit directly at cursor position
-            self.selection.proxy.setAttribute(
+            self.selection.display.proxy.setAttribute(
                 "transform", f"translate({self.drag_end[0]},{self.drag_end[1]})"
             )
 
