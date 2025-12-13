@@ -1,9 +1,15 @@
 import logging
 from pyodide.ffi import create_proxy
+from enum import IntFlag, auto
+
 
 HANDLER_LOGGER = logging.getLogger("handler")
 HANDLER_LOGGER.setLevel(logging.DEBUG)
 
+class Modifiers(IntFlag):
+    ALT = auto()
+    SHIFT = auto()  
+    CONTROL = auto()    # Note: CONTROL is not a valid flag in the MODIFIER_KEYS enum, it should be CONTROL
 
 class Handler:
     """
@@ -16,8 +22,7 @@ class Handler:
         self._event_type = event_type
         self.proxy = create_proxy(self._handle_event)
         self._owner.addEventListener(event_type, self.proxy)
-
-
+    
     def _handle_event(self, event):
         # handle the click coordinates for canvas elements
         # Always use owner's bounding box for consistent coordinate system
@@ -34,8 +39,14 @@ class Handler:
         else:
             sy = 1.0
 
+        alt = Modifiers.ALT if event.getModifierState("Alt") else 0
+        shift = Modifiers.SHIFT if event.getModifierState("Shift") else 0
+        control = Modifiers.CONTROL if event.getModifierState("Control") else 0
+
+        modifiers = alt | shift | control
+
         for handler in self._handlers:
-            handler(event, self._owner, (x * sx, y * sy))
+            handler(event, self._owner, (x * sx, y * sy), modifiers)
 
     def __lt__(self, handler):
         # use < to add a handler
