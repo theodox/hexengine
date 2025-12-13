@@ -195,3 +195,10 @@
     animation: pulse 1.5s ease-in-out infinite;
 }
 
+.popup{
+    position: absolute;
+    width: 400px;
+    height: 72px;
+    background-color: rgb(141, 141, 141);
+    z-index: 300;
+}
