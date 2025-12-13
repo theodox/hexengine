@@ -1,5 +1,6 @@
 import js
 import logging
+from pyodide.ffi import create_proxy
 
 LOGGER = logging.getLogger("PopupManager")
 
@@ -37,8 +38,11 @@ class Popup:
         self.message = message
         self.position = position
         self.element = None
+        self.canvas = None
+        self.faded = False
+        self.timeout = 0
 
-    def display(self, canvas):
+    def display(self, canvas, timeout = 500):
         div = js.document.createElement("div")
         div.className = "popup"
         div.innerHTML = self.message 
@@ -46,7 +50,25 @@ class Popup:
         div.style.top = f"{self.position[1]}px"
         canvas.appendChild(div)
         self.element = div
-    
-    def delete(self, canvas):
+        self.canvas = canvas
+        self.timeout = timeout
+        
+        if timeout:
+            self.element.addEventListener(
+                "mouseleave", create_proxy(lambda _: self.do_fade())
+                )
+
+    def delete(self, *_):
         LOGGER.info(f"Removing popup with message: {self.message}")
-        canvas.removeChild(self.element)
+        self.canvas.removeChild(self.element)
+
+    def do_fade(self, *_):
+        if self.faded:
+            return
+        logging.getLogger("Popup").info(f"Fading out {self}")
+        self.faded = True
+        def fade_out(*_):
+            self.element.classList.add("fade-out")
+            js.setTimeout(create_proxy(lambda: self.delete()), 1000)
+
+        js.setTimeout(create_proxy(fade_out), self.timeout)
