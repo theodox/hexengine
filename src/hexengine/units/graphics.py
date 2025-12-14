@@ -1,18 +1,18 @@
 from ..hexes.types import Hex
 from ..map.layout import HexLayout
 import js
-from typing import TYPE_CHECKING, Iterable, Protocol
+from typing import Iterable, Protocol
 from contextlib import contextmanager
-
-# Display constants
-UNIT_SIZE_DIVISOR = 1.5
-HEAD_OFFSET_DIVISOR = 5
-HEAD_RADIUS_DIVISOR = 5
 
 
 class GraphicsCreator(Protocol):
     BASE_CLASSES = ("unit",)
     STYLE_CREATED = False
+    
+    # Display constants
+    UNIT_SIZE_DIVISOR = 1.5
+    HEAD_OFFSET_DIVISOR = 5
+    HEAD_RADIUS_DIVISOR = 5
 
     def create(self, display_unit: "DisplayUnit"): 
         """
@@ -27,10 +27,10 @@ class GraphicsCreator(Protocol):
 
 
     def _get_unit_size(self, display_unit):
-        w = 2 * int(display_unit._hex_layout.size / UNIT_SIZE_DIVISOR)
+        w = 2 * int(display_unit._hex_layout.size / self.UNIT_SIZE_DIVISOR)
         if w % 2 != 0:
             w += 1
-        h = 2 * int(display_unit._hex_layout.size / UNIT_SIZE_DIVISOR)
+        h = 2 * int(display_unit._hex_layout.size / self.UNIT_SIZE_DIVISOR)
         if h % 2 != 0:
             h += 1
         return w, h
@@ -49,122 +49,6 @@ class GraphicsCreator(Protocol):
     def register(cls):
         ...
 
-
-class GenericGraphicsCreator(GraphicsCreator):
-    BASE_CLASSES = ("soldier", "unit")
-
-    def create(self, display_unit: "DisplayUnit"):
-        display_unit.push_classes(*self.BASE_CLASSES)
-        w, h = self._get_unit_size(display_unit)
-
-        rect = js.document.createElementNS("http://www.w3.org/2000/svg", "rect")
-        with self._attach(display_unit, rect):
-            rect.setAttribute("x", -w // 2)
-            rect.setAttribute("y", -h // 2)
-            rect.setAttribute("width", w - 2)
-            rect.setAttribute("height", h - 2)
-            
-
-        c = js.document.createElementNS("http://www.w3.org/2000/svg", "circle")
-        with self._attach(display_unit, c, "soldier-center"):
-            c.setAttribute("r", str(min(w, h) // HEAD_RADIUS_DIVISOR))
-
-        t = js.document.createElementNS("http://www.w3.org/2000/svg", "text")
-        with self._attach(display_unit, t, "soldier-text"):
-            t.setAttribute("x", "0")
-            t.setAttribute("y", h // 3)
-            display_unit.set_text_element(t)
-
-        return display_unit
-
-    @classmethod
-    def register(cls):
-        style = js.document.createElement("style")
-        style.textContent = """
-        .soldier rect {
-            fill: rgb(118, 161, 82);
-            stroke: rgba(0, 0, 0, 0.25);
-        }
-
-        .soldier:hover rect {
-            fill: rgb(134, 130, 82);
-        }
-
-        .soldier.active rect {
-            fill: rgb(255, 243, 110);
-        }
-
-        .soldier text {
-            fill: rgba(34, 13, 13, 0.75);
-            font-size: 8pt;
-            text-anchor: middle;
-            font-family: sans-serif;
-            font-weight: bold;
-            pointer-events: none;
-            user-select: none;
-        }
-
-        .soldier-center {
-            position: absolute;
-            cy: -6px;
-            
-            fill: rgba(35, 54, 49, 0.75);
-            pointer-events: none;
-            user-select: none;
-        }
-        """
-        js.document.head.appendChild(style)
-
-
-class CanuckGraphicsCreator(GraphicsCreator):
-    BASE_CLASSES = ("unit", "canuck")
- 
-
-    def create(self, display_unit: "DisplayUnit"):
-        # Implement specific graphics creation for Canuck units
-        display_unit.push_classes(*self.BASE_CLASSES)
-        w, h = self._get_unit_size(display_unit)
-
-        rect = js.document.createElementNS("http://www.w3.org/2000/svg", "rect")   
-        with self._attach(display_unit, rect, "canuck"):
-            rect.setAttribute("x", -w // 2)
-            rect.setAttribute("y", -h // 2)
-            rect.setAttribute("width", w)
-            rect.setAttribute("height", h)
-        
-        flag = js.document.createElementNS("http://www.w3.org/2000/svg", "image")
-        with self._attach(display_unit, flag, "canuck-flag"):
-            flag.setAttribute("x", -w // 2)
-            flag.setAttribute("y", -h // 2)
-            flag.setAttribute("width", w)
-            flag.setAttribute("height", h)
-            flag.setAttributeNS(
-                "http://www.w3.org/1999/xlink", "href", "resources/canada.png"
-            )
-        
-        return display_unit
-
-    @classmethod
-    def register(cls):
-        if not cls.STYLE_CREATED:
-            style = js.document.createElement("style")
-            style.textContent = """
-            .canuck rect {
-                fill: rgb(135, 13, 2);
-                stroke: rgba(0, 0, 0, 0.25);
-            }
-
-            .canuck:hover rect {
-                fill: rgb(177, 98, 1);
-            }
-
-            .canuck.active rect {
-                fill: rgb(255, 57, 57);
-            }
-            """
-            js.document.head.appendChild(style)
-
-        cls.STYLE_CREATED = True
 
 class DisplayUnit:
     """The display component of a game unit."""

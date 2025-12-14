@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 from ..hexes.types import Hex
-from .graphics import DisplayUnit, GraphicsCreator, GenericGraphicsCreator, CanuckGraphicsCreator
+from .graphics import DisplayUnit, GraphicsCreator
 
 if TYPE_CHECKING:
     from ..map import Map
@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 class GameUnit:
     """A game unit with logic and state."""
-    GRAPHICS_CREATOR: GraphicsCreator = GenericGraphicsCreator
+    GRAPHICS_CREATOR: GraphicsCreator = None
 
     def __init__(self, unit_id: str, unit_type: str, unit_display: DisplayUnit):
         self.unit_id = unit_id
@@ -59,18 +59,13 @@ class GameUnit:
     
     @classmethod
     def create(cls, unit_id: str, unit_type: str, map: "Map"):
-        # Import here to avoid circular import at module level
-        from ..map import Map
         display_unit = DisplayUnit(unit_id, unit_type, map.hex_layout)
         graphics = cls.GRAPHICS_CREATOR().create(display_unit)
         return cls(unit_id, unit_type, graphics) 
-    
-
-class CanuckUnit(GameUnit):
-    GRAPHICS_CREATOR: GraphicsCreator = CanuckGraphicsCreator
-    """A game unit with logic and state, using the CanuckGraphicsCreator for display."""
 
 
-class GenericUnit(GameUnit):
-    GRAPHICS_CREATOR: GraphicsCreator = GenericGraphicsCreator
-    """A game unit with logic and state, using the GenericGraphicsCreator for display."""
+# Import concrete unit types for easy access
+from .canuck import CanuckUnit
+from .generic import GenericUnit
+
+__all__ = ["GameUnit", "DisplayUnit", "GraphicsCreator", "CanuckUnit", "GenericUnit"]
