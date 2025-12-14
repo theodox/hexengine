@@ -199,6 +199,13 @@ Popup styles
 /*
 Generic unit styles
 */
+:root {
+    --unit-width: 40px;
+    --unit-height: 40px;
+    --unit-half-width: calc(var(--unit-width) / 2);
+    --unit-half-height: calc(var(--unit-height) / 2);
+}
+
 .unit g {
     cursor: pointer;
 }
@@ -210,5 +217,8 @@ Generic unit styles
     ry: 5px;
     border-width: 2px;
     z-index: 10;
+    x: calc(-1 * var(--unit-half-width));
+    y: calc(-1 * var(--unit-half-height));
+    width: var(--unit-width);
+    height: var(--unit-height);
 }
-

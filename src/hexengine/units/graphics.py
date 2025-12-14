@@ -8,13 +8,13 @@ from contextlib import contextmanager
 class GraphicsCreator(Protocol):
     BASE_CLASSES = ("unit",)
     STYLE_CREATED = False
-    
+
     # Display constants
     UNIT_SIZE_DIVISOR = 1.5
     HEAD_OFFSET_DIVISOR = 5
     HEAD_RADIUS_DIVISOR = 5
 
-    def create(self, display_unit: "DisplayUnit"): 
+    def create(self, display_unit: "DisplayUnit"):
         """
         the create method builds the SVG elements
         for a given unit and appends them to the unit's proxy.
@@ -24,7 +24,6 @@ class GraphicsCreator(Protocol):
         the text element.
         """
         ...
-
 
     def _get_unit_size(self, display_unit):
         w = 2 * int(display_unit._hex_layout.size / self.UNIT_SIZE_DIVISOR)
@@ -46,23 +45,25 @@ class GraphicsCreator(Protocol):
             display_unit.proxy.appendChild(element)
 
     @classmethod
-    def register(cls):
-        ...
+    def register(cls): 
+        if not cls.STYLE_CREATED and hasattr(cls, "_CSS"): 
+            style = js.document.createElement("style")
+            style.innerHTML = cls._CSS
+            js.document.head.appendChild(style)
+            cls.STYLE_CREATED = True
 
 
 class DisplayUnit:
     """The display component of a game unit."""
 
-    def __init__(
-        self, unit_id: str, unit_type: str, layout: HexLayout = None
-    ):
+    def __init__(self, unit_id: str, unit_type: str, layout: HexLayout = None):
         self.unit_id = unit_id
         self.unit_type = unit_type
         self.proxy = js.document.createElementNS("http://www.w3.org/2000/svg", "g")
         self.proxy.setAttribute("id", unit_id)
         self.proxy.setAttribute("data-unit-type", unit_type)
         self.proxy.setAttribute("display", "none")
-        self.proxy.setAttribute("user-select", "none")        
+        self.proxy.setAttribute("user-select", "none")
         self._hex = Hex(-2, -2, 4)  # Default off-map
         self._hex_layout = layout
         self.text_element = None

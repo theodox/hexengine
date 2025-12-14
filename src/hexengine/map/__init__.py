@@ -7,7 +7,6 @@ This package provides components for rendering and interacting with hexagonal ma
 from .layout import HexLayout
 from .canvas import Map
 from .handler import Handler
-from .mouse_handler import MouseHandler
 
 __all__ = [
     "HexLayout",

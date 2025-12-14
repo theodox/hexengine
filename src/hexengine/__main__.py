@@ -12,7 +12,7 @@ from .hexes.math import Hex
 from .hexes.shapes import angle, convex_hull, path, polygon, line  # , convex_polygon
 from .excepthook import install_exception_hook
 from .game import Game
-from .game.scenario import TEST_SCENARIO
+from .game.scenarios.test_scenario import TEST_SCENARIO
 
 __version__ = "0.1.1"
 

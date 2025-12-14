@@ -1,12 +1,6 @@
-from asyncio.log import logger
 import logging
 from ..map import Map
-from ..map.mouse_handler import MouseHandler
 from ..document import element
-from ..hexes.types import Hex
-from ..dev_console import set_status
-import js
-from ..hexes.shapes import radius
 
 from pyodide.ffi import create_proxy
 
@@ -21,8 +15,7 @@ class Game(EventHandlerMixin):
         svg = element("map-svg")
         units = element("map-units")
         self.popup_manager = PopupManager(container)
-        
-
+    
         assert map is not None, "Map canvas element not found"
         assert svg is not None, "Map SVG element not found"
         self.canvas = Map(container, map, svg, units)
@@ -44,12 +37,3 @@ class Game(EventHandlerMixin):
         self.canvas.on_drag < self.on_drag
 
 
-    def mouse_distance(self):
-        dx = abs(self.drag_start[0] - self.drag_end[0])
-        dy = abs(self.drag_start[1] - self.drag_end[1])
-        return (dx**2 + dy**2) ** 0.5
-
-    def snap_to_grid(self):
-        x, y = self.drag_end
-        h = self.canvas.hex_layout.pixel_to_hex(x, y)
-        self.selection.position = h
