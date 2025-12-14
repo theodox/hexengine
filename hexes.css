@@ -246,12 +246,12 @@ Generic unit styles
 canuck unit styles
 */
 .canuck rect {
-    fill: rgb(82, 9, 2);
+    fill: rgb(135, 13, 2);
     stroke: rgba(0, 0, 0, 0.25);
 }
 
 .canuck:hover rect {
-    fill: rgb(177, 1, 1);
+    fill: rgb(177, 98, 1);
 }
 
 .canuck.active rect {
