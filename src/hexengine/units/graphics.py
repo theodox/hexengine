@@ -57,7 +57,6 @@ class GenericGraphicsCreator(GraphicsCreator):
         display_unit.push_classes(*self.BASE_CLASSES)
         w, h = self._get_unit_size(display_unit)
 
-
         rect = js.document.createElementNS("http://www.w3.org/2000/svg", "rect")
         with self._attach(display_unit, rect):
             rect.setAttribute("x", -w // 2)
@@ -126,23 +125,23 @@ class CanuckGraphicsCreator(GraphicsCreator):
         display_unit.push_classes(*self.BASE_CLASSES)
         w, h = self._get_unit_size(display_unit)
 
-        rect = js.document.createElementNS("http://www.w3.org/2000/svg", "rect")
-        rect.setAttribute("x", -w // 2)
-        rect.setAttribute("y", -h // 2)
-        rect.setAttribute("width", w)
-        rect.setAttribute("height", h)
-        rect.setAttribute("fill", "lightblue")
-        self._attach(display_unit, rect)
-
+        rect = js.document.createElementNS("http://www.w3.org/2000/svg", "rect")   
+        with self._attach(display_unit, rect, "canuck"):
+            rect.setAttribute("x", -w // 2)
+            rect.setAttribute("y", -h // 2)
+            rect.setAttribute("width", w)
+            rect.setAttribute("height", h)
+        
         flag = js.document.createElementNS("http://www.w3.org/2000/svg", "image")
-        flag.setAttribute("x", -w // 2)
-        flag.setAttribute("y", -h // 2)
-        flag.setAttribute("width", w)
-        flag.setAttribute("height", h)
-        flag.setAttributeNS(
-            "http://www.w3.org/1999/xlink", "href", "resources/canada.png"
-        )
-        self._attach(display_unit, flag)
+        with self._attach(display_unit, flag, "canuck-flag"):
+            flag.setAttribute("x", -w // 2)
+            flag.setAttribute("y", -h // 2)
+            flag.setAttribute("width", w)
+            flag.setAttribute("height", h)
+            flag.setAttributeNS(
+                "http://www.w3.org/1999/xlink", "href", "resources/canada.png"
+            )
+        
         return display_unit
 
     @classmethod
@@ -171,11 +170,15 @@ class DisplayUnit:
     """The display component of a game unit."""
 
     def __init__(
-        self, unit_id: str, unit_type: str, proxy: "js.Proxy", layout: HexLayout = None
+        self, unit_id: str, unit_type: str, layout: HexLayout = None
     ):
         self.unit_id = unit_id
         self.unit_type = unit_type
-        self.proxy = proxy
+        self.proxy = js.document.createElementNS("http://www.w3.org/2000/svg", "g")
+        self.proxy.setAttribute("id", unit_id)
+        self.proxy.setAttribute("data-unit-type", unit_type)
+        self.proxy.setAttribute("display", "none")
+        self.proxy.setAttribute("user-select", "none")        
         self._hex = Hex(-2, -2, 4)  # Default off-map
         self._hex_layout = layout
         self.text_element = None

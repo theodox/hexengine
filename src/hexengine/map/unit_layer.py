@@ -23,16 +23,6 @@ class UnitLayer:
         self._hex_stroke = hex_stroke
         self.units = {}
 
-    def get_display_unit(self, unit_id: str, unit_type: str) -> DisplayUnit:
-        # Create new proxy for unit type
-        proxy = js.document.createElementNS("http://www.w3.org/2000/svg", "g")
-        proxy.setAttribute("id", unit_id)
-        proxy.setAttribute("data-unit-type", unit_type)
-        proxy.setAttribute("display", "none")
-        proxy.setAttribute("user-select", "none")
-        self._svg.appendChild(proxy)
-        return DisplayUnit(unit_id, unit_type, proxy, self._hex_layout)
-
     def add_unit(self, unit: GameUnit):
         if unit.unit_id in self.units:
             raise ValueError(f"Unit with id {unit.unit_id} already exists")
@@ -40,7 +30,8 @@ class UnitLayer:
             logger = logging.getLogger("game_logger")
             logger.info(f"Adding unit {unit.unit_id} of type {unit.unit_type}")
             logger.info(f"display {unit.display}")
-
+    
+        self._svg.appendChild(unit.display.proxy)
         self.units[unit.unit_id] = unit
 
     def remove_unit(self, unit: DisplayUnit):

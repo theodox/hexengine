@@ -61,7 +61,7 @@ class GameUnit:
     def create(cls, unit_id: str, unit_type: str, map: "Map"):
         # Import here to avoid circular import at module level
         from ..map import Map
-        display_unit = map.get_display_unit(unit_id, unit_type)
+        display_unit = DisplayUnit(unit_id, unit_type, map.hex_layout)
         graphics = cls.GRAPHICS_CREATOR().create(display_unit)
         return cls(unit_id, unit_type, graphics) 
     
