@@ -2,10 +2,9 @@ import logging
 from ..map import Map
 from ..document import element
 
-from pyodide.ffi import create_proxy
-
 from .events import EventHandlerMixin, MouseState
 from .popups import PopupManager, Popup
+
 
 class Game(EventHandlerMixin):
     def __init__(self):
@@ -15,7 +14,7 @@ class Game(EventHandlerMixin):
         svg = element("map-svg")
         units = element("map-units")
         self.popup_manager = PopupManager(container)
-    
+
         assert map is not None, "Map canvas element not found"
         assert svg is not None, "Map SVG element not found"
         self.canvas = Map(container, map, svg, units)
@@ -35,5 +34,3 @@ class Game(EventHandlerMixin):
         self.canvas.on_mouse_down < self.on_mouse_down
         self.canvas.on_mouse_up < self.on_mouse_up
         self.canvas.on_drag < self.on_drag
-
-

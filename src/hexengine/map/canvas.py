@@ -170,6 +170,11 @@ class Map:
             self._hex_size + self._hex_margin,
         )
 
+        # Set CSS variables for unit sizing based on hex layout
+        unit_size = (int(self._hex_layout.size * 1.5)) - 2
+        js.document.documentElement.style.setProperty('--unit-width', f'{unit_size}px')
+        js.document.documentElement.style.setProperty('--unit-height', f'{unit_size}px')
+
         self._canvas = CanvasLayer(
             canvas_element, self._hex_layout, self._hex_color, self._hex_stroke
         )

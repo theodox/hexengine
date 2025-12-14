@@ -24,8 +24,6 @@ class GenericGraphicsCreator(GraphicsCreator):
         return display_unit
 
     _CSS = """
-    
-/* Soldier (Generic) unit styles */
 .soldier rect {
     fill: rgb(118, 161, 82);
     stroke: rgba(0, 0, 0, 0.25);

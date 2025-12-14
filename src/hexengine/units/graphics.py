@@ -22,17 +22,11 @@ class GraphicsCreator(Protocol):
         It has to call the _attach method to add the elements
         and if there's a text element, it has to call set_text_element to set
         the text element.
+
+        The concrete class should provide appropriate CSS
+        in a class field named _CSS.
         """
         ...
-
-    def _get_unit_size(self, display_unit):
-        w = 2 * int(display_unit._hex_layout.size / self.UNIT_SIZE_DIVISOR)
-        if w % 2 != 0:
-            w += 1
-        h = 2 * int(display_unit._hex_layout.size / self.UNIT_SIZE_DIVISOR)
-        if h % 2 != 0:
-            h += 1
-        return w, h
 
     @contextmanager
     def _attach(self, display_unit, element, *classes):
