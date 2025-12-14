@@ -22,15 +22,13 @@ class Scenario:
 
     def populate(self, map: Map):
         for member in self.units:
+            member.cls.GRAPHICS_CREATOR.register()
             unit = member.cls.create(member.unit_id, member.unit_type, map)
             unit.position = member.position
             unit.display.set_text(member.unit_id[-4:])
             map.add_unit(unit)
             unit.visible = member.visible   
             
-
-
-
 TEST_SCENARIO = Scenario(
     name="Test Scenario",
     description="A simple test scenario for the game.",
