@@ -22,9 +22,27 @@ class TargetType(Enum):
 class EventHandlerMixin:
     """Mixin class providing mouse event handling functionality for the Game class."""
 
-    MIN_DRAG_DISTANCE = 10
-    DBL_CLICK_THRESHOLD = 300  # milliseconds
+    MIN_DRAG_DISTANCE = 10     # pixels
+    DBL_CLICK_THRESHOLD = 330  # milliseconds
 
+    def _mouse_distance(self):
+        dx = abs(self.drag_start[0] - self.drag_end[0])
+        dy = abs(self.drag_start[1] - self.drag_end[1])
+        return (dx**2 + dy**2) ** 0.5
+
+    def _snap_to_grid(self):
+        x, y = self.drag_end
+        h = self.canvas.hex_layout.pixel_to_hex(x, y)
+        self.selection.position = h
+
+    def _constrain_to_hexes(self, mousepos, current_hex, hexes):
+        if self.selection.position:
+            x, y = mousepos
+            h = self.canvas.hex_layout.pixel_to_hex(x, y)
+            if h in hexes:
+                return h
+        return current_hex
+    
     def on_mouse_down(self, event, source, position, modifiers):
         # Prevent default to stop text selection and default drag behavior
         event.preventDefault()
@@ -110,7 +128,7 @@ class EventHandlerMixin:
         self.last_click_time = 0
 
     def _bg_drag(self, event, source, position, modifiers):
-        distance = self.mouse_distance()
+        distance = self._mouse_distance()
         self.logger.debug(f"Dragging background by {distance} pixels")
 
     def _bg_mousedown(self, modifiers):
@@ -125,7 +143,7 @@ class EventHandlerMixin:
         current_time = js.Date.now()
         time_since_last_click = current_time - self.last_click_time
         potential_double_click = time_since_last_click < self.DBL_CLICK_THRESHOLD
-        distance = self.mouse_distance()
+        distance = self._mouse_distance()
 
         if distance < self.MIN_DRAG_DISTANCE:
             # Check if this is a double-click
@@ -168,7 +186,9 @@ class EventHandlerMixin:
 
     def _unit_dbl_click(self, event, source, position, modifiers):
         self.logger.debug("Double click detected")
+        active_unit = "nothing"
         if self.selection:
+            active_unit = self.selection
             # Example: toggle visibility on double-click
             # self.selection
             self.logger.debug(f"Double click on unit {self.selection.unit_id}")
@@ -180,10 +200,11 @@ class EventHandlerMixin:
         self.last_click_time = 0
 
         if Modifiers.ALT & modifiers:
-            self.popup_manager.create_popup("unit", position)
+            offset_pos = position[0] - 10, position[1] - 20
+            self.popup_manager.create_popup(f"{active_unit.unit_id} @ {active_unit.position}", offset_pos)
 
     def _unit_drag(self, event, source, position, modifiers):
-        distance = self.mouse_distance()
+        distance = self._mouse_distance()
         if distance > 12:
             # Place unit directly at cursor position
             self.selection.display.proxy.setAttribute(
@@ -209,8 +230,8 @@ class EventHandlerMixin:
         time_since_last_click = current_time - self.last_click_time
         potential_double_click = time_since_last_click < self.DBL_CLICK_THRESHOLD
 
-        distance = self.mouse_distance()
-        self.snap_to_grid()
+        distance = self._mouse_distance()
+        self._snap_to_grid()
 
         if distance < self.MIN_DRAG_DISTANCE:
             # Check if this is a double-click

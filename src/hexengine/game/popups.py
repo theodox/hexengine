@@ -45,7 +45,7 @@ class Popup:
     def display(self, canvas, timeout = 500):
         div = js.document.createElement("div")
         div.className = "popup"
-        div.innerHTML = self.message 
+        div.innerHTML = "<p><b>" + str(self.message) + "</b></p>"
         div.style.left = f"{self.position[0]}px"
         div.style.top = f"{self.position[1]}px"
         canvas.appendChild(div)
@@ -53,22 +53,25 @@ class Popup:
         self.canvas = canvas
         self.timeout = timeout
         
-        if timeout:
+        if self.timeout:
             self.element.addEventListener(
-                "mouseleave", create_proxy(lambda _: self.do_fade())
+                "mouseleave", 
+                create_proxy(lambda _: self.do_fade())
                 )
 
     def delete(self, *_):
         LOGGER.info(f"Removing popup with message: {self.message}")
-        self.canvas.removeChild(self.element)
+        if self.canvas.contains(self.element):
+            self.canvas.removeChild(self.element)
 
     def do_fade(self, *_):
         if self.faded:
             return
         logging.getLogger("Popup").info(f"Fading out {self}")
         self.faded = True
+        
         def fade_out(*_):
             self.element.classList.add("fade-out")
-            js.setTimeout(create_proxy(lambda: self.delete()), 1000)
+            js.setTimeout(create_proxy(lambda: self.delete()), self.timeout)
 
         js.setTimeout(create_proxy(fade_out), self.timeout)

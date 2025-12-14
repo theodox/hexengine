@@ -9,7 +9,7 @@ from .handler import Handler
 from .unit_layer import UnitLayer
 from ..hexes.shapes import polygon, convex_polygon, rectangle_from_corners
 from ..hexes.math import SQRT_THREE
-from ..units import DisplayUnit
+from ..units import DisplayUnit, GameUnit
 
 class SVGLayer:
     def __init__(
@@ -184,14 +184,6 @@ class Map:
         self._mouse_downHandler = Handler(self._container, "mousedown")
         self._mouse_upHandler = Handler(self._container, "mouseup")
 
-    # @property
-    # def on_click(self):
-    #     return self._clickHandler
-
-    # @property
-    # def on_dblclick(self):
-    #     return self._dblclickHandler
-
     @property
     def on_drag(self):
         return self._dragHandler
@@ -247,8 +239,8 @@ class Map:
         self.canvas.context.closePath()
         self.canvas.context.fill()
 
-    def draw_unit(self, hex: Hex, unit_type: str, fill="white", stroke="black"):
-        self._units.draw_unit(hex, unit_type, fill=fill, stroke=stroke)
+    def get_display_unit(self, unit_id: str, unit_type: str) -> DisplayUnit:
+        return self._units.get_display_unit(unit_id, unit_type)
 
-    def add_unit(self, unit_id: str, unit_type: str) -> DisplayUnit:
-        return self._units.create_unit(unit_id, unit_type)
+    def add_unit(self, unit: GameUnit) -> DisplayUnit:
+        self._units.add_unit(unit)

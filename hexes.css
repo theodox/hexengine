@@ -1,35 +1,3 @@
-.soldier text {
-    fill: rgba(34, 13, 13, 0.75);
-    font-size: 8pt;
-    text-anchor: middle;
-    font-family: sans-serif;
-    pointer-events: none;
-    user-select: none;
-}
-
-.soldier rect {
-    fill: rgb(118, 161, 82);
-    stroke: rgba(0, 0, 0, 0.25);
-    stroke-width: 1px;
-}
-
-.soldier:hover rect {
-    fill: rgb(173, 166, 81);
-    stroke: rgba(0, 0, 0, 0.5);
-    stroke-width: 1px;
-    cursor: pointer;
-}
-
-.soldier.active rect {
-    fill: rgb(235, 224, 110);
-}
-
-.soldier.unit-center {
-    fill: rgba(56, 189, 160, 0.75);
-    pointer-events: none;
-    user-select: none;
-}
-
 #map-container {
     position: relative;
     width: 100%;
@@ -78,7 +46,6 @@
     z-index: 20;
 }
 
-
 #console-bg {
     position: relative;
     height: 234px;
@@ -89,8 +56,6 @@
     flex-direction: column;
     gap: 8px;
 }
-
-
 
 #main-frame {
     position: absolute;
@@ -124,8 +89,7 @@
     top: 8px;
     user-select: none;
     pointer-events: none;
-}   
-
+}
 
 #log-level-picker {
     position: relative;
@@ -163,11 +127,13 @@
     top: 8px;
 }
 
-
 @keyframes pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 1;
     }
+
     50% {
         opacity: 0.5;
     }
@@ -195,22 +161,99 @@
     animation: pulse 1.5s ease-in-out infinite;
 }
 
-.popup{
+/*
+Popup styles
+*/
+.popup {
     position: absolute;
-    width: 400px;
-    height: 72px;
-    background-color: rgb(141, 141, 141);
+    width: 450px;
+    height: 64px;
+    background-color: rgba(205, 214, 216, 0.9);
     z-index: 300;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+.popup p {
+    font-family: sans-serif;
+    font-size: 12pt;
+    color: rgb(0, 0, 0);
+    text-align: center;
+    align-content: top center;
+    border: 2 em
 }
 
 .fade-out {
-   animation: fadeOut 0.5s forwards;
+    animation: fadeOut 0.5s forwards;
 }
+
 @keyframes fadeOut {
     from {
         opacity: 1;
     }
+
     to {
         opacity: 0;
     }
+}
+
+/*
+Generic unit styles
+*/
+.unit g {
+    cursor: pointer;
+}
+
+.unit rect {
+    stroke-width: 2px;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5));
+    rx: 5px;
+    ry: 5px;
+    border-width: 2px;
+    z-index: 10;
+}
+
+
+.soldier rect {
+    fill: rgb(118, 161, 82);
+    stroke: rgba(0, 0, 0, 0.25);
+}
+
+.soldier:hover rect {
+    fill: rgb(134, 130, 82);
+}
+
+.soldier.active rect {
+    fill: rgb(255, 243, 110);
+}
+
+.soldier text {
+    fill: rgba(34, 13, 13, 0.75);
+    font-size: 8pt;
+    text-anchor: middle;
+    font-family: sans-serif;
+    font-weight: bold;
+    pointer-events: none;
+    user-select: none;
+}
+
+.soldier-center {
+    fill: rgba(35, 54, 49, 0.75);
+    pointer-events: none;
+    user-select: none;
+}
+
+/*
+canuck unit styles
+*/
+.canuck rect {
+    fill: rgb(82, 9, 2);
+    stroke: rgba(0, 0, 0, 0.25);
+}
+
+.canuck:hover rect {
+    fill: rgb(177, 1, 1);
+}
+
+.canuck.active rect {
+    fill: rgb(255, 57, 57);
 }

@@ -12,6 +12,7 @@ from .hexes.math import Hex
 from .hexes.shapes import angle, convex_hull, path, polygon, line  # , convex_polygon
 from .excepthook import install_exception_hook
 from .game import Game
+from .game.scenario import TEST_SCENARIO
 
 __version__ = "0.1.1"
 
@@ -36,8 +37,4 @@ def main():
     GAME = Game()
     MAP = GAME.canvas
 
-    for u in range(10):
-        unit = GAME.canvas.add_unit(f"unit-{u}", "soldier")
-        unit.position = Hex(u, 0,-u)
-        unit.visible = True
-        logger.warning(f"Created unit: {unit}")
+    TEST_SCENARIO.populate(MAP)
