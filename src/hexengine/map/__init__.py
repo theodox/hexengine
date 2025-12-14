@@ -5,7 +5,7 @@ This package provides components for rendering and interacting with hexagonal ma
 """
 
 from .layout import HexLayout
-from .canvas import Map
+from .gamemap import Map
 from .handler import Handler
 
 __all__ = [

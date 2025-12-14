@@ -206,15 +206,17 @@ Generic unit styles
     --unit-half-height: calc(var(--unit-height) / 2);
 }
 
+/* all units share this style */
 .unit g {
     cursor: pointer;
 }
 
+/* all unit rects share this style */
 .unit rect {
     stroke-width: 2px;
-    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5));
-    rx: 5px;
-    ry: 5px;
+    filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.66));
+    rx: 6px;
+    ry: 6px;
     border-width: 2px;
     z-index: 10;
     x: calc(-1 * var(--unit-half-width));
