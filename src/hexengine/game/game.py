@@ -4,7 +4,7 @@ from ..document import element
 
 from .events import EventHandlerMixin, MouseState
 from .popups import PopupManager, Popup
-
+from .board import GameBoard
 
 class Game(EventHandlerMixin):
     def __init__(self):
@@ -23,7 +23,6 @@ class Game(EventHandlerMixin):
         self.last_click_time = 0
         self.drag_start = (0, 0)
         self.drag_end = (0, 0)
-        self.selection = None
         self.mouse_state = MouseState.UP
         self.double_click_threshold = 300  # milliseconds
         self.pending_click_timeout = None
@@ -31,6 +30,18 @@ class Game(EventHandlerMixin):
         self.logger = logging.getLogger("game")
         self.logger.info("Game initialized")
 
+        self.board = GameBoard(self.canvas)
+
+
         self.canvas.on_mouse_down < self.on_mouse_down
         self.canvas.on_mouse_up < self.on_mouse_up
         self.canvas.on_drag < self.on_drag
+
+
+    @property
+    def selection(self):
+        return self.board.selection
+    
+    @selection.setter
+    def selection(self, value):
+        self.board.selection = value

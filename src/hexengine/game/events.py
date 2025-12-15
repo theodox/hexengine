@@ -22,7 +22,7 @@ class TargetType(Enum):
 class EventHandlerMixin:
     """Mixin class providing mouse event handling functionality for the Game class."""
 
-    MIN_DRAG_DISTANCE = 10     # pixels
+    MIN_DRAG_DISTANCE = 10  # pixels
     DBL_CLICK_THRESHOLD = 330  # milliseconds
 
     def _mouse_distance(self):
@@ -31,6 +31,8 @@ class EventHandlerMixin:
         return (dx**2 + dy**2) ** 0.5
 
     def _snap_to_grid(self):
+        if not self.selection:
+            return
         x, y = self.drag_end
         h = self.canvas.hex_layout.pixel_to_hex(x, y)
         self.selection.position = h
@@ -42,7 +44,7 @@ class EventHandlerMixin:
             if h in hexes:
                 return h
         return current_hex
-    
+
     def on_mouse_down(self, event, source, position, modifiers):
         # Prevent default to stop text selection and default drag behavior
         event.preventDefault()
@@ -112,15 +114,12 @@ class EventHandlerMixin:
 
     def _bg_click(self, event, source, position, modifiers):
         self.logger.debug("Click on background")
-        if self.selection:
-            self.selection.active = False
-            self.selection = None
+        self.selection = None
         self.last_click_time = 0
 
     def _bg_dbl_click(self, event, source, position, modifiers):
         self.logger.debug("Double click on background")
         if self.selection:
-            self.selection.active = False
             self.selection = None
             self.logger.debug("Double click processed, unit snapped to grid")
         else:
@@ -133,8 +132,7 @@ class EventHandlerMixin:
 
     def _bg_mousedown(self, modifiers):
         if self.selection:
-            self.selection.active = False
-        self.selection = None
+            self.selection = None
         self.logger.warning(f"Mouse down on background with modifiers {modifiers}")
         self.popup_manager.clear()
         return
@@ -176,7 +174,6 @@ class EventHandlerMixin:
     def _unit_click(self, event, source, position, modifiers):
         logger.warning(source)
         if self.selection:
-            self.selection.active = False
             self.selection = None
             self.logger.debug("Click processed, unit snapped to grid")
         else:
@@ -186,22 +183,15 @@ class EventHandlerMixin:
 
     def _unit_dbl_click(self, event, source, position, modifiers):
         self.logger.debug("Double click detected")
-        active_unit = "nothing"
-        if self.selection:
-            active_unit = self.selection
-            # Example: toggle visibility on double-click
-            # self.selection
-            self.logger.debug(f"Double click on unit {self.selection.unit_id}")
-            self.selection.active = False
-            self.selection = None
-            # self.selection.visible = not self.selection.visible
-        else:
-            self.logger.debug("double click with no selection")
+
         self.last_click_time = 0
 
         if Modifiers.ALT & modifiers:
             offset_pos = position[0] - 10, position[1] - 20
-            self.popup_manager.create_popup(f"{active_unit.unit_id} @ {active_unit.position}", offset_pos)
+        
+            self.popup_manager.create_popup(
+                f"{self.selection.unit_id} @ {self.selection.position}", offset_pos
+            )
 
     def _unit_drag(self, event, source, position, modifiers):
         distance = self._mouse_distance()
@@ -214,9 +204,11 @@ class EventHandlerMixin:
     def _unit_mousedown(self, unit, modifiers):
         # Only clear previous selection if clicking on a different unit
         if self.selection and self.selection != unit:
-            self.selection.active = False
-        unit.active = True
+            self.selection = None
+
         self.selection = unit
+        self.board.constrain()
+        self.board.highlight()
         self.logger.debug(
             f"Mouse down on unit {unit.unit_id} at position {self.drag_start} with modifiers {modifiers}"
         )
@@ -226,33 +218,36 @@ class EventHandlerMixin:
             self.logger.warning("Unit mouse up with no selection")
             return
 
-        current_time = js.Date.now()
-        time_since_last_click = current_time - self.last_click_time
-        potential_double_click = time_since_last_click < self.DBL_CLICK_THRESHOLD
+        try:
+            current_time = js.Date.now()
+            time_since_last_click = current_time - self.last_click_time
+            potential_double_click = time_since_last_click < self.DBL_CLICK_THRESHOLD
 
-        distance = self._mouse_distance()
-        self._snap_to_grid()
+            distance = self._mouse_distance()
+            self._snap_to_grid()
 
-        if distance < self.MIN_DRAG_DISTANCE:
-            # Check if this is a double-click
-            if potential_double_click:
-                # Cancel pending single click
-                if self.pending_click_timeout is not None:
-                    js.clearTimeout(self.pending_click_timeout)
-                    self.pending_click_timeout = None
-                self.logger.debug(f"Double-click detected ({time_since_last_click} ms)")
-                self._unit_dbl_click(event, source, position, modifiers)
-                self.last_click_time = 0  # Reset to prevent triple-click
-            else:
-                # Delay single click to check for double-click
-                self.logger.debug(f"Click detected, waiting for potential double-click")
-                if self.pending_click_timeout is not None:
-                    js.clearTimeout(self.pending_click_timeout)
+            if distance < self.MIN_DRAG_DISTANCE:
+                # Check if this is a double-click
+                if potential_double_click:
+                    # Cancel pending single click
+                    if self.pending_click_timeout is not None:
+                        js.clearTimeout(self.pending_click_timeout)
+                        self.pending_click_timeout = None
+                    self.logger.debug(f"Double-click detected ({time_since_last_click} ms)")
+                    self._unit_dbl_click(event, source, position, modifiers)
+                    self.last_click_time = 0  # Reset to prevent triple-click
+                else:
+                    # Delay single click to check for double-click
+                    self.logger.debug(f"Click detected, waiting for potential double-click")
+                    if self.pending_click_timeout is not None:
+                        js.clearTimeout(self.pending_click_timeout)
 
-                self.pending_click_timeout = js.setTimeout(
-                    create_proxy(
-                        lambda: self._unit_click(event, source, position, modifiers)
-                    ),
-                    self.double_click_threshold,
-                )
-                self.last_click_time = current_time
+                    self.pending_click_timeout = js.setTimeout(
+                        create_proxy(
+                            lambda: self._unit_click(event, source, position, modifiers)
+                        ),
+                        self.double_click_threshold,
+                    )
+                    self.last_click_time = current_time
+        finally:
+            self.selection = None

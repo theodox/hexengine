@@ -16,6 +16,9 @@ class SVGLayer:
         self._hex_color = hex_color
         self._hex_stroke = hex_stroke
 
+    def clear(self):
+        self._svg.replaceChildren()
+
     def draw_hex(self, hex: Hex, fill="white", stroke="black"):
         points = self._hex_layout.hex_corners(hex)
         pointsString = " ".join([f"{x},{y}" for x, y in points])
