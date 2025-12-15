@@ -1,6 +1,8 @@
 import js  # pyright: ignore[reportMissingImports]
 from ..hexes.types import Hex
 from .layout import HexLayout
+from pyodide.ffi import create_proxy
+import logging
 
 
 class SVGLayer:
@@ -17,16 +19,29 @@ class SVGLayer:
         self._hex_stroke = hex_stroke
 
     def clear(self):
-        self._svg.replaceChildren()
+        for child in self._svg.childNodes:
+            if child.classList.contains("highlight"):
+                logging.info("Removing hex layer")
+                child.classList.add("fade-out")
+                js.setTimeout(create_proxy(lambda: self._svg.removeChild(child)), 250)
 
-    def draw_hex(self, hex: Hex, fill="white", stroke="black"):
+    def _draw_hex(self, hex: Hex, root: js.SVGElement):
         points = self._hex_layout.hex_corners(hex)
         pointsString = " ".join([f"{x},{y}" for x, y in points])
         poly = js.document.createElementNS("http://www.w3.org/2000/svg", "polygon")
         poly.setAttribute("points", pointsString)
-        poly.setAttribute("fill", fill)
-        poly.setAttribute("stroke", stroke)
-        self._svg.appendChild(poly)
+
+        root.appendChild(poly)
+
+    def draw_hexes(self, hexes: list[Hex], cls="highlight"):
+        root = js.document.createElementNS("http://www.w3.org/2000/svg", "g")
+        root.classList.add(cls)
+        for hex in hexes:
+            self._draw_hex(hex, root)
+        self._svg.appendChild(root)
+
+    def draw_hex(self, hex: Hex, cls="highlight"):
+        self.draw_hexes([hex], cls=cls)
 
     def draw_text(self, hex: Hex, text: str, font_size: int = 12):
         txt = js.document.createElementNS("http://www.w3.org/2000/svg", "text")

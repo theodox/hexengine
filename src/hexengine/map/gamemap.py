@@ -9,6 +9,7 @@ from .canvas_layer import CanvasLayer
 from ..units import DisplayUnit, GameUnit
 import logging
 
+
 class Map:
     """
     A canvas for drawing hexagons.
@@ -21,8 +22,6 @@ class Map:
         svg_element: js.SVGElement,
         unit_element: js.SVGElement,
     ):
-        from ..game.board import GameBoard
-        self.board = GameBoard(self)
         self._container = container_element
 
         self._hex_size = canvas_element.getAttribute("data-hexsize")
@@ -46,16 +45,16 @@ class Map:
 
         # Set CSS variables for unit sizing based on hex layout
         unit_size = (int(self._hex_layout.size * 1.5)) - 2
-        js.document.documentElement.style.setProperty('--unit-width', f'{unit_size}px')
-        js.document.documentElement.style.setProperty('--unit-height', f'{unit_size}px')
+        js.document.documentElement.style.setProperty("--unit-width", f"{unit_size}px")
+        js.document.documentElement.style.setProperty("--unit-height", f"{unit_size}px")
 
-        self._canvas = CanvasLayer(
+        self._canvas_layer = CanvasLayer(
             canvas_element, self._hex_layout, self._hex_color, self._hex_stroke
         )
-        self._svg = SVGLayer(
+        self._svg_layer = SVGLayer(
             svg_element, self._hex_layout, self._hex_color, self._hex_stroke
         )
-        self._units = UnitLayer(
+        self._unit_layer = UnitLayer(
             unit_element, self._hex_layout, self._hex_color, self._hex_stroke
         )
 
@@ -84,26 +83,22 @@ class Map:
         return self._hex_layout
 
     @property
-    def canvas(self) -> CanvasLayer:
-        return self._canvas
+    def canvas_layer(self) -> CanvasLayer:
+        return self._canvas_layer
 
     @property
-    def svg(self) -> CanvasLayer:
-        return self._svg
-    
+    def svg_layer(self) -> SVGLayer:
+        return self._svg_layer
+
     @property
-    def units(self) -> UnitLayer:
-        return self._units
+    def unit_layer(self) -> UnitLayer:
+        return self._unit_layer
 
-    def clear(self):
-        self._svg.clear()
+    def draw_hex(self, hex: Hex, cls="highlight"):
+        self._svg_layer.draw_hexes([hex], cls=cls)
 
-    def draw_hex(self, hex: Hex, fill="white", stroke="black"):
-        self._svg.draw_hex(hex, fill=fill, stroke=stroke)
-
-    def     draw_hexes(self, hexes: Iterable[Hex], fill="white", stroke="black"):
-        for hex in hexes:
-            self.draw_hex(hex, fill=fill, stroke=stroke)
+    def draw_hexes(self, hexes: Iterable[Hex], cls="highlight"):
+        self._svg_layer.draw_hexes(hexes, cls=cls)
 
     def draw_bg_hexes(self, hexes: Iterable[Hex], fill="white", stroke="black"):
         for hex in hexes:
@@ -121,11 +116,5 @@ class Map:
         self.canvas.context.closePath()
         self.canvas.context.fill()
 
-    def get_display_unit(self, unit_id: str, unit_type: str) -> DisplayUnit:
-        return self._units.get_display_unit(unit_id, unit_type)
-
-    def add_unit(self, unit: GameUnit) -> DisplayUnit:
-        self._units.add_unit(unit)
-
-    def select(self, unit: GameUnit):
-        self.board.select(unit)
+    def add_unit(self, unit: DisplayUnit):
+        self._unit_layer.add_unit(unit)

@@ -25,6 +25,8 @@ class EventHandlerMixin:
     MIN_DRAG_DISTANCE = 10  # pixels
     DBL_CLICK_THRESHOLD = 330  # milliseconds
 
+    pending_click_timeout = None
+
     def _mouse_distance(self):
         dx = abs(self.drag_start[0] - self.drag_end[0])
         dy = abs(self.drag_start[1] - self.drag_end[1])
@@ -104,8 +106,8 @@ class EventHandlerMixin:
         while target and not unit_id:
             unit_id = target.getAttribute("data-unit")
             target = target.parentElement
-        unit = self.canvas.units.get_unit(unit_id)
-        assert unit, f"Failed to find clickable unit"
+        unit = self.board.get_unit(unit_id)
+        assert f"{unit} is not a clickable unit"
         return TargetType.UNIT, unit
 
     # ---------------------
@@ -163,7 +165,7 @@ class EventHandlerMixin:
                     create_proxy(
                         lambda: self._bg_click(event, source, position, modifiers)
                     ),
-                    self.double_click_threshold,
+                    self.DBL_CLICK_THRESHOLD,
                 )
                 self.last_click_time = current_time
 
@@ -188,12 +190,15 @@ class EventHandlerMixin:
 
         if Modifiers.ALT & modifiers:
             offset_pos = position[0] - 10, position[1] - 20
-        
+
             self.popup_manager.create_popup(
                 f"{self.selection.unit_id} @ {self.selection.position}", offset_pos
             )
 
     def _unit_drag(self, event, source, position, modifiers):
+        self.board.constrain()
+        self.board.hilite()
+
         distance = self._mouse_distance()
         if distance > 12:
             # Place unit directly at cursor position
@@ -207,8 +212,6 @@ class EventHandlerMixin:
             self.selection = None
 
         self.selection = unit
-        self.board.constrain()
-        self.board.highlight()
         self.logger.debug(
             f"Mouse down on unit {unit.unit_id} at position {self.drag_start} with modifiers {modifiers}"
         )
@@ -233,12 +236,16 @@ class EventHandlerMixin:
                     if self.pending_click_timeout is not None:
                         js.clearTimeout(self.pending_click_timeout)
                         self.pending_click_timeout = None
-                    self.logger.debug(f"Double-click detected ({time_since_last_click} ms)")
+                    self.logger.debug(
+                        f"Double-click detected ({time_since_last_click} ms)"
+                    )
                     self._unit_dbl_click(event, source, position, modifiers)
                     self.last_click_time = 0  # Reset to prevent triple-click
                 else:
                     # Delay single click to check for double-click
-                    self.logger.debug(f"Click detected, waiting for potential double-click")
+                    self.logger.debug(
+                        f"Click detected, waiting for potential double-click"
+                    )
                     if self.pending_click_timeout is not None:
                         js.clearTimeout(self.pending_click_timeout)
 
@@ -246,8 +253,9 @@ class EventHandlerMixin:
                         create_proxy(
                             lambda: self._unit_click(event, source, position, modifiers)
                         ),
-                        self.double_click_threshold,
+                        self.DBL_CLICK_THRESHOLD,
                     )
                     self.last_click_time = current_time
         finally:
+            self.board.update(self.selection)
             self.selection = None

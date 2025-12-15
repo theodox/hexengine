@@ -33,8 +33,9 @@ def main():
 
     logger.debug(f"Hexes version: {__version__}")
 
-    global GAME, MAP
+    global GAME, MAP, BOARD
     GAME = Game()
     MAP = GAME.canvas
+    BOARD = GAME.board
 
-    TEST_SCENARIO.populate(MAP)
+    TEST_SCENARIO.populate(GAME)

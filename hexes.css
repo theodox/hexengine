@@ -224,3 +224,8 @@ Generic unit styles
     width: var(--unit-width);
     height: var(--unit-height);
 }
+
+.highlight  {
+    fill: rgba(205, 231, 55, 0.333);
+    stroke-width: 4px;
+}

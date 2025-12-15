@@ -1,5 +1,6 @@
 from ...hexes.types import Hex
-from ...map import Map
+from ..game import Game
+
 
 
 class ScenarioItem:
@@ -17,11 +18,11 @@ class Scenario:
         self.description = description
         self.units = units
 
-    def populate(self, map: Map):
+    def populate(self, game:Game):
         for member in self.units:
             member.cls.GRAPHICS_CREATOR.register()
-            unit = member.cls.create(member.unit_id, member.unit_type, map)
+            unit = member.cls.create(member.unit_id, member.unit_type, game.canvas)
             unit.position = member.position
             unit.display.set_text(member.unit_id[-4:])
-            map.add_unit(unit)
             unit.visible = member.visible
+            game.add_unit(unit)

@@ -6,6 +6,7 @@ from .events import EventHandlerMixin, MouseState
 from .popups import PopupManager, Popup
 from .board import GameBoard
 
+
 class Game(EventHandlerMixin):
     def __init__(self):
         self.running = True
@@ -18,30 +19,34 @@ class Game(EventHandlerMixin):
         assert map is not None, "Map canvas element not found"
         assert svg is not None, "Map SVG element not found"
         self.canvas = Map(container, map, svg, units)
+        self.board = GameBoard(self.canvas)
 
         self.click_time = 0
         self.last_click_time = 0
         self.drag_start = (0, 0)
         self.drag_end = (0, 0)
         self.mouse_state = MouseState.UP
-        self.double_click_threshold = 300  # milliseconds
-        self.pending_click_timeout = None
 
         self.logger = logging.getLogger("game")
         self.logger.info("Game initialized")
-
-        self.board = GameBoard(self.canvas)
-
 
         self.canvas.on_mouse_down < self.on_mouse_down
         self.canvas.on_mouse_up < self.on_mouse_up
         self.canvas.on_drag < self.on_drag
 
 
+    # these are delegated to the board instance, but
+    # exposed here for convenience
     @property
     def selection(self):
         return self.board.selection
-    
+
     @selection.setter
     def selection(self, value):
         self.board.selection = value
+
+    def add_unit(self, unit):
+        self.board.add_unit(unit)
+
+    def remove_unit(self, unit):
+        self.board.remove_unit(unit)

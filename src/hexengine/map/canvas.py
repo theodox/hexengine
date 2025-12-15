@@ -47,13 +47,13 @@ class Map:
         js.document.documentElement.style.setProperty('--unit-width', f'{unit_size}px')
         js.document.documentElement.style.setProperty('--unit-height', f'{unit_size}px')
 
-        self._canvas = CanvasLayer(
+        self._canvas_layer = CanvasLayer(
             canvas_element, self._hex_layout, self._hex_color, self._hex_stroke
         )
-        self._svg = SVGLayer(
+        self._svg_layer = SVGLayer(
             svg_element, self._hex_layout, self._hex_color, self._hex_stroke
         )
-        self._units = UnitLayer(
+        self._unit_layer = UnitLayer(
             unit_element, self._hex_layout, self._hex_color, self._hex_stroke
         )
 
@@ -91,10 +91,10 @@ class Map:
     
     @property
     def units(self) -> UnitLayer:
-        return self._units
+        return self._unit_layer
 
     def draw_hex(self, hex: Hex, fill="white", stroke="black"):
-        self._svg.draw_hex(hex, fill=fill, stroke=stroke)
+        self._svg_layer.draw_hex(hex, fill=fill, stroke=stroke)
 
     def draw_hexes(self, hexes: Iterable[Hex], fill="white", stroke="black"):
         for hex in hexes:
@@ -116,8 +116,5 @@ class Map:
         self.canvas.context.closePath()
         self.canvas.context.fill()
 
-    def get_display_unit(self, unit_id: str, unit_type: str) -> DisplayUnit:
-        return self._units.get_display_unit(unit_id, unit_type)
-
-    def add_unit(self, unit: GameUnit) -> DisplayUnit:
-        self._units.add_unit(unit)
+    def add_unit(self, unit: GameUnit):
+        self._unit_layer.add_unit(unit)

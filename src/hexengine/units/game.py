@@ -57,7 +57,7 @@ class GameUnit:
         return hash(hash(self.unit_id) ^ hash(self.unit_type))
 
     @classmethod
-    def create(cls, unit_id: str, unit_type: str, map: "Map"):
-        display_unit = DisplayUnit(unit_id, unit_type, map.hex_layout)
+    def create(cls, unit_id: str, unit_type: str, game_map: "Map") -> "GameUnit":
+        display_unit = DisplayUnit(unit_id, unit_type, game_map.hex_layout)
         graphics = cls.GRAPHICS_CREATOR().create(display_unit)
         return cls(unit_id, unit_type, graphics)
