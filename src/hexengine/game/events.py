@@ -198,7 +198,7 @@ class EventHandlerMixin:
     def _unit_drag(self, event, source, position, modifiers):
         valid = self.board.constrain()
         self.board.hilite()
-
+        
         distance = self._mouse_distance()
         if distance > self.MIN_DRAG_DISTANCE:
             # Place unit directly at cursor position
@@ -217,6 +217,8 @@ class EventHandlerMixin:
             self.selection = None
 
         self.selection = unit
+        # this forced the unit to be on top of other units
+        unit.display.proxy.parentElement.appendChild(unit.display.proxy)
         self.logger.debug(
             f"Mouse down on unit {unit.unit_id} at position {self.drag_start} with modifiers {modifiers}"
         )

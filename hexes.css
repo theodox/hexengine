@@ -227,8 +227,8 @@ Generic unit styles
 }
 
 g.disabled {
-    opacity: 0.7;
-    filter: saturate(0) brightness(0.7);
+    opacity: 0.8;
+    filter: saturate(0.2) brightness(0.66);
 }
 
 .highlight  {
