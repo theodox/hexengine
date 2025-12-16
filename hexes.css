@@ -209,6 +209,7 @@ Generic unit styles
 /* all units share this style */
 .unit g {
     cursor: pointer;
+    opacity: 1;
 }
 
 /* all unit rects share this style */
@@ -225,7 +226,13 @@ Generic unit styles
     height: var(--unit-height);
 }
 
+g.disabled {
+    opacity: 0.7;
+    filter: saturate(0) brightness(0.7);
+}
+
 .highlight  {
     fill: rgba(55, 161, 231, 0.333);
     stroke-width: 4px;
 }
+

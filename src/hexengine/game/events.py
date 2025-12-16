@@ -196,15 +196,20 @@ class EventHandlerMixin:
             )
 
     def _unit_drag(self, event, source, position, modifiers):
-        self.board.constrain()
+        valid = self.board.constrain()
         self.board.hilite()
 
         distance = self._mouse_distance()
-        if distance > 12:
+        if distance > self.MIN_DRAG_DISTANCE:
             # Place unit directly at cursor position
             self.selection.display.proxy.setAttribute(
                 "transform", f"translate({self.drag_end[0]},{self.drag_end[1]})"
             )
+            hex = self.canvas.hex_layout.pixel_to_hex(*self.drag_end)
+            if hex in valid:
+                self.selection.display.proxy.classList.remove("disabled")
+            else:
+                self.selection.display.proxy.classList.add("disabled")
 
     def _unit_mousedown(self, unit, modifiers):
         # Only clear previous selection if clicking on a different unit

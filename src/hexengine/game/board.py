@@ -4,6 +4,7 @@ import logging
 import js.eval as js_eval
 
 
+
 class GameBoard:
     def __init__(self, map: Map):
         self._board = dict()  # Maps positions to board elements
@@ -49,7 +50,7 @@ class GameBoard:
     def clear_hilite(self):
         if self._hilited:
             self._map.svg_layer.clear()
-            logging.getLogger("game").info("clearing constraints")
+            logging.getLogger("game").debug("clearing constraints")
         self._hilited = False
 
     def clear_constraints(self):
@@ -58,16 +59,10 @@ class GameBoard:
 
     def update(self, item):
         """move the item to its current position"""
-        old_key = None
-        for k, v in self._board.items():
-            if v == item:
-                old_key = k
-                break
-        
-        if old_key is not None:
-            del self._board[old_key]
-        
-        self._board[item.position] = item
+        self._board.clear()
+        for item in self._units.values():
+            self._board[item.position] = item 
+        logging.getLogger("game").debug(str(self._board))
 
     def add_unit(self, unit):
         if self.occupied(unit.position):
