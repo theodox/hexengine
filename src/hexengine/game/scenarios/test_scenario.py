@@ -1,5 +1,5 @@
 from ...hexes.types import Hex
-from . import Scenario, ScenarioItem
+from .base import Scenario, ScenarioItem, LocationItem
 from .canuck import CanuckUnit
 from .generic import GenericUnit
 
@@ -12,5 +12,12 @@ TEST_SCENARIO = Scenario(
         ScenarioItem(Hex(7, 3, -10), GenericUnit, "Generic1", "soldier"),
         ScenarioItem(Hex(6, 4, -10), GenericUnit, "Generic2", "soldier", False),
         ScenarioItem(Hex(8, 4, -12), GenericUnit, "Generic3", "soldier", True),
-    ]
+    ],
+    locations=[
+        LocationItem(Hex(5, 5, -10), "forest", 2.0),
+        LocationItem(Hex(10, 2, -12), "hill", 3.0),
+        LocationItem(Hex(8, 2, -10), "hill", 3.0),
+        LocationItem(Hex(7, 5, -12), "water", 5.0),
+    ]       
+
 )

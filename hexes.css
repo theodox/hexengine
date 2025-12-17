@@ -236,3 +236,21 @@ g.disabled {
     stroke-width: 4px;
 }
 
+polygon.location {
+    stroke: black;
+    fill: gray;
+    stroke-width: 1px;
+    opacity: 0.5;
+}
+
+polygon.location.forest {
+    fill: green;
+}
+
+polygon.location.hill {
+    fill: rgb(48, 43, 23);
+}
+
+polygon.location.water {
+    fill: blue;
+}

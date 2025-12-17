@@ -5,6 +5,7 @@ import js.eval as js_eval
 
 
 
+
 class GameBoard:
     def __init__(self, map: Map):
         self._board = dict()  # Maps positions to board elements
@@ -13,7 +14,8 @@ class GameBoard:
         self._map = map
         self._constraints = {}
         self._hilited = False
-
+        self._locations = {}  # maps positions to movement costs
+        
     @property
     def selection(self):
         return self._selection
@@ -30,6 +32,16 @@ class GameBoard:
         else:
             self.clear_hilite()
 
+    def add_location(self, location):
+        self._locations[location.position] = location
+
+    def get_location_cost(self, position):
+        # returns movement cost for the given position
+        location = self._locations.get(position)
+        if location is None:
+            return 1.0
+        return location.movement_cost
+
     def occupied(self, position):
         occupant = self._board.get(position)
         return occupant is not None
@@ -38,7 +50,8 @@ class GameBoard:
         if self.selection is None:
             return set()
         legit = radius(self.selection.position, 4)
-        const = {s for s in legit if not self.occupied(s)}
+        const = {s for s in legit if not self.occupied(s) and  s not in self._locations}
+
         self._constraints = const
         return self._constraints
 
@@ -74,3 +87,4 @@ class GameBoard:
 
     def get_unit(self, unit_id):
         return self._units.get(unit_id)
+

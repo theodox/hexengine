@@ -19,6 +19,7 @@ class TargetType(Enum):
     BACKGROUND = "background"
 
 
+
 class EventHandlerMixin:
     """Mixin class providing mouse event handling functionality for the Game class."""
 
@@ -224,10 +225,7 @@ class EventHandlerMixin:
         )
 
     def _unit_mouseup(self, event, source, position, modifiers):
-        if not self.selection:
-            self.logger.warning("Unit mouse up with no selection")
-            return
-
+        
         try:
             current_time = js.Date.now()
             time_since_last_click = current_time - self.last_click_time

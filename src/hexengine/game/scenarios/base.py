@@ -1,6 +1,6 @@
 from ...hexes.types import Hex
 from ..game import Game
-
+from ...map.location import Location
 
 
 class ScenarioItem:
@@ -12,11 +12,19 @@ class ScenarioItem:
         self.visible = visible
 
 
+class LocationItem:
+    def __init__(self, pos, loc_type, movement_cost):
+        self.position: Hex = pos
+        self.movement_cost = movement_cost
+        self.type = loc_type
+
+
 class Scenario:
-    def __init__(self, name, description, units: list[ScenarioItem]):
+    def __init__(self, name, description, units: list[ScenarioItem], locations: list[LocationItem]=[]):
         self.name = name
         self.description = description
         self.units = units
+        self.locations = locations
 
     def populate(self, game:Game):
         for member in self.units:
@@ -26,3 +34,7 @@ class Scenario:
             unit.display.set_text(member.unit_id[-4:])
             unit.visible = member.visible
             game.add_unit(unit)
+
+        for loc in self.locations:
+            location  = Location.create(loc, game)
+            game.board.add_location(location)
