@@ -1,7 +1,9 @@
 from ..hexes.shapes import radius
+from ..hexes.math import neighbors
 from ..map import Map
 import logging
 import js.eval as js_eval
+import heapq
 
 
 
@@ -49,7 +51,7 @@ class GameBoard:
     def constrain(self):
         if self.selection is None:
             return set()
-        legit = radius(self.selection.position, 4)
+        legit = self.reachable_hexes(self.selection.position, 5)
         const = {s for s in legit if not self.occupied(s) and  s not in self._locations}
 
         self._constraints = const
@@ -87,4 +89,48 @@ class GameBoard:
 
     def get_unit(self, unit_id):
         return self._units.get(unit_id)
+
+    def reachable_hexes(self, start_hex, max_cost):
+        """
+        Calculate all hexes reachable from start_hex within max_cost.
+        
+        Uses Dijkstra's algorithm to find all hexes that can be reached
+        from the starting hex with accumulated movement cost <= max_cost.
+        
+        Args:
+            start_hex: The starting hex position (Hex object)
+            max_cost: Maximum movement cost allowed
+            
+        Returns:
+            dict: Maps hex positions to their accumulated movement cost from start_hex
+                  Only includes hexes reachable at or below max_cost
+        """
+        # Dictionary to store the minimum cost to reach each hex
+        costs = {start_hex: 0}
+        
+        # Priority queue: (cost, hex)
+        # Using a heap to always process the lowest cost hex first
+        heap = [(0, start_hex)]
+        
+        while heap:
+            current_cost, current_hex = heapq.heappop(heap)
+            
+            # Skip if we've already found a better path to this hex
+            if current_cost > costs.get(current_hex, float('inf')):
+                continue
+            
+            # Explore all neighboring hexes
+            for neighbor in neighbors(current_hex):
+                # Calculate cost to move to this neighbor
+                neighbor_terrain_cost = self.get_location_cost(neighbor)
+                new_cost = current_cost + neighbor_terrain_cost
+                
+                # Only process if within budget and not occupied
+                if new_cost <= max_cost and not self.occupied(neighbor):
+                    # If this is a better path to the neighbor, update it
+                    if new_cost < costs.get(neighbor, float('inf')):
+                        costs[neighbor] = new_cost
+                        heapq.heappush(heap, (new_cost, neighbor))
+        
+        return costs
 
