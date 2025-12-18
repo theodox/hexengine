@@ -118,6 +118,17 @@ class DisplayUnit:
         else:
             self.proxy.classList.remove("active")
 
+    def _set_enabled(self, value: bool):
+        if value:
+            self.proxy.classList.remove("disabled")
+        else:
+            self.proxy.classList.add("disabled")
+    
+    def _get_enabled(self) -> bool:
+        return not self.proxy.classList.contains("disabled")
+    
+
+
     def __repr__(self):
         return (
             f"<Unit id={self.unit_id} hex=({self._hex.i},{self._hex.j},{self._hex.k})>"
@@ -127,43 +138,4 @@ class DisplayUnit:
     position = property(_get_position, _set_position)
     rotation = property(_get_rotation, _set_rotation)
     active = property(_get_active, _set_active)
-
-class DisplayLocation:
-    """The display component of a location on the board."""
-
-    def __init__(self, hex, loc_type: str, layout: HexLayout = None):
-        self.loc_type = loc_type
-        self._hex = hex
-        self._hex_layout = layout
-
-    def push_classes(self, *classes: Iterable[str]):
-        for cl in classes:
-            self.proxy.classList.add(cl)
-
-    def _set_position(self, hex: Hex):
-        self._hex = hex
-        x, y = self._hex_layout.hex_to_pixel(self._hex)
-        self.proxy.setAttribute("transform", f"translate({x},{y})")
-
-    def _get_position(self) -> Hex:
-        return self._hex
-
-    def create_graphics(self, svg_layer):
-        # Example graphics creation for a location
-        hex_size = self._hex_layout.size
-        points = []
-        for point in self._hex_layout.hex_corners(self._hex, hex_size):
-            points.append(f"{point[0]},{point[1]}")
-        
-        polygon = js.document.createElementNS("http://www.w3.org/2000/svg", "polygon")
-        polygon.setAttribute("points", " ".join(points))
-        polygon.classList.add("location")
-        polygon.classList.add(self.loc_type)
-        svg_layer.appendChild(polygon)
-
-    def __repr__(self):
-        return (
-            f"<Location type={self.loc_type} hex=({self._hex.i},{self._hex.j},{self._hex.k})>"
-        )
-
-    position = property(_get_position, _set_position)
+    enabled = property(_get_enabled, _set_enabled)

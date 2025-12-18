@@ -14,7 +14,7 @@ class GameBoard:
         self._units = dict()  # Maps unit IDs to units
         self._selection = None
         self._map = map
-        self._constraints = {}
+        self._constraints = set()
         self._hilited = False
         self._locations = {}  # maps positions to movement costs
         
@@ -49,12 +49,15 @@ class GameBoard:
         return occupant is not None
 
     def constrain(self):
-        if self.selection is None:
-            return set()
-        legit = self.reachable_hexes(self.selection.position, 5)
-        const = {s for s in legit if not self.occupied(s) and  s not in self._locations}
-
-        self._constraints = const
+        self._constraints.clear()
+        legit = self.reachable_hexes(self.selection.position, 4)
+        for s in legit:
+            if not self.occupied(s) and s not in self._locations:
+                self._constraints.add(s)
+        return self._constraints
+    
+    @property
+    def constraints(self):
         return self._constraints
 
     def hilite(self):
@@ -108,12 +111,14 @@ class GameBoard:
         # Dictionary to store the minimum cost to reach each hex
         costs = {start_hex: 0}
         
-        # Priority queue: (cost, hex)
+        # Priority queue: (cost, counter, hex)
+        # Counter is used as a tie-breaker to avoid comparing hex objects
         # Using a heap to always process the lowest cost hex first
-        heap = [(0, start_hex)]
+        counter = 0
+        heap = [(0, counter, start_hex)]
         
         while heap:
-            current_cost, current_hex = heapq.heappop(heap)
+            current_cost, _, current_hex = heapq.heappop(heap)
             
             # Skip if we've already found a better path to this hex
             if current_cost > costs.get(current_hex, float('inf')):
@@ -130,7 +135,8 @@ class GameBoard:
                     # If this is a better path to the neighbor, update it
                     if new_cost < costs.get(neighbor, float('inf')):
                         costs[neighbor] = new_cost
-                        heapq.heappush(heap, (new_cost, neighbor))
+                        counter += 1
+                        heapq.heappush(heap, (new_cost, counter, neighbor))
         
         return costs
 

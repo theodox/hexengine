@@ -23,7 +23,7 @@ class TargetType(Enum):
 class EventHandlerMixin:
     """Mixin class providing mouse event handling functionality for the Game class."""
 
-    MIN_DRAG_DISTANCE = 10  # pixels
+    MIN_DRAG_DISTANCE = 16  # pixels
     DBL_CLICK_THRESHOLD = 330  # milliseconds
 
     pending_click_timeout = None
@@ -38,15 +38,12 @@ class EventHandlerMixin:
             return
         x, y = self.drag_end
         h = self.canvas.hex_layout.pixel_to_hex(x, y)
-        self.selection.position = h
-
-    def _constrain_to_hexes(self, mousepos, current_hex, hexes):
-        if self.selection.position:
-            x, y = mousepos
-            h = self.canvas.hex_layout.pixel_to_hex(x, y)
-            if h in hexes:
-                return h
-        return current_hex
+        if h in self.board.constraints:
+            self.selection.position = h
+        else:
+            orig = self.canvas.hex_layout.pixel_to_hex(*self.drag_start)
+            self.selection.position = orig
+            
 
     def on_mouse_down(self, event, source, position, modifiers):
         # Prevent default to stop text selection and default drag behavior
@@ -197,7 +194,7 @@ class EventHandlerMixin:
             )
 
     def _unit_drag(self, event, source, position, modifiers):
-        valid = self.board.constrain()
+        self.board.constrain()
         self.board.hilite()
         
         distance = self._mouse_distance()
@@ -207,10 +204,7 @@ class EventHandlerMixin:
                 "transform", f"translate({self.drag_end[0]},{self.drag_end[1]})"
             )
             hex = self.canvas.hex_layout.pixel_to_hex(*self.drag_end)
-            if hex in valid:
-                self.selection.display.proxy.classList.remove("disabled")
-            else:
-                self.selection.display.proxy.classList.add("disabled")
+            self.selection.enabled = hex in self.board.constraints
 
     def _unit_mousedown(self, unit, modifiers):
         # Only clear previous selection if clicking on a different unit
@@ -233,6 +227,7 @@ class EventHandlerMixin:
 
             distance = self._mouse_distance()
             self._snap_to_grid()
+            self.selection.enabled = True
 
             if distance < self.MIN_DRAG_DISTANCE:
                 # Check if this is a double-click
@@ -264,3 +259,4 @@ class EventHandlerMixin:
         finally:
             self.board.update(self.selection)
             self.selection = None
+            

@@ -45,6 +45,13 @@ class GameUnit:
     def _set_active(self, value: bool):
         self.display.active = value
 
+    def _set_enabled(self, value: bool):
+        self.display.enabled = value   
+
+    def _get_enabled(self) -> bool:
+        return self.display.enabled
+    
+    enabled = property(_get_enabled, _set_enabled)
     visible = property(_get_visible, _set_visible)
     position = property(_get_position, _set_position)
     rotation = property(_get_rotation, _set_rotation)
