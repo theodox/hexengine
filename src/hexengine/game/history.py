@@ -54,7 +54,7 @@ class DeleteUnit (Action):
         return f"DeleteUnit({self.unit_id} at {self.position})"
 
 
-class GameQueue:
+class GameHistory:
 
     def __init__(self, gameboard=None):
         self._moves: list[Action] = []

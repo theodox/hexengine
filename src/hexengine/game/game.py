@@ -2,10 +2,11 @@ import logging
 from ..map import Map
 from ..document import element
 
-from .events import EventHandlerMixin, HotkeyHandlerMixin, MouseState
+from .mouse_events import EventHandlerMixin, MouseState
+from .hotkey_events import HotkeyHandlerMixin
 from .popups import PopupManager, Popup
 from .board import GameBoard
-from .moves import GameQueue
+from .history import GameHistory
 
 class Game(EventHandlerMixin, HotkeyHandlerMixin):
     def __init__(self):
@@ -34,7 +35,7 @@ class Game(EventHandlerMixin, HotkeyHandlerMixin):
         self.canvas.on_mouse_up < self.on_mouse_up
         self.canvas.on_drag < self.on_drag
 
-        self.actions = GameQueue(self.board)  # to be set later
+        self.actions = GameHistory(self.board)  # to be set later
         self.register_hotkeys()
 
     # these are delegated to the board instance, but
