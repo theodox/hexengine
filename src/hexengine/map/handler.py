@@ -6,10 +6,11 @@ from enum import IntFlag, auto
 HANDLER_LOGGER = logging.getLogger("handler")
 HANDLER_LOGGER.setLevel(logging.DEBUG)
 
+
 class Modifiers(IntFlag):
     ALT = auto()
-    SHIFT = auto()  
-    CONTROL = auto()    # Note: CONTROL is not a valid flag in the MODIFIER_KEYS enum, it should be CONTROL
+    SHIFT = auto()
+    CONTROL = auto()  # Note: CONTROL is not a valid flag in the MODIFIER_KEYS enum, it should be CONTROL
 
     @classmethod
     def from_event(cls, event) -> "Modifiers":
@@ -30,7 +31,7 @@ class Handler:
         self._event_type = event_type
         self.proxy = create_proxy(self._handle_event)
         self._owner.addEventListener(event_type, self.proxy)
-    
+
     def _handle_event(self, event):
         # handle the click coordinates for canvas elements
         # Always use owner's bounding box for consistent coordinate system

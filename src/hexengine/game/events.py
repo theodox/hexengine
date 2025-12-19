@@ -8,6 +8,7 @@ from ..hexes.shapes import radius
 from ..map.handler import Handler, Modifiers
 from .history import Move
 
+
 class MouseState(Enum):
     UP = 0
     DOWN = 1
@@ -44,7 +45,6 @@ class EventHandlerMixin:
             orig = self.canvas.hex_layout.pixel_to_hex(*self.drag_start)
             self.selection.position = orig
             # no move
-            
 
     def on_mouse_down(self, event, source, position, modifiers):
         # Prevent default to stop text selection and default drag behavior
@@ -197,7 +197,7 @@ class EventHandlerMixin:
     def _unit_drag(self, event, source, position, modifiers):
         self.board.constrain()
         self.board.hilite()
-        
+
         distance = self._mouse_distance()
         if distance > self.MIN_DRAG_DISTANCE:
             # Place unit directly at cursor position
@@ -220,7 +220,6 @@ class EventHandlerMixin:
         )
 
     def _unit_mouseup(self, event, source, position, modifiers):
-        
         try:
             current_time = js.Date.now()
             time_since_last_click = current_time - self.last_click_time
@@ -260,4 +259,3 @@ class EventHandlerMixin:
         finally:
             self.board.update(self.selection)
             self.selection = None
-            

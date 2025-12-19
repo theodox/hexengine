@@ -8,6 +8,7 @@ from ..ui.popups import PopupManager, Popup
 from .board import GameBoard
 from .history import GameHistoryMixin
 
+
 class Game(EventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def __init__(self):
         self.running = True

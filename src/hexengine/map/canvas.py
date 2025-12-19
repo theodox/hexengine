@@ -9,6 +9,7 @@ from .canvas_layer import CanvasLayer
 from ..units import DisplayUnit, GameUnit
 import logging
 
+
 class Map:
     """
     A canvas for drawing hexagons.
@@ -44,8 +45,8 @@ class Map:
 
         # Set CSS variables for unit sizing based on hex layout
         unit_size = (int(self._hex_layout.size * 1.5)) - 2
-        js.document.documentElement.style.setProperty('--unit-width', f'{unit_size}px')
-        js.document.documentElement.style.setProperty('--unit-height', f'{unit_size}px')
+        js.document.documentElement.style.setProperty("--unit-width", f"{unit_size}px")
+        js.document.documentElement.style.setProperty("--unit-height", f"{unit_size}px")
 
         self._canvas_layer = CanvasLayer(
             canvas_element, self._hex_layout, self._hex_color, self._hex_stroke
@@ -88,7 +89,7 @@ class Map:
     @property
     def svg(self) -> CanvasLayer:
         return self._svg
-    
+
     @property
     def units(self) -> UnitLayer:
         return self._unit_layer

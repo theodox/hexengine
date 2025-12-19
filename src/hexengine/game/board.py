@@ -6,8 +6,6 @@ import js.eval as js_eval
 import heapq
 
 
-
-
 class GameBoard:
     def __init__(self, map: Map):
         self._board = dict()  # Maps positions to board elements
@@ -17,7 +15,7 @@ class GameBoard:
         self._constraints = set()
         self._hilited = False
         self._locations = {}  # maps positions to movement costs
-        
+
     @property
     def selection(self):
         return self._selection
@@ -55,7 +53,7 @@ class GameBoard:
             if not self.occupied(s) and s not in self._locations:
                 self._constraints.add(s)
         return self._constraints
-    
+
     @property
     def constraints(self):
         return self._constraints
@@ -79,7 +77,7 @@ class GameBoard:
         """move the item to its current position"""
         self._board.clear()
         for item in self._units.values():
-            self._board[item.position] = item 
+            self._board[item.position] = item
         logging.getLogger("game").debug(str(self._board))
 
     def add_unit(self, unit):
@@ -88,7 +86,6 @@ class GameBoard:
         self._board[unit.position] = unit
         self._units[unit.unit_id] = unit
         self._map.add_unit(unit)
-       
 
     def get_unit(self, unit_id):
         return self._units.get(unit_id)
@@ -96,47 +93,46 @@ class GameBoard:
     def reachable_hexes(self, start_hex, max_cost):
         """
         Calculate all hexes reachable from start_hex within max_cost.
-        
+
         Uses Dijkstra's algorithm to find all hexes that can be reached
         from the starting hex with accumulated movement cost <= max_cost.
-        
+
         Args:
             start_hex: The starting hex position (Hex object)
             max_cost: Maximum movement cost allowed
-            
+
         Returns:
             dict: Maps hex positions to their accumulated movement cost from start_hex
                   Only includes hexes reachable at or below max_cost
         """
         # Dictionary to store the minimum cost to reach each hex
         costs = {start_hex: 0}
-        
+
         # Priority queue: (cost, counter, hex)
         # Counter is used as a tie-breaker to avoid comparing hex objects
         # Using a heap to always process the lowest cost hex first
         counter = 0
         heap = [(0, counter, start_hex)]
-        
+
         while heap:
             current_cost, _, current_hex = heapq.heappop(heap)
-            
+
             # Skip if we've already found a better path to this hex
-            if current_cost > costs.get(current_hex, float('inf')):
+            if current_cost > costs.get(current_hex, float("inf")):
                 continue
-            
+
             # Explore all neighboring hexes
             for neighbor in neighbors(current_hex):
                 # Calculate cost to move to this neighbor
                 neighbor_terrain_cost = self.get_location_cost(neighbor)
                 new_cost = current_cost + neighbor_terrain_cost
-                
+
                 # Only process if within budget and not occupied
                 if new_cost <= max_cost and not self.occupied(neighbor):
                     # If this is a better path to the neighbor, update it
-                    if new_cost < costs.get(neighbor, float('inf')):
+                    if new_cost < costs.get(neighbor, float("inf")):
                         costs[neighbor] = new_cost
                         counter += 1
                         heapq.heappush(heap, (new_cost, counter, neighbor))
-        
-        return costs
 
+        return costs

@@ -12,15 +12,15 @@ class HotkeyHandlerMixin:
         self.logger.debug(f"Key down: {key} with modifiers {modifiers}")
 
         # Example hotkey: 'z' for undo with Ctrl modifier
-        if key == 'z' and (modifiers & Modifiers.CONTROL):
+        if key == "z" and (modifiers & Modifiers.CONTROL):
             self.undo()
             self.logger.info("Undo action triggered")
 
         # Example hotkey: 'y' for redo with Ctrl modifier
-        if key == 'y' and (modifiers & Modifiers.CONTROL):
+        if key == "y" and (modifiers & Modifiers.CONTROL):
             self.redo()
             self.logger.info("Redo action triggered")
 
     def register_hotkeys(self):
-        self.logger.debug("Registering hotkey handlers") 
+        self.logger.debug("Registering hotkey handlers")
         js.document.onkeydown = create_proxy(lambda event: self.on_key_down(event))

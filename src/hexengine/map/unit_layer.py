@@ -30,7 +30,7 @@ class UnitLayer:
             logger = logging.getLogger("game_logger")
             logger.info(f"Adding unit {unit.unit_id} of type {unit.unit_type}")
             logger.info(f"display {unit.display}")
-    
+
         self._svg.appendChild(unit.display.proxy)
         self.units[unit.unit_id] = unit
 
