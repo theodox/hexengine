@@ -39,7 +39,7 @@ class EventHandlerMixin:
         h = self.canvas.hex_layout.pixel_to_hex(x, y)
         if h in self.board.constraints:
             move = Move(self.selection.unit_id, self.selection.position, h)
-            self.actions.enqueue(move)
+            self.enqueue(move)
         else:
             orig = self.canvas.hex_layout.pixel_to_hex(*self.drag_start)
             self.selection.position = orig

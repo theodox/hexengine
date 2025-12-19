@@ -13,12 +13,12 @@ class HotkeyHandlerMixin:
 
         # Example hotkey: 'z' for undo with Ctrl modifier
         if key == 'z' and (modifiers & Modifiers.CONTROL):
-            self.actions.undo()
+            self.undo()
             self.logger.info("Undo action triggered")
 
         # Example hotkey: 'y' for redo with Ctrl modifier
         if key == 'y' and (modifiers & Modifiers.CONTROL):
-            self.actions.redo()
+            self.redo()
             self.logger.info("Redo action triggered")
 
     def register_hotkeys(self):
