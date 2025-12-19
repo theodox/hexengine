@@ -1,9 +1,8 @@
 from enum import Enum
-import js
-from pyodide.ffi import create_proxy
+import js                               # type: ignore
+from pyodide.ffi import create_proxy    # type: ignore
 from ..dev_console import set_status
-from ..hexes.shapes import radius
-from ..map.handler import Handler, Modifiers
+from ..map.handler import  Modifiers
 from ..actions import Move
 
 

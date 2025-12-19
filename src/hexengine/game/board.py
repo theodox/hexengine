@@ -1,8 +1,5 @@
-from ..hexes.shapes import radius
 from ..hexes.math import neighbors
 from ..map import Map
-import logging
-import js.eval as js_eval
 import heapq
 
 
@@ -66,7 +63,7 @@ class GameBoard:
     def clear_hilite(self):
         if self._hilited:
             self._map.svg_layer.clear()
-            logging.getLogger("game").debug("clearing constraints")
+            self.logger.debug("clearing constraints")
         self._hilited = False
 
     def clear_constraints(self):
@@ -78,7 +75,7 @@ class GameBoard:
         self._board.clear()
         for item in self._units.values():
             self._board[item.position] = item
-        logging.getLogger("game").debug(str(self._board))
+        self.logger.debug(str(self._board))
 
     def add_unit(self, unit):
         if self.occupied(unit.position):
