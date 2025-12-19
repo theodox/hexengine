@@ -249,4 +249,3 @@ class EventHandlerMixin:
                     self.last_click_time = current_time
         finally:
             self.board.update(self.selection)
-            self.selection = None
