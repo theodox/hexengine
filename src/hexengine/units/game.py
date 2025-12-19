@@ -39,10 +39,10 @@ class GameUnit:
     def _set_rotation(self, angle: float):
         self.display.rotation = angle
 
-    def _get_active(self) -> bool:
-        return self.display.active
+    def _get_hilited(self) -> bool:
+        return self.display.hilited
 
-    def _set_active(self, value: bool):
+    def _set_hilited(self, value: bool):
         self.display.active = value
 
     def _set_enabled(self, value: bool):
@@ -55,7 +55,7 @@ class GameUnit:
     visible = property(_get_visible, _set_visible)
     position = property(_get_position, _set_position)
     rotation = property(_get_rotation, _set_rotation)
-    active = property(_get_active, _set_active)
+    hilited = property(_get_hilited, _set_hilited)
 
     def __repr__(self):
         return f"<GameUnit id={self.unit_id} type={self.unit_type} at=({self.display.position.i},{self.display.position.j},{self.display.position.k})>"

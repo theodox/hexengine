@@ -23,11 +23,11 @@ class GameBoard:
     @selection.setter
     def selection(self, value):
         if self._selection:
-            self.selection.active = False
+            self.selection.hilited = False
 
         self._selection = value
         if value:
-            self.selection.active = True
+            self.selection.hilited = True
             self.constrain()
         else:
             self.clear_hilite()

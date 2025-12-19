@@ -6,7 +6,7 @@ from pyodide.ffi import create_proxy
 from ..dev_console import set_status
 from ..hexes.shapes import radius
 from ..map.handler import Handler, Modifiers
-from .history import Move
+from ..actions import Move
 
 
 class MouseState(Enum):

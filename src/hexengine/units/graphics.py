@@ -109,14 +109,14 @@ class DisplayUnit:
         transform += f" rotate({angle})"
         self.proxy.setAttribute("transform", transform)
 
-    def _get_active(self) -> bool:
-        return self.proxy.classList.contains("active")
+    def _get_hilited(self) -> bool:
+        return self.proxy.classList.contains("hilited")
 
-    def _set_active(self, value: bool):
+    def _set_hilited(self, value: bool):
         if value:
-            self.proxy.classList.add("active")
+            self.proxy.classList.add("hilited")
         else:
-            self.proxy.classList.remove("active")
+            self.proxy.classList.remove("hilited")
 
     def _set_enabled(self, value: bool):
         if value:
@@ -137,5 +137,5 @@ class DisplayUnit:
     visible = property(_get_visible, _set_visible)
     position = property(_get_position, _set_position)
     rotation = property(_get_rotation, _set_rotation)
-    active = property(_get_active, _set_active)
+    hilited = property(_get_hilited, _set_hilited)
     enabled = property(_get_enabled, _set_enabled)

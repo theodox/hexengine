@@ -231,8 +231,9 @@ g.disabled {
     filter: saturate(0.2) brightness(0.66);
 }
 
+/* hex highlight style */
 .highlight  {
-    fill: rgba(55, 161, 231, 0.333);
+    fill: rgba(55, 231, 96, 0.333);
     stroke-width: 4px;
 }
 
@@ -244,7 +245,7 @@ polygon.location {
 }
 
 polygon.location.forest {
-    fill: green;
+    fill: rgba(57, 91, 57, 0.454);
 }
 
 polygon.location.hill {

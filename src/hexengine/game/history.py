@@ -1,50 +1,4 @@
-from typing import Protocol
-
-
-class Action(Protocol):
-    def do(self, game_board): ...
-
-    def undo(self, game_board): ...
-
-
-class Move(Action):
-    def __init__(self, unit, from_hex, to_hex):
-        self.unit = unit
-        self.from_hex = from_hex
-        self.to_hex = to_hex
-
-    def do(self, game_board):
-        # Implement the logic to move the unit on the game board
-        game_board.get_unit(self.unit).position = self.to_hex
-        game_board.update(self.unit)
-
-    def undo(self, game_board):
-        # Implement the logic to undo the move on the game board
-        game_board.get_unit(self.unit).position = self.from_hex
-        game_board.update(self.unit)
-
-    def __repr__(self):
-        return f"Move({self.unit}, {self.from_hex} -> {self.to_hex})"
-
-
-class DeleteUnit(Action):
-    def __init__(self, unit):
-        self.unit = unit
-        self.unit_visible = unit.visible
-        self.unit_enabled = unit.enabled
-
-    def do(self, game_board):
-        # Implement the logic to delete the unit from the game board
-        assert game_board.get_unit(self.unit.unit_id) is not None
-        self.unit.visible = False
-
-    def undo(self, game_board):
-        assert game_board.get_unit(self.unit.unit_id) is not None
-        self.unit.visible = self.unit_visible
-        self.unit.enabled = self.unit_enabled
-
-    def __repr__(self):
-        return f"DeleteUnit({self.unit_id} at {self.position})"
+from hexengine.actions import Action
 
 
 class GameHistoryMixin:
@@ -63,8 +17,8 @@ class GameHistoryMixin:
         self._moves.append(action)
         action.do(self.board)
         self._history_pointer += 1
-        self.logger.debug(
-            f"Added move: {action}, pointer at {self._history_pointer}"
+        self.logger.info(
+            f"ENQUEUE {action} #{self._history_pointer}"
         )
 
     def has_moves(self):
@@ -77,8 +31,8 @@ class GameHistoryMixin:
             self._history_pointer -= 1
             move = self._moves[self._history_pointer]
             move.undo(self.board)
-            self.logger.debug(
-                f"Undid move: {move}, pointer at {self._history_pointer}"
+            self.logger.info(
+                f"UNDO {move} #{self._history_pointer}"
             )
             return move
         self.logger.debug("No move to undo")
@@ -90,8 +44,8 @@ class GameHistoryMixin:
             move = self._moves[self._history_pointer]
             self._history_pointer += 1
             move.do(self.board)
-            self.logger.debug(
-                f"Redid move: {move}, pointer at {self._history_pointer}"
+            self.logger.info(
+                f"REDO {move} #{self._history_pointer}"
             )
             return move
 

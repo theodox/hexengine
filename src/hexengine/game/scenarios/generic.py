@@ -35,7 +35,7 @@ class GenericGraphicsCreator(GraphicsCreator):
     fill: rgb(134, 130, 82);
 }
 
-.soldier.active rect {
+.soldier.hilited rect {
     fill: rgb(255, 243, 110);
 }
 

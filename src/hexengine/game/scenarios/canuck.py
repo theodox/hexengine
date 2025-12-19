@@ -34,7 +34,7 @@ class CanuckGraphicsCreator(GraphicsCreator):
     fill: rgb(177, 98, 1);
 }
 
-.canuck.active rect {
+.canuck.hilited rect {
     fill: rgb(255, 57, 57);
 }
 

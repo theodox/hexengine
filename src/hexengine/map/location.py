@@ -13,7 +13,6 @@ class Location:
         self._display = DisplayLocation(hex, self._type, game.canvas.hex_layout)
         self._display.create_graphics(game.canvas.svg_layer._svg)
 
-
     @property
     def position(self) -> Hex:
         return self._hex
@@ -42,7 +41,7 @@ class DisplayLocation:
 
     def __init__(self, hex, loc_type: str, layout: HexLayout = None):
         self.loc_type = loc_type
-        self._hex = hex 
+        self._hex = hex
         self._hex_layout = layout
         self.proxy = None
 
@@ -51,7 +50,6 @@ class DisplayLocation:
         points = []
         for point in self._hex_layout.hex_corners(self._hex):
             points.append(f"{point[0]},{point[1]}")
-        
 
         polygon = js.document.createElementNS("http://www.w3.org/2000/svg", "polygon")
         polygon.setAttribute("points", " ".join(points))
