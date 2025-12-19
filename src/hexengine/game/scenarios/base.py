@@ -4,12 +4,12 @@ from ...map.location import Location
 
 
 class ScenarioItem:
-    def __init__(self, pos, cls, unit_id, unit_type, visible=True):
+    def __init__(self, pos, cls, unit_id, unit_type, active=True):
         self.cls = cls
         self.unit_id = unit_id
         self.unit_type = unit_type
         self.position: Hex = pos
-        self.visible = visible
+        self.active = active
 
 
 class LocationItem:
@@ -32,7 +32,7 @@ class Scenario:
             unit = member.cls.create(member.unit_id, member.unit_type, game.canvas)
             unit.position = member.position
             unit.display.set_text(member.unit_id[-4:])
-            unit.visible = member.visible
+            unit.active = member.active
             game.add_unit(unit)
 
         for loc in self.locations:
