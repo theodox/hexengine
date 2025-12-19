@@ -6,7 +6,7 @@ from pyodide.ffi import create_proxy
 from ..dev_console import set_status
 from ..hexes.shapes import radius
 from ..map.handler import Handler, Modifiers
-
+from .moves import Move
 
 class MouseState(Enum):
     UP = 0
@@ -18,7 +18,27 @@ class TargetType(Enum):
     UNIT = "unit"
     BACKGROUND = "background"
 
+class HotkeyHandlerMixin:
+    """Mixin class providing hotkey handling functionality for the Game class."""
 
+    def on_key_down(self, event):
+        key = event.key.lower()
+        modifiers = Modifiers.from_event(event)
+        self.logger.debug(f"Key down: {key} with modifiers {modifiers}")
+
+        # Example hotkey: 'z' for undo with Ctrl modifier
+        if key == 'z' and (modifiers & Modifiers.CONTROL):
+            self.actions.undo()
+            self.logger.info("Undo action triggered")
+
+        # Example hotkey: 'y' for redo with Ctrl modifier
+        if key == 'y' and (modifiers & Modifiers.CONTROL):
+            self.actions.redo()
+            self.logger.info("Redo action triggered")
+
+    def register_hotkeys(self):
+        self.logger.debug("Registering hotkey handlers") 
+        js.document.onkeydown = create_proxy(lambda event: self.on_key_down(event))
 
 class EventHandlerMixin:
     """Mixin class providing mouse event handling functionality for the Game class."""
@@ -39,10 +59,12 @@ class EventHandlerMixin:
         x, y = self.drag_end
         h = self.canvas.hex_layout.pixel_to_hex(x, y)
         if h in self.board.constraints:
-            self.selection.position = h
+            move = Move(self.selection.unit_id, self.selection.position, h)
+            self.actions.enqueue(move)
         else:
             orig = self.canvas.hex_layout.pixel_to_hex(*self.drag_start)
             self.selection.position = orig
+            # no move
             
 
     def on_mouse_down(self, event, source, position, modifiers):

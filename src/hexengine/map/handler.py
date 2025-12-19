@@ -11,6 +11,14 @@ class Modifiers(IntFlag):
     SHIFT = auto()  
     CONTROL = auto()    # Note: CONTROL is not a valid flag in the MODIFIER_KEYS enum, it should be CONTROL
 
+    @classmethod
+    def from_event(cls, event) -> "Modifiers":
+        alt = cls.ALT if event.getModifierState("Alt") else 0
+        shift = cls.SHIFT if event.getModifierState("Shift") else 0
+        control = cls.CONTROL if event.getModifierState("Control") else 0
+        return Modifiers(alt | shift | control)
+
+
 class Handler:
     """
     Event handler for UI events on an owner element.
@@ -39,11 +47,7 @@ class Handler:
         else:
             sy = 1.0
 
-        alt = Modifiers.ALT if event.getModifierState("Alt") else 0
-        shift = Modifiers.SHIFT if event.getModifierState("Shift") else 0
-        control = Modifiers.CONTROL if event.getModifierState("Control") else 0
-
-        modifiers = alt | shift | control
+        modifiers = Modifiers.from_event(event)
 
         for handler in self._handlers:
             handler(event, self._owner, (x * sx, y * sy), modifiers)
