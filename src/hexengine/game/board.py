@@ -1,7 +1,7 @@
 from ..hexes.math import neighbors
 from ..map import Map
 import heapq
-
+import logging
 
 class GameBoard:
     def __init__(self, map: Map):
@@ -12,7 +12,8 @@ class GameBoard:
         self._constraints = set()
         self._hilited = False
         self._locations = {}  # maps positions to movement costs
-
+        self.logger = logging.getLogger("game.board")
+        
     @property
     def selection(self):
         return self._selection

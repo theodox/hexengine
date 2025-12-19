@@ -39,6 +39,10 @@ class Game(EventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self._init_history()
         self.register_hotkeys()
 
+    @property
+    def faction(self):
+        return self.FACTION
+
     # these are delegated to the board instance, but
     # exposed here for convenience
     @property

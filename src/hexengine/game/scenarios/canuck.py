@@ -47,5 +47,6 @@ class CanuckGraphicsCreator(GraphicsCreator):
 
 
 class CanuckUnit(GameUnit):
+    FACTION: str = "canadian"
     GRAPHICS_CREATOR: GraphicsCreator = CanuckGraphicsCreator
     """A game unit with logic and state, using the CanuckGraphicsCreator for display."""

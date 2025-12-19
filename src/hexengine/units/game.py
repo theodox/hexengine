@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 class GameUnit:
     """A game unit with logic and state."""
-
+    FACTION: str = "neutral"
     GRAPHICS_CREATOR: GraphicsCreator = None
 
     def __init__(self, unit_id: str, unit_type: str, unit_display: DisplayUnit):
@@ -68,6 +68,7 @@ class GameUnit:
     def _get_enabled(self) -> bool:
         return self.display.enabled
     
+    faction = property(lambda self: self.FACTION)
     active = property(_get_active, _set_active)
     enabled = property(_get_enabled, _set_enabled)
     visible = property(_get_visible, _set_visible)

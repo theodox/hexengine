@@ -63,5 +63,6 @@ class GenericGraphicsCreator(GraphicsCreator):
 
 
 class GenericUnit(GameUnit):
+    FACTION: str = "other"
     GRAPHICS_CREATOR: GraphicsCreator = GenericGraphicsCreator
     """A game unit with logic and state, using the GenericGraphicsCreator for display."""

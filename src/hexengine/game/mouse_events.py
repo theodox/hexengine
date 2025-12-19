@@ -186,7 +186,7 @@ class EventHandlerMixin:
             offset_pos = position[0] - 10, position[1] - 20
 
             self.popup_manager.create_popup(
-                f"{self.selection.unit_id} @ {self.selection.position}", offset_pos
+                f"{self.selection.unit_id} @ {self.selection.faction}", offset_pos
             )
 
     def _unit_drag(self, event, source, position, modifiers):
