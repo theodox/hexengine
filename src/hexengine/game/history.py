@@ -1,6 +1,4 @@
-from asyncio.log import logger
 from typing import Protocol
-import logging
 
 
 class Action(Protocol):
@@ -61,11 +59,11 @@ class GameHistoryMixin:
         """Add an action to the history and execute it."""
         if self._history_pointer < len(self._moves):
             self._moves = self._moves[: self._history_pointer]
-            logging.getLogger("History").debug("Truncated move list due to new action")
+            self.logger.debug("Truncated move list due to new action")
         self._moves.append(action)
         action.do(self.board)
         self._history_pointer += 1
-        logging.getLogger("History").debug(
+        self.logger.debug(
             f"Added move: {action}, pointer at {self._history_pointer}"
         )
 
@@ -79,11 +77,11 @@ class GameHistoryMixin:
             self._history_pointer -= 1
             move = self._moves[self._history_pointer]
             move.undo(self.board)
-            logging.getLogger("History").debug(
+            self.logger.debug(
                 f"Undid move: {move}, pointer at {self._history_pointer}"
             )
             return move
-        logging.getLogger("History").debug("No move to undo")
+        self.logger.debug("No move to undo")
         return None
 
     def redo(self):
@@ -92,10 +90,10 @@ class GameHistoryMixin:
             move = self._moves[self._history_pointer]
             self._history_pointer += 1
             move.do(self.board)
-            logging.getLogger("History").debug(
+            self.logger.debug(
                 f"Redid move: {move}, pointer at {self._history_pointer}"
             )
             return move
 
-        logging.getLogger("History").debug("No move to redo")
+        self.logger.debug("No move to redo")
         return None

@@ -1,5 +1,3 @@
-from asyncio.log import logger
-import logging
 from enum import Enum
 import js
 from pyodide.ffi import create_proxy
@@ -7,6 +5,7 @@ from ..dev_console import set_status
 from ..hexes.shapes import radius
 from ..map.handler import Handler, Modifiers
 from .history import Move
+
 
 class MouseState(Enum):
     UP = 0
@@ -44,7 +43,6 @@ class EventHandlerMixin:
             orig = self.canvas.hex_layout.pixel_to_hex(*self.drag_start)
             self.selection.position = orig
             # no move
-            
 
     def on_mouse_down(self, event, source, position, modifiers):
         # Prevent default to stop text selection and default drag behavior
@@ -79,14 +77,14 @@ class EventHandlerMixin:
             self._unit_drag(event, source, position, modifiers)
 
     def on_mouse_up(self, event, source, position, modifiers):
-        logger.warning((event, source, position, modifiers))
+        self.logger.warning((event, source, position, modifiers))
         self.mouse_state = MouseState.UP
         target = event.target
         set_status(f"Target: {target} {self.mouse_state} {self.selection}")
 
         target_type, unit = self._get_target(event)
 
-        logger.warning(f"Mouse up on {target_type} {unit}")
+        self.logger.warning(f"Mouse up on {target_type} {unit}")
 
         self.drag_end = position
 
@@ -151,12 +149,10 @@ class EventHandlerMixin:
                 if self.pending_click_timeout is not None:
                     js.clearTimeout(self.pending_click_timeout)
                     self.pending_click_timeout = None
-                self.logger.debug(f"Double-click detected ({time_since_last_click} ms)")
                 self._bg_dbl_click(event, source, position, modifiers)
                 self.last_click_time = 0  # Reset to prevent triple-click
             else:
                 # Delay single click to check for double-click
-                self.logger.debug(f"Click detected, waiting for potential double-click")
                 if self.pending_click_timeout is not None:
                     js.clearTimeout(self.pending_click_timeout)
 
@@ -173,7 +169,7 @@ class EventHandlerMixin:
     # ---------------------
 
     def _unit_click(self, event, source, position, modifiers):
-        logger.warning(source)
+        self.logger.warning(source)
         if self.selection:
             self.selection = None
             self.logger.debug("Click processed, unit snapped to grid")
@@ -197,7 +193,7 @@ class EventHandlerMixin:
     def _unit_drag(self, event, source, position, modifiers):
         self.board.constrain()
         self.board.hilite()
-        
+
         distance = self._mouse_distance()
         if distance > self.MIN_DRAG_DISTANCE:
             # Place unit directly at cursor position
@@ -216,11 +212,10 @@ class EventHandlerMixin:
         # this forced the unit to be on top of other units
         unit.display.proxy.parentElement.appendChild(unit.display.proxy)
         self.logger.debug(
-            f"Mouse down on unit {unit.unit_id} at position {self.drag_start} with modifiers {modifiers}"
+            f"Mouse down on '{unit.unit_id}' @ {self.drag_start} with {modifiers}"
         )
 
     def _unit_mouseup(self, event, source, position, modifiers):
-        
         try:
             current_time = js.Date.now()
             time_since_last_click = current_time - self.last_click_time
@@ -237,16 +232,11 @@ class EventHandlerMixin:
                     if self.pending_click_timeout is not None:
                         js.clearTimeout(self.pending_click_timeout)
                         self.pending_click_timeout = None
-                    self.logger.debug(
-                        f"Double-click detected ({time_since_last_click} ms)"
-                    )
                     self._unit_dbl_click(event, source, position, modifiers)
                     self.last_click_time = 0  # Reset to prevent triple-click
                 else:
                     # Delay single click to check for double-click
-                    self.logger.debug(
-                        f"Click detected, waiting for potential double-click"
-                    )
+                    
                     if self.pending_click_timeout is not None:
                         js.clearTimeout(self.pending_click_timeout)
 
@@ -260,4 +250,3 @@ class EventHandlerMixin:
         finally:
             self.board.update(self.selection)
             self.selection = None
-            
