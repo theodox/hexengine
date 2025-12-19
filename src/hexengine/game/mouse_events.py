@@ -236,7 +236,7 @@ class EventHandlerMixin:
                     self.last_click_time = 0  # Reset to prevent triple-click
                 else:
                     # Delay single click to check for double-click
-                    
+
                     if self.pending_click_timeout is not None:
                         js.clearTimeout(self.pending_click_timeout)
 

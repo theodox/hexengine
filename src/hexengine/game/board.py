@@ -43,8 +43,8 @@ class GameBoard:
         return location.movement_cost
 
     def occupied(self, position):
-        occupant = self._board.get(position)
-        return occupant is not None
+        occupant = self._board.get(position, False)
+        return bool(occupant)
 
     def constrain(self):
         self._constraints.clear()

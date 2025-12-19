@@ -3,6 +3,7 @@ from pyodide.ffi import create_proxy
 from ..map.handler import Modifiers
 from ..actions import DeleteUnit
 
+
 class HotkeyHandlerMixin:
     """Mixin class providing hotkey handling functionality for the Game class."""
 
@@ -26,7 +27,6 @@ class HotkeyHandlerMixin:
                 delete_action = DeleteUnit(self.selection)
                 self.enqueue(delete_action)
                 self.logger.info(f"Deleted {self.selection}")
-
 
     def register_hotkeys(self):
         self.logger.debug("Registering hotkey handlers")
