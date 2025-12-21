@@ -1,37 +1,18 @@
 import logging
-from enum import IntFlag, auto
-from collections import namedtuple
 
 from ..document import create_proxy
+from ..game.events.handler import EventInfo, Modifiers
 
 HANDLER_LOGGER = logging.getLogger("handler")
 HANDLER_LOGGER.setLevel(logging.DEBUG)
 
-EventInfo = namedtuple(
-    "EventInfo", ["event", "owner", "position", "modifiers", "target", "unit_id", "hex"]
-)
 
-
-class Modifiers(IntFlag):
-    NONE = 0
-    ALT = auto()
-    SHIFT = auto()
-    CONTROL = auto()
-
-    @classmethod
-    def from_event(cls, event) -> "Modifiers":
-        alt = cls.ALT if event.getModifierState("Alt") else 0
-        shift = cls.SHIFT if event.getModifierState("Shift") else 0
-        control = cls.CONTROL if event.getModifierState("Control") else 0
-        return Modifiers(alt | shift | control)
-
-
-class Handler:
+class MouseHandler:
     """
     Event handler for UI events on an owner element.
     """
 
-    def __init__(self, owner, event_type: str, layout=None):
+    def __init__(self, owner, event_type: str, layout=None) -> None:
         self._handlers = []
         self._owner = owner
         self._event_type = event_type
@@ -39,7 +20,7 @@ class Handler:
         self.proxy = create_proxy(self._handle_event)
         self._owner.addEventListener(event_type, self.proxy)
 
-    def _get_event_target(self, event):
+    def _get_event_target(self, event) -> tuple:
         """
         Extract target information from a DOM event.
         Returns a tuple of (target_element, unit_id) where:
@@ -60,7 +41,7 @@ class Handler:
 
         return target, unit_id
 
-    def _handle_event(self, event):
+    def _handle_event(self, event) -> None:
         # handle the click coordinates for canvas elements
         # Always use owner's bounding box for consistent coordinate system
         rect = self._owner.getBoundingClientRect()
@@ -96,13 +77,13 @@ class Handler:
             handler(result)
 
     def __lt__(self, handler):
-        # use < to add a handler
-        logging.getLogger().debug(f"Adding handler {handler} to {self}")
+        # use < to add a mouse handler
+        HANDLER_LOGGER.debug(f"Adding handler {handler} to {self}")
         self._handlers.append(create_proxy(handler))
         return self
 
     def __isub__(self, handler):
         raise NotImplementedError
 
-    def __repr__(self):
-        return f"<Handler event_type={self._event_type} owner={self._owner}>"
+    def __repr__(self) -> str:
+        return f"<MouseHandler event_type={self._event_type} owner={self._owner}>"

@@ -6,7 +6,7 @@ from ...units.graphics import DisplayUnit, GraphicsCreator
 class GenericGraphicsCreator(GraphicsCreator):
     BASE_CLASSES = ("soldier", "unit")
 
-    def create(self, display_unit: DisplayUnit):
+    def create(self, display_unit: DisplayUnit) -> DisplayUnit:
         display_unit.push_classes(*self.BASE_CLASSES)
 
         rect = js.document.createElementNS("http://www.w3.org/2000/svg", "rect")

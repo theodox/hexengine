@@ -1,10 +1,7 @@
-from enum import Enum
-from typing import TYPE_CHECKING, Optional
-
 from ...document import js, create_proxy
 from ...actions import Move
 from ...hexes.types import Hex
-from ...map.handler import EventInfo, Modifiers
+from .handler import EventInfo, Modifiers
 
 if TYPE_CHECKING:
     from ...units.game import GameUnit
@@ -185,10 +182,8 @@ class EventHandlerMixin:
             else "Double click with no selection"
         )
 
-        if Modifiers.ALT & eventInfo.modifiers:
-            offset_pos = eventInfo.position[0] - 10, eventInfo.position[1] - 20
-
-            self.popup_manager.create_popup(
+        offset_pos = eventInfo.position[0] + 10, eventInfo.position[1] + 20
+        self.popup_manager.create_popup(
                 f"{self.selection.unit_id} @ {self.selection.faction}", offset_pos
             )
         self.last_click_time = 0

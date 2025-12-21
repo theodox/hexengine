@@ -51,7 +51,7 @@ class GraphicsCreator(Protocol):
 class DisplayUnit:
     """The display component of a game unit."""
 
-    def __init__(self, unit_id: str, unit_type: str, layout: HexLayout = None):
+    def __init__(self, unit_id: str, unit_type: str, layout: HexLayout = None) -> None:
         self.unit_id = unit_id
         self.unit_type = unit_type
         self.proxy = js.document.createElementNS("http://www.w3.org/2000/svg", "g")
@@ -63,18 +63,18 @@ class DisplayUnit:
         self._hex_layout = layout
         self.text_element = None
 
-    def push_classes(self, *classes: Iterable[str]):
+    def push_classes(self, *classes: Iterable[str]) -> None:
         for cl in classes:
             self.proxy.classList.add(cl)
 
-    def set_text_element(self, element: "js.Element"):
+    def set_text_element(self, element: "js.Element") -> None:
         self.text_element = element
 
-    def set_text(self, text: str):
+    def set_text(self, text: str) -> None:
         if self.text_element:
             self.text_element.textContent = text
 
-    def _set_visible(self, value: bool):
+    def _set_visible(self, value: bool) -> None:
         if value:
             self.proxy.setAttribute("display", "block")
         else:
@@ -83,7 +83,7 @@ class DisplayUnit:
     def _get_visible(self) -> bool:
         return self.proxy.getAttribute("display") != "none"
 
-    def _set_position(self, hex: Hex):
+    def _set_position(self, hex: Hex) -> None:
         self._hex = hex
         x, y = self._hex_layout.hex_to_pixel(self._hex)
         self.proxy.setAttribute("transform", f"translate({x},{y})")
@@ -100,7 +100,7 @@ class DisplayUnit:
             return float(angle_str)
         return 0.0
 
-    def _set_rotation(self, angle: float):
+    def _set_rotation(self, angle: float) -> None:
         transform = self.proxy.getAttribute("transform")
         # Remove existing rotation if any
         if "rotate(" in transform:
@@ -114,13 +114,13 @@ class DisplayUnit:
     def _get_hilited(self) -> bool:
         return self.proxy.classList.contains("hilited")
 
-    def _set_hilited(self, value: bool):
+    def _set_hilited(self, value: bool) -> None:
         if value:
             self.proxy.classList.add("hilited")
         else:
             self.proxy.classList.remove("hilited")
 
-    def _set_enabled(self, value: bool):
+    def _set_enabled(self, value: bool) -> None:
         if value:
             self.proxy.classList.remove("disabled")
         else:
@@ -129,7 +129,7 @@ class DisplayUnit:
     def _get_enabled(self) -> bool:
         return not self.proxy.classList.contains("disabled")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"<Unit id={self.unit_id} hex=({self._hex.i},{self._hex.j},{self._hex.k})>"
         )

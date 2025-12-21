@@ -5,7 +5,7 @@ from ..document import js
 from ..hexes.types import Hex
 from ..units import DisplayUnit
 from .canvas_layer import CanvasLayer
-from .handler import Handler
+from .handler import MouseHandler
 from .layout import HexLayout
 from .svg_layer import SVGLayer
 from .unit_layer import UnitLayer
@@ -59,11 +59,11 @@ class Map:
             unit_element, self._hex_layout, self._hex_color, self._hex_stroke
         )
 
-        self._dragHandler = Handler(self._container, "mousemove", self._hex_layout)
-        self._mouse_downHandler = Handler(
+        self._dragHandler = MouseHandler(self._container, "mousemove", self._hex_layout)
+        self._mouse_downHandler = MouseHandler(
             self._container, "mousedown", self._hex_layout
         )
-        self._mouse_upHandler = Handler(self._container, "mouseup", self._hex_layout)
+        self._mouse_upHandler = MouseHandler(self._container, "mouseup", self._hex_layout)
 
     @property
     def on_drag(self):

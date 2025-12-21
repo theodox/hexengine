@@ -2,15 +2,14 @@ import logging
 
 from ..document import element
 from ..map import Map
-from ..map.handler import Modifiers
 from ..ui.popups import PopupManager
 from .board import GameBoard
-from .events import EventHandlerMixin, HotkeyHandlerMixin, Hotkey, MouseState
+from .events import EventHandlerMixin, HotkeyHandlerMixin, Hotkey, MouseState, Modifiers
 from .history import GameHistoryMixin
 
 
 class Game(EventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
-    def __init__(self):
+    def __init__(self) -> None:
         self.running = True
         container = element("map-container")
         map = element("map-canvas")
@@ -57,14 +56,14 @@ class Game(EventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         if self.board.selection:
             self.board.selection.hilited = True
 
-    def add_unit(self, unit):
+    def add_unit(self, unit) -> None:
         self.board.add_unit(unit)
 
-    def remove_unit(self, unit):
+    def remove_unit(self, unit) -> None:
         self.board.remove_unit(unit)
 
     @Hotkey("delete", Modifiers.NONE)
-    def delete_selected_unit(self):
+    def delete_selected_unit(self) -> None:
         if self.selection:
             from hexengine.actions.delete import DeleteUnit
 
@@ -76,7 +75,8 @@ class Game(EventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             self.logger.debug("No unit selected to delete")
 
     @Hotkey("enter", Modifiers.NONE)
-    def popup_selected_unit_info(self):
+    def popup_selected_unit_info(self) -> None:
+        self.popup_manager.clear()
         if self.selection:
             loc = self.layout.hex_to_pixel(self.selection.position)
             self.popup_manager.create_popup(
@@ -87,5 +87,5 @@ class Game(EventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             self.logger.debug("No unit selected to show info")
 
     @Hotkey("escape", Modifiers.NONE)
-    def clear_selection(self):
+    def clear_selection(self) -> None:
         self.popup_manager.clear()

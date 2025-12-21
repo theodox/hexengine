@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 
 class Location:
-    def __init__(self, hex, terrain_type, movement_cost, game: "Game"):
+    def __init__(self, hex: Hex, terrain_type: str, movement_cost: float, game: "Game") -> None:
         self._hex = hex
         self._type = terrain_type
         self._cost = movement_cost
@@ -35,20 +35,20 @@ class Location:
         movement_cost = loc_item.movement_cost
         return cls(pos, terrain, movement_cost, game)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<{self._hex.i},{self._hex.j},{self._hex.k} = {self.loc_type}>"
 
 
 class DisplayLocation:
     """The display component of a location on the board."""
 
-    def __init__(self, hex, loc_type: str, layout: HexLayout = None):
+    def __init__(self, hex: Hex, loc_type: str, layout: HexLayout = None) -> None:
         self.loc_type = loc_type
         self._hex = hex
         self._hex_layout = layout
         self.proxy = None
 
-    def create_graphics(self, svg_layer):
+    def create_graphics(self, svg_layer) -> None:
         # Example graphics creation for a location
         points = []
         for point in self._hex_layout.hex_corners(self._hex):
@@ -61,6 +61,6 @@ class DisplayLocation:
         svg_layer.appendChild(polygon)
         self.proxy = polygon
 
-    def push_classes(self, *classes: Iterable[str]):
+    def push_classes(self, *classes: Iterable[str]) -> None:
         for cl in classes:
             self.proxy.classList.add(cl)

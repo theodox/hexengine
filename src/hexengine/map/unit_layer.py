@@ -24,7 +24,7 @@ class UnitLayer:
         self._hex_stroke = hex_stroke
         self.units = {}
 
-    def add_unit(self, unit: GameUnit):
+    def add_unit(self, unit: GameUnit) -> None:
         if unit.unit_id in self.units:
             raise ValueError(f"Unit with id {unit.unit_id} already exists")
         else:
@@ -35,7 +35,7 @@ class UnitLayer:
         self._svg.appendChild(unit.display.proxy)
         self.units[unit.unit_id] = unit
 
-    def remove_unit(self, unit: DisplayUnit):
+    def remove_unit(self, unit: DisplayUnit) -> None:
         if unit.unit_id not in self.units:
             raise ValueError(f"Unit with id {unit.unit_id} does not exist")
         unit.proxy.remove()

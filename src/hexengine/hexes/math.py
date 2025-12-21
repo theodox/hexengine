@@ -14,7 +14,7 @@ for i in range(-1, 2):
             _NEIGHBOR_OFFSETS.append(Hex(i, j, k))
 
 
-def cube_round(coords):
+def cube_round(coords: tuple[float, float, float]) -> Hex:
     """
     Rounds fractional cube coordinates to the nearest hex.
     """

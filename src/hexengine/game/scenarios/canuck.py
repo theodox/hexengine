@@ -6,7 +6,7 @@ from ...units.graphics import DisplayUnit, GraphicsCreator
 class CanuckGraphicsCreator(GraphicsCreator):
     BASE_CLASSES = ("unit", "canuck")
 
-    def create(self, display_unit: DisplayUnit):
+    def create(self, display_unit: DisplayUnit) -> DisplayUnit:
         # Implement specific graphics creation for Canuck units
         display_unit.push_classes(*self.BASE_CLASSES)
 

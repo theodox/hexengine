@@ -1,7 +1,8 @@
+from typing import Callable
 import logging
 
 from ...document import js, create_proxy
-from ...map.handler import Modifiers
+from .handler import Modifiers
 
 
 class HotkeyHandlerMixin:
@@ -9,7 +10,7 @@ class HotkeyHandlerMixin:
 
     KEYDOWN_EVENTS = {}
 
-    def on_key_down(self, event):
+    def on_key_down(self, event) -> None:
         key = event.key.lower()
         modifiers = Modifiers.from_event(event)
 
@@ -19,7 +20,7 @@ class HotkeyHandlerMixin:
                 f"Hotkey action for {key} with modifiers {modifiers} executed"
             )
 
-    def _register_hotkeys(self):
+    def _register_hotkeys(self) -> None:
         self.logger.debug("Registering hotkey handlers")
         js.document.onkeydown = create_proxy(lambda event: self.on_key_down(event))
 
@@ -27,11 +28,11 @@ class HotkeyHandlerMixin:
 class Hotkey:
     """Represents a hotkey action with associated key, modifiers, and callback."""
 
-    def __init__(self, key: str, modifiers: Modifiers):
+    def __init__(self, key: str, modifiers: Modifiers) -> None:
         self.key = key
         self.modifiers = modifiers
 
-    def __call__(self, func):
+    def __call__(self, func: Callable) -> Callable:
         def wrapper(func, *args, **kwds):
             return func(*args, **kwds)
 

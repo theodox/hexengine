@@ -1,3 +1,4 @@
+from typing import Any
 import logging
 from .document import element, create_proxy, js
 
@@ -11,7 +12,7 @@ ROOT_LOGGER = None
 __version__ = "0.1.0"
 
 
-def initialize(name: str, game_globals) -> logging.Logger:
+def initialize(name: str, game_globals: dict[str, Any]) -> logging.Logger:
     textArea = element("console")
     assert textArea is not None, "Console text area not found"
     inputArea = element("console-input")
@@ -45,14 +46,14 @@ def initialize(name: str, game_globals) -> logging.Logger:
     TextAreaWriter.update(logging.INFO)
 
 
-def update_log_display(event, textArea: js.HTMLElement):
+def update_log_display(event, textArea: js.HTMLElement) -> None:
     level_str = event.target.value
     level = getattr(logging, level_str.upper(), logging.DEBUG)
     TextAreaWriter.set_active_level(level)
     TextAreaWriter.update(level)
 
 
-def set_status(message: str):
+def set_status(message: str) -> None:
     StatusLine.INSTANCE.set_status(message)
 
 
@@ -60,25 +61,25 @@ class TextAreaWriter:
     ACTIVE_LEVEL = logging.DEBUG
     INSTANCE = None
 
-    def __init__(self, textArea: js.HTMLElement):
+    def __init__(self, textArea: js.HTMLElement) -> None:
         self.textArea = textArea
         self.items = [(50, __version__)]
 
-    def write(self, level: int, message: str):
+    def write(self, level: int, message: str) -> None:
         self.items.append((level, message))
         if level >= self.ACTIVE_LEVEL:
             self.textArea.value += message + "\n"
         self.textArea.scrollTop = self.textArea.scrollHeight
 
-    def flush(self):
+    def flush(self) -> None:
         pass
 
     @classmethod
-    def set_active_level(cls, level: int):
+    def set_active_level(cls, level: int) -> None:
         cls.ACTIVE_LEVEL = level
 
     @classmethod
-    def update(cls, level: int):
+    def update(cls, level: int) -> None:
         slf = cls.INSTANCE
         js.console.log(slf)
         messages = [msg for lvl, msg in slf.items if lvl >= level]
@@ -89,19 +90,19 @@ class TextAreaWriter:
 class StatusLine:
     INSTANCE = None
 
-    def __init__(self, textArea: js.HTMLElement):
+    def __init__(self, textArea: js.HTMLElement) -> None:
         self.textArea = textArea
         self.logger = logging.getLogger("status")
         self.logger.debug("StatusLine initialized")
 
-    def set_status(self, message: str):
+    def set_status(self, message: str) -> None:
         self.textArea.value = message
 
 
 class TextAreaReader:
     INSTANCE = None
 
-    def __init__(self, textArea: js.HTMLElement, game_globals: dict):
+    def __init__(self, textArea: js.HTMLElement, game_globals: dict[str, Any]) -> None:
         self.textArea = textArea
         self.game_globals = game_globals
         self.textArea.addEventListener("keyup", create_proxy(self.on_keyup))
@@ -110,7 +111,7 @@ class TextAreaReader:
         self.history = []
         self.history_index = -1
 
-    def on_keyup(self, event):
+    def on_keyup(self, event) -> None:
         if event.key == "ArrowUp":
             if self.history:
                 self.history_index = max(0, self.history_index - 1)
@@ -139,7 +140,7 @@ class TextAreaReader:
 
 
 class DevLogHandler(logging.Handler):
-    def __init__(self, textArea: js.HTMLElement):
+    def __init__(self, textArea: js.HTMLElement) -> None:
         # this is always "NOTSET" because filtering is done in TextAreaWriter
         super().__init__(logging.NOTSET)
         self.writer = TextAreaWriter(textArea)

@@ -1,12 +1,14 @@
+from typing import Optional
 import heapq
 import logging
 
 from ..hexes.math import neighbors
+from ..hexes.types import Hex
 from ..map import Map
 
 
 class GameBoard:
-    def __init__(self, map: Map):
+    def __init__(self, map: Map) -> None:
         self._board = dict()  # Maps positions to board elements
         self._units = dict()  # Maps unit IDs to units
         self._selection = None
@@ -32,24 +34,24 @@ class GameBoard:
         else:
             self.clear_hilite()
 
-    def add_location(self, location):
+    def add_location(self, location) -> None:
         self._locations[location.position] = location
 
-    def get_location_cost(self, position):
+    def get_location_cost(self, position: Hex) -> float:
         # returns movement cost for the given position
         location = self._locations.get(position)
         if location is None:
             return 1.0
         return location.movement_cost
 
-    def occupied(self, position):
+    def occupied(self, position: Hex) -> bool:
         occupant = self._board.get(position, False)
         return bool(occupant)
 
-    def impassable(self, position):
+    def impassable(self, position: Hex) -> bool:
         return self.get_location_cost(position) == float("inf")
 
-    def constrain(self, movement_budget=4):
+    def constrain(self, movement_budget: int = 4) -> set[Hex]:
         self._constraints.clear()
         for s in self.reachable_hexes(self.selection.position, movement_budget):
             if not self.occupied(s) and not self.impassable(s):
@@ -60,39 +62,39 @@ class GameBoard:
     def constraints(self):
         return self._constraints
 
-    def hilite(self):
+    def hilite(self) -> None:
         if not self._hilited:
             self._map.draw_hexes(self._constraints)
             self._hilited = True
 
-    def clear_hilite(self):
+    def clear_hilite(self) -> None:
         if self._hilited:
             self._map.svg_layer.clear()
             self.logger.debug("clearing constraints")
         self._hilited = False
 
-    def clear_constraints(self):
+    def clear_constraints(self) -> None:
         self._map.svg_layer.clear()
         self._constraints = set()
 
-    def update(self, item):
+    def update(self, item) -> None:
         """move the item to its current position"""
         self._board.clear()
         for item in self._units.values():
             self._board[item.position] = item
         self.logger.debug(str(self._board))
 
-    def add_unit(self, unit):
+    def add_unit(self, unit) -> None:
         if self.occupied(unit.position):
             raise ValueError("Position already occupied")
         self._board[unit.position] = unit
         self._units[unit.unit_id] = unit
         self._map.add_unit(unit)
 
-    def get_unit(self, unit_id):
+    def get_unit(self, unit_id: str):
         return self._units.get(unit_id)
 
-    def reachable_hexes(self, start_hex, max_cost):
+    def reachable_hexes(self, start_hex: Hex, max_cost: float) -> dict[Hex, float]:
         """
         Calculate all hexes reachable from start_hex within max_cost.
 

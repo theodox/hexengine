@@ -1,30 +1,35 @@
+from typing import TYPE_CHECKING
+
 import logging
 from ..document import create_proxy, js
+
+if TYPE_CHECKING:
+    pass
 
 LOGGER = logging.getLogger("PopupManager")
 
 
 class PopupManager:
-    def __init__(self, canvas):
+    def __init__(self, canvas) -> None:
         self.canvas = canvas
         self.popups = []
 
-    def add_popup(self, popup):
+    def add_popup(self, popup: "Popup") -> None:
         self.popups.append(popup)
 
-    def remove_popup(self, popup):
+    def remove_popup(self, popup: "Popup") -> None:
         if popup in self.popups:
             self.popups.remove(popup)
 
-    def get_all_popups(self):
+    def get_all_popups(self) -> list["Popup"]:
         return self.popups
 
-    def clear(self):
+    def clear(self) -> None:
         for p in self.popups:
             p.delete(self.canvas)
         self.popups = []
 
-    def create_popup(self, message, position):
+    def create_popup(self, message: str, position: tuple[float, float]) -> "Popup":
         popup = Popup(message, position)
         logging.info(f"Creating popup with message: {message} at position: {position}")
         self.add_popup(popup)
@@ -33,7 +38,7 @@ class PopupManager:
 
 
 class Popup:
-    def __init__(self, message, position):
+    def __init__(self, message: str, position: tuple[float, float]) -> None:
         self.message = message
         self.position = position
         self.element = None
@@ -41,7 +46,7 @@ class Popup:
         self.faded = False
         self.timeout = 0
 
-    def display(self, canvas, timeout=500):
+    def display(self, canvas, timeout: int = 500) -> None:
         div = js.document.createElement("div")
         div.className = "popup"
         div.innerHTML = "<p><b>" + str(self.message) + "</b></p>"
@@ -57,12 +62,12 @@ class Popup:
                 "mouseleave", create_proxy(lambda _: self.do_fade())
             )
 
-    def delete(self, *_):
+    def delete(self, *_) -> None:
         LOGGER.info(f"Removing popup with message: {self.message}")
         if self.canvas.contains(self.element):
             self.canvas.removeChild(self.element)
 
-    def do_fade(self, *_):
+    def do_fade(self, *_) -> None:
         if self.faded:
             return
         logging.getLogger("Popup").info(f"Fading out {self}")

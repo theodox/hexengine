@@ -58,8 +58,8 @@ class CanvasLayer:
         return self._context
 
     def draw_line(
-        self, x1: float, y1: float, x2: float, y2: float, stroke="black", stroke_width=1
-    ):
+        self, x1: float, y1: float, x2: float, y2: float, stroke: str = "black", stroke_width: int = 1
+    ) -> None:
         self._context.beginPath()
         self._context.strokeStyle = stroke
         self._context.lineWidth = stroke_width
@@ -68,7 +68,7 @@ class CanvasLayer:
         self._context.stroke()
         self._context.closePath()
 
-    def draw_hex(self, hex: Hex, fill="white", stroke="black", stroke_width=1):
+    def draw_hex(self, hex: Hex, fill: str = "white", stroke: str = "black", stroke_width: int = 1) -> None:
         points = self._hex_layout.hex_corners(hex)
         points.append(points[0])  # Close the hexagon
         self._context.beginPath()
@@ -82,8 +82,8 @@ class CanvasLayer:
         self._context.fill()
 
     def draw_hexes(
-        self, hexes: Iterable[Hex], fill="white", stroke="black", stroke_width=1
-    ):
+        self, hexes: Iterable[Hex], fill: str = "white", stroke: str = "black", stroke_width: int = 1
+    ) -> None:
         for hex in hexes:
             self.draw_hex(hex, fill=fill, stroke=stroke, stroke_width=stroke_width)
 
@@ -91,10 +91,10 @@ class CanvasLayer:
         self,
         top_left: Cartesian,
         bottom_right: Cartesian,
-        fill="white",
-        stroke="black",
-        stroke_width=1,
-    ):
+        fill: str = "white",
+        stroke: str = "black",
+        stroke_width: int = 1,
+    ) -> None:
         rect = rectangle_from_corners(top_left, bottom_right)
         for hex in rect:
             self.draw_hex(hex, fill=fill, stroke=stroke, stroke_width=stroke_width)

@@ -13,7 +13,7 @@ GAME = None
 MAP = None
 
 
-def main():
+def main() -> None:
     loading = element("loading")
     loading.style.display = "none"
 
