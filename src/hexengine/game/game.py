@@ -74,3 +74,18 @@ class Game(EventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             self.logger.info(f"Deleted unit {action.unit.unit_id}")
         else:
             self.logger.debug("No unit selected to delete")
+
+    @Hotkey("enter", Modifiers.NONE)
+    def popup_selected_unit_info(self):
+        if self.selection:
+            loc = self.layout.hex_to_pixel(self.selection.position)
+            self.popup_manager.create_popup(
+            f"{self.selection.unit_id} @ {self.selection.faction}", loc
+            )
+            self.logger.info(f"Showing info for unit {self.selection.unit_id}")
+        else:
+            self.logger.debug("No unit selected to show info")
+
+    @Hotkey("escape", Modifiers.NONE)
+    def clear_selection(self):
+        self.popup_manager.clear()

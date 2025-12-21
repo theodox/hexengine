@@ -1,4 +1,3 @@
-import logging
 from functools import singledispatch
 from math import atan2, cos, pi, sin
 from typing import Iterable, List, Sequence, Set
@@ -11,8 +10,6 @@ PI_OVER_3 = pi / 3.0
 PI_OVER_6 = pi / 6.0
 SQRT_THREE = 3**0.5
 THREE_HALF_POWER = SQRT_THREE / 2
-
-_LOGGER = logging.getLogger()
 
 
 @singledispatch
