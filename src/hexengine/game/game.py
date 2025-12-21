@@ -6,6 +6,7 @@ from ..ui.popups import PopupManager
 from .board import GameBoard
 from .events import EventHandlerMixin, HotkeyHandlerMixin, Hotkey, Modifiers
 from .history import GameHistoryMixin
+from .turn import test_turns
 
 
 class Game(EventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
