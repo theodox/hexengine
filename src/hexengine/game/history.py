@@ -1,5 +1,5 @@
 from hexengine.actions import Action
-
+from .events.hotkey import Hotkey, Modifiers
 
 class GameHistoryMixin:
     """Mixin class providing undo/redo history management for the Game class."""
@@ -25,6 +25,7 @@ class GameHistoryMixin:
         """Check if there are any moves in the history."""
         return len(self._moves) > 0
 
+    @Hotkey('z', Modifiers.CONTROL)
     def undo(self):
         """Undo the last action."""
         if self._history_pointer > 0:
@@ -38,6 +39,7 @@ class GameHistoryMixin:
         self.logger.debug("No move to undo")
         return None
 
+    @Hotkey('y', Modifiers.CONTROL)
     def redo(self):
         """Redo the next action."""
         if self._history_pointer < len(self._moves):

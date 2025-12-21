@@ -1,13 +1,15 @@
+import logging
+
 import js  # pyright: ignore[reportMissingImports]
 from typing import Iterable
+
 from ..hexes.types import Hex
-from .layout import HexLayout
-from .handler import Handler
-from .unit_layer import UnitLayer
-from .svg_layer import SVGLayer
+from ..units import DisplayUnit
 from .canvas_layer import CanvasLayer
-from ..units import DisplayUnit, GameUnit
-import logging
+from .handler import Handler
+from .layout import HexLayout
+from .svg_layer import SVGLayer
+from .unit_layer import UnitLayer
 
 
 class Map:

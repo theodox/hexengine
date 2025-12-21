@@ -1,10 +1,11 @@
 import logging
-from ..map import Map
-from ..document import element
 
-from .events import EventHandlerMixin, MouseState, HotkeyHandlerMixin
-from ..ui.popups import PopupManager, Popup
+from ..document import element
+from ..map import Map
+from ..map.handler import Modifiers
+from ..ui.popups import PopupManager
 from .board import GameBoard
+from .events import EventHandlerMixin, HotkeyHandlerMixin, Hotkey, MouseState
 from .history import GameHistoryMixin
 
 
@@ -36,7 +37,7 @@ class Game(EventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.canvas.on_drag < self.on_drag
 
         self._init_history()
-        self.register_hotkeys()
+        self._register_hotkeys()
 
     # these are delegated to the board instance, but
     # exposed here for convenience
@@ -55,9 +56,21 @@ class Game(EventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.board.selection = value
         if self.board.selection:
             self.board.selection.hilited = True
-    
+
     def add_unit(self, unit):
         self.board.add_unit(unit)
 
     def remove_unit(self, unit):
         self.board.remove_unit(unit)
+
+    @Hotkey('delete', Modifiers.NONE)
+    def delete_selected_unit(self):
+        if self.selection:
+            from hexengine.actions.delete import DeleteUnit
+
+            action = DeleteUnit(self.selection)
+            self.enqueue(action)
+            self.selection = None
+            self.logger.info(f"Deleted unit {action.unit.unit_id}")
+        else:
+            self.logger.debug("No unit selected to delete")

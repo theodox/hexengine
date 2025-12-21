@@ -1,12 +1,16 @@
-from typing import Any, Iterable
+from typing import Iterable, TYPE_CHECKING
+
+import js
+
 from ..hexes.types import Hex
 from ..map.layout import HexLayout
-import js
-from ..game.game import Game
+
+if TYPE_CHECKING:
+    from ..game.game import Game
 
 
 class Location:
-    def __init__(self, hex, terrain_type, movement_cost, game: Game):
+    def __init__(self, hex, terrain_type, movement_cost, game: "Game"):
         self._hex = hex
         self._type = terrain_type
         self._cost = movement_cost
@@ -27,7 +31,7 @@ class Location:
         return self._cost
 
     @classmethod
-    def create(cls, loc_item, game: Game = None) -> "Location":
+    def create(cls, loc_item, game: "Game" = None) -> "Location":
         pos = loc_item.position
         terrain = loc_item.type
         movement_cost = loc_item.movement_cost

@@ -13,11 +13,10 @@ EventInfo = namedtuple(
 
 
 class Modifiers(IntFlag):
+    NONE = 0
     ALT = auto()
     SHIFT = auto()
-    CONTROL = (
-        auto()
-    )  # Note: CONTROL is not a valid flag in the MODIFIER_KEYS enum, it should be CONTROL
+    CONTROL = auto()
 
     @classmethod
     def from_event(cls, event) -> "Modifiers":

@@ -1,7 +1,8 @@
-from ..hexes.math import neighbors
-from ..map import Map
 import heapq
 import logging
+
+from ..hexes.math import neighbors
+from ..map import Map
 
 class GameBoard:
     def __init__(self, map: Map):

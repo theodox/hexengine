@@ -1,11 +1,12 @@
 from enum import Enum
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
+
 import js  # type: ignore
 from pyodide.ffi import create_proxy  # type: ignore
-from ...dev_console import set_status
-from ...map.handler import Modifiers, EventInfo
+
 from ...actions import Move
 from ...hexes.types import Hex
+from ...map.handler import EventInfo, Modifiers
 
 if TYPE_CHECKING:
     from ...units.game import GameUnit
@@ -186,14 +187,13 @@ class EventHandlerMixin:
             else "Double click with no selection"
         )
 
-        self.last_click_time = 0
-
         if Modifiers.ALT & eventInfo.modifiers:
             offset_pos = eventInfo.position[0] - 10, eventInfo.position[1] - 20
 
             self.popup_manager.create_popup(
                 f"{self.selection.unit_id} @ {self.selection.faction}", offset_pos
             )
+        self.last_click_time = 0
 
     def _unit_drag(self, eventInfo: EventInfo) -> None:
         self.board.constrain()
@@ -225,8 +225,6 @@ class EventHandlerMixin:
         maybe_dbl_click = time_since_last_click < self.DBL_CLICK_THRESHOLD
         maybe_click = self._mouse_distance() < self.MIN_DRAG_DISTANCE
         
-        
-
         try:
             if maybe_click:
                 # Check if this is a double-click

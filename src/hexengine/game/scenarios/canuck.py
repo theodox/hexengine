@@ -1,6 +1,7 @@
 import js
-from ...units.graphics import GraphicsCreator, DisplayUnit
+
 from ...units import GameUnit
+from ...units.graphics import DisplayUnit, GraphicsCreator
 
 
 class CanuckGraphicsCreator(GraphicsCreator):
