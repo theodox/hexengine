@@ -4,7 +4,7 @@ from ..document import element
 from ..map import Map
 from ..ui.popups import PopupManager
 from .board import GameBoard
-from .events import EventHandlerMixin, HotkeyHandlerMixin, Hotkey, MouseState, Modifiers
+from .events import EventHandlerMixin, HotkeyHandlerMixin, Hotkey, Modifiers
 from .history import GameHistoryMixin
 
 
@@ -26,7 +26,6 @@ class Game(EventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.last_click_time = 0
         self.drag_start = (0, 0)
         self.drag_end = (0, 0)
-        self.mouse_state = MouseState.UP
 
         self.logger = logging.getLogger("game")
         self.logger.info("Game initialized")

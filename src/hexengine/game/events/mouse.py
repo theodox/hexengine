@@ -2,15 +2,11 @@ from ...document import js, create_proxy
 from ...actions import Move
 from ...hexes.types import Hex
 from .handler import EventInfo, Modifiers
+from enum import Enum
+from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...units.game import GameUnit
-
-
-class MouseState(Enum):
-    UP = 0
-    DOWN = 1
-    DRAGGING = 2
 
 
 class TargetType(Enum):
@@ -29,7 +25,7 @@ class EventHandlerMixin:
     current_hex: Optional[Hex] = None
     drag_start: tuple[float, float] = (0, 0)
     drag_end: tuple[float, float] = (0, 0)
-    mouse_state: MouseState = MouseState.UP
+
 
     def _event_unit(self, eventInfo: EventInfo) -> Optional["GameUnit"]:
         if eventInfo.unit_id is None:
@@ -68,8 +64,6 @@ class EventHandlerMixin:
             else (eventInfo.event.offsetX, eventInfo.event.offsetY)
         )
 
-        self.mouse_state = MouseState.DOWN
-
         if not eventInfo.unit_id:
             self._bg_mousedown(eventInfo)
         else:
@@ -77,7 +71,6 @@ class EventHandlerMixin:
 
     def on_drag(self, eventInfo: EventInfo) -> None:
         if eventInfo.event.buttons != 1:
-            self.mouse_state = MouseState.UP
             return
         # Prevent default to stop text selection during drag
         eventInfo.event.preventDefault()
@@ -86,14 +79,12 @@ class EventHandlerMixin:
             if eventInfo.position
             else (eventInfo.event.offsetX, eventInfo.event.offsetY)
         )
-        self.mouse_state = MouseState.DRAGGING
         if not self.selection:
             self._bg_drag(eventInfo)
         else:
             self._unit_drag(eventInfo)
 
     def on_mouse_up(self, eventInfo: EventInfo) -> None:
-        self.mouse_state = MouseState.UP
         self.drag_end = eventInfo.position
 
         if not eventInfo.unit_id:
@@ -184,8 +175,8 @@ class EventHandlerMixin:
 
         offset_pos = eventInfo.position[0] + 10, eventInfo.position[1] + 20
         self.popup_manager.create_popup(
-                f"{self.selection.unit_id} @ {self.selection.faction}", offset_pos
-            )
+            f"{self.selection.unit_id} @ {self.selection.faction}", offset_pos
+        )
         self.last_click_time = 0
 
     def _unit_drag(self, eventInfo: EventInfo) -> None:
@@ -199,9 +190,7 @@ class EventHandlerMixin:
         distance = self._mouse_distance()
         if distance > self.MIN_DRAG_DISTANCE:
             # Place unit directly at cursor position
-            self.selection.display.proxy.setAttribute(
-                "transform", f"translate({self.drag_end[0]},{self.drag_end[1]})"
-            )
+            self.selection.display_at(*eventInfo.position)
             self.selection.enabled = eventInfo.hex in self.board.constraints
 
     def _unit_mousedown(self, eventInfo: EventInfo) -> None:
@@ -219,24 +208,26 @@ class EventHandlerMixin:
         maybe_click = self._mouse_distance() < self.MIN_DRAG_DISTANCE
 
         try:
+
+            if maybe_click and maybe_dbl_click:
+                # Cancel pending single click
+                if self.pending_click_timeout is not None:
+                    js.clearTimeout(self.pending_click_timeout)
+                    self.pending_click_timeout = None
+                self._unit_dbl_click(eventInfo)
+                self.last_click_time = 0  # Reset to prevent triple-click
+                return
+
             if maybe_click:
-                # Check if this is a double-click
-                if maybe_dbl_click:
-                    # Cancel pending single click
-                    if self.pending_click_timeout is not None:
-                        js.clearTimeout(self.pending_click_timeout)
-                        self.pending_click_timeout = None
-                    self._unit_dbl_click(eventInfo)
-                    self.last_click_time = 0
-                else:
-                    # Delay single click to check for double-click
-                    if self.pending_click_timeout is not None:
-                        js.clearTimeout(self.pending_click_timeout)
-                    self.pending_click_timeout = js.setTimeout(
-                        create_proxy(lambda: self._unit_click(eventInfo)),
-                        self.DBL_CLICK_THRESHOLD,
-                    )
-                    self.last_click_time = current_time
+                # Delay single click to check for double-click
+                if self.pending_click_timeout is not None:
+                    js.clearTimeout(self.pending_click_timeout)
+
+                self.pending_click_timeout = js.setTimeout(
+                    create_proxy(lambda: self._unit_click(eventInfo)),
+                    self.DBL_CLICK_THRESHOLD,
+                )
+                self.last_click_time = current_time
                 return
 
             if len(self.hex_path) > 1 and eventInfo.modifiers & Modifiers.SHIFT:
@@ -246,11 +237,17 @@ class EventHandlerMixin:
                     end = self.hex_path[h]
                     move = Move(self.selection.unit_id, start, end)
                     self.enqueue(move)
+                    return
             else:
+                if eventInfo.hex not in self.board.constraints:
+                    self.logger.warning("Invalid move, snapping back to original position")
+                    self.selection.position = self.selection.position
+                    return
                 move = Move(
                     self.selection.unit_id, self.selection.position, eventInfo.hex
                 )
                 self.enqueue(move)
+
         finally:
             self.selection.enabled = True
             self.board.clear_hilite()

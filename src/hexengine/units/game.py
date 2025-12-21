@@ -68,6 +68,9 @@ class GameUnit:
     def _get_enabled(self) -> bool:
         return self.display.enabled
 
+    def display_at(self, x: float, y: float) -> None:
+        self.display.display_at(x, y)
+
     faction = property(lambda self: self.FACTION)
     active = property(_get_active, _set_active)
     enabled = property(_get_enabled, _set_enabled)

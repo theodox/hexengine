@@ -74,6 +74,9 @@ class DisplayUnit:
         if self.text_element:
             self.text_element.textContent = text
 
+    def display_at(self, x: float, y: float) -> None:
+        self.proxy.setAttribute("transform", f"translate({x},{y})")
+
     def _set_visible(self, value: bool) -> None:
         if value:
             self.proxy.setAttribute("display", "block")
@@ -133,7 +136,7 @@ class DisplayUnit:
         return (
             f"<Unit id={self.unit_id} hex=({self._hex.i},{self._hex.j},{self._hex.k})>"
         )
-
+    
     visible = property(_get_visible, _set_visible)
     position = property(_get_position, _set_position)
     rotation = property(_get_rotation, _set_rotation)
