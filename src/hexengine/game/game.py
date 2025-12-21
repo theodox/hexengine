@@ -2,8 +2,7 @@ import logging
 from ..map import Map
 from ..document import element
 
-from .mouse_events import EventHandlerMixin, MouseState
-from .hotkey_events import HotkeyHandlerMixin
+from .events import EventHandlerMixin, MouseState, HotkeyHandlerMixin
 from ..ui.popups import PopupManager, Popup
 from .board import GameBoard
 from .history import GameHistoryMixin
@@ -39,20 +38,24 @@ class Game(EventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self._init_history()
         self.register_hotkeys()
 
-    @property
-    def faction(self):
-        return self.FACTION
-
     # these are delegated to the board instance, but
     # exposed here for convenience
     @property
     def selection(self):
         return self.board.selection
 
+    @property
+    def layout(self):
+        return self.canvas.hex_layout
+
     @selection.setter
     def selection(self, value):
+        if self.board.selection:
+            self.board.selection.hilited = False
         self.board.selection = value
-
+        if self.board.selection:
+            self.board.selection.hilited = True
+    
     def add_unit(self, unit):
         self.board.add_unit(unit)
 

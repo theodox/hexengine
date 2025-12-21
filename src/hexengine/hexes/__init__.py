@@ -1,4 +1,4 @@
-# from .types import Hex
+# from .types import Hex, HexRowCol
 # from .math import (
 #     distance, neighbors, neighbor_hex, line, lerp,
 #     rotate_left, rotate_right, cube_round, normalize,
@@ -17,7 +17,7 @@
 
 # # Commonly used items available at package level
 # __all__ = [
-#     "Hex", "Cartesian",
+#     "Hex", "Cartesian", "HexRowCol",
 #     # Math functions
 #     "distance", "neighbors", "neighbor_hex", "line", "lerp",
 #     "rotate_left", "rotate_right", "cube_round", "normalize",

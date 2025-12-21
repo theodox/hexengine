@@ -13,7 +13,8 @@ class GameBoard:
         self._hilited = False
         self._locations = {}  # maps positions to movement costs
         self.logger = logging.getLogger("game.board")
-        
+
+
     @property
     def selection(self):
         return self._selection
@@ -44,11 +45,13 @@ class GameBoard:
         occupant = self._board.get(position, False)
         return bool(occupant)
 
-    def constrain(self):
+    def impassable(self, position):
+        return self.get_location_cost(position) == float("inf")
+
+    def constrain(self, movement_budget=4):
         self._constraints.clear()
-        legit = self.reachable_hexes(self.selection.position, 4)
-        for s in legit:
-            if not self.occupied(s) and s not in self._locations:
+        for s in self.reachable_hexes(self.selection.position, movement_budget):
+            if not self.occupied(s) and not self.impassable(s):
                 self._constraints.add(s)
         return self._constraints
 

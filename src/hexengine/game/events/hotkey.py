@@ -1,7 +1,7 @@
 import js                               # type: ignore
 from pyodide.ffi import create_proxy    # type: ignore
-from ..map.handler import Modifiers
-from ..actions import DeleteUnit
+from ...map.handler import Modifiers
+from ...actions import DeleteUnit
 
 
 class HotkeyHandlerMixin:

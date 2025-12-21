@@ -58,9 +58,9 @@ class Map:
             unit_element, self._hex_layout, self._hex_color, self._hex_stroke
         )
 
-        self._dragHandler = Handler(self._container, "mousemove")
-        self._mouse_downHandler = Handler(self._container, "mousedown")
-        self._mouse_upHandler = Handler(self._container, "mouseup")
+        self._dragHandler = Handler(self._container, "mousemove", self._hex_layout)
+        self._mouse_downHandler = Handler(self._container, "mousedown", self._hex_layout)
+        self._mouse_upHandler = Handler(self._container, "mouseup", self._hex_layout)
 
     @property
     def on_drag(self):

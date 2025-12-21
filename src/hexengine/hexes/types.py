@@ -47,6 +47,55 @@ class Cartesian:
 
 
 @dataclasses.dataclass(frozen=True)
+class HexRowCol:
+    """
+    Hex-aligned row/column coordinates for flat-topped hexes.
+    
+    This provides a 1:1 mapping with Hex coordinates:
+    - row: the hex row (j coordinate)
+    - col: the hex column position (i coordinate)
+    
+    Unlike Cartesian coordinates, each HexRowCol maps to exactly one Hex
+    and vice versa.
+    """
+    row: int
+    col: int
+
+    def __post_init__(self):
+        object.__setattr__(self, "row", round(self.row))
+        object.__setattr__(self, "col", round(self.col))
+
+    def __eq__(self, value):
+        if not isinstance(value, HexRowCol):
+            return NotImplemented
+        return self.row == value.row and self.col == value.col
+
+    def __hash__(self) -> int:
+        return hash((self.row, self.col))
+
+    def __repr__(self) -> str:
+        return f"HexRowCol(row={self.row}, col={self.col})"
+
+    def __add__(self, other: "HexRowCol") -> "HexRowCol":
+        return HexRowCol(self.row + other.row, self.col + other.col)
+
+    def __sub__(self, other: "HexRowCol") -> "HexRowCol":
+        return HexRowCol(self.row - other.row, self.col - other.col)
+
+    @classmethod
+    def from_hex(cls, hex_coord: "Hex") -> "HexRowCol":
+        """Convert hex coordinates to row/col coordinates (1:1 mapping)."""
+        return cls(row=hex_coord.j, col=hex_coord.i)
+
+    def to_hex(self) -> "Hex":
+        """Convert row/col coordinates to hex coordinates (1:1 mapping)."""
+        i = self.col
+        j = self.row
+        k = -i - j
+        return Hex(i, j, k)
+
+
+@dataclasses.dataclass(frozen=True)
 class Hex:
     i: int
     j: int

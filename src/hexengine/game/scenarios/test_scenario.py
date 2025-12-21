@@ -17,10 +17,13 @@ TEST_SCENARIO = Scenario(
         LocationItem(Hex(5, 5, -10), "forest", 1.5),
         LocationItem(Hex(10, 2, -12), "hill", 3.0),
         LocationItem(Hex(8, 2, -10), "hill", 3.0),
-        LocationItem(Hex(7, 5, -12), "water", 5.0),
         LocationItem(Hex(9, 4, -13), "forest", 1.5),
         LocationItem(Hex(6, 2, -8), "forest", 1.5),
         LocationItem(Hex(6, 3, -9), "forest", 1.5),
+        LocationItem(Hex(6,5, -11), "water", float("inf")),
+        LocationItem(Hex(7, 5, -12), "water", float("inf")),
+        LocationItem(Hex(7, 4, -11), "water", float("inf")),
+        LocationItem(Hex(8, 4, -12), "water", float("inf")),
     ]       
 
 )

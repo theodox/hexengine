@@ -12,6 +12,7 @@ class Location:
         self._cost = movement_cost
         self._display = DisplayLocation(hex, self._type, game.canvas.hex_layout)
         self._display.create_graphics(game.canvas.svg_layer._svg)
+        
 
     @property
     def position(self) -> Hex:
