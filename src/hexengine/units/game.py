@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 
 class GameUnit:
     """A game unit with logic and state."""
+
     FACTION: str = "neutral"
     GRAPHICS_CREATOR: GraphicsCreator = None
 
@@ -19,7 +20,6 @@ class GameUnit:
         self.health = 100  # Default health
         self.active = True  # Is the unit active in the game
         self.hilited = False  # Is the unit highlighted
-
 
     def _set_active(self, value: bool):
         self._active = value
@@ -63,11 +63,11 @@ class GameUnit:
         self.display.hilited = value
 
     def _set_enabled(self, value: bool):
-        self.display.enabled = value   
+        self.display.enabled = value
 
     def _get_enabled(self) -> bool:
         return self.display.enabled
-    
+
     faction = property(lambda self: self.FACTION)
     active = property(_get_active, _set_active)
     enabled = property(_get_enabled, _set_enabled)
@@ -81,7 +81,7 @@ class GameUnit:
 
     def __hash__(self):
         return hash(hash(self.unit_id) ^ hash(self.unit_type))
-    
+
     def __bool__(self):
         return self.active
 

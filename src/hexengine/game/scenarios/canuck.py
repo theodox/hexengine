@@ -1,29 +1,26 @@
-import js
-
+from ...document import js
 from ...units import GameUnit
 from ...units.graphics import DisplayUnit, GraphicsCreator
 
 
 class CanuckGraphicsCreator(GraphicsCreator):
     BASE_CLASSES = ("unit", "canuck")
- 
 
     def create(self, display_unit: DisplayUnit):
         # Implement specific graphics creation for Canuck units
         display_unit.push_classes(*self.BASE_CLASSES)
 
-        rect = js.document.createElementNS("http://www.w3.org/2000/svg", "rect")   
+        rect = js.document.createElementNS("http://www.w3.org/2000/svg", "rect")
         with self._attach(display_unit, rect, "canuck"):
             pass  # Position and size now handled by CSS
-        
+
         flag = js.document.createElementNS("http://www.w3.org/2000/svg", "image")
         with self._attach(display_unit, flag, "canuck-flag"):
             flag.setAttributeNS(
                 "http://www.w3.org/1999/xlink", "href", "resources/canada.png"
             )
-        
-        return display_unit
 
+        return display_unit
 
     _CSS = """
 .canuck rect {

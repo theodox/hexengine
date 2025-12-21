@@ -50,14 +50,15 @@ class Cartesian:
 class HexRowCol:
     """
     Hex-aligned row/column coordinates for flat-topped hexes.
-    
+
     This provides a 1:1 mapping with Hex coordinates:
     - row: the hex row (j coordinate)
     - col: the hex column position (i coordinate)
-    
+
     Unlike Cartesian coordinates, each HexRowCol maps to exactly one Hex
     and vice versa.
     """
+
     row: int
     col: int
 

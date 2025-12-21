@@ -1,9 +1,7 @@
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
-import js  # type: ignore
-from pyodide.ffi import create_proxy  # type: ignore
-
+from ...document import js, create_proxy
 from ...actions import Move
 from ...hexes.types import Hex
 from ...map.handler import EventInfo, Modifiers
@@ -127,7 +125,7 @@ class EventHandlerMixin:
     def _bg_drag(self, eventInfo: EventInfo) -> None:
         distance = self._mouse_distance()
         self.current_hex = eventInfo.hex
-    
+
         is_path = eventInfo.modifiers & Modifiers.SHIFT
         is_new_hex = len(self.hex_path) == 0 or eventInfo.hex != self.hex_path[-1]
         if is_path and is_new_hex:
@@ -146,7 +144,7 @@ class EventHandlerMixin:
         current_time = js.Date.now()
         time_since_last_click = current_time - self.last_click_time
         potential_click = self._mouse_distance() < self.MIN_DRAG_DISTANCE
-        potential_double_click = time_since_last_click < self.DBL_CLICK_THRESHOLD 
+        potential_double_click = time_since_last_click < self.DBL_CLICK_THRESHOLD
 
         if potential_click:
             if potential_double_click:
@@ -198,10 +196,10 @@ class EventHandlerMixin:
     def _unit_drag(self, eventInfo: EventInfo) -> None:
         self.board.constrain()
         self.board.hilite()
-    
+
         is_new_hex = len(self.hex_path) == 0 or eventInfo.hex != self.hex_path[-1]
         if is_new_hex and eventInfo.hex in self.board.constraints:
-            self.hex_path.append(eventInfo.hex)        
+            self.hex_path.append(eventInfo.hex)
 
         distance = self._mouse_distance()
         if distance > self.MIN_DRAG_DISTANCE:
@@ -224,7 +222,7 @@ class EventHandlerMixin:
         time_since_last_click = current_time - self.last_click_time
         maybe_dbl_click = time_since_last_click < self.DBL_CLICK_THRESHOLD
         maybe_click = self._mouse_distance() < self.MIN_DRAG_DISTANCE
-        
+
         try:
             if maybe_click:
                 # Check if this is a double-click
@@ -245,7 +243,7 @@ class EventHandlerMixin:
                     )
                     self.last_click_time = current_time
                 return
-            
+
             if len(self.hex_path) > 1 and eventInfo.modifiers & Modifiers.SHIFT:
                 self.logger.warning(self.hex_path)
                 for h in range(1, len(self.hex_path)):
@@ -254,7 +252,9 @@ class EventHandlerMixin:
                     move = Move(self.selection.unit_id, start, end)
                     self.enqueue(move)
             else:
-                move = Move(self.selection.unit_id, self.selection.position, eventInfo.hex)
+                move = Move(
+                    self.selection.unit_id, self.selection.position, eventInfo.hex
+                )
                 self.enqueue(move)
         finally:
             self.selection.enabled = True

@@ -1,13 +1,14 @@
-import js  # pyright: ignore[reportMissingImports]
+import logging
 from typing import Iterable
+
+from ..document import js
 from ..hexes.types import Hex
 from .layout import HexLayout
 from .handler import UIEventHandler
 from .unit_layer import UnitLayer
 from .svg_layer import SVGLayer
 from .canvas_layer import CanvasLayer
-from ..units import DisplayUnit, GameUnit
-import logging
+from ..units import GameUnit
 
 
 class Map:

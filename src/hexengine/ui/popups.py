@@ -1,6 +1,5 @@
-import js
 import logging
-from pyodide.ffi import create_proxy
+from ..document import create_proxy, js
 
 LOGGER = logging.getLogger("PopupManager")
 

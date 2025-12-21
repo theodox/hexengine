@@ -12,5 +12,4 @@ __all__ = [
     "HexLayout",
     "Map",
     "Handler",
-    "MouseHandler",
 ]

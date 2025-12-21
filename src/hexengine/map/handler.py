@@ -1,8 +1,8 @@
 import logging
-from pyodide.ffi import create_proxy
 from enum import IntFlag, auto
-
 from collections import namedtuple
+
+from ..document import create_proxy
 
 HANDLER_LOGGER = logging.getLogger("handler")
 HANDLER_LOGGER.setLevel(logging.DEBUG)
@@ -78,7 +78,7 @@ class Handler:
 
         modifiers = Modifiers.from_event(event)
         target, unit_id = self._get_event_target(event)
-        
+
         # Compute hex from position if layout is available
         position = (x * sx, y * sy)
         hex_value = self._layout.pixel_to_hex(*position) if self._layout else None
@@ -102,7 +102,7 @@ class Handler:
         return self
 
     def __isub__(self, handler):
-        raise NotImplemented
+        raise NotImplementedError
 
     def __repr__(self):
         return f"<Handler event_type={self._event_type} owner={self._owner}>"

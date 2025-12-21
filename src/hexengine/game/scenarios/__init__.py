@@ -1,4 +1,4 @@
-from .base import Scenario, ScenarioItem
+from .base import Scenario, ScenarioItem, LocationItem
 
 
-__all__ = ["Scenario", "ScenarioItem"]
+__all__ = ["Scenario", "ScenarioItem", "LocationItem"]

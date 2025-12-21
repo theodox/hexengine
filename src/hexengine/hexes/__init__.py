@@ -54,7 +54,6 @@ __all__ = [
     "cartesian_to_hex",
     "dot_product",
     "cross_product",
-    "vector_angle",
     "hex_magnitude",
     "add_cartesian_vectors",
     "subtract_cartesian_vectors",

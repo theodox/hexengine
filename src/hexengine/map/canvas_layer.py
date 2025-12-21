@@ -1,6 +1,7 @@
 import logging
-import js  # pyright: ignore[reportMissingImports]
 from typing import Iterable
+
+from ..document import js
 from ..hexes.types import Hex, Cartesian
 from .layout import HexLayout
 from ..hexes.shapes import rectangle_from_corners

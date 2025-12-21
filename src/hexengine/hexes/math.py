@@ -165,3 +165,71 @@ def hex_magnitude(hex_coord: Hex) -> float:
 
     cart = Cartesian.from_hex(hex_coord)
     return sqrt(float(cart.x) * float(cart.x) + float(cart.y) * float(cart.y))
+
+
+def hex_to_cartesian(hex_coord: Hex) -> Cartesian:
+    """
+    Convert hex coordinates to Cartesian coordinates (flat-top orientation).
+
+    Args:
+        hex_coord: Hex coordinate to convert
+
+    Returns:
+        Cartesian coordinate
+    """
+    return Cartesian.from_hex(hex_coord)
+
+
+def cartesian_to_hex(cartesian: Cartesian) -> Hex:
+    """
+    Convert Cartesian coordinates to hex coordinates (flat-top orientation).
+
+    Args:
+        cartesian: Cartesian coordinate to convert
+
+    Returns:
+        Hex coordinate
+    """
+    return Hex.from_cartesian(cartesian)
+
+
+def add_cartesian_vectors(a: Cartesian, b: Cartesian) -> Cartesian:
+    """
+    Add two Cartesian vectors.
+
+    Args:
+        a: First vector
+        b: Second vector
+
+    Returns:
+        Sum of the two vectors
+    """
+    return a + b
+
+
+def subtract_cartesian_vectors(a: Cartesian, b: Cartesian) -> Cartesian:
+    """
+    Subtract one Cartesian vector from another.
+
+    Args:
+        a: Vector to subtract from
+        b: Vector to subtract
+
+    Returns:
+        Difference of the two vectors (a - b)
+    """
+    return a - b
+
+
+def scale_cartesian_vector(vector: Cartesian, scalar: int) -> Cartesian:
+    """
+    Scale a Cartesian vector by a scalar value.
+
+    Args:
+        vector: Vector to scale
+        scalar: Scalar multiplier
+
+    Returns:
+        Scaled vector
+    """
+    return vector * scalar

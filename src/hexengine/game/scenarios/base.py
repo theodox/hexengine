@@ -20,13 +20,19 @@ class LocationItem:
 
 
 class Scenario:
-    def __init__(self, name, description, units: list[ScenarioItem], locations: list[LocationItem]=[]):
+    def __init__(
+        self,
+        name,
+        description,
+        units: list[ScenarioItem],
+        locations: list[LocationItem] = [],
+    ):
         self.name = name
         self.description = description
         self.units = units
         self.locations = locations
 
-    def populate(self, game:Game):
+    def populate(self, game: Game):
         for member in self.units:
             member.cls.GRAPHICS_CREATOR.register()
             unit = member.cls.create(member.unit_id, member.unit_type, game.canvas)
@@ -36,5 +42,5 @@ class Scenario:
             game.add_unit(unit)
 
         for loc in self.locations:
-            location  = Location.create(loc, game)
+            location = Location.create(loc, game)
             game.board.add_location(location)

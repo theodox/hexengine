@@ -1,7 +1,6 @@
 from typing import Iterable, TYPE_CHECKING
 
-import js
-
+from ..document import js
 from ..hexes.types import Hex
 from ..map.layout import HexLayout
 
@@ -16,7 +15,6 @@ class Location:
         self._cost = movement_cost
         self._display = DisplayLocation(hex, self._type, game.canvas.hex_layout)
         self._display.create_graphics(game.canvas.svg_layer._svg)
-        
 
     @property
     def position(self) -> Hex:

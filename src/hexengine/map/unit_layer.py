@@ -1,8 +1,9 @@
 import logging
-import js  # pyright: ignore[reportMissingImports]
 from typing import Iterable
-from .layout import HexLayout
+
+from ..document import js
 from ..units import DisplayUnit, GameUnit
+from .layout import HexLayout
 
 
 class UnitLayer:

@@ -1,5 +1,5 @@
 import js  # pyright: ignore[reportMissingImports]
-from pyodide.ffi import jsnull  # pyright: ignore[reportMissingImports]
+from pyodide.ffi import jsnull, create_proxy  # pyright: ignore[reportMissingImports]
 
 import logging
 
@@ -10,3 +10,6 @@ def element(id: str) -> js.HTMLElement:
     result = js.document.getElementById(id)
     assert result is not jsnull, f"Element with id '{id}' not found"
     return result
+
+
+__all__ = ["element", "js", "jsnull", "create_proxy"]

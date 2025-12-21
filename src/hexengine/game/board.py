@@ -4,6 +4,7 @@ import logging
 from ..hexes.math import neighbors
 from ..map import Map
 
+
 class GameBoard:
     def __init__(self, map: Map):
         self._board = dict()  # Maps positions to board elements
@@ -14,7 +15,6 @@ class GameBoard:
         self._hilited = False
         self._locations = {}  # maps positions to movement costs
         self.logger = logging.getLogger("game.board")
-
 
     @property
     def selection(self):

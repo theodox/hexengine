@@ -1,5 +1,4 @@
 import unittest
-import dataclasses
 from hexengine.hexes.types import Hex
 from hexengine.hexes.math import (
     _NEIGHBOR_OFFSETS,
@@ -12,14 +11,6 @@ from hexengine.hexes.math import (
     line,
     rotate_left,
     rotate_right,
-    # New vector operations
-    hex_to_cartesian,
-    cartesian_to_hex,
-    dot_product,
-    cross_product,
-    vector_angle,
-    hex_magnitude,
-    scale_cartesian_vector
 )
 
 
@@ -66,14 +57,14 @@ class TestHexMath(unittest.TestCase):
         hex1 = Hex(0, 0, 0)
         hex2 = Hex(3, -2, -1)
         t = 0.4  # 40% of the way from hex1 to hex2
-        
+
         # Manual lerp calculation
         i = hex1.i + (hex2.i - hex1.i) * t  # 0 + (3 - 0) * 0.4 = 1.2
         j = hex1.j + (hex2.j - hex1.j) * t  # 0 + (-2 - 0) * 0.4 = -0.8
         k = hex1.k + (hex2.k - hex1.k) * t  # 0 + (-1 - 0) * 0.4 = -0.4
-        
+
         result = cube_round((i, j, k))
-        
+
         # The result should be a valid hex coordinate
         self.assertEqual(result.i + result.j + result.k, 0)
         self.assertIsInstance(result.i, int)
@@ -85,7 +76,7 @@ class TestHexMath(unittest.TestCase):
         # When coordinates are already very close to valid hex coordinates
         result = cube_round((2.01, -1.99, -0.02))
         self.assertEqual(result.i + result.j + result.k, 0)
-        
+
         # Should round to nearest valid hex
         self.assertEqual(result, Hex(2, -2, 0))
 
@@ -95,7 +86,7 @@ class TestHexMath(unittest.TestCase):
             (1.1, -1.1, -0.9),
             (2.7, -1.3, -1.4),
             (0.6, 0.4, -1.0),
-            (-0.8, 1.9, -1.1)
+            (-0.8, 1.9, -1.1),
         ]
         for coords in test_coords:
             result = cube_round(coords)
@@ -314,23 +305,23 @@ class TestHexMath(unittest.TestCase):
     def test_all_functions_maintain_constraint(self):
         """Integration test: verify all functions maintain the hex constraint."""
         test_hex = Hex(2, -3, 1)
-        
+
         # Test normalize
         normalized = normalize(test_hex)
         self.assertEqual(normalized.i + normalized.j + normalized.k, 0)
-        
+
         # Test rotations
         rotated_left = rotate_left(test_hex)
         self.assertEqual(rotated_left.i + rotated_left.j + rotated_left.k, 0)
-        
+
         rotated_right = rotate_right(test_hex)
         self.assertEqual(rotated_right.i + rotated_right.j + rotated_right.k, 0)
-        
+
         # Test lerp
         other_hex = Hex(-1, 2, -1)
         lerped = lerp(test_hex, other_hex, 0.5)
         self.assertEqual(lerped.i + lerped.j + lerped.k, 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

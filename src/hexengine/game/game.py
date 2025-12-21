@@ -63,7 +63,7 @@ class Game(EventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def remove_unit(self, unit):
         self.board.remove_unit(unit)
 
-    @Hotkey('delete', Modifiers.NONE)
+    @Hotkey("delete", Modifiers.NONE)
     def delete_selected_unit(self):
         if self.selection:
             from hexengine.actions.delete import DeleteUnit

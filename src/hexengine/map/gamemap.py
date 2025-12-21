@@ -1,8 +1,7 @@
 import logging
-
-import js  # pyright: ignore[reportMissingImports]
 from typing import Iterable
 
+from ..document import js
 from ..hexes.types import Hex
 from ..units import DisplayUnit
 from .canvas_layer import CanvasLayer
@@ -61,7 +60,9 @@ class Map:
         )
 
         self._dragHandler = Handler(self._container, "mousemove", self._hex_layout)
-        self._mouse_downHandler = Handler(self._container, "mousedown", self._hex_layout)
+        self._mouse_downHandler = Handler(
+            self._container, "mousedown", self._hex_layout
+        )
         self._mouse_upHandler = Handler(self._container, "mouseup", self._hex_layout)
 
     @property

@@ -1,19 +1,10 @@
 import logging
-import sys
-import time
-from math import atan2, ceil, copysign, cos, floor, pi, sin, sqrt
-from typing import Iterable, Sequence
-
-import js
-from pyodide.ffi import create_proxy
 
 from . import dev_console
 from .document import element
 from .excepthook import install_exception_hook
 from .game import Game
 from .game.scenarios.test_scenario import TEST_SCENARIO
-from .hexes.math import Hex
-from .hexes.shapes import angle, convex_hull, line, path, polygon  # , convex_polygon
 
 __version__ = "0.1.1"
 

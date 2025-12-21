@@ -1,8 +1,8 @@
-import js  # pyright: ignore[reportMissingImports]
+import logging
+
+from ..document import js, create_proxy
 from ..hexes.types import Hex
 from .layout import HexLayout
-from pyodide.ffi import create_proxy
-import logging
 
 
 class SVGLayer:

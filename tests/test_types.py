@@ -25,7 +25,9 @@ class TestHex(unittest.TestCase):
         hex_coord = Hex(1.6, -2.3, 0.7)
         self.assertEqual(hex_coord.i, 2)  # 1.6 rounded to 2
         self.assertEqual(hex_coord.j, -2)  # -2.3 rounded to -2
-        self.assertEqual(hex_coord.k, 0)  # Constraint enforced: -2 - 2 = -4, but 0.7 rounded to 1, then adjusted
+        self.assertEqual(
+            hex_coord.k, 0
+        )  # Constraint enforced: -2 - 2 = -4, but 0.7 rounded to 1, then adjusted
 
     def test_hex_creation_zero_coordinates(self):
         """Test creating hex with zero coordinates."""
@@ -158,10 +160,10 @@ class TestHex(unittest.TestCase):
         # Length should be max(abs(i), abs(j), abs(k))
         hex1 = Hex(3, -2, -1)
         self.assertEqual(len(hex1), 3)  # max(3, 2, 1) = 3
-        
+
         hex2 = Hex(1, -3, 2)
         self.assertEqual(len(hex2), 3)  # max(1, 3, 2) = 3
-        
+
         hex3 = Hex(0, 0, 0)
         self.assertEqual(len(hex3), 0)  # origin
 
@@ -188,9 +190,9 @@ class TestHex(unittest.TestCase):
         """Test that Hex objects can be used as dictionary keys."""
         hex1 = Hex(1, -1, 0)
         hex2 = Hex(2, -1, -1)
-        
+
         hex_dict = {hex1: "first", hex2: "second"}
-        
+
         self.assertEqual(hex_dict[hex1], "first")
         self.assertEqual(hex_dict[hex2], "second")
 
@@ -199,15 +201,15 @@ class TestHex(unittest.TestCase):
         # Large numbers
         hex_large = Hex(1000, -500, -499)  # k should be adjusted to -500
         self.assertEqual(hex_large.i + hex_large.j + hex_large.k, 0)
-        
+
         # Negative numbers
         hex_neg = Hex(-5, -3, 10)  # k should be adjusted to 8
         self.assertEqual(hex_neg.i + hex_neg.j + hex_neg.k, 0)
-        
+
         # Mixed positive/negative
         hex_mixed = Hex(-2, 5, -1)  # k should be adjusted to -3
         self.assertEqual(hex_mixed.i + hex_mixed.j + hex_mixed.k, 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

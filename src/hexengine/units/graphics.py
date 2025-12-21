@@ -1,8 +1,10 @@
+from contextlib import contextmanager
+from typing import Iterable, Protocol
+
+from ..document import js
 from ..hexes.types import Hex
 from ..map.layout import HexLayout
-import js
-from typing import Iterable, Protocol
-from contextlib import contextmanager
+
 
 class GraphicsCreator(Protocol):
     BASE_CLASSES = ("unit",)
@@ -38,8 +40,8 @@ class GraphicsCreator(Protocol):
             display_unit.proxy.appendChild(element)
 
     @classmethod
-    def register(cls): 
-        if not cls.STYLE_CREATED and hasattr(cls, "_CSS"): 
+    def register(cls):
+        if not cls.STYLE_CREATED and hasattr(cls, "_CSS"):
             style = js.document.createElement("style")
             style.innerHTML = cls._CSS
             js.document.head.appendChild(style)
@@ -123,11 +125,9 @@ class DisplayUnit:
             self.proxy.classList.remove("disabled")
         else:
             self.proxy.classList.add("disabled")
-    
+
     def _get_enabled(self) -> bool:
         return not self.proxy.classList.contains("disabled")
-    
-
 
     def __repr__(self):
         return (

@@ -1,8 +1,5 @@
 import logging
-import js  # pyright: ignore[reportMissingImports]
-from .document import element
-
-from pyodide.ffi import create_proxy  # pyright: ignore[reportMissingImports]
+from .document import element, create_proxy, js
 
 """
 A development console that logs messages to a text area in the web page, using
@@ -54,8 +51,10 @@ def update_log_display(event, textArea: js.HTMLElement):
     TextAreaWriter.set_active_level(level)
     TextAreaWriter.update(level)
 
+
 def set_status(message: str):
     StatusLine.INSTANCE.set_status(message)
+
 
 class TextAreaWriter:
     ACTIVE_LEVEL = logging.DEBUG
@@ -97,6 +96,7 @@ class StatusLine:
 
     def set_status(self, message: str):
         self.textArea.value = message
+
 
 class TextAreaReader:
     INSTANCE = None
