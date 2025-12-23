@@ -167,8 +167,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 16px;
-    color: rgb(217, 217, 150);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+    border-radius: 3px;
+    color: rgb(240, 240, 233);
     font-size: 18px;
     font-family: sans-serif;
     padding: 8px;
@@ -180,11 +181,11 @@
 }
 
 .red {
-    background-color: red;
+    background-color: rgba(141, 33, 33, 0.75);
 }   
 
 .blue {
-    background-color: blue;
+    background-color: rgba(33, 33, 141, 0.75);
 }
 
 
