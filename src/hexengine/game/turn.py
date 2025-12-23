@@ -1,3 +1,4 @@
+import logging
 
 from enum import Enum
 
@@ -40,15 +41,29 @@ class TurnManager:
                 for phase in phases:
                     self.phases.append((faction, phase))
         
-        self.pointer = 0
-
+        self.pointer = -1
+        self.logger = logging.getLogger("turns")
+        self.logger.info(f"TurnManager initialized with order {order}, phases: {self.phases}")
+        self.max_actions = -1
+        next(self)
 
     def __next__(self):
         self.pointer = (self.pointer + 1) % len(self.phases)
+        f, p = self.current()
+        self.max_actions = p.max_actions
+        self.logger.info(f"Starting turn: {f.name} - {p.name} with {p.max_actions} actions")
         return self.phases[self.pointer % len(self.phases)]
 
     def current(self):
         return self.phases[self.pointer % len(self.phases)]    
+    
+    def spend_action(self):
+        faction, phase = self.current()
+        self.max_actions -= 1
+        if self.max_actions <= 0:
+            self.logger.info(f"Phase {phase.name} for faction {faction.name} completed, advancing turn")
+            next(self)
+            
     
     @classmethod
     def Ordered(cls, factions: list[str], phases: list[str, int]) -> "TurnManager":
