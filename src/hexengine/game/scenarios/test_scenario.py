@@ -8,10 +8,12 @@ TEST_SCENARIO = Scenario(
     name="Test Scenario",
     description="A simple test scenario for the game.",
     units=[
-        ScenarioItem(Hex(9, 2, -11), CanuckUnit, "Canuck1", "canuck"),
+        ScenarioItem(Hex(16, 4, -20), CanuckUnit, "Canuck1", "canuck"),
+        ScenarioItem(Hex(16, 5, -21), CanuckUnit, "Canuck2", "canuck"),
+        ScenarioItem(Hex(16, 6, -22), CanuckUnit, "Canuck3", "canuck"),
         ScenarioItem(Hex(7, 3, -10), GenericUnit, "Generic1", "soldier"),
-        ScenarioItem(Hex(6, 4, -10), GenericUnit, "Generic2", "soldier", False),
-        ScenarioItem(Hex(8, 4, -12), GenericUnit, "Generic3", "soldier", True),
+        ScenarioItem(Hex(6, 4, -10), GenericUnit, "Generic2", "soldier"),
+        ScenarioItem(Hex(8, 4, -12), GenericUnit, "Generic3", "soldier"),
     ],
     locations=[
         LocationItem(Hex(5, 5, -10), "forest", 1.5),

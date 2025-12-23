@@ -157,9 +157,37 @@
     font-family: sans-serif;
 }
 
+#turn-display {
+    position: absolute;
+    width: auto;
+    height: auto;
+    top: 16px;
+    left: 16px;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    color: rgb(217, 217, 150);
+    font-size: 18px;
+    font-family: sans-serif;
+    padding: 8px;
+}   
+
+
 #loading b {
     animation: pulse 1.5s ease-in-out infinite;
 }
+
+.red {
+    background-color: red;
+}   
+
+.blue {
+    background-color: blue;
+}
+
+
 
 /*
 Popup styles

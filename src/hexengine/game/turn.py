@@ -29,6 +29,7 @@ class TurnManager:
     def __init__(self, factions: list[Faction], phases: list[Phase], order: TurnOrdering = TurnOrdering.INTERLEAVED):
         self.factions = factions
         self.phases = []
+        self.handlers = []
         if order == TurnOrdering.INTERLEAVED:
             # A:a, B:a, A:b, B:b
             for phase in phases:
@@ -49,21 +50,30 @@ class TurnManager:
 
     def __next__(self):
         self.pointer = (self.pointer + 1) % len(self.phases)
-        f, p = self.current()
+        f, p = self.current
         self.max_actions = p.max_actions
         self.logger.info(f"Starting turn: {f.name} - {p.name} with {p.max_actions} actions")
-        return self.phases[self.pointer % len(self.phases)]
+        for handler in self.handlers:
+            handler(f, p)
+        return self.current
 
-    def current(self):
-        return self.phases[self.pointer % len(self.phases)]    
-    
-    def spend_action(self):
-        faction, phase = self.current()
-        self.max_actions -= 1
+       
+    def spend_action(self, amount: int = 1) -> None:
+        faction, phase = self.current
+        self.max_actions -= amount
+        for handler in self.handlers:
+            handler(faction, phase)
         if self.max_actions <= 0:
             self.logger.info(f"Phase {phase.name} for faction {faction.name} completed, advancing turn")
             next(self)
-            
+    
+    @property
+    def current(self):
+        return self.phases[self.pointer % len(self.phases)]    
+
+    @property
+    def actions(self):
+        return self.max_actions
     
     @classmethod
     def Ordered(cls, factions: list[str], phases: list[str, int]) -> "TurnManager":

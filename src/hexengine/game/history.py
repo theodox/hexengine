@@ -20,6 +20,8 @@ class GameHistoryMixin:
         self._moves.append(action)
         action.do(self.board)
         self._history_pointer += 1
+        faction, phase = self.turn_manager.current
+        self.turn_manager.spend_action()
         self.logger.info(f"ENQUEUE {action} #{self._history_pointer}")
 
     def has_moves(self) -> bool:

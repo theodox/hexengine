@@ -180,6 +180,8 @@ class EventHandlerMixin:
         self.last_click_time = 0
 
     def _unit_drag(self, eventInfo: EventInfo) -> None:
+        if not self.selection:
+            return
         self.board.constrain()
         self.board.hilite()
 
@@ -195,13 +197,23 @@ class EventHandlerMixin:
 
     def _unit_mousedown(self, eventInfo: EventInfo) -> None:
         # Only clear previous selection if clicking on a different unit
+
         unit = self._event_unit(eventInfo)
+        faction, phase = self.turn_manager.current
+        if unit.faction != faction.name:
+            self.logger.warning(
+                f"Cannot select unit {unit.unit_id} of faction {unit.faction} during {faction.name}'s turn"
+            )
+            self.selection = None
+            return
         self.selection = unit
         self.hex_path.append(unit.position)
         # this forced the unit to be on top of other units
         unit.display.proxy.parentElement.appendChild(unit.display.proxy)
 
     def _unit_mouseup(self, eventInfo: EventInfo) -> None:
+        if not self.selection:
+            return
         current_time = js.Date.now()
         time_since_last_click = current_time - self.last_click_time
         maybe_dbl_click = time_since_last_click < self.DBL_CLICK_THRESHOLD

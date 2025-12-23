@@ -6,7 +6,7 @@ from ..ui.popups import PopupManager
 from .board import GameBoard
 from .events import EventHandlerMixin, HotkeyHandlerMixin, Hotkey, Modifiers
 from .history import GameHistoryMixin
-from .turn import test_turns
+from .turn import TurnManager, Faction, Phase, TurnOrdering
 
 
 class Game(EventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
@@ -37,6 +37,30 @@ class Game(EventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
         self._init_history()
         self._register_hotkeys()
+
+        self.turn_manager = TurnManager(
+            factions=[Faction("Red"), Faction("Blue")],
+            phases=[
+                Phase("Movement", max_actions=2),
+                Phase("Attack", max_actions=2),
+            ], order=TurnOrdering.INTERLEAVED
+        )
+        
+        self.turn_manager.handlers.append(self.update_turn_display)
+
+    def update_turn_display(self, faction, phase) -> None:
+        faction, phase = self.turn_manager.current
+        actions = self.turn_manager.actions
+        turn_info = f"{faction.name}-{phase.name} # {actions})"
+        turn_bg = element("turn-display")
+        turn_bg.classList.remove("red", "blue")
+        turn_bg.classList.add(faction.name.lower())
+        turn_info_element = element("turn-info")
+        if turn_info_element:
+            turn_info_element.innerText = turn_info
+
+
+   
 
     # these are delegated to the board instance, but
     # exposed here for convenience
