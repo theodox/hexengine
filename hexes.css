@@ -157,22 +157,32 @@
     font-family: sans-serif;
 }
 
+#ui-panel {
+    position: absolute;
+    box-shadow: 0 8px 8px rgba(0, 0, 0, 0.4);
+    background-color: rgba(143, 136, 136, 0.33);
+    width: 20%;
+    height: 20%;
+    top: 32px;
+    left: 32px;
+    z-index: 150;
+}
+
 #turn-display {
     position: absolute;
     width: auto;
     height: auto;
     top: 16px;
     left: 16px;
-    z-index: 200;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+
     border-radius: 3px;
     color: rgb(240, 240, 233);
     font-size: 18px;
     font-family: sans-serif;
-    padding: 8px;
+    padding: 8px;    
 }   
 
 
