@@ -14,7 +14,7 @@ class TargetType(Enum):
     BACKGROUND = "background"
 
 
-class EventHandlerMixin:
+class MouseEventHandlerMixin:
     """Mixin class providing mouse event handling functionality for the Game class."""
 
     MIN_DRAG_DISTANCE: int = 16  # pixels

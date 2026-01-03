@@ -4,12 +4,12 @@ from ..document import element
 from ..map import Map
 from ..ui.popups import PopupManager
 from .board import GameBoard
-from .events import EventHandlerMixin, HotkeyHandlerMixin, Hotkey, Modifiers
+from .events import MouseEventHandlerMixin, HotkeyHandlerMixin, Hotkey, Modifiers
 from .history import GameHistoryMixin
 from .turn import TurnManager, Faction, Phase, TurnOrdering
 
 
-class Game(EventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
+class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def __init__(self) -> None:
         self.running = True
         container = element("map-container")
