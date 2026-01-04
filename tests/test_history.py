@@ -1,15 +1,28 @@
 import unittest
 from unittest.mock import Mock
+import sys
+import os
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+try:
+    from src.hexengine.state import ActionManager, GameState, UnitState, BoardState
+    from src.hexengine.state.action_manager import StateAction
+
+    NEW_STATE_SYSTEM_AVAILABLE = True
+except ImportError:
+    NEW_STATE_SYSTEM_AVAILABLE = False
 
 
-# Mock the Action protocol for testing
+# Mock the Action protocol for testing old system (kept for backwards compatibility tests)
 class Action:
     def do(self, game_board): ...
     def undo(self, game_board): ...
 
 
 # We can't import GameHistoryMixin directly due to pyodide dependencies,
-# so we'll copy it here for testing
+# so we'll copy it here for testing the old system
 class GameHistoryMixin:
     """Mixin class providing undo/redo history management for the Game class."""
 
@@ -433,5 +446,33 @@ class TestGameHistory(unittest.TestCase):
         action.undo.assert_called_once_with(self.game.board)
 
 
+@unittest.skipIf(
+    not NEW_STATE_SYSTEM_AVAILABLE,
+    "New state system not available - install package first",
+)
+class TestNewStateSystem(unittest.TestCase):
+    """Tests for the new state-based action system."""
+
+    def test_action_manager_available(self):
+        """Test that the new ActionManager is available."""
+        if not NEW_STATE_SYSTEM_AVAILABLE:
+            self.skipTest("New state system not available")
+
+        from src.hexengine.state import ActionManager, GameState
+
+        state = GameState.create_empty()
+        action_mgr = ActionManager(state)
+        self.assertIsNotNone(action_mgr)
+        self.assertEqual(action_mgr.get_pointer_position(), 0)
+
+
 if __name__ == "__main__":
+    if NEW_STATE_SYSTEM_AVAILABLE:
+        print("\nNOTE: Old GameHistoryMixin tests are skipped.")
+        print(
+            "The old action system has been replaced by hexengine.state.ActionManager"
+        )
+        print(
+            "See EXAMPLE_NEW_STATE_SYSTEM.py and test_preview_system.py for new system tests.\n"
+        )
     unittest.main()

@@ -1,10 +1,12 @@
-from .base import Action
-from .move import Move
-from .delete import DeleteUnit
-
 """
-This package contains the 'action' classes used to represent changes
-to the game state, such as moving units or deleting units
+Legacy actions package - replaced by hexengine.state.actions.
+
+The old mutable action system (Action, Move, DeleteUnit) has been replaced
+by the new immutable state-based action system in hexengine.state.actions
+(MoveUnit, DeleteUnit, AddUnit, SpendAction).
+
+This package is kept for backwards compatibility but is empty.
+Use: from hexengine.state import MoveUnit, DeleteUnit, etc.
 """
 
-__all__ = ["Action", "Move", "DeleteUnit"]
+__all__ = []
