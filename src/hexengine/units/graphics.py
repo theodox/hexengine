@@ -56,9 +56,10 @@ class DisplayUnit:
         self.unit_type = unit_type
         self.proxy = js.document.createElementNS("http://www.w3.org/2000/svg", "g")
         self.proxy.setAttribute("id", unit_id)
+        self.proxy.setAttribute("data-unit", unit_id)  # For event handling
         self.proxy.setAttribute("data-unit-type", unit_type)
         self.proxy.setAttribute("display", "none")
-        self.proxy.setAttribute("user-select", "none")
+        self.proxy.style.pointerEvents = "all"  # Make sure it receives mouse events
         self._hex = Hex(-2, -2, 4)  # Default off-map
         self._hex_layout = layout
         self.text_element = None
@@ -80,8 +81,10 @@ class DisplayUnit:
     def _set_visible(self, value: bool) -> None:
         if value:
             self.proxy.setAttribute("display", "block")
+            self.proxy.style.visibility = "visible"
         else:
             self.proxy.setAttribute("display", "none")
+            self.proxy.style.visibility = "hidden"
 
     def _get_visible(self) -> bool:
         return self.proxy.getAttribute("display") != "none"

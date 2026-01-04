@@ -29,16 +29,35 @@ class MouseHandler:
 
         This walks up the DOM tree to find an element with a data-unit attribute.
         """
+        from ..document import js
+        
         target = event.target
         unit_id = None
-
+        
+        js.console.log(f"[Handler] Click target tag: {target.tagName}")
+        
         # Walk up the DOM tree to find an element with data-unit attribute
-        while target and not unit_id:
-            unit_id = target.getAttribute("data-unit")
-            if unit_id:
-                break
+        depth = 0
+        while target and not unit_id and depth < 10:
+            try:
+                # Log what we're checking
+                tag = target.tagName if hasattr(target, 'tagName') else 'unknown'
+                elem_id = target.id if hasattr(target, 'id') else ''
+                js.console.log(f"[Handler] Checking depth {depth}: {tag} (id={elem_id})")
+                
+                unit_id = target.getAttribute("data-unit")
+                if unit_id:
+                    js.console.log(f"[Handler] ✓ Found unit_id={unit_id}")
+                    break
+            except Exception as e:
+                js.console.error(f"[Handler] Error at depth {depth}: {e}")
+            
             target = target.parentElement
+            depth += 1
 
+        if not unit_id:
+            js.console.warn("[Handler] No unit_id found after walking DOM tree")
+        
         return target, unit_id
 
     def _handle_event(self, event) -> None:
@@ -73,8 +92,17 @@ class MouseHandler:
             unit_id=unit_id,
             hex=hex_value,
         )
-        for handler in self._handlers:
-            handler(result)
+        
+        from ..document import js
+        js.console.log(f"[Handler] Calling {len(self._handlers)} registered handlers with unit_id={unit_id}")
+        
+        for i, handler in enumerate(self._handlers):
+            try:
+                js.console.log(f"[Handler] Calling handler {i}")
+                handler(result)
+                js.console.log(f"[Handler] Handler {i} completed")
+            except Exception as e:
+                js.console.error(f"[Handler] Handler {i} threw error: {e}")
 
     def __lt__(self, handler):
         # use < to add a mouse handler

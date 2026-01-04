@@ -32,7 +32,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         )
         self.action_mgr = ActionManager(initial_state)
         self.ui_state = UIState()
-        self.display_mgr = DisplayManager(self.canvas)
+        self.display_mgr = DisplayManager(self.canvas, self.board)
 
         # Connect display manager as observer to sync on state changes
         self.action_mgr.add_observer(self.display_mgr.sync_from_state)
@@ -48,7 +48,11 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.logger = logging.getLogger("game")
         self.logger.info("Game initialized")
 
+        from ..document import js
+        js.console.log(f"[Game.__init__] Registering on_mouse_down: {self.on_mouse_down}")
         self.canvas.on_mouse_down < self.on_mouse_down
+        js.console.log(f"[Game.__init__] Registered on_mouse_down")
+        
         self.canvas.on_mouse_up < self.on_mouse_up
         self.canvas.on_drag < self.on_drag
 
