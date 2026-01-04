@@ -8,6 +8,10 @@ from .events import MouseEventHandlerMixin, HotkeyHandlerMixin, Hotkey, Modifier
 from .history import GameHistoryMixin
 from .turn import TurnManager, Faction, Phase, TurnOrdering
 
+# New state system imports
+from ..state import GameState, ActionManager
+from ..client import UIState, DisplayManager
+
 
 class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def __init__(self) -> None:
@@ -22,6 +26,21 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         assert svg is not None, "Map SVG element not found"
         self.canvas = Map(container, map, svg, units)
         self.board = GameBoard(self.canvas)
+
+        # NEW STATE SYSTEM: Initialize alongside old system for gradual migration
+        initial_state = GameState.create_empty(
+            initial_faction="Blue",
+            initial_phase="Movement"
+        )
+        self.action_mgr = ActionManager(initial_state)
+        self.ui_state = UIState()
+        self.display_mgr = DisplayManager(self.canvas)
+        
+        # Connect display manager as observer to sync on state changes
+        self.action_mgr.add_observer(self.display_mgr.sync_from_state)
+        
+        # TODO: Sync initial display from state once units are added via new system
+        # self.display_mgr.sync_from_state(self.action_mgr.current_state)
 
         self.click_time = 0
         self.last_click_time = 0
@@ -113,3 +132,99 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     @Hotkey("escape", Modifiers.NONE)
     def clear_selection(self) -> None:
         self.popup_manager.clear()
+    
+    # ===== NEW STATE SYSTEM HELPERS =====
+    # These will gradually replace the old system
+    
+    def execute_action_new(self, action):
+        """
+        Execute an action using the new ActionManager.
+        This automatically triggers display sync via observer pattern.
+        """
+        self.action_mgr.execute(action)
+        # Display automatically syncs, no manual update needed!
+    
+    def undo_new(self) -> bool:
+        """
+        Undo using new ActionManager.
+        Returns True if successful, False if no action to undo.
+        """
+        if self.action_mgr.can_undo():
+            self.action_mgr.undo()
+            self.logger.info("UNDO (new system)")
+            # Display automatically syncs via observer
+            return True
+        return False
+    
+    def redo_new(self) -> bool:
+        """
+        Redo using new ActionManager.
+        Returns True if successful, False if no action to redo.
+        """
+        if self.action_mgr.can_redo():
+            self.action_mgr.redo()
+            self.logger.info("REDO (new system)")
+            # Display automatically syncs via observer
+            return True
+        return False
+    
+    def get_current_state(self):
+        """Get current committed game state (immutable)."""
+        return self.action_mgr.current_state
+    
+    def start_drag_preview(self, unit_id: str):
+        """Start drag preview for a unit."""
+        self.ui_state.select_unit(unit_id)
+        
+        # Compute valid moves from committed state
+        from ..state.logic import compute_valid_moves
+        state = self.action_mgr.current_state
+        valid_moves = compute_valid_moves(state, unit_id, movement_budget=4.0)
+        self.ui_state.set_constraints(valid_moves)
+        
+        # Highlight valid move hexes
+        self.display_mgr.highlight_hexes(valid_moves)
+    
+    def update_drag_preview(self, pixel_x: float, pixel_y: float, target_hex):
+        """Update drag preview position."""
+        self.ui_state.update_drag(pixel_x, pixel_y, target_hex)
+        
+        if self.ui_state.drag_preview:
+            self.display_mgr.show_preview(
+                unit_id=self.ui_state.drag_preview.unit_id,
+                pixel_x=pixel_x,
+                pixel_y=pixel_y,
+                is_valid=self.ui_state.drag_preview.is_valid
+            )
+    
+    def end_drag_preview(self) -> bool:
+        """
+        End drag preview and commit if valid.
+        Returns True if move was committed, False otherwise.
+        """
+        preview = self.ui_state.end_drag()
+        
+        if not preview:
+            return False
+        
+        # Clear preview visually
+        state = self.action_mgr.current_state
+        unit = state.board.units.get(preview.unit_id)
+        if unit:
+            self.display_mgr.clear_preview(preview.unit_id, unit.position)
+        
+        # Clear highlights
+        self.display_mgr.clear_highlights()
+        
+        # Commit if valid
+        if preview.is_valid and preview.potential_target:
+            from ..state.actions import MoveUnit
+            action = MoveUnit(
+                unit_id=preview.unit_id,
+                from_hex=preview.original_position,
+                to_hex=preview.potential_target
+            )
+            self.execute_action_new(action)
+            return True
+        
+        return False

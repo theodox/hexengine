@@ -3,6 +3,9 @@ from typing import Optional
 from ..actions import Action
 from .events.hotkey import Hotkey, Modifiers
 
+# Flag to enable new state system (set to True to use new system)
+USE_NEW_STATE_SYSTEM = True
+
 
 class GameHistoryMixin:
     """Mixin class providing undo/redo history management for the Game class."""
@@ -31,24 +34,44 @@ class GameHistoryMixin:
     @Hotkey("z", Modifiers.CONTROL)
     def undo(self) -> Optional[Action]:
         """Undo the last action."""
-        if self._history_pointer > 0:
-            self._history_pointer -= 1
-            move = self._moves[self._history_pointer]
-            move.undo(self.board)
-            self.logger.info(f"UNDO {move} #{self._history_pointer}")
-            return move
-        self.logger.debug("No move to undo")
-        return None
+        if USE_NEW_STATE_SYSTEM:
+            # New system: use ActionManager
+            if hasattr(self, 'action_mgr') and self.action_mgr.can_undo():
+                self.action_mgr.undo()
+                self.logger.info("UNDO (new system)")
+                return None  # New system doesn't return action
+            self.logger.debug("No move to undo (new system)")
+            return None
+        else:
+            # Old system
+            if self._history_pointer > 0:
+                self._history_pointer -= 1
+                move = self._moves[self._history_pointer]
+                move.undo(self.board)
+                self.logger.info(f"UNDO {move} #{self._history_pointer}")
+                return move
+            self.logger.debug("No move to undo")
+            return None
 
     @Hotkey("y", Modifiers.CONTROL)
     def redo(self) -> Optional[Action]:
         """Redo the next action."""
-        if self._history_pointer < len(self._moves):
-            move = self._moves[self._history_pointer]
-            self._history_pointer += 1
-            move.do(self.board)
-            self.logger.info(f"REDO {move} #{self._history_pointer}")
-            return move
+        if USE_NEW_STATE_SYSTEM:
+            # New system: use ActionManager
+            if hasattr(self, 'action_mgr') and self.action_mgr.can_redo():
+                self.action_mgr.redo()
+                self.logger.info("REDO (new system)")
+                return None  # New system doesn't return action
+            self.logger.debug("No move to redo (new system)")
+            return None
+        else:
+            # Old system
+            if self._history_pointer < len(self._moves):
+                move = self._moves[self._history_pointer]
+                self._history_pointer += 1
+                move.do(self.board)
+                self.logger.info(f"REDO {move} #{self._history_pointer}")
+                return move
 
-        self.logger.debug("No move to redo")
-        return None
+            self.logger.debug("No move to redo")
+            return None
