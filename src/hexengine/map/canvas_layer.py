@@ -58,7 +58,13 @@ class CanvasLayer:
         return self._context
 
     def draw_line(
-        self, x1: float, y1: float, x2: float, y2: float, stroke: str = "black", stroke_width: int = 1
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        stroke: str = "black",
+        stroke_width: int = 1,
     ) -> None:
         self._context.beginPath()
         self._context.strokeStyle = stroke
@@ -68,7 +74,13 @@ class CanvasLayer:
         self._context.stroke()
         self._context.closePath()
 
-    def draw_hex(self, hex: Hex, fill: str = "white", stroke: str = "black", stroke_width: int = 1) -> None:
+    def draw_hex(
+        self,
+        hex: Hex,
+        fill: str = "white",
+        stroke: str = "black",
+        stroke_width: int = 1,
+    ) -> None:
         points = self._hex_layout.hex_corners(hex)
         points.append(points[0])  # Close the hexagon
         self._context.beginPath()
@@ -82,7 +94,11 @@ class CanvasLayer:
         self._context.fill()
 
     def draw_hexes(
-        self, hexes: Iterable[Hex], fill: str = "white", stroke: str = "black", stroke_width: int = 1
+        self,
+        hexes: Iterable[Hex],
+        fill: str = "white",
+        stroke: str = "black",
+        stroke_width: int = 1,
     ) -> None:
         for hex in hexes:
             self.draw_hex(hex, fill=fill, stroke=stroke, stroke_width=stroke_width)

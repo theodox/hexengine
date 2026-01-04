@@ -9,7 +9,14 @@ if TYPE_CHECKING:
 
 
 class ScenarioItem:
-    def __init__(self, pos: Hex, cls: Type["GameUnit"], unit_id: str, unit_type: str, active: bool = True) -> None:
+    def __init__(
+        self,
+        pos: Hex,
+        cls: Type["GameUnit"],
+        unit_id: str,
+        unit_type: str,
+        active: bool = True,
+    ) -> None:
         self.cls = cls
         self.unit_id = unit_id
         self.unit_type = unit_type

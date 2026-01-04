@@ -98,9 +98,6 @@ class GameBoard:
         """
         Calculate all hexes reachable from start_hex within max_cost.
 
-        Uses Dijkstra's algorithm to find all hexes that can be reached
-        from the starting hex with accumulated movement cost <= max_cost.
-
         Args:
             start_hex: The starting hex position (Hex object)
             max_cost: Maximum movement cost allowed

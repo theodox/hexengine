@@ -9,7 +9,9 @@ if TYPE_CHECKING:
 
 
 class Location:
-    def __init__(self, hex: Hex, terrain_type: str, movement_cost: float, game: "Game") -> None:
+    def __init__(
+        self, hex: Hex, terrain_type: str, movement_cost: float, game: "Game"
+    ) -> None:
         self._hex = hex
         self._type = terrain_type
         self._cost = movement_cost

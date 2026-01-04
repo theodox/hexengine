@@ -5,7 +5,7 @@ from .logic import compute_reachable_hexes, compute_valid_moves, is_valid_move
 
 __all__ = [
     "GameState",
-    "BoardState", 
+    "BoardState",
     "UnitState",
     "LocationState",
     "TurnState",

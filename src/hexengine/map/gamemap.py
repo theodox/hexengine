@@ -63,7 +63,9 @@ class Map:
         self._mouse_downHandler = MouseHandler(
             self._container, "mousedown", self._hex_layout
         )
-        self._mouse_upHandler = MouseHandler(self._container, "mouseup", self._hex_layout)
+        self._mouse_upHandler = MouseHandler(
+            self._container, "mouseup", self._hex_layout
+        )
 
     @property
     def on_drag(self):

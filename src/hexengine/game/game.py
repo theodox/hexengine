@@ -29,16 +29,15 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
         # NEW STATE SYSTEM: Initialize alongside old system for gradual migration
         initial_state = GameState.create_empty(
-            initial_faction="Blue",
-            initial_phase="Movement"
+            initial_faction="Blue", initial_phase="Movement"
         )
         self.action_mgr = ActionManager(initial_state)
         self.ui_state = UIState()
         self.display_mgr = DisplayManager(self.canvas)
-        
+
         # Connect display manager as observer to sync on state changes
         self.action_mgr.add_observer(self.display_mgr.sync_from_state)
-        
+
         # TODO: Sync initial display from state once units are added via new system
         # self.display_mgr.sync_from_state(self.action_mgr.current_state)
 
@@ -54,7 +53,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.canvas.on_mouse_up < self.on_mouse_up
         self.canvas.on_drag < self.on_drag
 
-        self._init_history()
         self._register_hotkeys()
 
         self.turn_manager = TurnManager(
@@ -62,9 +60,10 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             phases=[
                 Phase("Movement", max_actions=2),
                 Phase("Attack", max_actions=2),
-            ], order=TurnOrdering.INTERLEAVED
+            ],
+            order=TurnOrdering.INTERLEAVED,
         )
-        
+
         self.turn_manager.handlers.append(self.update_turn_display)
 
     def update_turn_display(self, faction, phase) -> None:
@@ -77,9 +76,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         turn_info_element = element("turn-info")
         if turn_info_element:
             turn_info_element.innerText = turn_info
-
-
-   
 
     # these are delegated to the board instance, but
     # exposed here for convenience
@@ -107,13 +103,17 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     @Hotkey("delete", Modifiers.NONE)
     def delete_selected_unit(self) -> None:
-        if self.selection:
-            from hexengine.actions.delete import DeleteUnit
+        if self.ui_state.selected_unit_id:
+            from ..state.actions import DeleteUnit
 
-            action = DeleteUnit(self.selection)
-            self.enqueue(action)
-            self.selection = None
-            self.logger.info(f"Deleted unit {action.unit.unit_id}")
+            action = DeleteUnit(self.ui_state.selected_unit_id)
+            self.execute_action(action)
+
+            # Clear UI state
+            self.ui_state.end_drag()
+            self.display_mgr.clear_highlights()
+
+            self.logger.info(f"Deleted unit {self.ui_state.selected_unit_id}")
         else:
             self.logger.debug("No unit selected to delete")
 
@@ -123,7 +123,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         if self.selection:
             loc = self.layout.hex_to_pixel(self.selection.position)
             self.popup_manager.create_popup(
-            f"{self.selection.unit_id} @ {self.selection.faction}", loc
+                f"{self.selection.unit_id} @ {self.selection.faction}", loc
             )
             self.logger.info(f"Showing info for unit {self.selection.unit_id}")
         else:
@@ -132,99 +132,76 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     @Hotkey("escape", Modifiers.NONE)
     def clear_selection(self) -> None:
         self.popup_manager.clear()
-    
-    # ===== NEW STATE SYSTEM HELPERS =====
-    # These will gradually replace the old system
-    
-    def execute_action_new(self, action):
+
+    # ===== STATE SYSTEM HELPERS =====
+
+    def execute_action(self, action):
         """
-        Execute an action using the new ActionManager.
+        Execute an action using the ActionManager.
         This automatically triggers display sync via observer pattern.
         """
         self.action_mgr.execute(action)
         # Display automatically syncs, no manual update needed!
-    
-    def undo_new(self) -> bool:
-        """
-        Undo using new ActionManager.
-        Returns True if successful, False if no action to undo.
-        """
-        if self.action_mgr.can_undo():
-            self.action_mgr.undo()
-            self.logger.info("UNDO (new system)")
-            # Display automatically syncs via observer
-            return True
-        return False
-    
-    def redo_new(self) -> bool:
-        """
-        Redo using new ActionManager.
-        Returns True if successful, False if no action to redo.
-        """
-        if self.action_mgr.can_redo():
-            self.action_mgr.redo()
-            self.logger.info("REDO (new system)")
-            # Display automatically syncs via observer
-            return True
-        return False
-    
+
     def get_current_state(self):
         """Get current committed game state (immutable)."""
         return self.action_mgr.current_state
-    
+
     def start_drag_preview(self, unit_id: str):
         """Start drag preview for a unit."""
         self.ui_state.select_unit(unit_id)
-        
+
         # Compute valid moves from committed state
         from ..state.logic import compute_valid_moves
+
         state = self.action_mgr.current_state
         valid_moves = compute_valid_moves(state, unit_id, movement_budget=4.0)
         self.ui_state.set_constraints(valid_moves)
-        
+
         # Highlight valid move hexes
         self.display_mgr.highlight_hexes(valid_moves)
-    
+
     def update_drag_preview(self, pixel_x: float, pixel_y: float, target_hex):
         """Update drag preview position."""
         self.ui_state.update_drag(pixel_x, pixel_y, target_hex)
-        
+
         if self.ui_state.drag_preview:
             self.display_mgr.show_preview(
                 unit_id=self.ui_state.drag_preview.unit_id,
                 pixel_x=pixel_x,
                 pixel_y=pixel_y,
-                is_valid=self.ui_state.drag_preview.is_valid
+                is_valid=self.ui_state.drag_preview.is_valid,
             )
-    
+
     def end_drag_preview(self) -> bool:
         """
         End drag preview and commit if valid.
         Returns True if move was committed, False otherwise.
         """
         preview = self.ui_state.end_drag()
-        
+
         if not preview:
             return False
-        
+
         # Clear preview visually
         state = self.action_mgr.current_state
         unit = state.board.units.get(preview.unit_id)
         if unit:
             self.display_mgr.clear_preview(preview.unit_id, unit.position)
-        
+
         # Clear highlights
         self.display_mgr.clear_highlights()
-        
+
         # Commit if valid
         if preview.is_valid and preview.potential_target:
             from ..state.actions import MoveUnit
+
             action = MoveUnit(
                 unit_id=preview.unit_id,
                 from_hex=preview.original_position,
-                to_hex=preview.potential_target
+                to_hex=preview.potential_target,
             )
-            self.execute_action_new(action)
+            self.execute_action(action)
             return True
-        
+
         return False

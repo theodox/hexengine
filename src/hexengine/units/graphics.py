@@ -136,7 +136,7 @@ class DisplayUnit:
         return (
             f"<Unit id={self.unit_id} hex=({self._hex.i},{self._hex.j},{self._hex.k})>"
         )
-    
+
     visible = property(_get_visible, _set_visible)
     position = property(_get_position, _set_position)
     rotation = property(_get_rotation, _set_rotation)
