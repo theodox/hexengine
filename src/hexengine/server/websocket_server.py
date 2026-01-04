@@ -200,9 +200,14 @@ async def main():
     await server.start()
 
 
-if __name__ == "__main__":
+def run():
+    """Synchronous entry point for console script."""
     if not WEBSOCKETS_AVAILABLE:
         print("ERROR: websockets package not installed")
         print("Install with: pip install websockets")
-    else:
-        asyncio.run(main())
+        return
+    asyncio.run(main())
+
+
+if __name__ == "__main__":
+    run()

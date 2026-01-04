@@ -9,6 +9,9 @@ authors = [
     {name = "Steve Theodore", email = "steve@theodox.com"}
 ]
 
+[project.scripts]
+hexserver = "hexengine.server.websocket_server:run"
+
 [project.optional-dependencies]
 server = ["websockets>=12.0"]
 
