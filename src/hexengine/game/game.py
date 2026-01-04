@@ -27,7 +27,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.canvas = Map(container, map, svg, units)
         self.board = GameBoard(self.canvas)
 
-        # NEW STATE SYSTEM: Initialize alongside old system for gradual migration
         initial_state = GameState.create_empty(
             initial_faction="Blue", initial_phase="Movement"
         )
