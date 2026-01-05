@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, Dict, Optional
 from ..hexes.types import Hex
 from ..units import DisplayUnit, GameUnit
 from ..state import GameState
+from ..units.graphics import DisplayUnit
+from ..units.game import GameUnit
 
 import logging
 
@@ -45,7 +47,6 @@ class DisplayManager:
         self._unit_displays: Dict[str, DisplayUnit] = {}
         self.logger = logging.getLogger("display_manager")
 
-
     def sync_from_state(self, game_state: GameState) -> None:
         """
         Update all displays to match committed game state.
@@ -74,61 +75,70 @@ class DisplayManager:
 
     def _create_unit_display(self, unit_state) -> None:
         """Create a new display for a unit."""
-        from ..document import js
-        from ..units.graphics import DisplayUnit
-        from ..units.game import GameUnit
-        
+
         # Map unit types to their graphics creators
         graphics_creators = self._get_graphics_creators()
-        
+
         # Get the appropriate creator for this unit type
         creator_class = graphics_creators.get(unit_state.unit_type)
         if not creator_class:
-            self.logger.error(f"No graphics creator for unit type {unit_state.unit_type}")
+            self.logger.error(
+                f"No graphics creator for unit type {unit_state.unit_type}"
+            )
             return
-        
+
         # Register the creator's CSS if not already done
         creator_class.register()
-        
+
         # Create display unit
         display = DisplayUnit(
             unit_id=unit_state.unit_id,
             unit_type=unit_state.unit_type,
             layout=self._canvas.hex_layout,
         )
-        
+
         # Use the graphics creator to build the SVG elements
         creator = creator_class()
         creator.create(display)
-        
+
         # Position it
         display.position = unit_state.position
         display.visible = unit_state.active
-        
+
         from ..document import js
-        self.logger.debug(f"Created unit {unit_state.unit_id}, visible={unit_state.active}, display attr={display.proxy.getAttribute('display')}")
-        
+
+        self.logger.debug(
+            f"Created unit {unit_state.unit_id}, visible={unit_state.active}, display attr={display.proxy.getAttribute('display')}"
+        )
+
         # Add faction-based class
         display.push_classes(unit_state.faction.lower())
-        
+
         # Add to layer - access the UnitLayer's SVG element directly
         unit_layer = self._canvas._unit_layer
         unit_layer._svg.appendChild(display.proxy)
-        
+
         from ..document import js
-        self.logger.debug(f"Added {unit_state.unit_id} to SVG with id: {unit_layer._svg.id}")
-        self.logger.debug(f"Unit parent: {display.proxy.parentElement.id if display.proxy.parentElement else 'None'}")
-        self.logger.debug(f"Unit has data-unit: {display.proxy.getAttribute('data-unit')}")
-        
+
+        self.logger.debug(
+            f"Added {unit_state.unit_id} to SVG with id: {unit_layer._svg.id}"
+        )
+        self.logger.debug(
+            f"Unit parent: {display.proxy.parentElement.id if display.proxy.parentElement else 'None'}"
+        )
+        self.logger.debug(
+            f"Unit has data-unit: {display.proxy.getAttribute('data-unit')}"
+        )
+
         # Create GameUnit wrapper
         game_unit = GameUnit(
             unit_id=unit_state.unit_id,
             unit_type=unit_state.unit_type,
-            unit_display=display
+            unit_display=display,
         )
         game_unit.health = unit_state.health
         game_unit.active = unit_state.active
-        
+
         # Add to board if available
         if self._board:
             # Check if position is occupied (from old state)
@@ -136,23 +146,23 @@ class DisplayManager:
                 # Remove old unit at this position first
                 old_unit = self._board._board[unit_state.position]
                 if old_unit.unit_id != unit_state.unit_id:
-                    js.console.warn(f"Replacing unit at {unit_state.position}")
+                    self.logger.warning(f"Replacing unit at {unit_state.position}")
                     del self._board._board[unit_state.position]
                     if old_unit.unit_id in self._board._units:
                         del self._board._units[old_unit.unit_id]
-            
+
             # Add to board
             self._board._board[unit_state.position] = game_unit
             self._board._units[unit_state.unit_id] = game_unit
-        
+
         # Track the display
         self._unit_displays[unit_state.unit_id] = display
-    
+
     def _get_graphics_creators(self):
         """Get map of unit type to graphics creator class."""
         from ..game.scenarios.canuck import CanuckGraphicsCreator
         from ..game.scenarios.generic import GenericGraphicsCreator
-        
+
         return {
             "canuck": CanuckGraphicsCreator,
             "soldier": GenericGraphicsCreator,
