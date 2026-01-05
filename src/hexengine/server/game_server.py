@@ -275,7 +275,8 @@ class GameServer:
     async def _handle_undo_request(self, player_id: str, message: Message) -> None:
         """Handle an undo request from a client."""
         from .protocol import UndoRequest
-
+        self.logger.debug(f"Handling undo request from player {player_id}")
+        
         request = UndoRequest.from_message(message)
 
         # Validate player
