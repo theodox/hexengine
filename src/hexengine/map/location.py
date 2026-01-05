@@ -43,6 +43,7 @@ class Location:
 
 class DisplayLocation:
     """The display component of a location on the board."""
+    SVG = "http://www.w3.org/2000/svg"
 
     def __init__(self, hex: Hex, loc_type: str, layout: HexLayout = None) -> None:
         self.loc_type = loc_type
@@ -56,7 +57,7 @@ class DisplayLocation:
         for point in self._hex_layout.hex_corners(self._hex):
             points.append(f"{point[0]},{point[1]}")
 
-        polygon = js.document.createElementNS("http://www.w3.org/2000/svg", "polygon")
+        polygon = js.document.createElementNS(self.SVG, "polygon")
         polygon.setAttribute("points", " ".join(points))
         polygon.classList.add("location")
         polygon.classList.add(self.loc_type)

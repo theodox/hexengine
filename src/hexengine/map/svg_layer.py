@@ -6,6 +6,8 @@ from .layout import HexLayout
 
 
 class SVGLayer:
+    SVG = "http://www.w3.org/2000/svg"
+
     def __init__(
         self,
         svg_element: js.SVGElement,
@@ -28,13 +30,13 @@ class SVGLayer:
     def _draw_hex(self, hex: Hex, root: js.SVGElement) -> None:
         points = self._hex_layout.hex_corners(hex)
         pointsString = " ".join([f"{x},{y}" for x, y in points])
-        poly = js.document.createElementNS("http://www.w3.org/2000/svg", "polygon")
+        poly = js.document.createElementNS(self.SVG, "polygon")
         poly.setAttribute("points", pointsString)
 
         root.appendChild(poly)
 
     def draw_hexes(self, hexes: list[Hex], cls: str = "highlight") -> None:
-        root = js.document.createElementNS("http://www.w3.org/2000/svg", "g")
+        root = js.document.createElementNS(self.SVG, "g")
         root.classList.add(cls)
         for hex in hexes:
             self._draw_hex(hex, root)
@@ -44,7 +46,7 @@ class SVGLayer:
         self.draw_hexes([hex], cls=cls)
 
     def draw_text(self, hex: Hex, text: str, font_size: int = 12) -> None:
-        txt = js.document.createElementNS("http://www.w3.org/2000/svg", "text")
+        txt = js.document.createElementNS(self.SVG, "text")
         x, y = self._hex_layout.hex_to_pixel(hex)
         txt.setAttribute("x", str(x))
         txt.setAttribute("y", str(y))
