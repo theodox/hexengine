@@ -42,6 +42,7 @@ class MouseEventHandlerMixin:
         eventInfo.event.preventDefault()
         self.hex_path.clear()
 
+        self.logger.warning(f"Mouse down : {eventInfo}")
         # pixels
         self.drag_start = (
             eventInfo.position

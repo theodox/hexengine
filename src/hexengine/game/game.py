@@ -49,12 +49,17 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.logger.info("Game initialized")
 
         from ..document import js
-        js.console.log(f"[Game.__init__] Registering on_mouse_down: {self.on_mouse_down}")
+        self.logger.info(f"[Game.__init__] Registering on_mouse_down: {self.on_mouse_down}")
         self.canvas.on_mouse_down < self.on_mouse_down
-        js.console.log(f"[Game.__init__] Registered on_mouse_down")
+        self.logger.info(f"[Game.__init__] Registered on_mouse_down")
         
+        self.logger.info(f"[Game.__init__] Registering on_mouse_up: {self.on_mouse_up}")
         self.canvas.on_mouse_up < self.on_mouse_up
+        self.logger.info(f"[Game.__init__] Registered on_mouse_up")
+
+        self.logger.info(f"[Game.__init__] Registering on_drag: {self.on_drag}")    
         self.canvas.on_drag < self.on_drag
+        self.logger.info(f"[Game.__init__] Registered on_drag")
 
         self._register_hotkeys()
 
