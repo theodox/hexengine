@@ -2,6 +2,8 @@ import logging
 
 from ..document import create_proxy
 from ..game.events.handler import EventInfo, Modifiers
+import js
+from pyodide.ffi import jsnull
 
 HANDLER_LOGGER = logging.getLogger("handler")
 HANDLER_LOGGER.setLevel(logging.DEBUG)
@@ -29,12 +31,10 @@ class MouseHandler:
 
         This walks up the DOM tree to find an element with a data-unit attribute.
         """
-        from ..document import js
         
         target = event.target
         unit_id = None
         
-        js.console.log(f"[Handler] Click target tag: {target.tagName}")
         
         # Walk up the DOM tree to find an element with data-unit attribute
         depth = 0
@@ -43,21 +43,21 @@ class MouseHandler:
                 # Log what we're checking
                 tag = target.tagName if hasattr(target, 'tagName') else 'unknown'
                 elem_id = target.id if hasattr(target, 'id') else ''
-                js.console.log(f"[Handler] Checking depth {depth}: {tag} (id={elem_id})")
                 
                 unit_id = target.getAttribute("data-unit")
-                if unit_id:
-                    js.console.log(f"[Handler] ✓ Found unit_id={unit_id}")
+                if unit_id and unit_id != jsnull:
                     break
             except Exception as e:
-                js.console.error(f"[Handler] Error at depth {depth}: {e}")
+                HANDLER_LOGGER.error(f"[Handler] Error at depth {depth}: {e}")
             
             target = target.parentElement
             depth += 1
 
         if not unit_id:
-            js.console.warn("[Handler] No unit_id found after walking DOM tree")
+            HANDLER_LOGGER.debug("[Handler] No unit_id found after walking DOM tree")
         
+        if unit_id == jsnull:
+            unit_id = None
         return target, unit_id
 
     def _handle_event(self, event) -> None:
@@ -93,16 +93,12 @@ class MouseHandler:
             hex=hex_value,
         )
         
-        from ..document import js
-        js.console.log(f"[Handler] Calling {len(self._handlers)} registered handlers with unit_id={unit_id}")
         
         for i, handler in enumerate(self._handlers):
             try:
-                js.console.log(f"[Handler] Calling handler {i}")
                 handler(result)
-                js.console.log(f"[Handler] Handler {i} completed")
             except Exception as e:
-                js.console.error(f"[Handler] Handler {i} threw error: {e}")
+                HANDLER_LOGGER.error(f"[Handler] Error in handler {i}: {e}")
 
     def __lt__(self, handler):
         # use < to add a mouse handler

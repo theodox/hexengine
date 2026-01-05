@@ -3,7 +3,6 @@
 from collections import namedtuple
 from enum import IntFlag, auto
 
-
 EventInfo = namedtuple(
     "EventInfo", ["event", "owner", "position", "modifiers", "target", "unit_id", "hex"]
 )

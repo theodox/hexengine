@@ -12,6 +12,9 @@ from ..hexes.types import Hex
 from ..units import DisplayUnit, GameUnit
 from ..state import GameState
 
+import logging
+
+
 if TYPE_CHECKING:
     from ..map import Map
 
@@ -40,6 +43,8 @@ class DisplayManager:
         self._canvas = map_canvas
         self._board = game_board
         self._unit_displays: Dict[str, DisplayUnit] = {}
+        self.logger = logging.getLogger("display_manager")
+
 
     def sync_from_state(self, game_state: GameState) -> None:
         """
@@ -79,7 +84,7 @@ class DisplayManager:
         # Get the appropriate creator for this unit type
         creator_class = graphics_creators.get(unit_state.unit_type)
         if not creator_class:
-            js.console.warn(f"No graphics creator for unit type: {unit_state.unit_type}")
+            self.logger.error(f"No graphics creator for unit type {unit_state.unit_type}")
             return
         
         # Register the creator's CSS if not already done
@@ -101,7 +106,7 @@ class DisplayManager:
         display.visible = unit_state.active
         
         from ..document import js
-        js.console.log(f"[DisplayMgr] Created unit {unit_state.unit_id}, visible={unit_state.active}, display attr={display.proxy.getAttribute('display')}")
+        self.logger.debug(f"Created unit {unit_state.unit_id}, visible={unit_state.active}, display attr={display.proxy.getAttribute('display')}")
         
         # Add faction-based class
         display.push_classes(unit_state.faction.lower())
@@ -111,9 +116,9 @@ class DisplayManager:
         unit_layer._svg.appendChild(display.proxy)
         
         from ..document import js
-        js.console.log(f"[DisplayMgr] Added {unit_state.unit_id} to SVG with id: {unit_layer._svg.id}")
-        js.console.log(f"[DisplayMgr] Unit parent: {display.proxy.parentElement.id if display.proxy.parentElement else 'None'}")
-        js.console.log(f"[DisplayMgr] Unit has data-unit: {display.proxy.getAttribute('data-unit')}")
+        self.logger.debug(f"Added {unit_state.unit_id} to SVG with id: {unit_layer._svg.id}")
+        self.logger.debug(f"Unit parent: {display.proxy.parentElement.id if display.proxy.parentElement else 'None'}")
+        self.logger.debug(f"Unit has data-unit: {display.proxy.getAttribute('data-unit')}")
         
         # Create GameUnit wrapper
         game_unit = GameUnit(
@@ -232,4 +237,4 @@ class DisplayManager:
 
     def clear_highlights(self) -> None:
         """Clear all hex highlights."""
-        self._canvas.svg._svg.clear()
+        self._canvas.svg_layer.clear()

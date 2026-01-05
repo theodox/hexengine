@@ -42,6 +42,9 @@ class NetworkGame(Game):
         """
         super().__init__()
         
+        self.logger = logging.getLogger("network_game")
+        self.logger.info(f"NetworkGame.__init__ - action_mgr after super().__init__(): {self.action_mgr}")
+        
         self.server_url = server_url
         self.player_name = player_name
         self.preferred_faction = preferred_faction
@@ -186,8 +189,8 @@ class NetworkGame(Game):
         from ..document import js
         js.console.log(f"[NetworkGame] Received state update with {len(new_state.board.units)} units")
         
-        # Update local state (don't use ActionManager - server is source of truth)
-        self.action_mgr._state = new_state
+        # Update local state (don't use ActionManager.execute - server is source of truth)
+        self.action_mgr._current_state = new_state
         
         # Sync display to match new state
         self.display_mgr.sync_from_state(new_state)

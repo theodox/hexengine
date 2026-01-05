@@ -31,6 +31,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             initial_faction="Blue", initial_phase="Movement"
         )
         self.action_mgr = ActionManager(initial_state)
+        self.logger = logging.getLogger("game")
+        self.logger.info(f"action_mgr created: {self.action_mgr}")
+        
         self.ui_state = UIState()
         self.display_mgr = DisplayManager(self.canvas, self.board)
 
@@ -166,7 +169,8 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         valid_moves = compute_valid_moves(state, unit_id, movement_budget=4.0)
         self.ui_state.set_constraints(valid_moves)
 
-        # Highlight valid move hexes
+        # Clear old highlights and show new ones
+        self.display_mgr.clear_highlights()
         self.display_mgr.highlight_hexes(valid_moves)
 
     def update_drag_preview(self, pixel_x: float, pixel_y: float, target_hex):

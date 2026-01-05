@@ -1,4 +1,4 @@
-from ...document import js, create_proxy
+from ...document import js, create_proxy, jsnull
 from ...hexes.types import Hex
 from .handler import EventInfo, Modifiers
 from enum import Enum
@@ -42,7 +42,7 @@ class MouseEventHandlerMixin:
         eventInfo.event.preventDefault()
         self.hex_path.clear()
 
-        self.logger.warning(f"Mouse down : {eventInfo}")
+        self.logger.debug(f"Mouse down : {eventInfo}")
         # pixels
         self.drag_start = (
             eventInfo.position
@@ -50,7 +50,7 @@ class MouseEventHandlerMixin:
             else (eventInfo.event.offsetX, eventInfo.event.offsetY)
         )
 
-        if not eventInfo.unit_id:
+        if eventInfo.unit_id == jsnull or eventInfo.unit_id is None:
             self._bg_mousedown(eventInfo)
         else:
             self._unit_mousedown(eventInfo)
@@ -204,12 +204,24 @@ class MouseEventHandlerMixin:
         """
         unit_id = eventInfo.unit_id
         if not unit_id:
+            self.logger.error("No unit_id on unit mousedown")
+            return
+
+        # Check action manager is initialized
+        if self.action_mgr is None:
+            self.logger.error("action_mgr is None - game not fully initialized")
             return
 
         # Check faction from state
         state = self.action_mgr.current_state
+        if state is None:
+            self.logger.error("current_state is None - game not fully initialized")
+            return
+        
+        self.logger.info(f"State has {len(state.board.units)} units: {list(state.board.units.keys())}")
         unit_state = state.board.units.get(unit_id)
 
+        self.logger.warning(f"Mouse down state {unit_state} for unit {unit_id}")
         if not unit_state:
             return
 
