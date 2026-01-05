@@ -225,10 +225,11 @@ class MouseEventHandlerMixin:
         if not unit_state:
             return
 
-        faction, phase = self.turn_manager.current
-        if unit_state.faction != faction.name:
+        # Check if it's the right faction's turn (use server state, not local TurnManager)
+        current_faction = state.turn.current_faction
+        if unit_state.faction != current_faction:
             self.logger.warning(
-                f"Cannot select unit {unit_id} of faction {unit_state.faction} during {faction.name}'s turn"
+                f"Cannot select unit {unit_id} of faction {unit_state.faction} during {current_faction}'s turn"
             )
             return
 

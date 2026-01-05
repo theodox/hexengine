@@ -1,6 +1,6 @@
 from .game_state import GameState, BoardState, UnitState, LocationState, TurnState
 from .action_manager import ActionManager
-from .actions import MoveUnit, DeleteUnit, AddUnit, SpendAction
+from .actions import MoveUnit, DeleteUnit, AddUnit, SpendAction, NextPhase
 from .logic import compute_reachable_hexes, compute_valid_moves, is_valid_move
 
 __all__ = [
@@ -14,6 +14,7 @@ __all__ = [
     "DeleteUnit",
     "AddUnit",
     "SpendAction",
+    "NextPhase",
     "compute_reachable_hexes",
     "compute_valid_moves",
     "is_valid_move",

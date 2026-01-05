@@ -158,7 +158,7 @@ class WebSocketGameServer:
 async def main():
     """Example: Run a standalone WebSocket game server."""
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     

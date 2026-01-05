@@ -197,3 +197,44 @@ class SpendAction(StateAction):
 
     def __repr__(self) -> str:
         return f"<SpendAction {self.amount}>"
+
+
+class NextPhase(StateAction):
+    """Action to advance to the next phase/turn."""
+
+    def __init__(self, new_faction: str, new_phase: str, max_actions: int):
+        self.new_faction = new_faction
+        self.new_phase = new_phase
+        self.max_actions = max_actions
+        # Store previous values for undo
+        self.prev_faction = None
+        self.prev_phase = None
+        self.prev_actions = None
+
+    def apply(self, state: "GameState") -> "GameState":
+        """Advance to next phase, returning a new game state."""
+        # Store previous values for undo
+        self.prev_faction = state.turn.current_faction
+        self.prev_phase = state.turn.current_phase
+        self.prev_actions = state.turn.phase_actions_remaining
+
+        # Create new turn state for next phase
+        new_turn = state.turn.with_next_phase(
+            self.new_faction, self.new_phase, self.max_actions
+        )
+
+        # Create new game state with updated turn
+        return state.with_turn(new_turn)
+
+    def revert(self, state: "GameState") -> "GameState":
+        """Restore previous phase, returning a new game state."""
+        # Restore previous phase
+        new_turn = state.turn.with_next_phase(
+            self.prev_faction, self.prev_phase, self.prev_actions
+        )
+
+        # Create new game state with updated turn
+        return state.with_turn(new_turn)
+
+    def __repr__(self) -> str:
+        return f"<NextPhase {self.new_faction}-{self.new_phase}>"

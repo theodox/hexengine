@@ -16,7 +16,7 @@ from dataclasses import asdict
 from typing import Optional, Callable, Any
 
 from ..state import GameState, ActionManager
-from ..state.actions import MoveUnit, DeleteUnit, AddUnit, SpendAction
+from ..state.actions import MoveUnit, DeleteUnit, AddUnit, SpendAction, NextPhase
 from .protocol import (
     Message, MessageType, ActionRequest, StateUpdate, 
     ActionResult, JoinGameRequest, PlayerInfo
@@ -54,6 +54,45 @@ class GameServer:
         
         self.logger = logging.getLogger("game_server")
         self.logger.info("Game server initialized")
+        
+        # Define turn configuration
+        # Interleaved: Red-Movement, Blue-Movement, Red-Attack, Blue-Attack
+        self.factions = ["Red", "Blue"]
+        self.phases = [
+            {"name": "Movement", "max_actions": 2},
+            {"name": "Attack", "max_actions": 2}
+        ]
+        self._build_turn_order()
+    
+    def _build_turn_order(self) -> None:
+        """Build interleaved turn order from factions and phases."""
+        # Interleaved: Red-Movement, Blue-Movement, Red-Attack, Blue-Attack
+        self.turn_order = []
+        for phase in self.phases:
+            for faction in self.factions:
+                self.turn_order.append({
+                    "faction": faction,
+                    "phase": phase["name"],
+                    "max_actions": phase["max_actions"]
+                })
+        self.logger.info(f"Turn order: {self.turn_order}")
+    
+    def _get_next_phase(self) -> dict:
+        """Get the next phase in the turn order."""
+        current_state = self.action_manager.current_state
+        current_faction = current_state.turn.current_faction
+        current_phase = current_state.turn.current_phase
+        
+        # Find current position in turn order
+        for i, turn_info in enumerate(self.turn_order):
+            if (turn_info["faction"] == current_faction and 
+                turn_info["phase"] == current_phase):
+                # Return next in sequence (wraps around)
+                next_idx = (i + 1) % len(self.turn_order)
+                return self.turn_order[next_idx]
+        
+        # Fallback: return first turn
+        return self.turn_order[0]
     
     def add_message_handler(self, handler: Callable[[str, Message], None]) -> None:
         """
@@ -131,6 +170,12 @@ class GameServer:
         
         self.logger.info(f"Player {request.player_name} joined as {faction}")
         
+        # Send player_joined to the joining player (so they know their faction)
+        await self._send_message(player_id, Message(
+            type=MessageType.PLAYER_JOINED,
+            payload=player.to_dict()
+        ))
+        
         # Send full state to joining player
         await self._send_state_update(player_id)
         
@@ -168,6 +213,36 @@ class GameServer:
         try:
             self.action_manager.execute(action)
             self.logger.info(f"Executed {request.action_type} from {player.player_name}")
+            
+            # Spend an action for moves (other action types may cost different amounts)
+            if request.action_type in ["MoveUnit"]:
+                try:
+                    self.logger.debug(f"Spending 1 action for MoveUnit")
+                    spend_action = SpendAction(amount=1)
+                    self.action_manager.execute(spend_action)
+                    
+                    # Check if we need to advance to next phase
+                    current_state = self.action_manager.current_state
+                    self.logger.debug(
+                        f"After spending: {current_state.turn.current_faction}-"
+                        f"{current_state.turn.current_phase}, "
+                        f"actions remaining: {current_state.turn.phase_actions_remaining}"
+                    )
+                    
+                    if current_state.turn.phase_actions_remaining <= 0:
+                        next_phase_info = self._get_next_phase()
+                        self.logger.info(f"Actions depleted, advancing to next phase")
+                        next_phase_action = NextPhase(
+                            new_faction=next_phase_info["faction"],
+                            new_phase=next_phase_info["phase"],
+                            max_actions=next_phase_info["max_actions"]
+                        )
+                        self.action_manager.execute(next_phase_action)
+                        self.logger.info(
+                            f"Advanced to {next_phase_info['faction']}-{next_phase_info['phase']}"
+                        )
+                except Exception as e:
+                    self.logger.error(f"Error in turn advancement: {e}", exc_info=True)
             
             # Send success to requester
             result = ActionResult(success=True, action_id=str(uuid.uuid4()))

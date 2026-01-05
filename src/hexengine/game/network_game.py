@@ -134,7 +134,9 @@ class NetworkGame(Game):
 
         # Check if it's our turn (client-side validation for UX)
         if not self.client.is_my_turn():
-            self.logger.warning("Cannot execute action: not your turn")
+            current_faction = self.client.game_state.turn.current_faction if self.client.game_state else "unknown"
+            my_faction = self.client.faction if self.client.faction else "unknown"
+            self.logger.warning(f"Cannot execute action: not your turn (current: {current_faction}, you: {my_faction})")
             return
 
         # Serialize action to server format

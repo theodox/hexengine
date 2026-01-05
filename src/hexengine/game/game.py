@@ -160,12 +160,20 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     def start_drag_preview(self, unit_id: str):
         """Start drag preview for a unit."""
+        state = self.action_mgr.current_state
+        unit_state = state.board.units.get(unit_id)
+        if not unit_state:
+            return
+        
         self.ui_state.select_unit(unit_id)
+
+        # Initialize drag preview with unit's current position
+        pixel_pos = self.canvas.hex_layout.hex_to_pixel(unit_state.position)
+        self.ui_state.start_drag(unit_id, unit_state.position, pixel_pos[0], pixel_pos[1])
 
         # Compute valid moves from committed state
         from ..state.logic import compute_valid_moves
 
-        state = self.action_mgr.current_state
         valid_moves = compute_valid_moves(state, unit_id, movement_budget=4.0)
         self.ui_state.set_constraints(valid_moves)
 
