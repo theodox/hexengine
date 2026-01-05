@@ -8,7 +8,7 @@ all actions through a WebSocket connection to the server.
 import logging
 from typing import Optional
 
-from ..client.browser_websocket_client import BrowserWebSocketClient, ConnectionState
+from ..client.websocket_client import BrowserWebSocketClient, ConnectionState
 from ..client import LocalServerManager
 from ..state import GameState
 from ..hexes.types import Hex

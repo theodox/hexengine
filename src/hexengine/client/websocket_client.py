@@ -61,7 +61,7 @@ class BrowserWebSocketClient:
         self.on_player_joined: Optional[Callable[[PlayerInfo], None]] = None
         self.on_player_left: Optional[Callable[[PlayerInfo], None]] = None
         
-        self.logger = logging.getLogger("browser_websocket_client")
+        self.logger = logging.getLogger("websocket_client")
     
     def connect(self, player_name: str, preferred_faction: Optional[str] = None) -> None:
         """
