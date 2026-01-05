@@ -27,7 +27,7 @@ def initialize(name: str, game_globals: dict[str, Any]) -> logging.Logger:
     global ROOT_LOGGER
     ROOT_LOGGER = logging.getLogger(name)
     handler = DevLogHandler(textArea)
-    handler.setFormatter(logging.Formatter(" {message}", style="{"))
+    handler.setFormatter(logging.Formatter("{name} | {message}", style="{"))
     ROOT_LOGGER.addHandler(handler)
     ROOT_LOGGER.setLevel(logging.DEBUG)
 
