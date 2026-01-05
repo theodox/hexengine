@@ -43,6 +43,7 @@ class Location:
 
 class DisplayLocation:
     """The display component of a location on the board."""
+
     SVG = "http://www.w3.org/2000/svg"
 
     def __init__(self, hex: Hex, loc_type: str, layout: HexLayout = None) -> None:

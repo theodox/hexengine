@@ -5,8 +5,10 @@ class GameHistoryMixin:
     """Mixin class providing undo/redo history management using ActionManager."""
 
     @Hotkey("z", Modifiers.CONTROL)
-    def undo(self) -> None:
+    def undo_it(self) -> None:
         """Undo the last action using ActionManager."""
+
+        self.logger.warning(f"UNDO, {self.action_mgr}, {self.action_mgr.can_undo()}")
         if hasattr(self, "action_mgr") and self.action_mgr.can_undo():
             self.action_mgr.undo()
             self.logger.info("UNDO")

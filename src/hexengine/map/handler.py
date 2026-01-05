@@ -31,31 +31,30 @@ class MouseHandler:
 
         This walks up the DOM tree to find an element with a data-unit attribute.
         """
-        
+
         target = event.target
         unit_id = None
-        
-        
+
         # Walk up the DOM tree to find an element with data-unit attribute
         depth = 0
         while target and not unit_id and depth < 10:
             try:
                 # Log what we're checking
-                tag = target.tagName if hasattr(target, 'tagName') else 'unknown'
-                elem_id = target.id if hasattr(target, 'id') else ''
-                
+                tag = target.tagName if hasattr(target, "tagName") else "unknown"
+                elem_id = target.id if hasattr(target, "id") else ""
+
                 unit_id = target.getAttribute("data-unit")
                 if unit_id and unit_id != jsnull:
                     break
             except Exception as e:
                 HANDLER_LOGGER.error(f"[Handler] Error at depth {depth}: {e}")
-            
+
             target = target.parentElement
             depth += 1
 
         if not unit_id:
             HANDLER_LOGGER.debug("[Handler] No unit_id found after walking DOM tree")
-        
+
         if unit_id == jsnull:
             unit_id = None
         return target, unit_id
@@ -92,8 +91,7 @@ class MouseHandler:
             unit_id=unit_id,
             hex=hex_value,
         )
-        
-        
+
         for i, handler in enumerate(self._handlers):
             try:
                 handler(result)

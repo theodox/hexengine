@@ -279,3 +279,28 @@ class NetworkGame(Game):
         if not self.client:
             return False
         return self.client.is_my_turn()
+
+    # Override undo/redo to send requests to server instead of local execution
+    def undo(self) -> None:
+        """Override: Send undo request to server instead of executing locally."""
+        if not self.client or not self.connected:
+            self.logger.warning("Cannot undo: not connected to server")
+            return
+
+        try:
+            self.client.send_undo()
+            self.logger.info("Sent undo request to server")
+        except Exception as e:
+            self.logger.error(f"Failed to send undo request: {e}")
+
+    def redo(self) -> None:
+        """Override: Send redo request to server instead of executing locally."""
+        if not self.client or not self.connected:
+            self.logger.warning("Cannot redo: not connected to server")
+            return
+
+        try:
+            self.client.send_redo()
+            self.logger.info("Sent redo request to server")
+        except Exception as e:
+            self.logger.error(f"Failed to send redo request: {e}")

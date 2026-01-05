@@ -141,6 +141,30 @@ class BrowserWebSocketClient:
         self._send_message(request.to_message())
         self.logger.debug(f"Sent {action_type} action to server")
     
+    def send_undo(self) -> None:
+        """Send an undo request to the server."""
+        if not self.is_connected():
+            self.logger.error("Cannot send undo: not connected")
+            return
+        
+        from ..server.protocol import UndoRequest
+        
+        request = UndoRequest(player_id=self.player_id or "unknown")
+        self._send_message(request.to_message())
+        self.logger.debug("Sent undo request to server")
+    
+    def send_redo(self) -> None:
+        """Send a redo request to the server."""
+        if not self.is_connected():
+            self.logger.error("Cannot send redo: not connected")
+            return
+        
+        from ..server.protocol import RedoRequest
+        
+        request = RedoRequest(player_id=self.player_id or "unknown")
+        self._send_message(request.to_message())
+        self.logger.debug("Sent redo request to server")
+    
     def is_connected(self) -> bool:
         """Check if currently connected to server."""
         return self.connection_state == ConnectionState.CONNECTED

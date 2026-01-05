@@ -15,9 +15,10 @@ class HotkeyHandlerMixin:
         modifiers = Modifiers.from_event(event)
 
         if (key, modifiers) in self.KEYDOWN_EVENTS:
-            self.KEYDOWN_EVENTS[(key, modifiers)](self)
+            func = self.KEYDOWN_EVENTS[(key, modifiers)]
+            func(self)
             self.logger.info(
-                f"Hotkey action for {key} with modifiers {modifiers} executed"
+                f"Executed {func.__name__} for Hotkey {key}:{modifiers}"
             )
 
     def _register_hotkeys(self) -> None:

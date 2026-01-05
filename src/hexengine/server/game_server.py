@@ -124,6 +124,10 @@ class GameServer:
                 await self._handle_join_game(player_id, message)
             elif message.type == MessageType.ACTION_REQUEST:
                 await self._handle_action_request(player_id, message)
+            elif message.type == MessageType.UNDO_REQUEST:
+                await self._handle_undo_request(player_id, message)
+            elif message.type == MessageType.REDO_REQUEST:
+                await self._handle_redo_request(player_id, message)
             elif message.type == MessageType.LEAVE_GAME:
                 await self._handle_leave_game(player_id)
             else:
@@ -267,6 +271,72 @@ class GameServer:
         except Exception as e:
             self.logger.error(f"Action execution failed: {e}")
             await self._send_error(player_id, f"Action failed: {e}")
+
+    async def _handle_undo_request(self, player_id: str, message: Message) -> None:
+        """Handle an undo request from a client."""
+        from .protocol import UndoRequest
+
+        request = UndoRequest.from_message(message)
+
+        # Validate player
+        player = self.players.get(player_id)
+        if not player:
+            await self._send_error(player_id, "Player not in game")
+            return
+
+        # Check if undo is possible
+        if not self.action_manager.can_undo():
+            await self._send_error(player_id, "Nothing to undo")
+            return
+
+        # Execute undo
+        try:
+            self.action_manager.undo()
+            self.logger.info(f"Undid action for {player.player_name}")
+
+            # Send success to requester
+            result = ActionResult(success=True, action_id=str(uuid.uuid4()))
+            await self._send_message(player_id, result.to_message())
+
+            # Broadcast state update to all players
+            await self._broadcast_state_update()
+
+        except Exception as e:
+            self.logger.error(f"Undo failed: {e}")
+            await self._send_error(player_id, f"Undo failed: {e}")
+
+    async def _handle_redo_request(self, player_id: str, message: Message) -> None:
+        """Handle a redo request from a client."""
+        from .protocol import RedoRequest
+
+        request = RedoRequest.from_message(message)
+
+        # Validate player
+        player = self.players.get(player_id)
+        if not player:
+            await self._send_error(player_id, "Player not in game")
+            return
+
+        # Check if redo is possible
+        if not self.action_manager.can_redo():
+            await self._send_error(player_id, "Nothing to redo")
+            return
+
+        # Execute redo
+        try:
+            self.action_manager.redo()
+            self.logger.info(f"Redid action for {player.player_name}")
+
+            # Send success to requester
+            result = ActionResult(success=True, action_id=str(uuid.uuid4()))
+            await self._send_message(player_id, result.to_message())
+
+            # Broadcast state update to all players
+            await self._broadcast_state_update()
+
+        except Exception as e:
+            self.logger.error(f"Redo failed: {e}")
+            await self._send_error(player_id, f"Redo failed: {e}")
 
     def _create_action(self, request: ActionRequest) -> Any:
         """

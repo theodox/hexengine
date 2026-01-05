@@ -18,6 +18,8 @@ class MessageType(Enum):
     ACTION_REQUEST = "action_request"
     JOIN_GAME = "join_game"
     LEAVE_GAME = "leave_game"
+    UNDO_REQUEST = "undo_request"
+    REDO_REQUEST = "redo_request"
 
     # Server -> Client
     STATE_UPDATE = "state_update"
@@ -43,6 +45,42 @@ class Message:
         """Deserialize message from JSON."""
         obj = json.loads(data)
         return cls(type=MessageType(obj["type"]), payload=obj["payload"])
+
+
+@dataclass
+class UndoRequest:
+    """Request from client to undo the last action."""
+
+    player_id: str
+
+    @classmethod
+    def from_message(cls, message: Message) -> "UndoRequest":
+        """Create from message."""
+        return cls(player_id=message.payload["player_id"])
+
+    def to_message(self) -> Message:
+        """Convert to message."""
+        return Message(
+            type=MessageType.UNDO_REQUEST, payload={"player_id": self.player_id}
+        )
+
+
+@dataclass
+class RedoRequest:
+    """Request from client to redo the next action."""
+
+    player_id: str
+
+    @classmethod
+    def from_message(cls, message: Message) -> "RedoRequest":
+        """Create from message."""
+        return cls(player_id=message.payload["player_id"])
+
+    def to_message(self) -> Message:
+        """Convert to message."""
+        return Message(
+            type=MessageType.REDO_REQUEST, payload={"player_id": self.player_id}
+        )
 
 
 @dataclass
