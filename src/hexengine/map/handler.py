@@ -52,9 +52,6 @@ class MouseHandler:
             target = target.parentElement
             depth += 1
 
-        if not unit_id:
-            HANDLER_LOGGER.debug("[Handler] No unit_id found after walking DOM tree")
-
         if unit_id == jsnull:
             unit_id = None
         return target, unit_id

@@ -229,6 +229,10 @@ class NetworkGame(Game):
         if turn_info:
             turn_info.innerText = f"{faction}-{phase} (Actions: {actions})"
 
+        advance_btn = element("advance-button")
+        advance_btn.disabled = not self.is_my_turn()
+        self.logger.warning(f"Advance button enabled: {self.is_my_turn()}")
+
         self.logger.debug(f"UI updated for {faction}-{phase}")
 
     def _handle_connection_change(self, state: ConnectionState) -> None:

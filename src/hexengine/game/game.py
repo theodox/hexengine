@@ -20,6 +20,8 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         map = element("map-canvas")
         svg = element("map-svg")
         units = element("map-units")
+        action_button = element("advance-button")
+        action_button.onclick = self.advance_turn
         self.popup_manager = PopupManager(container)
 
         assert map is not None, "Map canvas element not found"
@@ -33,7 +35,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.action_mgr = ActionManager(initial_state)
         self.logger = logging.getLogger("game")
         self.logger.info(f"action_mgr created: {self.action_mgr}")
-        
+
         self.ui_state = UIState()
         self.display_mgr = DisplayManager(self.canvas, self.board)
 
@@ -52,15 +54,18 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.logger.info("Game initialized")
 
         from ..document import js
-        self.logger.info(f"[Game.__init__] Registering on_mouse_down: {self.on_mouse_down}")
+
+        self.logger.info(
+            f"[Game.__init__] Registering on_mouse_down: {self.on_mouse_down}"
+        )
         self.canvas.on_mouse_down < self.on_mouse_down
         self.logger.info(f"[Game.__init__] Registered on_mouse_down")
-        
+
         self.logger.info(f"[Game.__init__] Registering on_mouse_up: {self.on_mouse_up}")
         self.canvas.on_mouse_up < self.on_mouse_up
         self.logger.info(f"[Game.__init__] Registered on_mouse_up")
 
-        self.logger.info(f"[Game.__init__] Registering on_drag: {self.on_drag}")    
+        self.logger.info(f"[Game.__init__] Registering on_drag: {self.on_drag}")
         self.canvas.on_drag < self.on_drag
         self.logger.info(f"[Game.__init__] Registered on_drag")
 
@@ -164,12 +169,14 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         unit_state = state.board.units.get(unit_id)
         if not unit_state:
             return
-        
+
         self.ui_state.select_unit(unit_id)
 
         # Initialize drag preview with unit's current position
         pixel_pos = self.canvas.hex_layout.hex_to_pixel(unit_state.position)
-        self.ui_state.start_drag(unit_id, unit_state.position, pixel_pos[0], pixel_pos[1])
+        self.ui_state.start_drag(
+            unit_id, unit_state.position, pixel_pos[0], pixel_pos[1]
+        )
 
         # Compute valid moves from committed state
         from ..state.logic import compute_valid_moves
@@ -225,3 +232,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             return True
 
         return False
+
+    def advance_turn(self, _) -> None:
+        """Advance to the next turn phase."""
+        next(self.turn_manager)

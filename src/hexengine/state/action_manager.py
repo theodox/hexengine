@@ -32,6 +32,10 @@ class StateAction(ABC):
         """Reverse this action on a state, returning a new state."""
         ...
 
+    @abstractmethod
+    def should_revert_prior(self) -> bool:
+        """Indicate if prior actions should be reverted when undoing this action."""
+        ...
 
 class ActionManager:
     """Manages game state transitions through actions.
@@ -101,10 +105,17 @@ class ActionManager:
 
         try:
             new_state = action.revert(self._current_state)
+            self._current_state = new_state
+            
+            if action.should_revert_prior() and self._pointer > 0:
+                new_state = self._history[self._pointer - 1].revert(new_state)
+                self._pointer -= 1
+                # Also revert prior action if applicable
         except Exception as e:
             self.logger.error(f"Failed to revert action {action}: {e}")
             self._pointer += 1  # Restore pointer
             raise
+  
 
         self._current_state = new_state
         self.logger.info(f"Undid action {action} (now at #{self._pointer})")
