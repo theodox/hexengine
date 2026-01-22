@@ -160,7 +160,7 @@ class NetworkGame(Game):
         Returns:
             Dictionary of action parameters
         """
-        from ..state.actions import MoveUnit, DeleteUnit, AddUnit, SpendAction
+        from ..state.actions import MoveUnit, DeleteUnit, AddUnit, SpendAction, NextPhase
 
         if isinstance(action, MoveUnit):
             return {
@@ -192,6 +192,12 @@ class NetworkGame(Game):
             }
         elif isinstance(action, SpendAction):
             return {"amount": action.amount}
+        elif isinstance(action, NextPhase):
+            return {
+                "new_faction": action.new_faction,
+                "new_phase": action.new_phase,
+                "max_actions": action.max_actions,
+            }
         else:
             self.logger.error(f"Unknown action type: {type(action)}")
             return {}

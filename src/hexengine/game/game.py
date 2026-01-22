@@ -12,6 +12,7 @@ from .turn import TurnManager, Faction, Phase, TurnOrdering
 from ..state import GameState, ActionManager
 from ..client import UIState, DisplayManager
 
+from ..state.actions import NextPhase
 
 class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def __init__(self) -> None:
@@ -235,4 +236,24 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     def advance_turn(self, _) -> None:
         """Advance to the next turn phase."""
-        next(self.turn_manager)
+
+        # Get the current state to determine what the next phase should be
+        current_state = self.action_mgr.current_state
+        current_faction = current_state.turn.current_faction
+        current_phase = current_state.turn.current_phase
+
+        # Find current position in the phase sequence
+        for i, (faction, phase) in enumerate(self.turn_manager.phases):
+            if faction.name == current_faction and phase.name == current_phase:
+                # Get the next phase in sequence
+                next_index = (i + 1) % len(self.turn_manager.phases)
+                next_faction, next_phase = self.turn_manager.phases[next_index]
+                
+                self.logger.info(f"Advancing from {current_faction}-{current_phase} to {next_faction.name}-{next_phase.name}")
+                np = NextPhase(new_faction=next_faction.name, new_phase=next_phase.name, max_actions=next_phase.max_actions)
+                self.logger.info(f"Executing NextPhase action: {np}")
+                self.execute_action(np)
+                return
+            
+        # this should not happen
+        raise RuntimeError("Current phase not found in turn manager phases")

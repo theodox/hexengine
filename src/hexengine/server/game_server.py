@@ -352,31 +352,43 @@ class GameServer:
         action_type = request.action_type
         params = request.params
 
+        self.logger.debug(f"Creating action {action_type} with params {params}")
         # Import and instantiate the appropriate action class
-        if action_type == "MoveUnit":
-            from ..hexes.types import Hex
+        match action_type:
+            case "MoveUnit":
 
-            return MoveUnit(
-                unit_id=params["unit_id"],
-                from_hex=Hex(**params["from_hex"]),
-                to_hex=Hex(**params["to_hex"]),
-            )
-        elif action_type == "DeleteUnit":
-            return DeleteUnit(unit_id=params["unit_id"])
-        elif action_type == "AddUnit":
-            from ..hexes.types import Hex
 
-            return AddUnit(
-                unit_id=params["unit_id"],
-                unit_type=params["unit_type"],
-                faction=params["faction"],
-                position=Hex(**params["position"]),
-                health=params.get("health", 100),
-            )
-        elif action_type == "SpendAction":
-            return SpendAction(amount=params.get("amount", 1))
-        else:
-            raise ValueError(f"Unknown action type: {action_type}")
+                from ..hexes.types import Hex  # Import here to avoid circular dependency
+
+                return MoveUnit(
+                    unit_id=params["unit_id"],
+                    from_hex=Hex(**params["from_hex"]),
+                    to_hex=Hex(**params["to_hex"]),
+                )
+            case "DeleteUnit":
+                return DeleteUnit(unit_id=params["unit_id"])
+            case "AddUnit":
+                from ..hexes.types import Hex
+
+                return AddUnit(
+                    unit_id=params["unit_id"],
+                    unit_type=params["unit_type"],
+                    faction=params["faction"],
+                    position=Hex(**params["position"]),
+                    health=params.get("health", 100),
+                )
+            case "SpendAction":
+                return SpendAction(amount=params.get("amount", 1))
+            case "NextPhase":
+                return NextPhase(
+                    new_faction=params["new_faction"],
+                    new_phase=params["new_phase"],
+                    max_actions=params["max_actions"],
+                )
+            case _:
+                raise ValueError(f"Unknown action type: {action_type}")
+        
+        
 
     async def _handle_leave_game(self, player_id: str) -> None:
         """Handle a player leaving the game."""
