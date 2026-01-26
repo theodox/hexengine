@@ -1,5 +1,7 @@
 from typing import Iterable, TYPE_CHECKING
 
+from hexengine.game.scenarios.base import LocationItem
+
 from ..document import js
 from ..hexes.types import Hex
 from ..map.layout import HexLayout
@@ -10,11 +12,21 @@ if TYPE_CHECKING:
 
 class Location:
     def __init__(
-        self, hex: Hex, terrain_type: str, movement_cost: float, game: "Game"
+        self,
+        hex: Hex,
+        terrain_type: str,
+        movement_cost: float,
+        assault_modifier: float,
+        ranged_modifier: float,
+        block_los: bool,
+        game: "Game",
     ) -> None:
         self._hex = hex
         self._type = terrain_type
         self._cost = movement_cost
+        self._assault_modifier = assault_modifier
+        self._ranged_modifier = ranged_modifier
+        self._block_los = block_los
         self._display = DisplayLocation(hex, self._type, game.canvas.hex_layout)
         self._display.create_graphics(game.canvas.svg_layer._svg)
 
@@ -30,12 +42,25 @@ class Location:
     def movement_cost(self) -> float:
         return self._cost
 
+    @property
+    def assault_modifier(self) -> float:
+        return self._assault_modifier
+
+    @property
+    def ranged_modifier(self) -> float:
+        return self._ranged_modifier
+
     @classmethod
-    def create(cls, loc_item, game: "Game" = None) -> "Location":
-        pos = loc_item.position
-        terrain = loc_item.type
-        movement_cost = loc_item.movement_cost
-        return cls(pos, terrain, movement_cost, game)
+    def create(cls, loc_item: LocationItem, game: "Game" = None) -> "Location":
+        return cls(
+            loc_item.position,
+            loc_item.type,
+            loc_item.movement_cost,
+            loc_item.assault_modifier,
+            loc_item.ranged_modifier,
+            loc_item.block_los,
+            game,
+        )
 
     def __repr__(self) -> str:
         return f"<{self._hex.i},{self._hex.j},{self._hex.k} = {self.loc_type}>"

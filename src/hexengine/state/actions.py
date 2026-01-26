@@ -1,6 +1,7 @@
 """
 State-based actions for the immutable state system.
 """
+
 import logging
 from typing import TYPE_CHECKING
 
@@ -11,6 +12,7 @@ if TYPE_CHECKING:
     from ..state.game_state import GameState
 
 LOGGER = logging.getLogger("actions")
+
 
 class MoveUnit(StateAction):
     """Action to move a unit from one hex to another.
@@ -60,7 +62,7 @@ class MoveUnit(StateAction):
 
         # Create new game state with updated board
         return state.with_board(new_board)
-    
+
     def should_revert_prior(self) -> bool:
         return False
 
@@ -109,7 +111,7 @@ class DeleteUnit(StateAction):
 
         # Create new game state with updated board
         return state.with_board(new_board)
-    
+
     def should_revert_prior(self) -> bool:
         return False
 
@@ -169,7 +171,7 @@ class AddUnit(StateAction):
 
         # Create new game state with updated board
         return state.with_board(new_board)
-    
+
     def should_revert_prior(self) -> bool:
         return False
 
@@ -204,9 +206,14 @@ class SpendAction(StateAction):
 
         # Restore previous action count
         new_turn = replace(state.turn, phase_actions_remaining=self.previous_remaining)
-        
-        if new_turn.current_phase != current_phase or new_turn.current_faction != current_faction:
-            LOGGER.warning("Phase or faction changed since SpendAction was applied; cannot revert accurately.")
+
+        if (
+            new_turn.current_phase != current_phase
+            or new_turn.current_faction != current_faction
+        ):
+            LOGGER.warning(
+                "Phase or faction changed since SpendAction was applied; cannot revert accurately."
+            )
             return state  # No change if phase/faction differ
 
         # Create new game state with updated turn
@@ -217,6 +224,7 @@ class SpendAction(StateAction):
 
     def __repr__(self) -> str:
         return f"<SpendAction {self.amount}>"
+
 
 class NextPhase(StateAction):
     """Action to advance to the next phase/turn."""
@@ -257,6 +265,6 @@ class NextPhase(StateAction):
 
     def should_revert_prior(self):
         return False
-    
+
     def __repr__(self) -> str:
         return f"<NextPhase {self.new_faction}-{self.new_phase}>"
