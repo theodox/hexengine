@@ -188,7 +188,7 @@ async def main():
     )
 
     server = WebSocketGameServer(
-        host="0.0.0.0", port=8765, initial_state=action_mgr.current_state
+        host="0.0.0.0", port=8765, initial_state=initial_state
     )
     await server.start()
 
