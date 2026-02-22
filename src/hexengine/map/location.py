@@ -1,10 +1,9 @@
 from typing import Iterable, TYPE_CHECKING
 
-from hexengine.game.scenarios.base import LocationItem
-
 from ..document import js
 from ..hexes.types import Hex
 from ..map.layout import HexLayout
+from .location_item import LocationItem
 
 if TYPE_CHECKING:
     from ..game.game import Game

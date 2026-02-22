@@ -170,42 +170,22 @@ async def main():
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    # Create initial state with test scenario units
-    from ..state import GameState, ActionManager
-    from ..state.actions import AddUnit
-    from ..hexes.types import Hex
+    # Load scenario from TOML (prefer project-root scenarios/, else packaged default)
+    from pathlib import Path
 
-    # Start with empty state
-    initial_state = GameState.create_empty(
-        initial_faction="Red", initial_phase="Movement"
+    from ..game.scenarios.loader import scenario_to_initial_state
+    from ..game.scenarios.parse import default_scenario_path, load_scenario
+
+    scenario_path = Path.cwd() / "scenarios" / "test_scenario.toml"
+    if not scenario_path.exists():
+        scenario_path = default_scenario_path()
+    scenario_data = load_scenario(scenario_path)
+    initial_state = scenario_to_initial_state(
+        scenario_data,
+        initial_faction="Red",
+        initial_phase="Movement",
+        phase_actions_remaining=2,
     )
-
-    # Add test scenario units
-    action_mgr = ActionManager(initial_state)
-
-    # Red units (Canucks)
-    for i, hex_pos in enumerate([Hex(16, 4, -20), Hex(16, 5, -21), Hex(16, 6, -22)]):
-        action_mgr.execute(
-            AddUnit(
-                unit_id=f"Canuck{i + 1}",
-                unit_type="canuck",
-                faction="Red",
-                position=hex_pos,
-                health=100,
-            )
-        )
-
-    # Blue units (Generics)
-    for i, hex_pos in enumerate([Hex(7, 3, -10), Hex(6, 4, -10), Hex(8, 4, -12)]):
-        action_mgr.execute(
-            AddUnit(
-                unit_id=f"Generic{i + 1}",
-                unit_type="soldier",
-                faction="Blue",
-                position=hex_pos,
-                health=100,
-            )
-        )
 
     server = WebSocketGameServer(
         host="0.0.0.0", port=8765, initial_state=action_mgr.current_state
