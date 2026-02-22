@@ -15,7 +15,8 @@
 
       await pyodide.loadPackage("micropip");
       const micropip = pyodide.pyimport("micropip");
-      await micropip.install("../dist/hexes-0.1.0-py3-none-any.whl");
+      // Cache-bust so Pyodide fetches the latest wheel after rebuilds (bump when you change package code)
+      await micropip.install("../dist/hexes-0.1.0-py3-none-any.whl?v=2");
 
       let hexes = pyodide.pyimport("hexengine.__main__");
       console.log(hexes.__version__);

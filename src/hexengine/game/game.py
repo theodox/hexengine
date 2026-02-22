@@ -86,7 +86,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def update_turn_display(self, faction, phase) -> None:
         faction, phase = self.turn_manager.current
         actions = self.turn_manager.actions
-        turn_info = f"{faction.name}-{phase.name} # {actions})"
+        turn_info = f"{faction.name}-{phase.name} # {actions}"
         turn_bg = element("turn-display")
         turn_bg.classList.remove("red", "blue")
         turn_bg.classList.add(faction.name.lower())
