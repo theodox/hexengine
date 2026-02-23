@@ -194,7 +194,7 @@ class DisplayManager:
         self, unit_id: str, pixel_x: float, pixel_y: float, is_valid: bool
     ) -> None:
         """
-        Show temporary drag preview at pixel coordinates.
+        Show temporary drag preview at coordinates.
 
         This does NOT affect committed state - it's purely visual.
         The display will be moved to these coordinates and styled
@@ -202,13 +202,19 @@ class DisplayManager:
 
         Args:
             unit_id: ID of unit being previewed
-            pixel_x: X pixel coordinate
-            pixel_y: Y pixel coordinate
+            pixel_x: X coordinate (in map space, already inverse-transformed)
+            pixel_y: Y coordinate (in map space, already inverse-transformed)
             is_valid: Whether the preview position is a valid move
         """
         display = self._unit_displays.get(unit_id)
         if display:
-            # Move to preview position
+            # Debug: log unit type and coordinates
+            unit_type = display.unit_type
+            self.logger.debug(
+                f"show_preview: unit={unit_id}, type={unit_type}, coords=({pixel_x:.1f}, {pixel_y:.1f})"
+            )
+            
+            # Use map-space coordinates directly (no further transformation needed)
             display.display_at(pixel_x, pixel_y)
 
             # Style based on validity
@@ -248,3 +254,16 @@ class DisplayManager:
     def clear_highlights(self) -> None:
         """Clear all hex highlights."""
         self._canvas.svg_layer.clear()
+
+    def refresh_unit_positions(self) -> None:
+        """
+        Refresh all unit positions after a map resize/zoom.
+        Recalculates pixel positions for all units based on current hex layout.
+        """
+        for unit_id, display in self._unit_displays.items():
+            # Re-apply the position to force recalculation with current layout
+            hex_pos = display._hex
+            x, y = self._canvas.hex_layout.hex_to_pixel(hex_pos)
+            display.proxy.setAttribute("transform", f"translate({x},{y})")
+
+        self.logger.info(f"Refreshed {len(self._unit_displays)} unit positions")

@@ -114,3 +114,36 @@ class CanvasLayer:
         rect = rectangle_from_corners(top_left, bottom_right)
         for hex in rect:
             self.draw_hex(hex, fill=fill, stroke=stroke, stroke_width=stroke_width)
+
+    def redraw(self) -> None:
+        """
+        Redraw the canvas layer after a resize.
+        Updates canvas dimensions to match current display size and redraws hex grid.
+        """
+        # Update canvas internal resolution to match current CSS display size
+        rect = self._canvas.getBoundingClientRect()
+        self._canvas.width = int(rect.width)
+        self._canvas.height = int(rect.height)
+
+        # Clear the canvas
+        self._context.clearRect(0, 0, self._canvas.width, self._canvas.height)
+
+        # Redraw hex grid
+        hs = int(self._hex_layout.size)
+        w = (self._canvas.width - (self._hex_layout.origin_x * 2)) // hs
+        h = (self._canvas.height - (self._hex_layout.origin_y * 2)) // hs
+
+        logging.getLogger().info(
+            f"Canvas redraw: {w}x{h} hexes, canvas size: {self._canvas.width}x{self._canvas.height}"
+        )
+
+        start = Hex.from_cartesian(Cartesian(0, 0))
+        br = Hex.from_cartesian(Cartesian(w, h))
+
+        self.draw_hex_rect(
+            start,
+            br,
+            fill="#FFFFFF10",
+            stroke=self.hex_color,
+            stroke_width=self.hex_stroke,
+        )

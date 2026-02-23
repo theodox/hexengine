@@ -40,13 +40,22 @@ class MouseEventHandlerMixin:
     def on_mouse_down(self, eventInfo: EventInfo) -> None:
         # Prevent default to stop text selection and default drag behavior
         eventInfo.event.preventDefault()
+        
+        # Check if we're in pan mode (space key held or middle mouse button)
+        if self._space_pressed or eventInfo.event.button == 1:  # Middle mouse button
+            self._is_panning = True
+            self._pan_start_x = eventInfo.event.clientX
+            self._pan_start_y = eventInfo.event.clientY
+            self.canvas._container.style.cursor = "grabbing"
+            return
+        
         self.hex_path.clear()
 
         self.logger.debug(f"Mouse down : {eventInfo}")
-        # pixels
+        # pixels - use raw_position for screen-space distance calculations
         self.drag_start = (
-            eventInfo.position
-            if eventInfo.position
+            eventInfo.raw_position
+            if eventInfo.raw_position
             else (eventInfo.event.offsetX, eventInfo.event.offsetY)
         )
 
@@ -56,13 +65,24 @@ class MouseEventHandlerMixin:
             self._unit_mousedown(eventInfo)
 
     def on_drag(self, eventInfo: EventInfo) -> None:
+        # Handle panning mode
+        if self._is_panning:
+            delta_x = eventInfo.event.clientX - self._pan_start_x
+            delta_y = eventInfo.event.clientY - self._pan_start_y
+            self.canvas.adjust_pan(delta_x, delta_y)
+            self._pan_start_x = eventInfo.event.clientX
+            self._pan_start_y = eventInfo.event.clientY
+            # Refresh unit positions to account for pan
+            self.display_mgr.refresh_unit_positions()
+            return
+        
         if eventInfo.event.buttons != 1:
             return
         # Prevent default to stop text selection during drag
         eventInfo.event.preventDefault()
         self.drag_end = (
-            eventInfo.position
-            if eventInfo.position
+            eventInfo.raw_position
+            if eventInfo.raw_position
             else (eventInfo.event.offsetX, eventInfo.event.offsetY)
         )
 
@@ -72,12 +92,22 @@ class MouseEventHandlerMixin:
             self._unit_drag(eventInfo)
 
     def on_mouse_up(self, eventInfo: EventInfo) -> None:
-        self.drag_end = eventInfo.position
+        # Handle end of panning
+        if self._is_panning:
+            self._is_panning = False
+            if self._space_pressed:
+                self.canvas._container.style.cursor = "grab"
+            else:
+                self.canvas._container.style.cursor = "default"
+            return
+        
+        self.drag_end = eventInfo.raw_position
 
         if not eventInfo.unit_id:
             self._bg_mouseup(eventInfo)
         else:
             self._unit_mouseup(eventInfo)
+
 
     # ---------------------
     # background events
@@ -160,7 +190,7 @@ class MouseEventHandlerMixin:
             else "Double click with no selection"
         )
 
-        offset_pos = eventInfo.position[0] + 10, eventInfo.position[1] + 20
+        offset_pos = eventInfo.raw_position[0] + 10, eventInfo.raw_position[1] + 20
         self.popup_manager.create_popup(
             f"{self.selection.unit_id} @ {self.selection.faction}", offset_pos
         )
@@ -178,10 +208,30 @@ class MouseEventHandlerMixin:
         if not self.ui_state.selected_unit_id:
             return
 
-        # Update drag preview (visual only, state unchanged)
+        # Get current zoom/pan values
+        zoom = self.canvas._zoom_level
+        pan_x = self.canvas._pan_x
+        pan_y = self.canvas._pan_y
+        
+        # Get both raw and map-space positions for comparison
+        raw_x, raw_y = eventInfo.raw_position
+        map_x, map_y = eventInfo.position
+        
+        # Calculate what map position SHOULD be from raw position
+        expected_map_x = (raw_x - pan_x) / zoom
+        expected_map_y = (raw_y - pan_y) / zoom
+        
+        self.logger.debug(
+            f"_unit_drag: raw=({raw_x:.1f},{raw_y:.1f}), "
+            f"map=({map_x:.1f},{map_y:.1f}), "
+            f"expected_map=({expected_map_x:.1f},{expected_map_y:.1f}), "
+            f"zoom={zoom:.2f}, pan=({pan_x:.1f},{pan_y:.1f}), hex={eventInfo.hex}"
+        )
+        
+        # Use the map-space coordinates from eventInfo (already inverse-transformed)
         self.update_drag_preview(
-            pixel_x=eventInfo.position[0],
-            pixel_y=eventInfo.position[1],
+            pixel_x=map_x,
+            pixel_y=map_y,
             target_hex=eventInfo.hex,
         )
 

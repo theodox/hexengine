@@ -3,6 +3,7 @@
     width: 100%;
     height: auto;
     aspect-ratio: 16 / 9;
+    overflow: hidden;
 }
 
 #map-bg {
@@ -12,6 +13,8 @@
     background-color: rgb(200, 200, 200);
     z-index: 0;
     user-select: none;
+    transform-origin: top left;
+    transition: transform 0.05s ease-out;
 }
 
 #map-canvas {
@@ -24,6 +27,8 @@
     left: 0px;
     user-select: none;
     z-index: 5;
+    transform-origin: top left;
+    transition: transform 0.05s ease-out;
 }
 
 #map-svg {
@@ -34,6 +39,8 @@
     left: 0px;
     pointer-events: auto;
     z-index: 10;
+    transform-origin: top left;
+    transition: transform 0.05s ease-out;
 }
 
 #map-units {
@@ -44,6 +51,7 @@
     left: 0px;
     pointer-events: auto;
     z-index: 20;
+    transform-origin: top left;
 }
 
 #console-bg {

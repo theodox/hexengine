@@ -76,7 +76,33 @@ class DisplayUnit:
             self.text_element.textContent = text
 
     def display_at(self, x: float, y: float) -> None:
+        """
+        Set unit position directly in pixels.
+        Note: When used during drag preview, coordinates should be in map space
+        (inverse-transformed) since the parent SVG has CSS transforms applied.
+        """
+        import logging
+        logger = logging.getLogger("unit_display")
+        current_transform = self.proxy.getAttribute("transform")
+        logger.debug(f"display_at({x:.1f}, {y:.1f}) for unit {self.unit_id}, was: {current_transform}")
         self.proxy.setAttribute("transform", f"translate({x},{y})")
+
+    def display_at_screen(self, screen_x: float, screen_y: float, zoom: float, pan_x: float, pan_y: float) -> None:
+        """
+        Set unit position in screen coordinates, accounting for parent CSS transform.   
+        
+        CSS transform: translate(pan_x, pan_y) scale(zoom)
+        For a child SVG element at position (x, y), the final screen position is:
+        - (x * zoom + pan_x, y * zoom + pan_y)
+        
+        So to get (x, y) from screen coordinates:
+        - x = (screen_x - pan_x) / zoom
+        - y = (screen_y - pan_y) / zoom
+        """
+        map_x = (screen_x - pan_x) / zoom
+        map_y = (screen_y - pan_y) / zoom
+        
+        self.proxy.setAttribute("transform", f"translate({map_x},{map_y})")
 
     def _set_visible(self, value: bool) -> None:
         if value:
