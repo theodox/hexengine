@@ -328,11 +328,32 @@ class BrowserWebSocketClient:
                 unit_type=unit_data["unit_type"],
                 faction=unit_data["faction"],
                 position=Hex(**pos_data),
-                health=unit_data["health"]
+                health=unit_data["health"],
+                active=unit_data.get("active", True),
             )
         
+        # Reconstruct locations (list form from server, or dict for backward compatibility)
+        locations = {}
+        raw_locations = state_dict.get("board", {}).get("locations", [])
+        if isinstance(raw_locations, dict):
+            # Legacy format: dict with Hex-like keys serialized by dataclasses
+            raw_iter = raw_locations.values()
+        else:
+            raw_iter = raw_locations
+
+        for loc in raw_iter:
+            pos_data = loc["position"]
+            pos = Hex(**pos_data)
+            from ..state.game_state import LocationState
+
+            locations[pos] = LocationState(
+                position=pos,
+                terrain_type=loc["terrain_type"],
+                movement_cost=loc["movement_cost"],
+            )
+
         # Reconstruct board
-        board = BoardState(units=units)
+        board = BoardState(units=units, locations=locations)
         
         # Reconstruct turn
         turn_data = state_dict.get("turn", {})

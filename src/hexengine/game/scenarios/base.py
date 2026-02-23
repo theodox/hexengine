@@ -1,11 +1,11 @@
 from typing import TYPE_CHECKING, Type
 
 from ...hexes.types import Hex
-from ...map.location import Location
 from ...map.location_item import LocationItem
 
 if TYPE_CHECKING:
     from ..game import Game
+    from ...map.location import Location
     from ...units.game import GameUnit
 
 
@@ -48,5 +48,6 @@ class Scenario:
             game.add_unit(unit)
 
         for loc in self.locations:
+            from ...map.location import Location
             location = Location.create(loc, game)
             game.board.add_location(location)

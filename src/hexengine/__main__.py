@@ -5,7 +5,6 @@ from . import dev_console
 from .document import element, js
 from .excepthook import install_exception_hook
 from .game import NetworkGame
-from .game.scenarios.test_scenario import TEST_SCENARIO
 
 __version__ = "0.1.1"
 

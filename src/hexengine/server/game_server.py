@@ -11,7 +11,6 @@ The server:
 
 import logging
 import uuid
-from dataclasses import asdict
 from typing import Optional, Callable, Any
 
 from ..state import GameState, ActionManager
@@ -82,6 +81,47 @@ class GameServer:
                     }
                 )
         self.logger.info(f"Turn order: {self.turn_order}")
+
+    def _serialize_state(self, state: GameState) -> dict[str, Any]:
+        """
+        Serialize GameState into JSON-safe primitives.
+
+        Hex keys in locations are converted into explicit position objects
+        so the payload can be JSON-encoded without errors.
+        """
+        units: dict[str, dict[str, Any]] = {}
+        for unit_id, unit in state.board.units.items():
+            units[unit_id] = {
+                "unit_id": unit.unit_id,
+                "unit_type": unit.unit_type,
+                "faction": unit.faction,
+                "position": {"i": unit.position.i, "j": unit.position.j, "k": unit.position.k},
+                "health": unit.health,
+                "active": unit.active,
+            }
+
+        locations: list[dict[str, Any]] = []
+        for pos, loc in state.board.locations.items():
+            locations.append(
+                {
+                    "position": {"i": pos.i, "j": pos.j, "k": pos.k},
+                    "terrain_type": loc.terrain_type,
+                    "movement_cost": loc.movement_cost,
+                }
+            )
+
+        return {
+            "board": {
+                "units": units,
+                "locations": locations,
+            },
+            "turn": {
+                "current_faction": state.turn.current_faction,
+                "current_phase": state.turn.current_phase,
+                "phase_actions_remaining": state.turn.phase_actions_remaining,
+                "turn_number": state.turn.turn_number,
+            },
+        }
 
     def _get_next_phase(self) -> dict:
         """Get the next phase in the turn order."""
@@ -400,7 +440,7 @@ class GameServer:
 
     async def _send_state_update(self, player_id: str) -> None:
         """Send current game state to a specific player."""
-        state_dict = asdict(self.action_manager.current_state)
+        state_dict = self._serialize_state(self.action_manager.current_state)
         update = StateUpdate(
             game_state=state_dict, sequence_number=self.sequence_number
         )
@@ -409,7 +449,7 @@ class GameServer:
     async def _broadcast_state_update(self) -> None:
         """Broadcast current game state to all connected players."""
         self.sequence_number += 1
-        state_dict = asdict(self.action_manager.current_state)
+        state_dict = self._serialize_state(self.action_manager.current_state)
         update = StateUpdate(
             game_state=state_dict, sequence_number=self.sequence_number
         )

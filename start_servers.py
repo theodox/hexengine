@@ -3,6 +3,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 import webbrowser
 from pathlib import Path
 
@@ -40,12 +41,20 @@ def main():
             asyncio.run(server_main())
         except Exception as e:
             server_error = e
+            traceback.print_exc()
 
     server_thread = threading.Thread(target=run_websocket_server, daemon=True)
     server_thread.start()
 
-    # Wait for WebSocket server to be ready
+    # Wait for WebSocket server to be ready (or to fail)
     time.sleep(2)
+
+    if server_error is not None:
+        print("ERROR: WebSocket server failed to start:", file=sys.stderr)
+        traceback.print_exception(type(server_error), server_error, server_error.__traceback__, file=sys.stderr)
+        http_process.terminate()
+        http_process.wait()
+        sys.exit(1)
 
     print()
     print("=" * 60)
