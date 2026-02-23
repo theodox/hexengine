@@ -6,21 +6,12 @@ Clients connect via WebSocket and send/receive JSON messages.
 """
 
 import asyncio
-import logging
-from typing import Optional, TYPE_CHECKING, Any
 import json
+import logging
+from typing import Optional
 
-try:
-    import websockets
-    from websockets.server import WebSocketServerProtocol
-
-    WEBSOCKETS_AVAILABLE = True
-except ImportError:
-    WEBSOCKETS_AVAILABLE = False
-    if TYPE_CHECKING:
-        from websockets.server import WebSocketServerProtocol
-    else:
-        WebSocketServerProtocol = Any
+import websockets
+from websockets.server import WebSocketServerProtocol
 
 from ..state import GameState
 from .game_server import GameServer
@@ -48,11 +39,6 @@ class WebSocketGameServer:
             port: Port to listen on
             initial_state: Initial game state
         """
-        if not WEBSOCKETS_AVAILABLE:
-            raise ImportError(
-                "websockets package not available. Install with: pip install websockets"
-            )
-
         self.host = host
         self.port = port
         self.game_server = GameServer(initial_state)
@@ -195,10 +181,6 @@ async def main():
 
 def run():
     """Synchronous entry point for console script."""
-    if not WEBSOCKETS_AVAILABLE:
-        print("ERROR: websockets package not installed")
-        print("Install with: pip install websockets")
-        return
     asyncio.run(main())
 
 

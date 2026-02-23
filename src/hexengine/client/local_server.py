@@ -50,31 +50,27 @@ class LocalServerManager:
             return False
         
         try:
-            # Import here to avoid requiring websockets for games that don't use it
             from ..server.websocket_server import WebSocketGameServer
-            
+
             # Create server
             server = WebSocketGameServer(
                 host="127.0.0.1",
                 port=port,
-                initial_state=self.initial_state
+                initial_state=self.initial_state,
             )
-            
+
             # Start in background thread
             self.server_thread = threading.Thread(
                 target=self._run_server,
                 args=(server,),
-                daemon=True
+                daemon=True,
             )
             self.server_thread.start()
-            
+
             self._running = True
             self.logger.info(f"Local server started on port {port}")
             return True
-            
-        except ImportError:
-            self.logger.error("websockets package not available")
-            return False
+
         except Exception as e:
             self.logger.error(f"Failed to start local server: {e}")
             return False
@@ -94,8 +90,7 @@ class LocalServerManager:
             return
         
         self._running = False
-        # The server will stop when the thread is terminated
-        # (daemon thread will exit when main thread exits)
+        # The server daemon will stop when the thread is terminated
         self.logger.info("Local server stopped")
     
     def is_running(self) -> bool:

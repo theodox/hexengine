@@ -1,20 +1,23 @@
 import logging
 
-from ..document import element
-from ..map import Map
-from ..ui.popups import PopupManager
-from .board import GameBoard
 from .events import MouseEventHandlerMixin, HotkeyHandlerMixin, Hotkey, Modifiers
 from .history import GameHistoryMixin
+
+from .board import GameBoard
 from .turn import TurnManager, Faction, Phase, TurnOrdering
-
-# New state system imports
-from ..state import GameState, ActionManager
 from ..client import UIState, DisplayManager
-
+from ..document import element
+from ..map import Map
+from ..state import GameState, ActionManager
 from ..state.actions import NextPhase
+from ..ui.popups import PopupManager
 
 class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
+    """
+    This is the main game class that ties together the board, turn manager, action manager, and display manager.
+
+    The mixins are used to split the file into multiple files, not for reuse
+    """
     def __init__(self) -> None:
         self.running = True
         container = element("map-container")
@@ -248,12 +251,18 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 # Get the next phase in sequence
                 next_index = (i + 1) % len(self.turn_manager.phases)
                 next_faction, next_phase = self.turn_manager.phases[next_index]
-                
-                self.logger.info(f"Advancing from {current_faction}-{current_phase} to {next_faction.name}-{next_phase.name}")
-                np = NextPhase(new_faction=next_faction.name, new_phase=next_phase.name, max_actions=next_phase.max_actions)
+
+                self.logger.info(
+                    f"Advancing from {current_faction}-{current_phase} to {next_faction.name}-{next_phase.name}"
+                )
+                np = NextPhase(
+                    new_faction=next_faction.name,
+                    new_phase=next_phase.name,
+                    max_actions=next_phase.max_actions,
+                )
                 self.logger.info(f"Executing NextPhase action: {np}")
                 self.execute_action(np)
                 return
-            
+
         # this should not happen
         raise RuntimeError("Current phase not found in turn manager phases")
