@@ -9,17 +9,28 @@ class GenericGraphicsCreator(GraphicsCreator):
     def create(self, display_unit: DisplayUnit) -> DisplayUnit:
         display_unit.push_classes(*self.BASE_CLASSES)
 
+        # Get unit size from layout
+        unit_size = int(display_unit._hex_layout.size * self.UNIT_SIZE_DIVISOR) if display_unit._hex_layout else 30
+        half_size = unit_size / 2
+
         rect = js.document.createElementNS("http://www.w3.org/2000/svg", "rect")
         with self._attach(display_unit, rect):
-            pass  # Position and size now handled by CSS
+            rect.setAttribute("x", str(-half_size))
+            rect.setAttribute("y", str(-half_size))
+            rect.setAttribute("width", str(unit_size - 2))
+            rect.setAttribute("height", str(unit_size - 2))
 
         c = js.document.createElementNS("http://www.w3.org/2000/svg", "circle")
         with self._attach(display_unit, c, "soldier-center"):
-            pass  # Radius now handled by CSS
+            c.setAttribute("cx", "0")
+            c.setAttribute("cy", "0")
+            c.setAttribute("r", str(unit_size / self.HEAD_RADIUS_DIVISOR))
 
         t = js.document.createElementNS("http://www.w3.org/2000/svg", "text")
         with self._attach(display_unit, t, "soldier-text"):
             display_unit.set_text_element(t)
+            t.setAttribute("x", "0")
+            t.setAttribute("y", str(unit_size / 3))
 
         return display_unit
 
@@ -29,6 +40,7 @@ class GenericGraphicsCreator(GraphicsCreator):
     stroke: rgba(0, 0, 0, 0.25);
     width: calc(var(--unit-width) - 2px);
     height: calc(var(--unit-height) - 2px);
+    pointer-events: all;
 }
 
 .soldier:hover rect {
@@ -37,6 +49,10 @@ class GenericGraphicsCreator(GraphicsCreator):
 
 .soldier.hilited rect {
     fill: rgb(255, 243, 110);
+}
+
+.soldier-center {
+    pointer-events: all;
 }
 
 .soldier text {

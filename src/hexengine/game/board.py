@@ -1,29 +1,33 @@
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 import heapq
 import logging
 
 from ..hexes.math import neighbors
 from ..hexes.types import Hex
 from ..map import Map
+from ..map.location import Location
+
+if TYPE_CHECKING:
+    from ..units.game import GameUnit
 
 
 class GameBoard:
     def __init__(self, map: Map) -> None:
-        self._board = dict()  # Maps positions to board elements
-        self._units = dict()  # Maps unit IDs to units
-        self._selection = None
-        self._map = map
-        self._constraints = set()
-        self._hilited = False
-        self._locations = {}  # maps positions to movement costs
-        self.logger = logging.getLogger("game.board")
+        self._board: dict[Hex, "GameUnit"] = {}  # Maps positions to board elements
+        self._units: dict[str, "GameUnit"] = {}  # Maps unit IDs to units
+        self._selection: Optional["GameUnit"] = None
+        self._map: Map = map
+        self._constraints: set[Hex] = set()
+        self._hilited: bool = False
+        self._locations: dict[Hex, Location] = {}  # maps positions to movement costs
+        self.logger: logging.Logger = logging.getLogger("game.board")
 
     @property
-    def selection(self):
+    def selection(self) -> Optional["GameUnit"]:
         return self._selection
 
     @selection.setter
-    def selection(self, value):
+    def selection(self, value: Optional["GameUnit"]) -> None:
         if self._selection:
             self.selection.hilited = False
 
@@ -34,7 +38,7 @@ class GameBoard:
         else:
             self.clear_hilite()
 
-    def add_location(self, location) -> None:
+    def add_location(self, location: Location) -> None:
         self._locations[location.position] = location
 
     def get_location_cost(self, position: Hex) -> float:
@@ -59,7 +63,7 @@ class GameBoard:
         return self._constraints
 
     @property
-    def constraints(self):
+    def constraints(self) -> set[Hex]:
         return self._constraints
 
     def hilite(self) -> None:
@@ -77,29 +81,26 @@ class GameBoard:
         self._map.svg_layer.clear()
         self._constraints = set()
 
-    def update(self, item) -> None:
+    def update(self, item: "GameUnit") -> None:
         """move the item to its current position"""
         self._board.clear()
-        for item in self._units.values():
-            self._board[item.position] = item
+        for unit in self._units.values():
+            self._board[unit.position] = unit
         self.logger.debug(str(self._board))
 
-    def add_unit(self, unit) -> None:
+    def add_unit(self, unit: "GameUnit") -> None:
         if self.occupied(unit.position):
             raise ValueError("Position already occupied")
         self._board[unit.position] = unit
         self._units[unit.unit_id] = unit
         self._map.add_unit(unit)
 
-    def get_unit(self, unit_id: str):
+    def get_unit(self, unit_id: str) -> Optional["GameUnit"]:
         return self._units.get(unit_id)
 
     def reachable_hexes(self, start_hex: Hex, max_cost: float) -> dict[Hex, float]:
         """
         Calculate all hexes reachable from start_hex within max_cost.
-
-        Uses Dijkstra's algorithm to find all hexes that can be reached
-        from the starting hex with accumulated movement cost <= max_cost.
 
         Args:
             start_hex: The starting hex position (Hex object)

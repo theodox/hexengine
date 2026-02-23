@@ -1,27 +1,28 @@
 from typing import TYPE_CHECKING, Type
 
 from ...hexes.types import Hex
-from ...map.location import Location
+from ...map.location_item import LocationItem
 
 if TYPE_CHECKING:
     from ..game import Game
+    from ...map.location import Location
     from ...units.game import GameUnit
 
 
 class ScenarioItem:
-    def __init__(self, pos: Hex, cls: Type["GameUnit"], unit_id: str, unit_type: str, active: bool = True) -> None:
+    def __init__(
+        self,
+        pos: Hex,
+        cls: Type["GameUnit"],
+        unit_id: str,
+        unit_type: str,
+        active: bool = True,
+    ) -> None:
         self.cls = cls
         self.unit_id = unit_id
         self.unit_type = unit_type
         self.position: Hex = pos
         self.active = active
-
-
-class LocationItem:
-    def __init__(self, pos: Hex, loc_type: str, movement_cost: float) -> None:
-        self.position: Hex = pos
-        self.movement_cost = movement_cost
-        self.type = loc_type
 
 
 class Scenario:
@@ -47,5 +48,6 @@ class Scenario:
             game.add_unit(unit)
 
         for loc in self.locations:
+            from ...map.location import Location
             location = Location.create(loc, game)
             game.board.add_location(location)
