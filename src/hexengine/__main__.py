@@ -6,7 +6,7 @@ from .document import element, js
 from .excepthook import install_exception_hook
 from .game import NetworkGame
 
-__version__ = "0.1.1"
+__version__ = "0.1.3"
 
 
 GAME = None
