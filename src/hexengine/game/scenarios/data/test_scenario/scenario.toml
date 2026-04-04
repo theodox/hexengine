@@ -1,6 +1,4 @@
-# Data-driven scenario: plaintext, no Python types.
-# When game classes change, only the loader (scenarios/loader.py) is updated.
-# Edit scenarios/test_scenario.toml at project root for development; this is the packaged default.
+# Packaged default scenario (folder layout). Edit scenarios/test_scenario/ at project root for dev.
 
 name = "Test Scenario"
 description = "A simple test scenario for the game."
@@ -13,41 +11,23 @@ hex_color = "#33443344"
 background = "resources/test_map.png"
 unit_size_multiplier = 1.5
 
-[[units]]
-id = "Canuck1"
+[[squads]]
 type = "canuck"
-position = [16, 4, -20]
 faction = "Red"
+members = [
+  { id = "Canuck1", position = [16, 4, -20] },
+  { id = "Canuck2", position = [16, 5, -21] },
+  { id = "Canuck3", position = [16, 6, -22] },
+]
 
-[[units]]
-id = "Canuck2"
-type = "canuck"
-position = [16, 5, -21]
-faction = "Red"
-
-[[units]]
-id = "Canuck3"
-type = "canuck"
-position = [16, 6, -22]
-faction = "Red"
-
-[[units]]
-id = "Generic1"
+[[squads]]
 type = "soldier"
-position = [7, 3, -10]
 faction = "Blue"
-
-[[units]]
-id = "Generic2"
-type = "soldier"
-position = [6, 4, -10]
-faction = "Blue"
-
-[[units]]
-id = "Generic3"
-type = "soldier"
-position = [8, 4, -12]
-faction = "Blue"
+members = [
+  { id = "Generic1", position = [7, 3, -10] },
+  { id = "Generic2", position = [6, 4, -10] },
+  { id = "Generic3", position = [8, 4, -12] },
+]
 
 [[locations]]
 position = [5, 5, -10]

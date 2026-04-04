@@ -1,5 +1,10 @@
 from .loader import scenario_to_initial_state, scenario_to_legacy_scenario
-from .parse import default_scenario_path, load_scenario, resolve_scenario_path_for_server
+from .parse import (
+    default_scenario_path,
+    load_scenario,
+    resolve_map_background_url,
+    resolve_scenario_path_for_server,
+)
 from .schema import MapDisplayConfig, ScenarioData
 
 try:
@@ -18,6 +23,7 @@ __all__ = [
     "load_scenario",
     "default_scenario_path",
     "resolve_scenario_path_for_server",
+    "resolve_map_background_url",
     "scenario_to_initial_state",
     "scenario_to_legacy_scenario",
 ]
