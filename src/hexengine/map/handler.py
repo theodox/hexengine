@@ -6,7 +6,8 @@ import js
 from pyodide.ffi import jsnull
 
 HANDLER_LOGGER = logging.getLogger("handler")
-HANDLER_LOGGER.setLevel(logging.DEBUG)
+# Avoid DEBUG on this logger: mousemove fires very often and f-string debug args are costly.
+HANDLER_LOGGER.setLevel(logging.INFO)
 
 
 class MouseHandler:

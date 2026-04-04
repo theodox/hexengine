@@ -56,8 +56,12 @@ class Map:
         self._min_zoom = 0.5
         self._max_zoom = 3.0
 
-        # Store background element for transforms
         self._bg_element = js.document.getElementById("map-bg")
+        self._transform_root = js.document.getElementById("map-world")
+        if self._transform_root is None:
+            logging.getLogger(__name__).error(
+                "Missing #map-world wrapper; pan/zoom will not apply. Update hexes.html."
+            )
 
         self._canvas_layer = CanvasLayer(
             canvas_element, self._hex_layout, self._hex_color, self._hex_stroke
@@ -76,6 +80,19 @@ class Map:
         self._mouse_upHandler = MouseHandler(
             self._container, "mouseup", self._hex_layout, self
         )
+
+        # Legacy: transform was applied per-layer; clear so only #map-world carries pan/zoom.
+        for el in (
+            self._bg_element,
+            canvas_element,
+            svg_element,
+            unit_element,
+        ):
+            if el is not None:
+                el.style.transform = ""
+
+        self._clamp_pan()
+        self._apply_transform()
 
     @property
     def on_drag(self):
@@ -148,32 +165,75 @@ class Map:
         js.document.documentElement.style.setProperty("--unit-width", f"{unit_size}px")
         js.document.documentElement.style.setProperty("--unit-height", f"{unit_size}px")
 
-        # Reapply current zoom and pan transforms
+        self._clamp_pan()
         self._apply_transform()
 
         logging.getLogger().info(
             f"Map refreshed: hex_size={self._hex_layout.size}, unit_size={unit_size}"
         )
 
+    def _map_content_size(self) -> tuple[float, float]:
+        """Drawable size in map pixels (matches canvas / stacked layers)."""
+        c = self._canvas_layer.canvas
+        return float(c.width), float(c.height)
+
+    def _map_viewport_size(self) -> tuple[float, float]:
+        """Visible map area in CSS pixels (#map-world or container fallback)."""
+        if self._transform_root is not None:
+            w = float(self._transform_root.clientWidth)
+            h = float(self._transform_root.clientHeight)
+            if w > 0 and h > 0:
+                return w, h
+        rect = self._container.getBoundingClientRect()
+        return float(rect.width), float(rect.height)
+
+    def _clamp_pan(self) -> None:
+        """
+        Keep scaled map content overlapping the viewport (no infinite empty pan).
+
+        With transform translate(pan) scale(zoom), a map point m appears at zoom*m + pan.
+        Content occupies [0, mw] x [0, mh] in map space.
+        """
+        vw, vh = self._map_viewport_size()
+        mw, mh = self._map_content_size()
+        z = self._zoom_level
+        sw, sh = z * mw, z * mh
+
+        def clamp_axis(pan: float, v: float, s: float) -> float:
+            if v <= 0 or s <= 0:
+                return pan
+            if s >= v:
+                lo, hi = v - s, 0.0
+            else:
+                lo, hi = 0.0, v - s
+            return max(lo, min(hi, pan))
+
+        self._pan_x = clamp_axis(self._pan_x, vw, sw)
+        self._pan_y = clamp_axis(self._pan_y, vh, sh)
+
     def _apply_transform(self) -> None:
         """
-        Apply current zoom and pan transforms to all map layers.
-        Uses scale first, then translate to avoid transform-origin issues.
+        Apply pan/zoom once on #map-world so bg, canvas, hex SVG, and units stay in sync.
+        Map coordinates inside children are unchanged; only the wrapper transforms.
         """
-        # Apply scale around origin, then translate
-        # This ensures (x,y) -> (x*zoom, y*zoom) -> (x*zoom + pan_x, y*zoom + pan_y)
         transform = f"translate({self._pan_x}px, {self._pan_y}px) scale({self._zoom_level})"
-        
-        # Apply to all layers
-        if self._bg_element:
-            self._bg_element.style.transform = transform
-        self._canvas_layer.canvas.style.transform = transform
-        self._svg_layer._svg.style.transform = transform
-        self._unit_layer._svg.style.transform = transform
+        if self._transform_root is not None:
+            self._transform_root.style.transform = transform
+        else:
+            if self._bg_element:
+                self._bg_element.style.transform = transform
+            self._canvas_layer.canvas.style.transform = transform
+            self._svg_layer._svg.style.transform = transform
+            self._unit_layer._svg.style.transform = transform
 
-        logging.getLogger().debug(
-            f"Applied transform: zoom={self._zoom_level:.2f}, pan=({self._pan_x:.1f}, {self._pan_y:.1f})"
-        )
+        log = logging.getLogger(__name__)
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug(
+                "Applied transform: zoom=%.2f, pan=(%.1f, %.1f)",
+                self._zoom_level,
+                self._pan_x,
+                self._pan_y,
+            )
 
     def set_zoom(self, zoom_level: float, center_x: float = None, center_y: float = None) -> None:
         """
@@ -197,6 +257,7 @@ class Map:
             self._pan_x = center_x - (center_x - self._pan_x) * zoom_ratio
             self._pan_y = center_y - (center_y - self._pan_y) * zoom_ratio
 
+        self._clamp_pan()
         self._apply_transform()
 
     def adjust_zoom(self, delta: float, center_x: float = None, center_y: float = None) -> None:
@@ -220,6 +281,7 @@ class Map:
         """
         self._pan_x = pan_x
         self._pan_y = pan_y
+        self._clamp_pan()
         self._apply_transform()
 
     def adjust_pan(self, delta_x: float, delta_y: float) -> None:
@@ -249,5 +311,6 @@ class Map:
         self._zoom_level = 1.0
         self._pan_x = 0.0
         self._pan_y = 0.0
+        self._clamp_pan()
         self._apply_transform()
         logging.getLogger().info("View reset to default")

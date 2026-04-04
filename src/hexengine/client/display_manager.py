@@ -257,8 +257,10 @@ class DisplayManager:
 
     def refresh_unit_positions(self) -> None:
         """
-        Refresh all unit positions after a map resize/zoom.
-        Recalculates pixel positions for all units based on current hex layout.
+        Recompute every unit's SVG transform from its hex and the current hex layout.
+
+        Not needed for pan/zoom: those use CSS transforms on map layers while unit
+        coordinates stay in map space. Call when hex layout parameters change.
         """
         for unit_id, display in self._unit_displays.items():
             # Re-apply the position to force recalculation with current layout
@@ -266,4 +268,4 @@ class DisplayManager:
             x, y = self._canvas.hex_layout.hex_to_pixel(hex_pos)
             display.proxy.setAttribute("transform", f"translate({x},{y})")
 
-        self.logger.info(f"Refreshed {len(self._unit_displays)} unit positions")
+        self.logger.debug("Refreshed %s unit positions", len(self._unit_displays))

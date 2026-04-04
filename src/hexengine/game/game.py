@@ -12,6 +12,11 @@ from ..state import GameState, ActionManager
 from ..state.actions import NextPhase
 from ..ui.popups import PopupManager
 
+# Screen-space pan per arrow key when zoomed in; Shift multiplies step.
+_PAN_KEY_STEP = 48
+_PAN_KEY_SHIFT_MULT = 3
+
+
 class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     """
     This is the main game class that ties together the board, turn manager, action manager, and display manager.
@@ -117,15 +122,11 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def _handle_resize(self, event) -> None:
         """
         Handle window resize and zoom events.
-        Refreshes the map canvas and updates all unit positions.
+        Refreshes the map canvas; pan/zoom are applied on layer roots, so unit
+        transforms (map-space) stay valid.
         """
-        self.logger.info("Window resized, refreshing map and units")
-        
-        # Refresh the map (canvas layer and CSS variables)
+        self.logger.info("Window resized, refreshing map")
         self.canvas.refresh()
-        
-        # Refresh all unit positions
-        self.display_mgr.refresh_unit_positions()
 
     def _handle_wheel(self, event) -> None:
         """
@@ -143,9 +144,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         delta = -event.deltaY * zoom_speed
         
         self.canvas.adjust_zoom(delta, mouse_x, mouse_y)
-        
-        # Refresh unit positions to account for zoom
-        self.display_mgr.refresh_unit_positions()
 
     def _handle_keydown(self, event) -> None:
         """
@@ -190,6 +188,29 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def remove_unit(self, unit) -> None:
         self.board.remove_unit(unit)
 
+    def pan_view(self, delta_x: float, delta_y: float) -> None:
+        """Pan the map in screen pixels (CSS transform on layers; units stay in map space)."""
+        self.canvas.adjust_pan(delta_x, delta_y)
+
+    def on_key_down(self, event) -> None:
+        key = event.key.lower()
+        modifiers = Modifiers.from_event(event)
+        if key in ("arrowleft", "arrowright", "arrowup", "arrowdown"):
+            if self.canvas.zoom_level > 1.01:
+                step = _PAN_KEY_STEP * (
+                    _PAN_KEY_SHIFT_MULT if modifiers & Modifiers.SHIFT else 1
+                )
+                deltas = {
+                    "arrowleft": (-step, 0),
+                    "arrowright": (step, 0),
+                    "arrowup": (0, -step),
+                    "arrowdown": (0, step),
+                }
+                self.pan_view(*deltas[key])
+                event.preventDefault()
+                return
+        HotkeyHandlerMixin.on_key_down(self, event)
+
     @Hotkey("delete", Modifiers.NONE)
     def delete_selected_unit(self) -> None:
         if self.ui_state.selected_unit_id:
@@ -226,7 +247,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def reset_view(self) -> None:
         """Reset zoom and pan to default."""
         self.canvas.reset_view()
-        self.display_mgr.refresh_unit_positions()
         self.logger.info("View reset to default")
 
     # ===== STATE SYSTEM HELPERS =====

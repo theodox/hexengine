@@ -81,10 +81,6 @@ class DisplayUnit:
         Note: When used during drag preview, coordinates should be in map space
         (inverse-transformed) since the parent SVG has CSS transforms applied.
         """
-        import logging
-        logger = logging.getLogger("unit_display")
-        current_transform = self.proxy.getAttribute("transform")
-        logger.debug(f"display_at({x:.1f}, {y:.1f}) for unit {self.unit_id}, was: {current_transform}")
         self.proxy.setAttribute("transform", f"translate({x},{y})")
 
     def display_at_screen(self, screen_x: float, screen_y: float, zoom: float, pan_x: float, pan_y: float) -> None:

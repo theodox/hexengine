@@ -69,11 +69,9 @@ class MouseEventHandlerMixin:
         if self._is_panning:
             delta_x = eventInfo.event.clientX - self._pan_start_x
             delta_y = eventInfo.event.clientY - self._pan_start_y
-            self.canvas.adjust_pan(delta_x, delta_y)
+            self.pan_view(delta_x, delta_y)
             self._pan_start_x = eventInfo.event.clientX
             self._pan_start_y = eventInfo.event.clientY
-            # Refresh unit positions to account for pan
-            self.display_mgr.refresh_unit_positions()
             return
         
         if eventInfo.event.buttons != 1:

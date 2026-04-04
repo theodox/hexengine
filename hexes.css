@@ -1,8 +1,18 @@
+/* Height comes from in-flow #map-world (flex would collapse a box whose only children are abspos). */
 #map-container {
     position: relative;
     width: 100%;
-    height: auto;
+    overflow: hidden;
+}
+
+/* Pan/zoom target: one transform, no per-layer transition (avoids jank vs pointer). */
+#map-world {
+    position: relative;
+    width: 100%;
     aspect-ratio: 16 / 9;
+    transform-origin: top left;
+    pointer-events: none;
+    will-change: transform;
     overflow: hidden;
 }
 
@@ -13,8 +23,7 @@
     background-color: rgb(200, 200, 200);
     z-index: 0;
     user-select: none;
-    transform-origin: top left;
-    transition: transform 0.05s ease-out;
+    pointer-events: auto;
 }
 
 #map-canvas {
@@ -27,8 +36,7 @@
     left: 0px;
     user-select: none;
     z-index: 5;
-    transform-origin: top left;
-    transition: transform 0.05s ease-out;
+    pointer-events: auto;
 }
 
 #map-svg {
@@ -39,8 +47,6 @@
     left: 0px;
     pointer-events: auto;
     z-index: 10;
-    transform-origin: top left;
-    transition: transform 0.05s ease-out;
 }
 
 #map-units {
@@ -51,7 +57,6 @@
     left: 0px;
     pointer-events: auto;
     z-index: 20;
-    transform-origin: top left;
 }
 
 #console-bg {

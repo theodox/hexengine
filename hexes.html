@@ -29,17 +29,15 @@
   <div id="main-frame">
     <!--- map canvas and svg overlay --->
     <div id="map-container">
-      <!--bitmap bg-->
-      <img id="map-bg" src="resources/test_map.png" />
-      
-      <!--static bg overlay & hexes-->
-      <canvas id="map-canvas" data-hexsize="24" , data-hexcolor="#33443344" , data-hexstroke="1" ,
-        data-hexmargin="0"></canvas>
-      
-        <!--interactive svg overlay-->
-      <svg id="map-svg"></svg>
-      <svg id="map-units"></svg>
-      
+      <!-- Single CSS transform for bg + grid + overlays + units (see Map._apply_transform) -->
+      <div id="map-world">
+        <img id="map-bg" src="resources/test_map.png" />
+        <canvas id="map-canvas" data-hexsize="24" , data-hexcolor="#33443344" , data-hexstroke="1" ,
+          data-hexmargin="0"></canvas>
+        <svg id="map-svg"></svg>
+        <svg id="map-units"></svg>
+      </div>
+
       <!--- loading screen -->
       <div id="loading">
         <b>Loading...</b>
