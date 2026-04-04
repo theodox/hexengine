@@ -30,6 +30,7 @@ class PopupManager:
         self.popups = []
 
     def create_popup(self, message: str, position: tuple[float, float]) -> "Popup":
+        self.clear()
         popup = Popup(message, position)
         logging.info(f"Creating popup with message: {message} at position: {position}")
         self.add_popup(popup)

@@ -88,6 +88,8 @@ class MouseEventHandlerMixin:
 
         if not self.ui_state.selected_unit_id:
             self._bg_drag(eventInfo)
+        elif not self.is_my_turn():
+            return
         else:
             self._unit_drag(eventInfo)
 
@@ -187,12 +189,23 @@ class MouseEventHandlerMixin:
         self.logger.debug(
             f"Double click on {unit.unit_id}"
             if unit
-            else "Double click with no selection"
+            else "Double click with no unit under cursor"
         )
 
         offset_pos = eventInfo.raw_position[0] + 10, eventInfo.raw_position[1] + 20
+        if not unit or not eventInfo.unit_id:
+            self.last_click_time = 0
+            return
+
+        # Use server/board state for faction; GameUnit.faction may be a class default.
+        faction = unit.faction
+        if self.action_mgr and self.action_mgr.current_state:
+            us = self.action_mgr.current_state.board.units.get(eventInfo.unit_id)
+            if us is not None:
+                faction = us.faction
+
         self.popup_manager.create_popup(
-            f"{self.selection.unit_id} @ {self.selection.faction}", offset_pos
+            f"{unit.unit_id} @ {faction}", offset_pos
         )
         self.last_click_time = 0
 
@@ -206,6 +219,16 @@ class MouseEventHandlerMixin:
         - Game state unchanged until mouseup
         """
         if not self.ui_state.selected_unit_id:
+            return
+
+        if not self.is_my_turn():
+            return
+
+        state = self.action_mgr.current_state
+        if state is None:
+            return
+        su = state.board.units.get(self.ui_state.selected_unit_id)
+        if su is None or su.faction != state.turn.current_faction:
             return
 
         # Get current zoom/pan values
@@ -275,9 +298,15 @@ class MouseEventHandlerMixin:
         if not unit_state:
             return
 
+        if not self.is_my_turn():
+            self._clear_drag_and_highlights()
+            self.logger.debug("Ignoring unit mousedown: not this client's turn")
+            return
+
         # Check if it's the right faction's turn (use server state, not local TurnManager)
         current_faction = state.turn.current_faction
         if unit_state.faction != current_faction:
+            self._clear_drag_and_highlights()
             self.logger.warning(
                 f"Cannot select unit {unit_id} of faction {unit_state.faction} during {current_faction}'s turn"
             )
@@ -302,25 +331,42 @@ class MouseEventHandlerMixin:
         - Preview cleared automatically
         - State unchanged if move is invalid
         """
-        if not self.ui_state.selected_unit_id:
-            return
-
         current_time = js.Date.now()
         time_since_last_click = current_time - self.last_click_time
         maybe_dbl_click = time_since_last_click < self.DBL_CLICK_THRESHOLD
         maybe_click = self._mouse_distance() < self.MIN_DRAG_DISTANCE
 
         try:
-            # Handle double-click
-            if maybe_click and maybe_dbl_click:
+            # Double-click (e.g. inspect): only when no active drag-preview. If the user
+            # started a unit drag, drag_preview is set even for tiny motion; without this,
+            # a second quick release can look like a double-click and fight drag/end_drag.
+            if (
+                maybe_click
+                and maybe_dbl_click
+                and self.ui_state.drag_preview is None
+            ):
                 if self.pending_click_timeout is not None:
                     js.clearTimeout(self.pending_click_timeout)
                     self.pending_click_timeout = None
                 self._unit_dbl_click(eventInfo)
                 self.last_click_time = 0
-                # Clear preview without committing
-                self.ui_state.end_drag()
-                self.display_mgr.clear_highlights()
+                if self.ui_state.selected_unit_id:
+                    self.ui_state.end_drag()
+                    self.display_mgr.clear_highlights()
+                return
+
+            if not self.is_my_turn():
+                self._clear_drag_and_highlights()
+                if not self.ui_state.selected_unit_id and maybe_click:
+                    self.last_click_time = current_time
+                return
+
+            if not self.ui_state.selected_unit_id:
+                # Record click time so a second click-up on a unit can register as
+                # double-click (e.g. inspect enemy). Otherwise last_click_time stays 0
+                # and time_since_last_click is never within DBL_CLICK_THRESHOLD.
+                if maybe_click:
+                    self.last_click_time = current_time
                 return
 
             # Handle single click (delayed to detect double-click)
@@ -353,12 +399,15 @@ class MouseEventHandlerMixin:
 
                 self.ui_state.end_drag()
                 self.display_mgr.clear_highlights()
+                self.last_click_time = 0
                 return
 
             # Handle regular drag move
             move_committed = self.end_drag_preview()
             if not move_committed:
                 self.logger.warning("Invalid move")
+            # Avoid pairing this release with the next click as a double-click
+            self.last_click_time = 0
 
         finally:
             self.hex_path.clear()

@@ -30,10 +30,14 @@ from .shapes import (
     wedge,
     wedge_fill,
 )
+from importlib.metadata import PackageNotFoundError, version
+
 from .types import Hex, HexRowCol
 
-# Version info
-__version__ = "0.1.0"
+try:
+    __version__ = version("hexes")
+except PackageNotFoundError:
+    __version__ = "0.1.3"
 
 # Commonly used items available at package level
 __all__ = [

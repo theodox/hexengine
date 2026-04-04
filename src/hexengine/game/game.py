@@ -208,7 +208,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     @Hotkey("enter", Modifiers.NONE)
     def popup_selected_unit_info(self) -> None:
-        self.popup_manager.clear()
         if self.selection:
             loc = self.layout.hex_to_pixel(self.selection.position)
             self.popup_manager.create_popup(
@@ -216,6 +215,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             )
             self.logger.info(f"Showing info for unit {self.selection.unit_id}")
         else:
+            self.popup_manager.clear()
             self.logger.debug("No unit selected to show info")
 
     @Hotkey("escape", Modifiers.NONE)
@@ -242,6 +242,21 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def get_current_state(self):
         """Get current committed game state (immutable)."""
         return self.action_mgr.current_state
+
+    def is_my_turn(self) -> bool:
+        """Local / hotseat: always True. NetworkGame overrides."""
+        return True
+
+    def _clear_drag_and_highlights(self) -> None:
+        """Clear local drag preview, selection, and hex highlights (no server action)."""
+        if self.ui_state.drag_preview:
+            preview = self.ui_state.end_drag()
+            if preview and self.action_mgr and self.action_mgr.current_state:
+                u = self.action_mgr.current_state.board.units.get(preview.unit_id)
+                if u:
+                    self.display_mgr.clear_preview(preview.unit_id, u.position)
+        self.ui_state.select_unit(None)
+        self.display_mgr.clear_highlights()
 
     def start_drag_preview(self, unit_id: str):
         """Start drag preview for a unit."""

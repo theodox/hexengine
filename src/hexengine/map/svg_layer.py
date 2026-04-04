@@ -20,12 +20,24 @@ class SVGLayer:
         self._hex_color = hex_color
         self._hex_stroke = hex_stroke
 
+    def _remove_child_if_present(self, node) -> None:
+        """Remove node from this SVG if still attached (safe for deferred calls)."""
+        try:
+            if node is not None and self._svg.contains(node):
+                self._svg.removeChild(node)
+        except Exception:
+            pass
+
     def clear(self) -> None:
-        for child in self._svg.childNodes:
+        # Snapshot nodes — childNodes is live; lambdas must capture each node, not loop var.
+        for child in list(self._svg.childNodes):
             if child.classList.contains("highlight"):
                 logging.info("Removing hex layer")
                 child.classList.add("fade-out")
-                js.setTimeout(create_proxy(lambda: self._svg.removeChild(child)), 250)
+                js.setTimeout(
+                    create_proxy(lambda c=child: self._remove_child_if_present(c)),
+                    250,
+                )
 
     def _draw_hex(self, hex: Hex, root: js.SVGElement) -> None:
         points = self._hex_layout.hex_corners(hex)
