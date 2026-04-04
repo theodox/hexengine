@@ -4,6 +4,7 @@ Browser-compatible WebSocket client using native browser WebSocket API.
 Works in pyodide by using JavaScript WebSocket through js proxy.
 """
 
+import json
 import logging
 from enum import Enum
 from typing import Optional, Callable, Any
@@ -53,8 +54,13 @@ class BrowserWebSocketClient:
         self.game_state: Optional[GameState] = None
         self.sequence_number = 0
         
+        # Last applied scenario map_display JSON (avoid reset_view on every state tick)
+        self._applied_map_display_json: Optional[str] = None
+        self._warned_stale_client = False
+
         # Callbacks
         self.on_state_update: Optional[Callable[[GameState], None]] = None
+        self.on_map_display: Optional[Callable[[dict[str, Any]], None]] = None
         self.on_connection_change: Optional[Callable[[ConnectionState], None]] = None
         self.on_error: Optional[Callable[[str], None]] = None
         self.on_action_result: Optional[Callable[[bool, Optional[str]], None]] = None
@@ -236,7 +242,15 @@ class BrowserWebSocketClient:
         if update.sequence_number <= self.sequence_number:
             self.logger.warning(f"Out-of-order state update: {update.sequence_number}")
         self.sequence_number = update.sequence_number
-        
+
+        if update.map_display is not None and self.on_map_display:
+            sig = json.dumps(update.map_display, sort_keys=True)
+            if sig != self._applied_map_display_json:
+                self._applied_map_display_json = sig
+                self.on_map_display(update.map_display)
+
+        self._maybe_warn_server_newer(update.server_package_version)
+
         # Reconstruct GameState from dict
         self.game_state = self._deserialize_game_state(update.game_state)
         
@@ -262,24 +276,60 @@ class BrowserWebSocketClient:
         if self.on_action_result:
             self.on_action_result(success, error_msg)
     
+    def _maybe_warn_server_newer(self, server_ver: Optional[str]) -> None:
+        if not server_ver or self._warned_stale_client:
+            return
+        from ..package_version import hexes_package_version, server_is_newer_than_client
+
+        client_ver = hexes_package_version()
+        if not server_is_newer_than_client(server_ver, client_ver):
+            return
+        self._warned_stale_client = True
+        msg = (
+            f"Server package ({server_ver}) is newer than this client ({client_ver}). "
+            "Refresh or install a matching wheel to avoid mismatches."
+        )
+        self.logger.warning(msg)
+        try:
+            from .. import dev_console
+
+            dev_console.set_status(msg)
+        except Exception:
+            pass
+
     def _handle_player_joined(self, message: Message) -> None:
         """Handle notification of another player joining."""
-        player = PlayerInfo(**message.payload)
-        
+        raw = message.payload
+        player = PlayerInfo(
+            player_id=raw["player_id"],
+            player_name=raw["player_name"],
+            faction=raw["faction"],
+            connected=raw.get("connected", True),
+            package_version=raw.get("package_version"),
+        )
+
         # Check if this is us
         if player.player_name == self.player_name and not self.faction:
             self.faction = player.faction
             self.player_id = player.player_id
             self.logger.info(f"Joined as {self.faction} (ID: {self.player_id})")
+            self._maybe_warn_server_newer(player.package_version)
         else:
             self.logger.info(f"Player joined: {player.player_name} ({player.faction})")
-        
+
         if self.on_player_joined:
             self.on_player_joined(player)
-    
+
     def _handle_player_left(self, message: Message) -> None:
         """Handle notification of a player leaving."""
-        player = PlayerInfo(**message.payload)
+        raw = message.payload
+        player = PlayerInfo(
+            player_id=raw["player_id"],
+            player_name=raw["player_name"],
+            faction=raw["faction"],
+            connected=raw.get("connected", True),
+            package_version=raw.get("package_version"),
+        )
         self.logger.info(f"Player left: {player.player_name}")
         
         if self.on_player_left:

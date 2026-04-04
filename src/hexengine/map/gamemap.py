@@ -1,7 +1,7 @@
 import logging
-from typing import Iterable
+from typing import Any, Iterable
 
-from ..document import js
+from ..document import js, jsnull
 from ..hexes.types import Hex
 from ..units import DisplayUnit
 from .canvas_layer import CanvasLayer
@@ -27,8 +27,18 @@ class Map:
 
         self._hex_size = canvas_element.getAttribute("data-hexsize")
         self._hex_color = canvas_element.getAttribute("data-hexcolor")
-        self._hex_stroke = int(canvas_element.getAttribute("data-hexstroke"))
-        self._hex_margin = int(canvas_element.getAttribute("data-hexmargin"))
+        _stroke_attr = canvas_element.getAttribute("data-hexstroke")
+        _margin_attr = canvas_element.getAttribute("data-hexmargin")
+        self._hex_stroke = (
+            int(float(_stroke_attr))
+            if _stroke_attr not in (None, "", jsnull)
+            else 1
+        )
+        self._hex_margin = (
+            float(_margin_attr)
+            if _margin_attr not in (None, "", jsnull)
+            else 0.0
+        )
         logging.getLogger().warning(
             f"Hex size: {self._hex_size}, color: {self._hex_color}, stroke: {self._hex_stroke}"
         )
@@ -36,7 +46,9 @@ class Map:
         if self._hex_size is not None:
             self._hex_size = float(self._hex_size)
         else:
-            self._hex_size = 24
+            self._hex_size = 24.0
+
+        self._unit_size_multiplier = 1.5
 
         self._hex_layout = HexLayout(
             self._hex_size,
@@ -44,10 +56,7 @@ class Map:
             self._hex_size + self._hex_margin,
         )
 
-        # Set CSS variables for unit sizing based on hex layout
-        unit_size = (int(self._hex_layout.size * 1.5)) - 2
-        js.document.documentElement.style.setProperty("--unit-width", f"{unit_size}px")
-        js.document.documentElement.style.setProperty("--unit-height", f"{unit_size}px")
+        self._set_unit_css_vars()
 
         # Zoom and pan state
         self._zoom_level = 1.0
@@ -160,17 +169,73 @@ class Map:
         # Redraw canvas with new dimensions
         self._canvas_layer.redraw()
 
-        # Update CSS variables for unit sizing based on current hex layout
-        unit_size = (int(self._hex_layout.size * 1.5)) - 2
-        js.document.documentElement.style.setProperty("--unit-width", f"{unit_size}px")
-        js.document.documentElement.style.setProperty("--unit-height", f"{unit_size}px")
+        self._set_unit_css_vars()
 
         self._clamp_pan()
         self._apply_transform()
 
+        unit_size = int(self._hex_layout.size * self._unit_size_multiplier) - 2
         logging.getLogger().info(
             f"Map refreshed: hex_size={self._hex_layout.size}, unit_size={unit_size}"
         )
+
+    def _set_unit_css_vars(self) -> None:
+        unit_size = max(1, int(self._hex_layout.size * self._unit_size_multiplier) - 2)
+        js.document.documentElement.style.setProperty("--unit-width", f"{unit_size}px")
+        js.document.documentElement.style.setProperty("--unit-height", f"{unit_size}px")
+
+    def apply_map_display(self, config: dict[str, Any]) -> None:
+        """
+        Apply scenario map presentation (hex geometry, grid style, background, unit scale).
+
+        Resets pan/zoom, redraws the grid, and updates CSS unit variables. Call
+        DisplayManager.adopt_hex_layout() after this if units already exist.
+        """
+        from ..game.scenarios.schema import MapDisplayConfig
+
+        m = MapDisplayConfig.from_wire_dict(config)
+        self._hex_size = m.hex_size
+        self._hex_margin = float(m.hex_margin)
+        self._hex_color = m.hex_color
+        self._hex_stroke = int(m.hex_stroke)
+        self._unit_size_multiplier = float(m.unit_size_multiplier)
+
+        self._hex_layout = HexLayout(
+            self._hex_size,
+            self._hex_size + self._hex_margin,
+            self._hex_size + self._hex_margin,
+        )
+
+        c = self._canvas_layer.canvas
+        c.setAttribute("data-hexsize", str(self._hex_size))
+        c.setAttribute("data-hexcolor", self._hex_color)
+        c.setAttribute("data-hexstroke", str(self._hex_stroke))
+        c.setAttribute("data-hexmargin", str(int(self._hex_margin)))
+
+        self._canvas_layer._hex_layout = self._hex_layout
+        self._canvas_layer.hex_color = self._hex_color
+        self._canvas_layer.hex_stroke = self._hex_stroke
+
+        self._svg_layer._hex_layout = self._hex_layout
+        self._svg_layer._hex_color = self._hex_color
+        self._svg_layer._hex_stroke = self._hex_stroke
+
+        self._unit_layer._hex_layout = self._hex_layout
+        self._unit_layer._hex_color = self._hex_color
+        self._unit_layer._hex_stroke = self._hex_stroke
+
+        for handler in (
+            self._dragHandler,
+            self._mouse_downHandler,
+            self._mouse_upHandler,
+        ):
+            handler._layout = self._hex_layout
+
+        if self._bg_element is not None:
+            self._bg_element.setAttribute("src", m.background)
+
+        self.reset_view()
+        self.refresh()
 
     def _map_content_size(self) -> tuple[float, float]:
         """Drawable size in map pixels (matches canvas / stacked layers)."""

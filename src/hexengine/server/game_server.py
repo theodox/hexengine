@@ -13,6 +13,7 @@ import logging
 import uuid
 from typing import Optional, Callable, Any
 
+from ..package_version import hexes_package_version
 from ..state import GameState, ActionManager
 from ..state.actions import MoveUnit, DeleteUnit, AddUnit, SpendAction, NextPhase
 from .protocol import (
@@ -35,15 +36,22 @@ class GameServer:
     to process client requests.
     """
 
-    def __init__(self, initial_state: Optional[GameState] = None):
+    def __init__(
+        self,
+        initial_state: Optional[GameState] = None,
+        map_display: Optional[dict[str, Any]] = None,
+    ):
         """
         Initialize the game server.
 
         Args:
             initial_state: Starting game state, or None to create empty
+            map_display: Optional scenario map presentation dict (JSON-safe)
         """
         self.game_state = initial_state or GameState.create_empty()
         self.action_manager = ActionManager(self.game_state)
+        self.map_display = map_display
+        self._server_package_version = hexes_package_version()
 
         # Player management
         self.players: dict[str, PlayerInfo] = {}
@@ -228,8 +236,10 @@ class GameServer:
         self.logger.info(f"Player {request.player_name} joined as {faction}")
 
         # Send player_joined to the joining player (so they know their faction)
+        join_payload = dict(player.to_dict())
+        join_payload["package_version"] = self._server_package_version
         await self._send_message(
-            player_id, Message(type=MessageType.PLAYER_JOINED, payload=player.to_dict())
+            player_id, Message(type=MessageType.PLAYER_JOINED, payload=join_payload)
         )
 
         # Send full state to joining player
@@ -442,7 +452,10 @@ class GameServer:
         """Send current game state to a specific player."""
         state_dict = self._serialize_state(self.action_manager.current_state)
         update = StateUpdate(
-            game_state=state_dict, sequence_number=self.sequence_number
+            game_state=state_dict,
+            sequence_number=self.sequence_number,
+            map_display=self.map_display,
+            server_package_version=self._server_package_version,
         )
         await self._send_message(player_id, update.to_message())
 
@@ -451,7 +464,10 @@ class GameServer:
         self.sequence_number += 1
         state_dict = self._serialize_state(self.action_manager.current_state)
         update = StateUpdate(
-            game_state=state_dict, sequence_number=self.sequence_number
+            game_state=state_dict,
+            sequence_number=self.sequence_number,
+            map_display=self.map_display,
+            server_package_version=self._server_package_version,
         )
         message = update.to_message()
 

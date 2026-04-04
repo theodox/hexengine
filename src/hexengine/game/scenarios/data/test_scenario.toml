@@ -5,6 +5,14 @@
 name = "Test Scenario"
 description = "A simple test scenario for the game."
 
+[map]
+hex_size = 24
+hex_margin = 0
+hex_stroke = 1
+hex_color = "#33443344"
+background = "resources/test_map.png"
+unit_size_multiplier = 1.5
+
 [[units]]
 id = "Canuck1"
 type = "canuck"

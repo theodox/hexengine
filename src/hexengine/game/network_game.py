@@ -6,7 +6,7 @@ all actions through a WebSocket connection to the server.
 """
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from ..client.websocket_client import BrowserWebSocketClient, ConnectionState
 from ..client import LocalServerManager
@@ -75,8 +75,20 @@ class NetworkGame(Game):
             # Start local server if requested
             if self.use_local_server and not self.local_server:
                 self.logger.info("Starting local server...")
+                from ..game.scenarios.loader import scenario_to_initial_state
+                from ..game.scenarios.parse import load_scenario, resolve_scenario_path_for_server
+
+                scenario_path = resolve_scenario_path_for_server()
+                scenario_data = load_scenario(scenario_path)
+                initial_state = scenario_to_initial_state(
+                    scenario_data,
+                    initial_faction="Red",
+                    initial_phase="Movement",
+                    phase_actions_remaining=2,
+                )
                 self.local_server = LocalServerManager(
-                    initial_state=self.action_mgr.current_state
+                    initial_state=initial_state,
+                    map_display=scenario_data.map_display.to_wire_dict(),
                 )
                 if not self.local_server.start():
                     self.logger.error("Failed to start local server")
@@ -89,6 +101,7 @@ class NetworkGame(Game):
             self.client = BrowserWebSocketClient(self.server_url)
 
             self.client.on_state_update = self._handle_state_update
+            self.client.on_map_display = self._on_map_display
             self.client.on_connection_change = self._handle_connection_change
             self.client.on_error = self._handle_error
             self.client.on_action_result = self._handle_action_result
@@ -202,6 +215,11 @@ class NetworkGame(Game):
             self.logger.error(f"Unknown action type: {type(action)}")
             return {}
 
+    def _on_map_display(self, config: dict[str, Any]) -> None:
+        """Apply scenario map presentation before state sync (runs from websocket client)."""
+        self.canvas.apply_map_display(config)
+        self.display_mgr.adopt_hex_layout()
+
     def _handle_state_update(self, new_state: GameState) -> None:
         """
         Callback when server sends a state update.
@@ -259,13 +277,7 @@ class NetworkGame(Game):
 
     def _handle_error(self, error: str) -> None:
         """
-        CaUpdate faction when connected
-        if self.connected and self.client:
-            self.my_faction = self.client.faction
-            if self.my_faction:
-                self.logger.info(f"Playing as {self.my_faction}")
-
-        # llback when an error occurs.
+        Callback when an error occurs.
 
         Args:
             error: Error message

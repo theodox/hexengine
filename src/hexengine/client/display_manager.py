@@ -255,6 +255,13 @@ class DisplayManager:
         """Clear all hex highlights."""
         self._canvas.svg_layer.clear()
 
+    def adopt_hex_layout(self) -> None:
+        """Point all unit displays at the map's current HexLayout and refresh transforms."""
+        layout = self._canvas.hex_layout
+        for display in self._unit_displays.values():
+            display._hex_layout = layout
+        self.refresh_unit_positions()
+
     def refresh_unit_positions(self) -> None:
         """
         Recompute every unit's SVG transform from its hex and the current hex layout.

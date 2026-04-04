@@ -11,7 +11,7 @@ try:
 except ImportError:
     import tomli as tomllib  # fallback for older Python
 
-from .schema import LocationRow, ScenarioData, UnitRow
+from .schema import LocationRow, MapDisplayConfig, ScenarioData, UnitRow
 
 # Default scenario path (package data); override by passing a path to load_scenario().
 _DEFAULT_PATH = Path(__file__).resolve().parent / "data" / "test_scenario.toml"
@@ -20,6 +20,17 @@ _DEFAULT_PATH = Path(__file__).resolve().parent / "data" / "test_scenario.toml"
 def default_scenario_path() -> Path:
     """Path to the packaged default scenario TOML."""
     return _DEFAULT_PATH
+
+
+def resolve_scenario_path_for_server() -> Path:
+    """
+    Path to scenario for game server startup: project scenarios/ if present,
+    else packaged default (same rule as websocket_server.main).
+    """
+    root = Path.cwd() / "scenarios" / "test_scenario.toml"
+    if root.exists():
+        return root
+    return default_scenario_path()
 
 
 def _parse_position(raw: list[int] | tuple[int, ...]) -> tuple[int, int, int]:
@@ -57,6 +68,14 @@ def load_scenario(path: Path | str) -> ScenarioData:
       terrain = "forest"
       movement_cost = 1.5
       # optional: assault_modifier, ranged_modifier, block_los
+
+      [map]
+      hex_size = 24
+      hex_margin = 0
+      hex_stroke = 1
+      hex_color = "#33443344"
+      background = "resources/test_map.png"
+      unit_size_multiplier = 1.5
     """
     path = Path(path)
     with open(path, "rb") as f:
@@ -64,6 +83,8 @@ def load_scenario(path: Path | str) -> ScenarioData:
 
     name = str(data.get("name", path.stem))
     description = str(data.get("description", ""))
+
+    map_display = _parse_map_table(data.get("map"))
 
     units: list[UnitRow] = []
     for u in data.get("units", []):
@@ -94,4 +115,24 @@ def load_scenario(path: Path | str) -> ScenarioData:
             )
         )
 
-    return ScenarioData(name=name, description=description, units=units, locations=locations)
+    return ScenarioData(
+        name=name,
+        description=description,
+        units=units,
+        locations=locations,
+        map_display=map_display,
+    )
+
+
+def _parse_map_table(raw: dict | None) -> MapDisplayConfig:
+    """Parse optional [map] TOML table; missing keys use MapDisplayConfig defaults."""
+    if not raw:
+        return MapDisplayConfig()
+    return MapDisplayConfig(
+        hex_size=float(raw.get("hex_size", 24.0)),
+        hex_margin=float(raw.get("hex_margin", 0.0)),
+        hex_stroke=int(raw.get("hex_stroke", 1)),
+        hex_color=str(raw.get("hex_color", "#33443344")),
+        background=str(raw.get("background", "resources/test_map.png")),
+        unit_size_multiplier=float(raw.get("unit_size_multiplier", 1.5)),
+    )

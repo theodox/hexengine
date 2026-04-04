@@ -114,21 +114,31 @@ class StateUpdate:
 
     game_state: dict[str, Any]  # Serialized GameState
     sequence_number: int  # For ordering/detecting missed updates
+    map_display: Optional[dict[str, Any]] = None  # From scenario MapDisplayConfig
+    server_package_version: Optional[str] = None  # hexes wheel version on server
 
     def to_message(self) -> Message:
         """Convert to Message."""
-        return Message(
-            type=MessageType.STATE_UPDATE,
-            payload={
-                "game_state": self.game_state,
-                "sequence_number": self.sequence_number,
-            },
-        )
+        payload: dict[str, Any] = {
+            "game_state": self.game_state,
+            "sequence_number": self.sequence_number,
+        }
+        if self.map_display is not None:
+            payload["map_display"] = self.map_display
+        if self.server_package_version is not None:
+            payload["server_package_version"] = self.server_package_version
+        return Message(type=MessageType.STATE_UPDATE, payload=payload)
 
     @classmethod
     def from_message(cls, msg: Message) -> "StateUpdate":
         """Create from Message."""
-        return cls(**msg.payload)
+        p = msg.payload
+        return cls(
+            game_state=p["game_state"],
+            sequence_number=p["sequence_number"],
+            map_display=p.get("map_display"),
+            server_package_version=p.get("server_package_version"),
+        )
 
 
 @dataclass
@@ -179,6 +189,7 @@ class PlayerInfo:
     player_name: str
     faction: str
     connected: bool = True
+    package_version: Optional[str] = None  # server hexes version (join ack only)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""

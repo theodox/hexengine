@@ -7,7 +7,7 @@ Handles starting/stopping a local server for single-player games.
 import asyncio
 import logging
 import threading
-from typing import Optional
+from typing import Any, Optional
 
 from ..state import GameState
 from ..server.game_server import GameServer
@@ -22,14 +22,20 @@ class LocalServerManager:
     this is identical to connecting to a remote server.
     """
     
-    def __init__(self, initial_state: Optional[GameState] = None):
+    def __init__(
+        self,
+        initial_state: Optional[GameState] = None,
+        map_display: Optional[dict[str, Any]] = None,
+    ):
         """
         Initialize the local server manager.
-        
+
         Args:
             initial_state: Initial game state for the server
+            map_display: Scenario map presentation dict for StateUpdate (optional)
         """
         self.initial_state = initial_state
+        self.map_display = map_display
         self.server: Optional[GameServer] = None
         self.server_thread: Optional[threading.Thread] = None
         self.logger = logging.getLogger("local_server")
@@ -57,6 +63,7 @@ class LocalServerManager:
                 host="127.0.0.1",
                 port=port,
                 initial_state=self.initial_state,
+                map_display=self.map_display,
             )
 
             # Start in background thread
