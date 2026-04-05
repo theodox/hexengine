@@ -1,8 +1,8 @@
-from typing import Any
 import logging
 from importlib.metadata import PackageNotFoundError, version
+from typing import Any
 
-from .document import element, create_proxy, js
+from .document import create_proxy, element, js
 
 """
 A development console that logs messages to a text area in the web page, using

@@ -11,21 +11,22 @@ The server:
 
 import logging
 import uuid
-from typing import Optional, Callable, Any
+from collections.abc import Callable
+from typing import Any
 
 from ..package_version import hexes_package_version
-from ..state import GameState, ActionManager
+from ..state import ActionManager, GameState
+from ..state.actions import AddUnit, DeleteUnit, MoveUnit, NextPhase, SpendAction
 from ..state.snapshot import game_state_from_wire_dict, game_state_to_wire_dict
-from ..state.actions import MoveUnit, DeleteUnit, AddUnit, SpendAction, NextPhase
 from .protocol import (
-    Message,
-    MessageType,
     ActionRequest,
-    LoadSnapshotRequest,
-    StateUpdate,
     ActionResult,
     JoinGameRequest,
+    LoadSnapshotRequest,
+    Message,
+    MessageType,
     PlayerInfo,
+    StateUpdate,
 )
 
 
@@ -40,10 +41,10 @@ class GameServer:
 
     def __init__(
         self,
-        initial_state: Optional[GameState] = None,
-        map_display: Optional[dict[str, Any]] = None,
-        global_styles: Optional[dict[str, Any]] = None,
-        unit_graphics: Optional[dict[str, Any]] = None,
+        initial_state: GameState | None = None,
+        map_display: dict[str, Any] | None = None,
+        global_styles: dict[str, Any] | None = None,
+        unit_graphics: dict[str, Any] | None = None,
     ):
         """
         Initialize the game server.
@@ -257,7 +258,7 @@ class GameServer:
             # Spend an action for moves (other action types may cost different amounts)
             if request.action_type in ["MoveUnit"]:
                 try:
-                    self.logger.debug(f"Spending 1 action for MoveUnit")
+                    self.logger.debug("Spending 1 action for MoveUnit")
                     spend_action = SpendAction(amount=1)
                     self.action_manager.execute(spend_action)
 
@@ -271,7 +272,7 @@ class GameServer:
 
                     if current_state.turn.phase_actions_remaining <= 0:
                         next_phase_info = self._get_next_phase()
-                        self.logger.info(f"Actions depleted, advancing to next phase")
+                        self.logger.info("Actions depleted, advancing to next phase")
                         next_phase_action = NextPhase(
                             new_faction=next_phase_info["faction"],
                             new_phase=next_phase_info["phase"],
@@ -298,9 +299,10 @@ class GameServer:
     async def _handle_undo_request(self, player_id: str, message: Message) -> None:
         """Handle an undo request from a client."""
         from .protocol import UndoRequest
+
         self.logger.debug(f"Handling undo request from player {player_id}")
-        
-        request = UndoRequest.from_message(message)
+
+        UndoRequest.from_message(message)
 
         # Validate player
         player = self.players.get(player_id)
@@ -333,7 +335,7 @@ class GameServer:
         """Handle a redo request from a client."""
         from .protocol import RedoRequest
 
-        request = RedoRequest.from_message(message)
+        RedoRequest.from_message(message)
 
         # Validate player
         player = self.players.get(player_id)
@@ -401,9 +403,9 @@ class GameServer:
         # Import and instantiate the appropriate action class
         match action_type:
             case "MoveUnit":
-
-
-                from ..hexes.types import Hex  # Import here to avoid circular dependency
+                from ..hexes.types import (
+                    Hex,  # Import here to avoid circular dependency
+                )
 
                 return MoveUnit(
                     unit_id=params["unit_id"],
@@ -432,8 +434,6 @@ class GameServer:
                 )
             case _:
                 raise ValueError(f"Unknown action type: {action_type}")
-        
-        
 
     async def _handle_leave_game(self, player_id: str) -> None:
         """Handle a player leaving the game."""

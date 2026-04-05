@@ -5,16 +5,18 @@ This is the only place that ties the scenario DSL to UnitState, LocationState,
 ScenarioItem, LocationItem, etc. When those change, only this file changes.
 """
 
-from typing import TYPE_CHECKING, Type
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from ..hexes.types import Hex
-from ..state import GameState, ActionManager
+from ..state import GameState
 from ..state.game_state import BoardState, LocationState, UnitState
-
 from .schema import ScenarioData
 
 if TYPE_CHECKING:
     from ..units.game import GameUnit
+    from .base import Scenario
 
 
 def _hex(pos: tuple[int, int, int]) -> Hex:
@@ -67,34 +69,10 @@ def scenario_to_initial_state(
     return GameState(board=board, turn=turn)
 
 
-def scenario_to_actions(
-    data: ScenarioData,
-    action_mgr: ActionManager,
-) -> None:
-    """
-    Apply scenario data by executing AddUnit for each unit (server path).
-
-    Locations are not applied (no AddLocation action yet). Use
-    scenario_to_initial_state() if you need locations in state.
-    """
-    from ..state.actions import AddUnit
-
-    for u in data.units:
-        action_mgr.execute(
-            AddUnit(
-                unit_id=u.unit_id,
-                unit_type=u.unit_type,
-                faction=u.faction,
-                position=_hex(u.position),
-                health=u.health,
-            )
-        )
-
-
 def scenario_to_legacy_scenario(
     data: ScenarioData,
-    unit_registry: dict[str, Type["GameUnit"]],
-) -> "Scenario":
+    unit_registry: dict[str, type[GameUnit]],
+) -> Scenario:
     """
     Build the legacy Scenario (ScenarioItem + LocationItem) for populate(game).
 

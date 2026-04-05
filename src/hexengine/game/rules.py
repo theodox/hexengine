@@ -1,6 +1,3 @@
-from hexengine.map.location import Location
-
-
 # class AssaultRule:
 #     def __init__(self):
 #         pass

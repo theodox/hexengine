@@ -1,11 +1,10 @@
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING
 
 from ..hexes.types import Hex
 from ..map.location_item import LocationItem
 
 if TYPE_CHECKING:
     from ..game import Game
-    from ..map.location import Location
     from ..units.game import GameUnit
 
 
@@ -13,7 +12,7 @@ class ScenarioItem:
     def __init__(
         self,
         pos: Hex,
-        cls: Type["GameUnit"],
+        cls: type["GameUnit"],
         unit_id: str,
         unit_type: str,
         active: bool = True,
@@ -31,12 +30,12 @@ class Scenario:
         name: str,
         description: str,
         units: list[ScenarioItem],
-        locations: list[LocationItem] = [],
+        locations: list[LocationItem] | None = None,
     ) -> None:
         self.name = name
         self.description = description
         self.units = units
-        self.locations = locations
+        self.locations = locations if locations is not None else []
 
     def populate(self, game: "Game") -> None:
         for member in self.units:
@@ -49,5 +48,6 @@ class Scenario:
 
         for loc in self.locations:
             from ..map.location import Location
+
             location = Location.create(loc, game)
             game.board.add_location(location)

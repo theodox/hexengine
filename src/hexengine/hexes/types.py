@@ -2,7 +2,6 @@ import dataclasses
 
 # Constants for hex to cartesian conversion
 SQRT_THREE = 3**0.5
-THREE_HALF_POWER = SQRT_THREE / 2
 
 
 @dataclasses.dataclass(frozen=True)

@@ -1,3 +1,5 @@
+from importlib.metadata import PackageNotFoundError, version
+
 from .math import (
     Cartesian,
     add_cartesian_vectors,
@@ -31,8 +33,6 @@ from .shapes import (
     wedge,
     wedge_fill,
 )
-from importlib.metadata import PackageNotFoundError, version
-
 from .types import Hex, HexRowCol
 
 try:

@@ -1,5 +1,4 @@
 import logging
-
 from enum import Enum
 
 
@@ -97,7 +96,7 @@ class TurnManager:
             if faction != f:
                 return faction
         return None
-    
+
     def prospective_phase(self):
 
         this_faction, this_phase = self.current
@@ -105,10 +104,8 @@ class TurnManager:
         for i, (faction, phase) in enumerate(self.phases):
             if faction.name == this_faction.name and phase.name == this_phase.name:
                 # Get the next phase in sequence
-                next_index = (i + 1) % len(self.phases)    
+                next_index = (i + 1) % len(self.phases)
                 return self.phases[next_index]
-
-
 
     @property
     def actions(self):

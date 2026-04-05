@@ -8,7 +8,7 @@ Clients connect via WebSocket and send/receive JSON messages.
 import asyncio
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import websockets
 from websockets.server import WebSocketServerProtocol
@@ -29,10 +29,10 @@ class WebSocketGameServer:
         self,
         host: str = "localhost",
         port: int = 8765,
-        initial_state: Optional[GameState] = None,
-        map_display: Optional[dict[str, Any]] = None,
-        global_styles: Optional[dict[str, Any]] = None,
-        unit_graphics: Optional[dict[str, Any]] = None,
+        initial_state: GameState | None = None,
+        map_display: dict[str, Any] | None = None,
+        global_styles: dict[str, Any] | None = None,
+        unit_graphics: dict[str, Any] | None = None,
     ):
         """
         Initialize WebSocket server.

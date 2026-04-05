@@ -6,7 +6,6 @@ line of sight, etc. from game state without modifying it.
 """
 
 import heapq
-from typing import Set
 
 from ..hexes.math import neighbors
 from ..hexes.types import Hex
@@ -68,7 +67,7 @@ def compute_reachable_hexes(
 
 def compute_valid_moves(
     state: GameState, unit_id: str, movement_budget: float
-) -> Set[Hex]:
+) -> set[Hex]:
     """Compute valid movement hexes for a unit.
 
     Args:

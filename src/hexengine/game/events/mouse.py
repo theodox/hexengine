@@ -1,8 +1,9 @@
-from ...document import js, create_proxy, jsnull
+from enum import Enum
+from typing import TYPE_CHECKING, Optional
+
+from ...document import create_proxy, js, jsnull
 from ...hexes.types import Hex
 from .handler import EventInfo, Modifiers
-from enum import Enum
-from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...units.game import GameUnit
@@ -19,9 +20,9 @@ class MouseEventHandlerMixin:
     MIN_DRAG_DISTANCE: int = 16  # pixels
     DBL_CLICK_THRESHOLD: int = 330  # milliseconds
 
-    pending_click_timeout: Optional[int] = None
+    pending_click_timeout: int | None = None
     hex_path: list[Hex] = []
-    current_hex: Optional[Hex] = None
+    current_hex: Hex | None = None
     drag_start: tuple[float, float] = (0, 0)
     drag_end: tuple[float, float] = (0, 0)
 
@@ -40,7 +41,7 @@ class MouseEventHandlerMixin:
     def on_mouse_down(self, eventInfo: EventInfo) -> None:
         # Prevent default to stop text selection and default drag behavior
         eventInfo.event.preventDefault()
-        
+
         # Check if we're in pan mode (space key held or middle mouse button)
         if self._space_pressed or eventInfo.event.button == 1:  # Middle mouse button
             self._is_panning = True
@@ -48,7 +49,7 @@ class MouseEventHandlerMixin:
             self._pan_start_y = eventInfo.event.clientY
             self.canvas._container.style.cursor = "grabbing"
             return
-        
+
         self.hex_path.clear()
 
         self.logger.debug(f"Mouse down : {eventInfo}")
@@ -73,7 +74,7 @@ class MouseEventHandlerMixin:
             self._pan_start_x = eventInfo.event.clientX
             self._pan_start_y = eventInfo.event.clientY
             return
-        
+
         if eventInfo.event.buttons != 1:
             return
         # Prevent default to stop text selection during drag
@@ -100,14 +101,13 @@ class MouseEventHandlerMixin:
             else:
                 self.canvas._container.style.cursor = "default"
             return
-        
+
         self.drag_end = eventInfo.raw_position
 
         if not eventInfo.unit_id:
             self._bg_mouseup(eventInfo)
         else:
             self._unit_mouseup(eventInfo)
-
 
     # ---------------------
     # background events
@@ -202,9 +202,7 @@ class MouseEventHandlerMixin:
             if us is not None:
                 faction = us.faction
 
-        self.popup_manager.create_popup(
-            f"{unit.unit_id} @ {faction}", offset_pos
-        )
+        self.popup_manager.create_popup(f"{unit.unit_id} @ {faction}", offset_pos)
         self.last_click_time = 0
 
     def _unit_drag(self, eventInfo: EventInfo) -> None:
@@ -233,22 +231,22 @@ class MouseEventHandlerMixin:
         zoom = self.canvas._zoom_level
         pan_x = self.canvas._pan_x
         pan_y = self.canvas._pan_y
-        
+
         # Get both raw and map-space positions for comparison
         raw_x, raw_y = eventInfo.raw_position
         map_x, map_y = eventInfo.position
-        
+
         # Calculate what map position SHOULD be from raw position
         expected_map_x = (raw_x - pan_x) / zoom
         expected_map_y = (raw_y - pan_y) / zoom
-        
+
         self.logger.debug(
             f"_unit_drag: raw=({raw_x:.1f},{raw_y:.1f}), "
             f"map=({map_x:.1f},{map_y:.1f}), "
             f"expected_map=({expected_map_x:.1f},{expected_map_y:.1f}), "
             f"zoom={zoom:.2f}, pan=({pan_x:.1f},{pan_y:.1f}), hex={eventInfo.hex}"
         )
-        
+
         # Use the map-space coordinates from eventInfo (already inverse-transformed)
         self.update_drag_preview(
             pixel_x=map_x,
@@ -288,8 +286,10 @@ class MouseEventHandlerMixin:
         if state is None:
             self.logger.error("current_state is None - game not fully initialized")
             return
-        
-        self.logger.info(f"State has {len(state.board.units)} units: {list(state.board.units.keys())}")
+
+        self.logger.info(
+            f"State has {len(state.board.units)} units: {list(state.board.units.keys())}"
+        )
         unit_state = state.board.units.get(unit_id)
 
         self.logger.warning(f"Mouse down state {unit_state} for unit {unit_id}")
@@ -338,11 +338,7 @@ class MouseEventHandlerMixin:
             # Double-click (e.g. inspect): only when no active drag-preview. If the user
             # started a unit drag, drag_preview is set even for tiny motion; without this,
             # a second quick release can look like a double-click and fight drag/end_drag.
-            if (
-                maybe_click
-                and maybe_dbl_click
-                and self.ui_state.drag_preview is None
-            ):
+            if maybe_click and maybe_dbl_click and self.ui_state.drag_preview is None:
                 if self.pending_click_timeout is not None:
                     js.clearTimeout(self.pending_click_timeout)
                     self.pending_click_timeout = None

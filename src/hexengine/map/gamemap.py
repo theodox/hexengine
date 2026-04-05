@@ -1,5 +1,6 @@
 import logging
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 from ..document import js, jsnull
 from ..hexes.types import Hex
@@ -30,14 +31,10 @@ class Map:
         _stroke_attr = canvas_element.getAttribute("data-hexstroke")
         _margin_attr = canvas_element.getAttribute("data-hexmargin")
         self._hex_stroke = (
-            int(float(_stroke_attr))
-            if _stroke_attr not in (None, "", jsnull)
-            else 1
+            int(float(_stroke_attr)) if _stroke_attr not in (None, "", jsnull) else 1
         )
         self._hex_margin = (
-            float(_margin_attr)
-            if _margin_attr not in (None, "", jsnull)
-            else 0.0
+            float(_margin_attr) if _margin_attr not in (None, "", jsnull) else 0.0
         )
         logging.getLogger().warning(
             f"Hex size: {self._hex_size}, color: {self._hex_color}, stroke: {self._hex_stroke}"
@@ -82,7 +79,9 @@ class Map:
             unit_element, self._hex_layout, self._hex_color, self._hex_stroke
         )
 
-        self._dragHandler = MouseHandler(self._container, "mousemove", self._hex_layout, self)
+        self._dragHandler = MouseHandler(
+            self._container, "mousemove", self._hex_layout, self
+        )
         self._mouse_downHandler = MouseHandler(
             self._container, "mousedown", self._hex_layout, self
         )
@@ -281,7 +280,9 @@ class Map:
         Apply pan/zoom once on #map-world so bg, canvas, hex SVG, and units stay in sync.
         Map coordinates inside children are unchanged; only the wrapper transforms.
         """
-        transform = f"translate({self._pan_x}px, {self._pan_y}px) scale({self._zoom_level})"
+        transform = (
+            f"translate({self._pan_x}px, {self._pan_y}px) scale({self._zoom_level})"
+        )
         if self._transform_root is not None:
             self._transform_root.style.transform = transform
         else:
@@ -300,10 +301,12 @@ class Map:
                 self._pan_y,
             )
 
-    def set_zoom(self, zoom_level: float, center_x: float = None, center_y: float = None) -> None:
+    def set_zoom(
+        self, zoom_level: float, center_x: float = None, center_y: float = None
+    ) -> None:
         """
         Set zoom level, optionally zooming toward a specific point.
-        
+
         Args:
             zoom_level: New zoom level (clamped to min/max)
             center_x: X coordinate to zoom toward (in screen space)
@@ -317,7 +320,7 @@ class Map:
         if center_x is not None and center_y is not None:
             # Calculate the point's position in the map coordinate system
             zoom_ratio = self._zoom_level / old_zoom
-            
+
             # Adjust pan to zoom toward the specified point
             self._pan_x = center_x - (center_x - self._pan_x) * zoom_ratio
             self._pan_y = center_y - (center_y - self._pan_y) * zoom_ratio
@@ -325,10 +328,12 @@ class Map:
         self._clamp_pan()
         self._apply_transform()
 
-    def adjust_zoom(self, delta: float, center_x: float = None, center_y: float = None) -> None:
+    def adjust_zoom(
+        self, delta: float, center_x: float = None, center_y: float = None
+    ) -> None:
         """
         Adjust zoom level by a delta amount.
-        
+
         Args:
             delta: Amount to change zoom (positive = zoom in, negative = zoom out)
             center_x: X coordinate to zoom toward
@@ -339,7 +344,7 @@ class Map:
     def set_pan(self, pan_x: float, pan_y: float) -> None:
         """
         Set pan offset.
-        
+
         Args:
             pan_x: X offset in pixels
             pan_y: Y offset in pixels
@@ -352,7 +357,7 @@ class Map:
     def adjust_pan(self, delta_x: float, delta_y: float) -> None:
         """
         Adjust pan by a delta amount.
-        
+
         Args:
             delta_x: Change in X offset
             delta_y: Change in Y offset

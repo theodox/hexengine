@@ -1,6 +1,6 @@
-from typing import Optional, TYPE_CHECKING
 import heapq
 import logging
+from typing import TYPE_CHECKING, Optional
 
 from ..hexes.math import neighbors
 from ..hexes.types import Hex
@@ -13,9 +13,9 @@ if TYPE_CHECKING:
 
 class GameBoard:
     def __init__(self, map: Map) -> None:
-        self._board: dict[Hex, "GameUnit"] = {}  # Maps positions to board elements
-        self._units: dict[str, "GameUnit"] = {}  # Maps unit IDs to units
-        self._selection: Optional["GameUnit"] = None
+        self._board: dict[Hex, GameUnit] = {}  # Maps positions to board elements
+        self._units: dict[str, GameUnit] = {}  # Maps unit IDs to units
+        self._selection: GameUnit | None = None
         self._map: Map = map
         self._constraints: set[Hex] = set()
         self._hilited: bool = False
@@ -81,8 +81,8 @@ class GameBoard:
         self._map.svg_layer.clear()
         self._constraints = set()
 
-    def update(self, item: "GameUnit") -> None:
-        """move the item to its current position"""
+    def update(self) -> None:
+        """Rebuild position index from current unit positions."""
         self._board.clear()
         for unit in self._units.values():
             self._board[unit.position] = unit

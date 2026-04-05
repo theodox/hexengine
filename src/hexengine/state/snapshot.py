@@ -26,7 +26,11 @@ def game_state_to_wire_dict(state: GameState) -> dict[str, Any]:
             "unit_id": unit.unit_id,
             "unit_type": unit.unit_type,
             "faction": unit.faction,
-            "position": {"i": unit.position.i, "j": unit.position.j, "k": unit.position.k},
+            "position": {
+                "i": unit.position.i,
+                "j": unit.position.j,
+                "k": unit.position.k,
+            },
             "health": unit.health,
             "active": unit.active,
         }

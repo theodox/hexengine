@@ -1,5 +1,6 @@
+from collections.abc import Iterable
 from contextlib import contextmanager
-from typing import Iterable, Protocol
+from typing import Protocol
 
 from ..document import js
 from ..hexes.types import Hex
@@ -12,7 +13,6 @@ class GraphicsCreator(Protocol):
 
     # Display constants
     UNIT_SIZE_DIVISOR = 1.5
-    HEAD_OFFSET_DIVISOR = 5
     HEAD_RADIUS_DIVISOR = 5
 
     def create(self, display_unit: "DisplayUnit"):
@@ -83,21 +83,23 @@ class DisplayUnit:
         """
         self.proxy.setAttribute("transform", f"translate({x},{y})")
 
-    def display_at_screen(self, screen_x: float, screen_y: float, zoom: float, pan_x: float, pan_y: float) -> None:
+    def display_at_screen(
+        self, screen_x: float, screen_y: float, zoom: float, pan_x: float, pan_y: float
+    ) -> None:
         """
-        Set unit position in screen coordinates, accounting for parent CSS transform.   
-        
+        Set unit position in screen coordinates, accounting for parent CSS transform.
+
         CSS transform: translate(pan_x, pan_y) scale(zoom)
         For a child SVG element at position (x, y), the final screen position is:
         - (x * zoom + pan_x, y * zoom + pan_y)
-        
+
         So to get (x, y) from screen coordinates:
         - x = (screen_x - pan_x) / zoom
         - y = (screen_y - pan_y) / zoom
         """
         map_x = (screen_x - pan_x) / zoom
         map_y = (screen_y - pan_y) / zoom
-        
+
         self.proxy.setAttribute("transform", f"translate({map_x},{map_y})")
 
     def _set_visible(self, value: bool) -> None:

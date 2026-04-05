@@ -8,7 +8,6 @@ that maps this schema onto those types needs to change.
 
 from dataclasses import dataclass, field
 
-
 # Position as (i, j, k) so we don't depend on hexengine.hexes here.
 # Loader converts to Hex when building game objects.
 Position = tuple[int, int, int]
@@ -151,7 +150,9 @@ class ScenarioData:
     units: list[UnitRow] = field(default_factory=list)
     locations: list[LocationRow] = field(default_factory=list)
     map_display: MapDisplayConfig = field(default_factory=MapDisplayConfig)
-    global_styles: GlobalStylesConfig = field(default_factory=default_global_styles_unresolved)
+    global_styles: GlobalStylesConfig = field(
+        default_factory=default_global_styles_unresolved
+    )
     unit_graphics: dict[str, UnitGraphicsTemplate] = field(default_factory=dict)
 
     def unit_graphics_to_wire_dict(self) -> dict[str, dict]:

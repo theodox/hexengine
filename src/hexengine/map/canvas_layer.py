@@ -1,10 +1,10 @@
 import logging
-from typing import Iterable
+from collections.abc import Iterable
 
 from ..document import js
-from ..hexes.types import Hex, Cartesian
-from .layout import HexLayout
 from ..hexes.shapes import rectangle_from_corners
+from ..hexes.types import Cartesian, Hex
+from .layout import HexLayout
 
 
 class CanvasLayer:

@@ -2,8 +2,8 @@
 """Start a simple HTTP server on the project’s virtual-env Python."""
 
 import http.server
-import socketserver
 import os
+import socketserver
 
 PORT = int(os.getenv("PORT", 8000))
 Handler = http.server.SimpleHTTPRequestHandler

@@ -15,7 +15,8 @@ from .schema import (
 )
 
 try:
-    from .base import Scenario, ScenarioItem, LocationItem
+    from .base import LocationItem, Scenario, ScenarioItem
+
     _HAS_LEGACY = True
 except ImportError:
     # Server/runtime without Pyodide/js should still allow scenario loading.

@@ -12,6 +12,7 @@ authors = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
+    "ruff>=0.8.0",
 ]
 
 [project.scripts]
@@ -36,3 +37,30 @@ hexengine = ["scenarios/data/**/*.toml", "scenarios/data/**/*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+]
+ignore = [
+    "E501",  # line length (handled by formatter if desired)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Public package re-exports hex math via star import by design.
+"src/hexengine/__init__.py" = ["F403", "F405"]
+# MouseHandler registers callbacks via `canvas.on_mouse_down < handler` (__lt__).
+"src/hexengine/game/game.py" = ["B015"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

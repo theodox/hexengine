@@ -9,7 +9,8 @@ stylesheet fetch and keeps Pyodide/DOM edge cases from breaking state updates.
 from __future__ import annotations
 
 import logging
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from ..document import js
 from ..scenarios.schema import DEFAULT_GLOBAL_BASE_CSS_FILE

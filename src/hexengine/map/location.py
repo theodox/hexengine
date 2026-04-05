@@ -1,4 +1,5 @@
-from typing import Iterable, TYPE_CHECKING
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from ..document import js
 from ..hexes.types import Hex

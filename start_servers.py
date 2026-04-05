@@ -1,4 +1,5 @@
 """Start both HTTP and WebSocket game servers."""
+
 import subprocess
 import sys
 import threading
@@ -37,7 +38,9 @@ def main():
         nonlocal server_error
         try:
             import asyncio
+
             from hexengine.server.websocket_server import main as server_main
+
             asyncio.run(server_main())
         except Exception as e:
             server_error = e
@@ -51,7 +54,12 @@ def main():
 
     if server_error is not None:
         print("ERROR: WebSocket server failed to start:", file=sys.stderr)
-        traceback.print_exception(type(server_error), server_error, server_error.__traceback__, file=sys.stderr)
+        traceback.print_exception(
+            type(server_error),
+            server_error,
+            server_error.__traceback__,
+            file=sys.stderr,
+        )
         http_process.terminate()
         http_process.wait()
         sys.exit(1)

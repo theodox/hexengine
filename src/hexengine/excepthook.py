@@ -1,10 +1,10 @@
-from typing import Any, Type
-import sys
 import logging
+import sys
+from typing import Any
 
 
 def except_hook(
-    exc_type: Type[BaseException], exc_value: BaseException, exc_traceback: Any
+    exc_type: type[BaseException], exc_value: BaseException, exc_traceback: Any
 ) -> None:
     """Custom exception hook to log uncaught exceptions."""
     if issubclass(exc_type, KeyboardInterrupt):

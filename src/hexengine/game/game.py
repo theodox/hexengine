@@ -1,16 +1,15 @@
 import logging
 
-from .events import MouseEventHandlerMixin, HotkeyHandlerMixin, Hotkey, Modifiers
-from .history import GameHistoryMixin
-
-from .board import GameBoard
-from .turn import TurnManager, Faction, Phase, TurnOrdering
-from ..client import UIState, DisplayManager
+from ..client import DisplayManager, UIState
 from ..document import element
 from ..map import Map
-from ..state import GameState, ActionManager
+from ..state import ActionManager, GameState
 from ..state.actions import NextPhase
 from ..ui.popups import PopupManager
+from .board import GameBoard
+from .events import Hotkey, HotkeyHandlerMixin, Modifiers, MouseEventHandlerMixin
+from .history import GameHistoryMixin
+from .turn import Faction, Phase, TurnManager, TurnOrdering
 
 # Screen-space pan per arrow key when zoomed in; Shift multiplies step.
 _PAN_KEY_STEP = 48
@@ -23,6 +22,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     The mixins are used to split the file into multiple files, not for reuses
     """
+
     def __init__(self) -> None:
         self.running = True
         container = element("map-container")
@@ -68,15 +68,15 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             f"[Game.__init__] Registering on_mouse_down: {self.on_mouse_down}"
         )
         self.canvas.on_mouse_down < self.on_mouse_down
-        self.logger.info(f"[Game.__init__] Registered on_mouse_down")
+        self.logger.info("[Game.__init__] Registered on_mouse_down")
 
         self.logger.info(f"[Game.__init__] Registering on_mouse_up: {self.on_mouse_up}")
         self.canvas.on_mouse_up < self.on_mouse_up
-        self.logger.info(f"[Game.__init__] Registered on_mouse_up")
+        self.logger.info("[Game.__init__] Registered on_mouse_up")
 
         self.logger.info(f"[Game.__init__] Registering on_drag: {self.on_drag}")
         self.canvas.on_drag < self.on_drag
-        self.logger.info(f"[Game.__init__] Registered on_drag")
+        self.logger.info("[Game.__init__] Registered on_drag")
 
         self._register_hotkeys()
 
@@ -93,7 +93,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
         # Register resize handler to refresh map on window resize/zoom
         from ..document import create_proxy
-        
+
         js.window.addEventListener("resize", create_proxy(self._handle_resize))
         self.logger.info("Registered window resize handler")
 
@@ -133,16 +133,16 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         Handle mouse wheel for zooming.
         """
         event.preventDefault()
-        
+
         # Get mouse position relative to container
         rect = self.canvas._container.getBoundingClientRect()
         mouse_x = event.clientX - rect.left
         mouse_y = event.clientY - rect.top
-        
+
         # Zoom in or out based on wheel delta
         zoom_speed = 0.001
         delta = -event.deltaY * zoom_speed
-        
+
         self.canvas.adjust_zoom(delta, mouse_x, mouse_y)
 
     def _handle_keydown(self, event) -> None:
@@ -313,7 +313,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 f"update_drag_preview: screen=({pixel_x:.1f},{pixel_y:.1f}), "
                 f"zoom={self.canvas._zoom_level:.2f}, pan=({self.canvas._pan_x:.1f},{self.canvas._pan_y:.1f})"
             )
-            
+
             self.display_mgr.show_preview(
                 unit_id=self.ui_state.drag_preview.unit_id,
                 pixel_x=pixel_x,

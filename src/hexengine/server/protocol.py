@@ -5,10 +5,10 @@ Defines message types and data structures for communication between
 clients and server.
 """
 
-from dataclasses import dataclass, asdict
-from enum import Enum
-from typing import Any, Optional
 import json
+from dataclasses import asdict, dataclass
+from enum import Enum
+from typing import Any
 
 
 class MessageType(Enum):
@@ -140,10 +140,10 @@ class StateUpdate:
 
     game_state: dict[str, Any]  # Serialized GameState
     sequence_number: int  # For ordering/detecting missed updates
-    map_display: Optional[dict[str, Any]] = None  # From scenario MapDisplayConfig
-    global_styles: Optional[dict[str, Any]] = None  # GlobalStylesConfig.to_wire_dict()
-    unit_graphics: Optional[dict[str, Any]] = None  # unit type -> template wire dict
-    server_package_version: Optional[str] = None  # hexes wheel version on server
+    map_display: dict[str, Any] | None = None  # From scenario MapDisplayConfig
+    global_styles: dict[str, Any] | None = None  # GlobalStylesConfig.to_wire_dict()
+    unit_graphics: dict[str, Any] | None = None  # unit type -> template wire dict
+    server_package_version: str | None = None  # hexes wheel version on server
 
     def to_message(self) -> Message:
         """Convert to Message."""
@@ -180,8 +180,8 @@ class ActionResult:
     """Result of an action attempt."""
 
     success: bool
-    action_id: Optional[str] = None
-    error_message: Optional[str] = None
+    action_id: str | None = None
+    error_message: str | None = None
 
     def to_message(self) -> Message:
         """Convert to Message."""
@@ -200,7 +200,7 @@ class JoinGameRequest:
     """Request to join a game."""
 
     player_name: str
-    faction: Optional[str] = None  # Preferred faction, or None for auto-assign
+    faction: str | None = None  # Preferred faction, or None for auto-assign
 
     def to_message(self) -> Message:
         """Convert to Message."""
@@ -223,7 +223,7 @@ class PlayerInfo:
     player_name: str
     faction: str
     connected: bool = True
-    package_version: Optional[str] = None  # server hexes version (join ack only)
+    package_version: str | None = None  # server hexes version (join ack only)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""

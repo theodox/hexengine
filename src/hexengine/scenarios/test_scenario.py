@@ -1,8 +1,7 @@
 from ..hexes.types import Hex
-from .base import Scenario, ScenarioItem, LocationItem
+from .base import LocationItem, Scenario, ScenarioItem
 from .canuck import CanuckUnit
 from .generic import GenericUnit
-
 
 TEST_SCENARIO = Scenario(
     name="Test Scenario",

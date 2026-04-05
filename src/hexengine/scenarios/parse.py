@@ -168,7 +168,11 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
     with open(path, "rb") as f:
         data = tomllib.load(f)
 
-    name = str(data.get("name", path.parent.name if path.name == "scenario.toml" else path.stem))
+    name = str(
+        data.get(
+            "name", path.parent.name if path.name == "scenario.toml" else path.stem
+        )
+    )
     description = str(data.get("description", ""))
 
     map_display = _parse_map_table(data.get("map"), path, root)
@@ -287,7 +291,9 @@ def _parse_unit_graphics_table(
     out: dict[str, UnitGraphicsTemplate] = {}
     for i, row in enumerate(rows):
         if not isinstance(row, dict):
-            raise TypeError(f"unit_graphics[{i}] must be a table, got {type(row).__name__}")
+            raise TypeError(
+                f"unit_graphics[{i}] must be a table, got {type(row).__name__}"
+            )
         unit_type = _optional_nonempty_str(row, "type")
         if not unit_type:
             raise ValueError(f"unit_graphics[{i}] requires non-empty type")
@@ -311,7 +317,9 @@ def _parse_unit_graphics_table(
         render_raw = _optional_nonempty_str(row, "render")
 
         if svg_file_in is not None:
-            svg_file_out = resolve_map_background_url(svg_file_in, scenario_toml, static_root)
+            svg_file_out = resolve_map_background_url(
+                svg_file_in, scenario_toml, static_root
+            )
             render = (render_raw or "image").lower()
             if render not in ("image", "inline"):
                 raise ValueError(

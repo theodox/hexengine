@@ -1,6 +1,6 @@
+import logging
 from typing import TYPE_CHECKING
 
-import logging
 from ..document import create_proxy, js
 
 if TYPE_CHECKING:

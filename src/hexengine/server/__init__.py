@@ -7,12 +7,12 @@ state updates to all connected clients.
 """
 
 from .game_server import GameServer
-from .protocol import Message, MessageType, ActionRequest, StateUpdate
+from .protocol import ActionRequest, Message, MessageType, StateUpdate
 
 __all__ = [
     "GameServer",
     "Message",
-    "MessageType", 
+    "MessageType",
     "ActionRequest",
     "StateUpdate",
 ]

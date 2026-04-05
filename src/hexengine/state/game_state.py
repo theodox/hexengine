@@ -6,7 +6,6 @@ All state models are frozen dataclasses for immutability and structural sharing.
 """
 
 from dataclasses import dataclass, field, replace
-from typing import Optional
 
 from ..hexes.types import Hex
 
@@ -77,7 +76,7 @@ class BoardState:
         new_locations = {**self.locations, location.position: location}
         return replace(self, locations=new_locations)
 
-    def get_unit_at(self, position: Hex) -> Optional[UnitState]:
+    def get_unit_at(self, position: Hex) -> UnitState | None:
         """Find unit at the given position, if any."""
         for unit in self.units.values():
             if unit.position == position and unit.active:

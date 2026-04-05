@@ -1,5 +1,6 @@
-import unittest
 import dataclasses
+import unittest
+
 from hexengine.hexes.types import Hex
 
 

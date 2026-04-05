@@ -1,17 +1,18 @@
 import unittest
-from hexengine.hexes.types import Hex
+
 from hexengine.hexes.math import (
     _NEIGHBOR_OFFSETS,
     cube_round,
-    normalize,
-    neighbors,
-    neighbor_hex,
     distance,
     lerp,
     line,
+    neighbor_hex,
+    neighbors,
+    normalize,
     rotate_left,
     rotate_right,
 )
+from hexengine.hexes.types import Hex
 
 
 class TestHexMath(unittest.TestCase):

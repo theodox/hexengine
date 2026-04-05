@@ -6,7 +6,6 @@ Unlike GameState, this is MUTABLE and local to the client.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from ..hexes.types import Hex
 
@@ -23,7 +22,7 @@ class DragPreview:
     unit_id: str
     visual_position: tuple[float, float]  # Pixel coordinates for display
     original_position: Hex  # Where the unit actually is in game state
-    potential_target: Optional[Hex]  # Hex we're hovering over
+    potential_target: Hex | None  # Hex we're hovering over
     is_valid: bool  # Whether the potential target is a legal move
 
     def with_position(self, pixel_x: float, pixel_y: float) -> "DragPreview":
@@ -36,7 +35,7 @@ class DragPreview:
             is_valid=self.is_valid,
         )
 
-    def with_target(self, target_hex: Optional[Hex], is_valid: bool) -> "DragPreview":
+    def with_target(self, target_hex: Hex | None, is_valid: bool) -> "DragPreview":
         """Update the potential target."""
         return DragPreview(
             unit_id=self.unit_id,
@@ -60,18 +59,18 @@ class UIState:
     """
 
     # Selection
-    selected_unit_id: Optional[str] = None
+    selected_unit_id: str | None = None
 
     # Hover/cursor state
-    hover_hex: Optional[Hex] = None
+    hover_hex: Hex | None = None
 
     # Drag preview (only set during active drag)
-    drag_preview: Optional[DragPreview] = None
+    drag_preview: DragPreview | None = None
 
     # Valid moves for selected unit (computed from game state)
     movement_constraints: set[Hex] = field(default_factory=set)
 
-    def select_unit(self, unit_id: Optional[str]) -> None:
+    def select_unit(self, unit_id: str | None) -> None:
         """Select a unit (or clear selection if None)."""
         self.selected_unit_id = unit_id
         if unit_id is None:
@@ -90,7 +89,7 @@ class UIState:
         )
 
     def update_drag(
-        self, pixel_x: float, pixel_y: float, target_hex: Optional[Hex]
+        self, pixel_x: float, pixel_y: float, target_hex: Hex | None
     ) -> None:
         """Update drag preview position and target."""
         if self.drag_preview is None:
@@ -100,7 +99,7 @@ class UIState:
         self.drag_preview = self.drag_preview.with_position(pixel_x, pixel_y)
         self.drag_preview = self.drag_preview.with_target(target_hex, is_valid)
 
-    def end_drag(self) -> Optional[DragPreview]:
+    def end_drag(self) -> DragPreview | None:
         """End drag preview and return the final preview state."""
         preview = self.drag_preview
         self.drag_preview = None

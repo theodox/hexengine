@@ -32,9 +32,7 @@ def _svg_image_file_class(href: str) -> type:
             half = unit_size / 2
             img = js.document.createElementNS("http://www.w3.org/2000/svg", "image")
             with self._attach(display_unit, img, "unit-svg-template-img"):
-                img.setAttributeNS(
-                    "http://www.w3.org/1999/xlink", "href", href_local
-                )
+                img.setAttributeNS("http://www.w3.org/1999/xlink", "href", href_local)
                 img.setAttribute("x", str(-half))
                 img.setAttribute("y", str(-half))
                 img.setAttribute("width", str(unit_size))

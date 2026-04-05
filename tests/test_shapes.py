@@ -1,27 +1,28 @@
+import math
 import unittest
-from hexengine.hexes.types import Hex
+
+from hexengine.hexes.math import (
+    cartesian_to_hex,
+    cross_product,
+    distance,
+    dot_product,
+    hex_magnitude,
+    hex_to_cartesian,
+    scale_cartesian_vector,
+    vector_angle,
+)
 from hexengine.hexes.shapes import (
+    angle,
     convex_hull,
     fill_convex_polygon,
     outer_boundary,
+    path,
     polygon,
     radius,
     ring,
-    path,
-    angle,
     wedge_fill,
 )
-from hexengine.hexes.math import (
-    dot_product,
-    vector_angle,
-    hex_magnitude,
-    cross_product,
-    hex_to_cartesian,
-    cartesian_to_hex,
-    scale_cartesian_vector,
-    distance,
-)
-import math
+from hexengine.hexes.types import Hex
 
 
 class TestHexShapes(unittest.TestCase):

@@ -1,6 +1,6 @@
 """Test if cartesian-to-hex conversion is unique for integer cartesian coordinates."""
 
-from src.hexengine.hexes.types import Hex, Cartesian
+from src.hexengine.hexes.types import Cartesian, Hex
 
 
 def test_round_trip():

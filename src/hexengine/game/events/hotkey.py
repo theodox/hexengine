@@ -1,7 +1,7 @@
-from typing import Callable
 import logging
+from collections.abc import Callable
 
-from ...document import js, create_proxy
+from ...document import create_proxy, js
 from .handler import Modifiers
 
 
@@ -17,9 +17,7 @@ class HotkeyHandlerMixin:
         if (key, modifiers) in self.KEYDOWN_EVENTS:
             func = self.KEYDOWN_EVENTS[(key, modifiers)]
             func(self)
-            self.logger.info(
-                f"Executed {func.__name__} for Hotkey {key}:{modifiers}"
-            )
+            self.logger.info(f"Executed {func.__name__} for Hotkey {key}:{modifiers}")
 
     def _register_hotkeys(self) -> None:
         self.logger.debug("Registering hotkey handlers")

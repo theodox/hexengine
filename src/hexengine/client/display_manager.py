@@ -6,16 +6,13 @@ It observes state changes and updates displays accordingly, and handles temporar
 preview visuals during drag operations.
 """
 
-from typing import TYPE_CHECKING, Any, Dict, Optional
+import logging
+from typing import TYPE_CHECKING, Any
 
 from ..hexes.types import Hex
-from ..units import DisplayUnit, GameUnit
 from ..state import GameState
-from ..units.graphics import DisplayUnit
 from ..units.game import GameUnit
-
-import logging
-
+from ..units.graphics import DisplayUnit
 
 if TYPE_CHECKING:
     from ..map import Map
@@ -44,11 +41,11 @@ class DisplayManager:
         """
         self._canvas = map_canvas
         self._board = game_board
-        self._unit_displays: Dict[str, DisplayUnit] = {}
-        self._unit_graphics_wire: Dict[str, Dict[str, Any]] = {}
+        self._unit_displays: dict[str, DisplayUnit] = {}
+        self._unit_graphics_wire: dict[str, dict[str, Any]] = {}
         self.logger = logging.getLogger("display_manager")
 
-    def apply_unit_graphics(self, wire: Dict[str, Any]) -> None:
+    def apply_unit_graphics(self, wire: dict[str, Any]) -> None:
         """Replace scenario-driven unit graphics templates (unit type → wire dict)."""
         self._unit_graphics_wire = {str(k): dict(v) for k, v in wire.items()}
 
@@ -110,8 +107,6 @@ class DisplayManager:
         display.position = unit_state.position
         display.visible = unit_state.active
 
-        from ..document import js
-
         self.logger.debug(
             f"Created unit {unit_state.unit_id}, visible={unit_state.active}, display attr={display.proxy.getAttribute('display')}"
         )
@@ -122,8 +117,6 @@ class DisplayManager:
         # Add to layer - access the UnitLayer's SVG element directly
         unit_layer = self._canvas._unit_layer
         unit_layer._svg.appendChild(display.proxy)
-
-        from ..document import js
 
         self.logger.debug(
             f"Added {unit_state.unit_id} to SVG with id: {unit_layer._svg.id}"
@@ -169,7 +162,7 @@ class DisplayManager:
         from ..scenarios.generic import GenericGraphicsCreator
         from .scenario_unit_graphics import graphics_creator_class_for_template
 
-        out: Dict[str, type] = {
+        out: dict[str, type] = {
             "canuck": CanuckGraphicsCreator,
             "soldier": GenericGraphicsCreator,
         }
@@ -224,7 +217,7 @@ class DisplayManager:
             self.logger.debug(
                 f"show_preview: unit={unit_id}, type={unit_type}, coords=({pixel_x:.1f}, {pixel_y:.1f})"
             )
-            
+
             # Use map-space coordinates directly (no further transformation needed)
             display.display_at(pixel_x, pixel_y)
 
@@ -248,7 +241,7 @@ class DisplayManager:
             # Restore enabled state
             display.enabled = True
 
-    def get_display(self, unit_id: str) -> Optional[DisplayUnit]:
+    def get_display(self, unit_id: str) -> DisplayUnit | None:
         """Get display unit by ID."""
         return self._unit_displays.get(unit_id)
 
@@ -280,7 +273,7 @@ class DisplayManager:
         Not needed for pan/zoom: those use CSS transforms on map layers while unit
         coordinates stay in map space. Call when hex layout parameters change.
         """
-        for unit_id, display in self._unit_displays.items():
+        for _unit_id, display in self._unit_displays.items():
             # Re-apply the position to force recalculation with current layout
             hex_pos = display._hex
             x, y = self._canvas.hex_layout.hex_to_pixel(hex_pos)

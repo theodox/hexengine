@@ -1,9 +1,9 @@
 import logging
 
+from pyodide.ffi import jsnull
+
 from ..document import create_proxy
 from ..game.events.handler import EventInfo, Modifiers
-import js
-from pyodide.ffi import jsnull
 
 HANDLER_LOGGER = logging.getLogger("handler")
 # Avoid DEBUG on this logger: mousemove fires very often and f-string debug args are costly.
@@ -41,10 +41,6 @@ class MouseHandler:
         depth = 0
         while target and not unit_id and depth < 10:
             try:
-                # Log what we're checking
-                tag = target.tagName if hasattr(target, "tagName") else "unknown"
-                elem_id = target.id if hasattr(target, "id") else ""
-
                 unit_id = target.getAttribute("data-unit")
                 if unit_id and unit_id != jsnull:
                     break
@@ -62,27 +58,27 @@ class MouseHandler:
         # Get coordinates relative to the viewport
         # Don't use getBoundingClientRect on transformed elements
         rect = self._owner.getBoundingClientRect()
-        
+
         # Raw screen coordinates relative to container
         raw_x = event.clientX - rect.left
         raw_y = event.clientY - rect.top
-        
+
         # For transformed coordinate calculations, we need to account for
         # the fact that the container itself might have transforms
         x = raw_x
         y = raw_y
-        
+
         # Apply inverse transform to get coordinates in map space for hex calculations
         if self._map:
             # Inverse transform: (x - pan_x) / zoom
             x = (x - self._map._pan_x) / self._map._zoom_level
             y = (y - self._map._pan_y) / self._map._zoom_level
-            
+
             HANDLER_LOGGER.debug(
                 f"Transform: raw=({raw_x:.1f},{raw_y:.1f}) -> map=({x:.1f},{y:.1f}) "
                 f"[zoom={self._map._zoom_level:.2f}, pan=({self._map._pan_x:.1f},{self._map._pan_y:.1f})]"
             )
-        
+
         # Canvas scaling factors (for canvas internal resolution vs display size)
         if hasattr(self._owner, "width"):
             sx = self._owner.width / rect.width
@@ -93,7 +89,7 @@ class MouseHandler:
             sy = self._owner.height / rect.height
         else:
             sy = 1.0
-        
+
         if sx != 1.0 or sy != 1.0:
             HANDLER_LOGGER.debug(
                 f"Canvas scaling: sx={sx:.4f}, sy={sy:.4f}, "
@@ -108,10 +104,12 @@ class MouseHandler:
         position = (x, y)
         # Raw position for screen-space operations and drag preview
         raw_position = (raw_x, raw_y)
-        
+
         # Hex calculation needs scaled coordinates for canvas-based layouts
         scaled_position = (x * sx, y * sy)
-        hex_value = self._layout.pixel_to_hex(*scaled_position) if self._layout else None
+        hex_value = (
+            self._layout.pixel_to_hex(*scaled_position) if self._layout else None
+        )
 
         result = EventInfo(
             event=event,

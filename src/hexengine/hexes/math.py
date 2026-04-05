@@ -1,9 +1,9 @@
-from .types import Hex, Cartesian
-from typing import Iterable, Union
+from collections.abc import Iterable
+
+from .types import Cartesian, Hex
 
 # Constants for hex to cartesian conversion
 SQRT_THREE = 3**0.5
-THREE_HALF_POWER = SQRT_THREE / 2
 
 
 def _hex_to_axial_plane_xy(h: Hex) -> tuple[float, float]:
@@ -126,9 +126,7 @@ def cross_product(o: Hex, a: Hex, b: Hex) -> float:
     oxy = _hex_to_axial_plane_xy(o)
     axy = _hex_to_axial_plane_xy(a)
     bxy = _hex_to_axial_plane_xy(b)
-    return (axy[0] - oxy[0]) * (bxy[1] - oxy[1]) - (axy[1] - oxy[1]) * (
-        bxy[0] - oxy[0]
-    )
+    return (axy[0] - oxy[0]) * (bxy[1] - oxy[1]) - (axy[1] - oxy[1]) * (bxy[0] - oxy[0])
 
 
 def vector_angle(a: Hex, b: Hex) -> float:
@@ -225,7 +223,7 @@ def subtract_cartesian_vectors(a: Cartesian, b: Cartesian) -> Cartesian:
     return a - b
 
 
-def scale_cartesian_vector(vector: Union[Hex, Cartesian], scalar: float) -> Hex:
+def scale_cartesian_vector(vector: Hex | Cartesian, scalar: float) -> Hex:
     """
     Scale a vector in continuous flat-top plane space, then round to the nearest hex.
 

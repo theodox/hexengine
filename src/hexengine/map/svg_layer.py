@@ -1,6 +1,6 @@
 import logging
 
-from ..document import js, create_proxy
+from ..document import create_proxy, js
 from ..hexes.types import Hex
 from .layout import HexLayout
 

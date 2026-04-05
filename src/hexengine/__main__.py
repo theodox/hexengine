@@ -1,5 +1,5 @@
 import logging
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
 from . import dev_console
 from .document import element, js
@@ -97,5 +97,5 @@ def main() -> None:
     logger.debug("main() called")
     try:
         async_main()
-    except Exception as e:
+    except Exception:
         logging.exception("FATAL ERROR in main()")

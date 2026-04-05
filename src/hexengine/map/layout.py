@@ -1,4 +1,5 @@
-from math import sqrt, cos, sin, pi
+from math import cos, pi, sin, sqrt
+
 from ..hexes.types import Hex
 
 

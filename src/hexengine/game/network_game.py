@@ -7,14 +7,12 @@ all actions through a WebSocket connection to the server.
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
-from ..state.snapshot import SNAPSHOT_FORMAT_VERSION, game_state_to_wire_dict
-
-from ..client.websocket_client import BrowserWebSocketClient, ConnectionState
 from ..client import LocalServerManager
+from ..client.websocket_client import BrowserWebSocketClient, ConnectionState
 from ..state import GameState
-from ..hexes.types import Hex
+from ..state.snapshot import SNAPSHOT_FORMAT_VERSION, game_state_to_wire_dict
 from .game import Game
 
 
@@ -33,7 +31,7 @@ class NetworkGame(Game):
         self,
         server_url: str = "ws://localhost:8765",
         player_name: str = "Player",
-        preferred_faction: Optional[str] = None,
+        preferred_faction: str | None = None,
         use_local_server: bool = True,
     ):
         """
@@ -58,12 +56,12 @@ class NetworkGame(Game):
         self.use_local_server = use_local_server
 
         # Client connection
-        self.client: Optional[BrowserWebSocketClient] = None
-        self.local_server: Optional[LocalServerManager] = None
+        self.client: BrowserWebSocketClient | None = None
+        self.local_server: LocalServerManager | None = None
 
         # Connection state
         self.connected = False
-        self.my_faction: Optional[str] = None
+        self.my_faction: str | None = None
 
         self.logger = logging.getLogger("network_game")
 
@@ -79,7 +77,10 @@ class NetworkGame(Game):
             if self.use_local_server and not self.local_server:
                 self.logger.info("Starting local server...")
                 from ..scenarios.loader import scenario_to_initial_state
-                from ..scenarios.parse import load_scenario, resolve_scenario_path_for_server
+                from ..scenarios.parse import (
+                    load_scenario,
+                    resolve_scenario_path_for_server,
+                )
 
                 scenario_path = resolve_scenario_path_for_server()
                 scenario_data = load_scenario(scenario_path)
@@ -146,7 +147,6 @@ class NetworkGame(Game):
         Args:
             action: Action to execute (e.g., MoveUnit, DeleteUnit)
         """
-        from ..document import js
 
         if not self.client or not self.connected:
             self.logger.warning("Cannot execute action: not connected to server")
@@ -154,9 +154,15 @@ class NetworkGame(Game):
 
         # Check if it's our turn (client-side validation for UX)
         if not self.client.is_my_turn():
-            current_faction = self.client.game_state.turn.current_faction if self.client.game_state else "unknown"
+            current_faction = (
+                self.client.game_state.turn.current_faction
+                if self.client.game_state
+                else "unknown"
+            )
             my_faction = self.client.faction if self.client.faction else "unknown"
-            self.logger.warning(f"Cannot execute action: not your turn (current: {current_faction}, you: {my_faction})")
+            self.logger.warning(
+                f"Cannot execute action: not your turn (current: {current_faction}, you: {my_faction})"
+            )
             return
 
         # Serialize action to server format
@@ -180,7 +186,13 @@ class NetworkGame(Game):
         Returns:
             Dictionary of action parameters
         """
-        from ..state.actions import MoveUnit, DeleteUnit, AddUnit, SpendAction, NextPhase
+        from ..state.actions import (
+            AddUnit,
+            DeleteUnit,
+            MoveUnit,
+            NextPhase,
+            SpendAction,
+        )
 
         if isinstance(action, MoveUnit):
             return {
@@ -303,7 +315,7 @@ class NetworkGame(Game):
 
         # TODO: Show error to user
 
-    def _handle_action_result(self, success: bool, error_msg: Optional[str]) -> None:
+    def _handle_action_result(self, success: bool, error_msg: str | None) -> None:
         """
         Callback when server responds to an action we sent.
 
