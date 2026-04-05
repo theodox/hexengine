@@ -9,6 +9,11 @@ authors = [
     {name = "Steve Theodore", email = "steve@theodox.com"}
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
 [project.scripts]
 hexserver = "hexengine.server.websocket_server:run"
 
@@ -27,3 +32,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 hexengine = ["scenarios/data/**/*.toml", "scenarios/data/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
