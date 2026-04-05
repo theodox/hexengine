@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import heapq
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from ..hexes.math import neighbors
 from ..hexes.types import Hex
@@ -23,11 +25,11 @@ class GameBoard:
         self.logger: logging.Logger = logging.getLogger("game.board")
 
     @property
-    def selection(self) -> Optional["GameUnit"]:
+    def selection(self) -> GameUnit | None:
         return self._selection
 
     @selection.setter
-    def selection(self, value: Optional["GameUnit"]) -> None:
+    def selection(self, value: GameUnit | None) -> None:
         if self._selection:
             self.selection.hilited = False
 
@@ -88,14 +90,14 @@ class GameBoard:
             self._board[unit.position] = unit
         self.logger.debug(str(self._board))
 
-    def add_unit(self, unit: "GameUnit") -> None:
+    def add_unit(self, unit: GameUnit) -> None:
         if self.occupied(unit.position):
             raise ValueError("Position already occupied")
         self._board[unit.position] = unit
         self._units[unit.unit_id] = unit
         self._map.add_unit(unit)
 
-    def get_unit(self, unit_id: str) -> Optional["GameUnit"]:
+    def get_unit(self, unit_id: str) -> GameUnit | None:
         return self._units.get(unit_id)
 
     def reachable_hexes(self, start_hex: Hex, max_cost: float) -> dict[Hex, float]:

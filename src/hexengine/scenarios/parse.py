@@ -4,6 +4,8 @@ Parse scenario files (TOML) into ScenarioData.
 No game types or hexengine.map/state imports — only schema and stdlib.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 
 try:
@@ -96,7 +98,7 @@ def _parse_position(raw: list[int] | tuple[int, ...]) -> tuple[int, int, int]:
 
 
 def _float_or_inf(v: str | float) -> float:
-    if isinstance(v, (int, float)):
+    if isinstance(v, int | float):
         return float(v)
     if isinstance(v, str) and v.strip().lower() in ("inf", "infinity"):
         return float("inf")

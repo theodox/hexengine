@@ -4,6 +4,8 @@ Browser-compatible WebSocket client using native browser WebSocket API.
 Works in pyodide by using JavaScript WebSocket through js proxy.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 from collections.abc import Callable

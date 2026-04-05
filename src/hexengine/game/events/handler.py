@@ -1,5 +1,7 @@
 """Event handler data types and utilities."""
 
+from __future__ import annotations
+
 from collections import namedtuple
 from enum import IntFlag, auto
 
@@ -25,7 +27,7 @@ class Modifiers(IntFlag):
     CONTROL = auto()
 
     @classmethod
-    def from_event(cls, event) -> "Modifiers":
+    def from_event(cls, event) -> Modifiers:
         alt = cls.ALT if event.getModifierState("Alt") else 0
         shift = cls.SHIFT if event.getModifierState("Shift") else 0
         control = cls.CONTROL if event.getModifierState("Control") else 0

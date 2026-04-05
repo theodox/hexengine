@@ -6,6 +6,8 @@ It observes state changes and updates displays accordingly, and handles temporar
 preview visuals during drag operations.
 """
 
+from __future__ import annotations
+
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -31,7 +33,7 @@ class DisplayManager:
     Game logic modifies GameState, DisplayManager syncs displays to match.
     """
 
-    def __init__(self, map_canvas: "Map", game_board=None):
+    def __init__(self, map_canvas: Map, game_board=None):
         """
         Initialize display manager.
 

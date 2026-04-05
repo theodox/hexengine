@@ -5,6 +5,8 @@ This represents temporary UI state like selections, hover effects, and drag prev
 Unlike GameState, this is MUTABLE and local to the client.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 from ..hexes.types import Hex
@@ -25,7 +27,7 @@ class DragPreview:
     potential_target: Hex | None  # Hex we're hovering over
     is_valid: bool  # Whether the potential target is a legal move
 
-    def with_position(self, pixel_x: float, pixel_y: float) -> "DragPreview":
+    def with_position(self, pixel_x: float, pixel_y: float) -> DragPreview:
         """Update the visual position."""
         return DragPreview(
             unit_id=self.unit_id,
@@ -35,7 +37,7 @@ class DragPreview:
             is_valid=self.is_valid,
         )
 
-    def with_target(self, target_hex: Hex | None, is_valid: bool) -> "DragPreview":
+    def with_target(self, target_hex: Hex | None, is_valid: bool) -> DragPreview:
         """Update the potential target."""
         return DragPreview(
             unit_id=self.unit_id,

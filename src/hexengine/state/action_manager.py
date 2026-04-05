@@ -8,6 +8,8 @@ This is the ONLY way to permanently modify game state. It provides:
 - Event sourcing (action history)
 """
 
+from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -175,7 +177,7 @@ class ActionManager:
         """
         self._observers.append(observer)
 
-    def __iadd__(self, observer: Callable[[GameState], None]) -> "ActionManager":
+    def __iadd__(self, observer: Callable[[GameState], None]) -> ActionManager:
         """Shortcut to add an observer using += syntax."""
         self.add_observer(observer)
         return self
@@ -185,7 +187,7 @@ class ActionManager:
         if observer in self._observers:
             self._observers.remove(observer)
 
-    def __isub__(self, observer: Callable[[GameState], None]) -> "ActionManager":
+    def __isub__(self, observer: Callable[[GameState], None]) -> ActionManager:
         """Shortcut to remove an observer using -= syntax."""
         self.remove_observer(observer)
         return self

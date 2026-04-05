@@ -5,6 +5,8 @@ Lives in map so that map.location can use it without importing from scenarios.ba
 breaking the circular dependency: map.location <-> scenarios.base.
 """
 
+from __future__ import annotations
+
 from ..hexes.types import Hex
 
 

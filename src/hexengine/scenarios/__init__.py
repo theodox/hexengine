@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .loader import scenario_to_initial_state, scenario_to_legacy_scenario
 from .parse import (
     default_scenario_path,
@@ -14,6 +16,7 @@ from .schema import (
     default_global_styles_unresolved,
 )
 
+_HAS_LEGACY: bool
 try:
     from .base import LocationItem, Scenario, ScenarioItem
 

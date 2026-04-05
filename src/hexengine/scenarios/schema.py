@@ -6,6 +6,8 @@ This is the stable "DSL" representation. When game classes change
 that maps this schema onto those types needs to change.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 # Position as (i, j, k) so we don't depend on hexengine.hexes here.
@@ -38,7 +40,7 @@ class GlobalStylesConfig:
         return d
 
     @classmethod
-    def from_wire_dict(cls, d: dict) -> "GlobalStylesConfig":
+    def from_wire_dict(cls, d: dict) -> GlobalStylesConfig:
         raw_css = d.get("css")
         raw_cf = d.get("css_file")
         return cls(
@@ -100,7 +102,7 @@ class MapDisplayConfig:
         }
 
     @classmethod
-    def from_wire_dict(cls, d: dict) -> "MapDisplayConfig":
+    def from_wire_dict(cls, d: dict) -> MapDisplayConfig:
         return cls(
             hex_size=float(d.get("hex_size", 24.0)),
             hex_margin=float(d.get("hex_margin", 0.0)),

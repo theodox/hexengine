@@ -4,6 +4,8 @@ Manager for running a local game server.
 Handles starting/stopping a local server for single-player games.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import threading

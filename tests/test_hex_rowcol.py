@@ -1,5 +1,7 @@
 """Tests for HexRowCol coordinate system (1:1 mapping with Hex)."""
 
+from __future__ import annotations
+
 import sys
 
 sys.path.insert(0, "src")

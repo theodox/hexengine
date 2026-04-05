@@ -5,6 +5,8 @@ Defines message types and data structures for communication between
 clients and server.
 """
 
+from __future__ import annotations
+
 import json
 from dataclasses import asdict, dataclass
 from enum import Enum
@@ -42,7 +44,7 @@ class Message:
         return json.dumps({"type": self.type.value, "payload": self.payload})
 
     @classmethod
-    def from_json(cls, data: str) -> "Message":
+    def from_json(cls, data: str) -> Message:
         """Deserialize message from JSON."""
         obj = json.loads(data)
         return cls(type=MessageType(obj["type"]), payload=obj["payload"])
@@ -55,7 +57,7 @@ class UndoRequest:
     player_id: str
 
     @classmethod
-    def from_message(cls, message: Message) -> "UndoRequest":
+    def from_message(cls, message: Message) -> UndoRequest:
         """Create from message."""
         return cls(player_id=message.payload["player_id"])
 
@@ -73,7 +75,7 @@ class RedoRequest:
     player_id: str
 
     @classmethod
-    def from_message(cls, message: Message) -> "RedoRequest":
+    def from_message(cls, message: Message) -> RedoRequest:
         """Create from message."""
         return cls(player_id=message.payload["player_id"])
 
@@ -104,7 +106,7 @@ class ActionRequest:
         )
 
     @classmethod
-    def from_message(cls, msg: Message) -> "ActionRequest":
+    def from_message(cls, msg: Message) -> ActionRequest:
         """Create from Message."""
         return cls(**msg.payload)
 
@@ -126,7 +128,7 @@ class LoadSnapshotRequest:
         )
 
     @classmethod
-    def from_message(cls, msg: Message) -> "LoadSnapshotRequest":
+    def from_message(cls, msg: Message) -> LoadSnapshotRequest:
         p = msg.payload
         return cls(
             game_state=p["game_state"],
@@ -162,7 +164,7 @@ class StateUpdate:
         return Message(type=MessageType.STATE_UPDATE, payload=payload)
 
     @classmethod
-    def from_message(cls, msg: Message) -> "StateUpdate":
+    def from_message(cls, msg: Message) -> StateUpdate:
         """Create from Message."""
         p = msg.payload
         return cls(
@@ -210,7 +212,7 @@ class JoinGameRequest:
         )
 
     @classmethod
-    def from_message(cls, msg: Message) -> "JoinGameRequest":
+    def from_message(cls, msg: Message) -> JoinGameRequest:
         """Create from Message."""
         return cls(**msg.payload)
 

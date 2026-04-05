@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any

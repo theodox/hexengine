@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 import logging
 
 from pyodide.ffi import jsnull
 
 from ..document import create_proxy
-from ..game.events.handler import EventInfo, Modifiers
 
 HANDLER_LOGGER = logging.getLogger("handler")
 # Avoid DEBUG on this logger: mousemove fires very often and f-string debug args are costly.
@@ -55,6 +56,10 @@ class MouseHandler:
         return target, unit_id
 
     def _handle_event(self, event) -> None:
+        # Lazy import: importing hexengine.game at module load pulls Game → map.Map
+        # while map/__init__.py is still running (via units.graphics → map.layout).
+        from ..game.events.handler import EventInfo, Modifiers
+
         # Get coordinates relative to the viewport
         # Don't use getBoundingClientRect on transformed elements
         rect = self._owner.getBoundingClientRect()

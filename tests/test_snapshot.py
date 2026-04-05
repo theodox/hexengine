@@ -1,5 +1,7 @@
 """Tests for wire snapshot serialization and ActionManager.replace_state."""
 
+from __future__ import annotations
+
 import unittest
 
 from hexengine.hexes.types import Hex

@@ -5,6 +5,8 @@ These are pure functions that compute things like valid moves,
 line of sight, etc. from game state without modifying it.
 """
 
+from __future__ import annotations
+
 import heapq
 
 from ..hexes.math import neighbors

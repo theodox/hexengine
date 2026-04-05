@@ -5,6 +5,8 @@ This extends the base Game class to work with multiplayer by routing
 all actions through a WebSocket connection to the server.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 from typing import Any

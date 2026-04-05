@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Iterable
 from contextlib import contextmanager
 from typing import Protocol
@@ -15,7 +17,7 @@ class GraphicsCreator(Protocol):
     UNIT_SIZE_DIVISOR = 1.5
     HEAD_RADIUS_DIVISOR = 5
 
-    def create(self, display_unit: "DisplayUnit"):
+    def create(self, display_unit: DisplayUnit):
         """
         the create method builds the SVG elements
         for a given unit and appends them to the unit's proxy.
@@ -68,7 +70,7 @@ class DisplayUnit:
         for cl in classes:
             self.proxy.classList.add(cl)
 
-    def set_text_element(self, element: "js.Element") -> None:
+    def set_text_element(self, element: js.Element) -> None:
         self.text_element = element
 
     def set_text(self, text: str) -> None:

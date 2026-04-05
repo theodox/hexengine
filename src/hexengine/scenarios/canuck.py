@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from ..document import js
 from ..units import GameUnit
 from ..units.graphics import DisplayUnit, GraphicsCreator

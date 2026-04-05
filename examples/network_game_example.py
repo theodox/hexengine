@@ -4,6 +4,8 @@ Example: How to use the NetworkGame class for multiplayer.
 Shows both single-player (local server) and multiplayer (remote server) setups.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 

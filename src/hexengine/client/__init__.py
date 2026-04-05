@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .display_manager import DisplayManager
 from .local_server import LocalServerManager
 from .ui_state import DragPreview, UIState

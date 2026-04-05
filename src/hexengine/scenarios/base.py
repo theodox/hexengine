@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 from ..hexes.types import Hex
@@ -12,7 +14,7 @@ class ScenarioItem:
     def __init__(
         self,
         pos: Hex,
-        cls: type["GameUnit"],
+        cls: type[GameUnit],
         unit_id: str,
         unit_type: str,
         active: bool = True,
@@ -37,7 +39,7 @@ class Scenario:
         self.units = units
         self.locations = locations if locations is not None else []
 
-    def populate(self, game: "Game") -> None:
+    def populate(self, game: Game) -> None:
         for member in self.units:
             member.cls.GRAPHICS_CREATOR.register()
             unit = member.cls.create(member.unit_id, member.unit_type, game.canvas)

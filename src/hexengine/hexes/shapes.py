@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Iterable, Sequence
 from functools import singledispatch
 from math import atan2, cos, pi, sin

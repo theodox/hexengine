@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """Start a simple HTTP server on the project’s virtual-env Python."""
 
+from __future__ import annotations
+
 import http.server
 import os
 import socketserver

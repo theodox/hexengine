@@ -4,6 +4,8 @@ Test the multiplayer networking infrastructure.
 Tests WebSocketClient, GameServer, and NetworkGame integration.
 """
 
+from __future__ import annotations
+
 import asyncio
 import unittest
 

@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from ..hexes.types import Hex
 from .base import LocationItem, Scenario, ScenarioItem
 from .canuck import CanuckUnit
 from .generic import GenericUnit
 
-TEST_SCENARIO = Scenario(
+TEST_SCENARIO: Scenario = Scenario(
     name="Test Scenario",
     description="A simple test scenario for the game.",
     units=[

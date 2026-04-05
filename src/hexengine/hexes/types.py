@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import dataclasses
 
 # Constants for hex to cartesian conversion
@@ -25,20 +27,20 @@ class Cartesian:
     def __repr__(self) -> str:
         return f"Cartesian({self.x},{self.y})"
 
-    def __add__(self, other: "Cartesian") -> "Cartesian":
+    def __add__(self, other: Cartesian) -> Cartesian:
         return Cartesian(self.x + other.x, self.y + other.y)
 
-    def __sub__(self, other: "Cartesian") -> "Cartesian":
+    def __sub__(self, other: Cartesian) -> Cartesian:
         return Cartesian(self.x - other.x, self.y - other.y)
 
-    def __mul__(self, k: int) -> "Cartesian":
+    def __mul__(self, k: int) -> Cartesian:
         return Cartesian(self.x * k, self.y * k)
 
-    def __truediv__(self, k: int) -> "Cartesian":
+    def __truediv__(self, k: int) -> Cartesian:
         return Cartesian(self.x // k, self.y // k)
 
     @classmethod
-    def from_hex(cls, hex_coord: "Hex") -> "Cartesian":
+    def from_hex(cls, hex_coord: Hex) -> Cartesian:
         """Convert hex coordinates to integer Cartesian coordinates (flat-top orientation)."""
         x = int(round(1.5 * hex_coord.i))
         y = int(round(SQRT_THREE * (hex_coord.j + hex_coord.i * 0.5)))
@@ -76,18 +78,18 @@ class HexRowCol:
     def __repr__(self) -> str:
         return f"HexRowCol(row={self.row}, col={self.col})"
 
-    def __add__(self, other: "HexRowCol") -> "HexRowCol":
+    def __add__(self, other: HexRowCol) -> HexRowCol:
         return HexRowCol(self.row + other.row, self.col + other.col)
 
-    def __sub__(self, other: "HexRowCol") -> "HexRowCol":
+    def __sub__(self, other: HexRowCol) -> HexRowCol:
         return HexRowCol(self.row - other.row, self.col - other.col)
 
     @classmethod
-    def from_hex(cls, hex_coord: "Hex") -> "HexRowCol":
+    def from_hex(cls, hex_coord: Hex) -> HexRowCol:
         """Convert hex coordinates to row/col coordinates (1:1 mapping)."""
         return cls(row=hex_coord.j, col=hex_coord.i)
 
-    def to_hex(self) -> "Hex":
+    def to_hex(self) -> Hex:
         """Convert row/col coordinates to hex coordinates (1:1 mapping)."""
         i = self.col
         j = self.row
@@ -110,30 +112,30 @@ class Hex:
         if self.i + self.j + self.k != 0:
             object.__setattr__(self, "k", -self.i - self.j)  # Enforce constraint
 
-    def __add__(self, other: "Hex") -> "Hex":
+    def __add__(self, other: Hex) -> Hex:
         return Hex(self.i + other.i, self.j + other.j, self.k + other.k)
 
-    def __iadd__(self, other: "Hex") -> "Hex":
+    def __iadd__(self, other: Hex) -> Hex:
         raise NotImplementedError("In-place addition is not supported for Hex")
 
-    def __sub__(self, other: "Hex") -> "Hex":
+    def __sub__(self, other: Hex) -> Hex:
         return Hex(self.i - other.i, self.j - other.j, self.k - other.k)
 
-    def __isub__(self, other: "Hex") -> "Hex":
+    def __isub__(self, other: Hex) -> Hex:
         raise NotImplementedError("In-place subtraction is not supported for Hex")
 
-    def __mul__(self, k: float) -> "Hex":
+    def __mul__(self, k: float) -> Hex:
         k *= 1.0
         return Hex(self.i * k, self.j * k, self.k * k)
 
-    def __imul__(self, k: float) -> "Hex":
+    def __imul__(self, k: float) -> Hex:
         raise NotImplementedError("In-place multiplication is not supported for Hex")
 
-    def __truediv__(self, k: float) -> "Hex":
+    def __truediv__(self, k: float) -> Hex:
         k *= 1.0
         return Hex(self.i / k, self.j / k, self.k / k)
 
-    def __floordiv__(self, k: float) -> "Hex":
+    def __floordiv__(self, k: float) -> Hex:
         k *= 1.0
         return Hex(self.i // k, self.j // k, self.k // k)
 
@@ -152,7 +154,7 @@ class Hex:
         return hash((self.i + 1024, self.j + 2048, self.k + 4096))
 
     @classmethod
-    def from_cartesian(cls, cartesian: Cartesian) -> "Hex":
+    def from_cartesian(cls, cartesian: Cartesian) -> Hex:
         """Convert integer Cartesian coordinates to hex coordinates (flat-top orientation)."""
         i = (2.0 / 3.0) * cartesian.x
         j = cartesian.y / SQRT_THREE - i * 0.5

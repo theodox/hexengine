@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 
 from ..document import create_proxy, js

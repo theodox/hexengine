@@ -1,15 +1,19 @@
+from __future__ import annotations
+
 import logging
 from collections.abc import Iterable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..document import js, jsnull
 from ..hexes.types import Hex
-from ..units import DisplayUnit
 from .canvas_layer import CanvasLayer
 from .handler import MouseHandler
 from .layout import HexLayout
 from .svg_layer import SVGLayer
 from .unit_layer import UnitLayer
+
+if TYPE_CHECKING:
+    from ..units.graphics import DisplayUnit
 
 
 class Map:

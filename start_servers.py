@@ -1,5 +1,7 @@
 """Start both HTTP and WebSocket game servers."""
 
+from __future__ import annotations
+
 import subprocess
 import sys
 import threading

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .action_manager import ActionManager
 from .actions import AddUnit, DeleteUnit, MoveUnit, NextPhase, SpendAction
 from .game_state import BoardState, GameState, LocationState, TurnState, UnitState

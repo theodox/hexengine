@@ -1,5 +1,7 @@
 """Test if cartesian-to-hex conversion is unique for integer cartesian coordinates."""
 
+from __future__ import annotations
+
 from src.hexengine.hexes.types import Cartesian, Hex
 
 

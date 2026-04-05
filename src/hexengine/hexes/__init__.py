@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from importlib.metadata import PackageNotFoundError, version
 
 from .math import (
@@ -35,6 +37,7 @@ from .shapes import (
 )
 from .types import Hex, HexRowCol
 
+__version__: str
 try:
     __version__ = version("hexes")
 except PackageNotFoundError:

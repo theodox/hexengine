@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from ...document import create_proxy, js, jsnull
 from ...hexes.types import Hex
@@ -26,7 +28,7 @@ class MouseEventHandlerMixin:
     drag_start: tuple[float, float] = (0, 0)
     drag_end: tuple[float, float] = (0, 0)
 
-    def _event_unit(self, eventInfo: EventInfo) -> Optional["GameUnit"]:
+    def _event_unit(self, eventInfo: EventInfo) -> GameUnit | None:
         if eventInfo.unit_id is None:
             return None
         return self.board.get_unit(eventInfo.unit_id)

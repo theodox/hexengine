@@ -5,6 +5,8 @@ Provides a WebSocket transport layer on top of GameServer.
 Clients connect via WebSocket and send/receive JSON messages.
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging

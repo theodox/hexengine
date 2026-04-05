@@ -1,9 +1,15 @@
+from __future__ import annotations
+
 import logging
 from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from ..document import js
-from ..units import DisplayUnit, GameUnit
 from .layout import HexLayout
+
+if TYPE_CHECKING:
+    from ..units.game import GameUnit
+    from ..units.graphics import DisplayUnit
 
 
 class UnitLayer:
