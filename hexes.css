@@ -279,6 +279,7 @@ Popup styles
 Generic unit styles
 */
 :root {
+    --hexes-ui-accent: #2a6f9b;
     --unit-width: 40px;
     --unit-height: 40px;
     --unit-half-width: calc(var(--unit-width) / 2);

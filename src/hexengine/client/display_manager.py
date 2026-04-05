@@ -6,7 +6,7 @@ It observes state changes and updates displays accordingly, and handles temporar
 preview visuals during drag operations.
 """
 
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from ..hexes.types import Hex
 from ..units import DisplayUnit, GameUnit
@@ -45,7 +45,12 @@ class DisplayManager:
         self._canvas = map_canvas
         self._board = game_board
         self._unit_displays: Dict[str, DisplayUnit] = {}
+        self._unit_graphics_wire: Dict[str, Dict[str, Any]] = {}
         self.logger = logging.getLogger("display_manager")
+
+    def apply_unit_graphics(self, wire: Dict[str, Any]) -> None:
+        """Replace scenario-driven unit graphics templates (unit type → wire dict)."""
+        self._unit_graphics_wire = {str(k): dict(v) for k, v in wire.items()}
 
     def sync_from_state(self, game_state: GameState) -> None:
         """
@@ -162,11 +167,17 @@ class DisplayManager:
         """Get map of unit type to graphics creator class."""
         from ..game.scenarios.canuck import CanuckGraphicsCreator
         from ..game.scenarios.generic import GenericGraphicsCreator
+        from .scenario_unit_graphics import graphics_creator_class_for_template
 
-        return {
+        out: Dict[str, type] = {
             "canuck": CanuckGraphicsCreator,
             "soldier": GenericGraphicsCreator,
         }
+        for utype, tmpl in self._unit_graphics_wire.items():
+            cls = graphics_creator_class_for_template(tmpl)
+            if cls is not None:
+                out[utype] = cls
+        return out
 
     def _update_unit_display(self, unit_id: str, unit_state) -> None:
         """Update an existing display to match state."""

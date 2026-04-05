@@ -31,6 +31,8 @@ class WebSocketGameServer:
         port: int = 8765,
         initial_state: Optional[GameState] = None,
         map_display: Optional[dict[str, Any]] = None,
+        global_styles: Optional[dict[str, Any]] = None,
+        unit_graphics: Optional[dict[str, Any]] = None,
     ):
         """
         Initialize WebSocket server.
@@ -40,10 +42,17 @@ class WebSocketGameServer:
             port: Port to listen on
             initial_state: Initial game state
             map_display: Optional scenario map presentation (JSON-safe dict)
+            global_styles: Optional global CSS dict (JSON-safe)
+            unit_graphics: Optional unit type -> template dict (JSON-safe)
         """
         self.host = host
         self.port = port
-        self.game_server = GameServer(initial_state, map_display=map_display)
+        self.game_server = GameServer(
+            initial_state,
+            map_display=map_display,
+            global_styles=global_styles,
+            unit_graphics=unit_graphics,
+        )
 
         # Map connection to player_id
         self.connections: dict[WebSocketServerProtocol, str] = {}
@@ -158,7 +167,7 @@ async def main():
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    # Load scenario from TOML (prefer project-root scenarios/, else packaged default)
+    # Load scenario from TOML (prefer resources/scenarios/, else packaged default)
     from ..game.scenarios.loader import scenario_to_initial_state
     from ..game.scenarios.parse import load_scenario, resolve_scenario_path_for_server
 
@@ -176,6 +185,8 @@ async def main():
         port=8765,
         initial_state=initial_state,
         map_display=scenario_data.map_display.to_wire_dict(),
+        global_styles=scenario_data.global_styles.to_wire_dict(),
+        unit_graphics=scenario_data.unit_graphics_to_wire_dict(),
     )
     await server.start()
 

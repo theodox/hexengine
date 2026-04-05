@@ -13,6 +13,46 @@ from dataclasses import dataclass, field
 # Loader converts to Hex when building game objects.
 Position = tuple[int, int, int]
 
+# Site-relative path served with the static root (see [styles] in scenario TOML).
+DEFAULT_GLOBAL_BASE_CSS_FILE = "resources/default/global.css"
+
+
+@dataclass(frozen=True)
+class GlobalStylesConfig:
+    """
+    App-wide CSS: a base stylesheet plus optional scenario layers.
+
+    The base sheet loads first; ``css_file`` and ``css`` follow (cascade / override).
+    """
+
+    base_css_file: str
+    css: str | None = None
+    css_file: str | None = None
+
+    def to_wire_dict(self) -> dict:
+        """JSON-safe dict for StateUpdate."""
+        d: dict = {"base_css_file": self.base_css_file}
+        if self.css is not None:
+            d["css"] = self.css
+        if self.css_file is not None:
+            d["css_file"] = self.css_file
+        return d
+
+    @classmethod
+    def from_wire_dict(cls, d: dict) -> "GlobalStylesConfig":
+        raw_css = d.get("css")
+        raw_cf = d.get("css_file")
+        return cls(
+            base_css_file=str(d.get("base_css_file", DEFAULT_GLOBAL_BASE_CSS_FILE)),
+            css=None if raw_css is None else str(raw_css),
+            css_file=None if raw_cf is None else str(raw_cf),
+        )
+
+
+def default_global_styles_unresolved() -> GlobalStylesConfig:
+    """Default before ``load_scenario`` resolution (matches packaged / repo layout)."""
+    return GlobalStylesConfig(base_css_file=DEFAULT_GLOBAL_BASE_CSS_FILE)
+
 
 @dataclass(frozen=True)
 class UnitRow:
@@ -72,6 +112,36 @@ class MapDisplayConfig:
         )
 
 
+@dataclass(frozen=True)
+class UnitGraphicsTemplate:
+    """
+    Per-unit-type presentation from scenario (no DOM).
+
+    Exactly one of ``svg_file`` or ``svg`` is set after parse.
+    ``render`` is ``image`` / ``inline`` for ``svg_file``, or ``inline`` for embedded ``svg``.
+    """
+
+    unit_type: str
+    render: str = "image"
+    svg_file: str | None = None
+    svg: str | None = None
+    css: str | None = None
+    css_file: str | None = None
+
+    def to_wire_dict(self) -> dict:
+        """JSON-safe keys for StateUpdate (``type`` matches TOML / unit rows)."""
+        d: dict = {"type": self.unit_type, "render": self.render}
+        if self.svg_file is not None:
+            d["svg_file"] = self.svg_file
+        if self.svg is not None:
+            d["svg"] = self.svg
+        if self.css is not None:
+            d["css"] = self.css
+        if self.css_file is not None:
+            d["css_file"] = self.css_file
+        return d
+
+
 @dataclass
 class ScenarioData:
     """Parsed scenario: name, description, and rows. No game imports."""
@@ -81,3 +151,9 @@ class ScenarioData:
     units: list[UnitRow] = field(default_factory=list)
     locations: list[LocationRow] = field(default_factory=list)
     map_display: MapDisplayConfig = field(default_factory=MapDisplayConfig)
+    global_styles: GlobalStylesConfig = field(default_factory=default_global_styles_unresolved)
+    unit_graphics: dict[str, UnitGraphicsTemplate] = field(default_factory=dict)
+
+    def unit_graphics_to_wire_dict(self) -> dict[str, dict]:
+        """Map unit type string → template payload for JSON sync."""
+        return {k: v.to_wire_dict() for k, v in self.unit_graphics.items()}

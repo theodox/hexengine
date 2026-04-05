@@ -89,6 +89,8 @@ class NetworkGame(Game):
                 self.local_server = LocalServerManager(
                     initial_state=initial_state,
                     map_display=scenario_data.map_display.to_wire_dict(),
+                    global_styles=scenario_data.global_styles.to_wire_dict(),
+                    unit_graphics=scenario_data.unit_graphics_to_wire_dict(),
                 )
                 if not self.local_server.start():
                     self.logger.error("Failed to start local server")
@@ -102,6 +104,8 @@ class NetworkGame(Game):
 
             self.client.on_state_update = self._handle_state_update
             self.client.on_map_display = self._on_map_display
+            self.client.on_global_styles = self._on_global_styles
+            self.client.on_unit_graphics = self._on_unit_graphics
             self.client.on_connection_change = self._handle_connection_change
             self.client.on_error = self._handle_error
             self.client.on_action_result = self._handle_action_result
@@ -215,10 +219,20 @@ class NetworkGame(Game):
             self.logger.error(f"Unknown action type: {type(action)}")
             return {}
 
+    def _on_global_styles(self, wire: dict[str, Any]) -> None:
+        """Apply global + scenario CSS before map / units (runs from websocket client)."""
+        from ..client.global_styles import apply_global_styles_safe
+
+        apply_global_styles_safe(wire)
+
     def _on_map_display(self, config: dict[str, Any]) -> None:
         """Apply scenario map presentation before state sync (runs from websocket client)."""
         self.canvas.apply_map_display(config)
         self.display_mgr.adopt_hex_layout()
+
+    def _on_unit_graphics(self, wire: dict[str, Any]) -> None:
+        """Apply scenario unit graphics templates before state sync."""
+        self.display_mgr.apply_unit_graphics(wire)
 
     def _handle_state_update(self, new_state: GameState) -> None:
         """

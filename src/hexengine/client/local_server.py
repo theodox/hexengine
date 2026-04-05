@@ -26,6 +26,8 @@ class LocalServerManager:
         self,
         initial_state: Optional[GameState] = None,
         map_display: Optional[dict[str, Any]] = None,
+        global_styles: Optional[dict[str, Any]] = None,
+        unit_graphics: Optional[dict[str, Any]] = None,
     ):
         """
         Initialize the local server manager.
@@ -33,9 +35,13 @@ class LocalServerManager:
         Args:
             initial_state: Initial game state for the server
             map_display: Scenario map presentation dict for StateUpdate (optional)
+            global_styles: Global CSS dict for StateUpdate (optional)
+            unit_graphics: Unit graphics templates for StateUpdate (optional)
         """
         self.initial_state = initial_state
         self.map_display = map_display
+        self.global_styles = global_styles
+        self.unit_graphics = unit_graphics
         self.server: Optional[GameServer] = None
         self.server_thread: Optional[threading.Thread] = None
         self.logger = logging.getLogger("local_server")
@@ -64,6 +70,8 @@ class LocalServerManager:
                 port=port,
                 initial_state=self.initial_state,
                 map_display=self.map_display,
+                global_styles=self.global_styles,
+                unit_graphics=self.unit_graphics,
             )
 
             # Start in background thread

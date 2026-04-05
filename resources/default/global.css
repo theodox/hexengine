@@ -1,0 +1,5 @@
+/* Default global game styles (before scenario [styles] overrides). */
+:root {
+  /* Shared hooks scenarios may override */
+  --hexes-ui-accent: #2a6f9b;
+}

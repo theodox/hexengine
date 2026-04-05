@@ -5,7 +5,14 @@ from .parse import (
     resolve_map_background_url,
     resolve_scenario_path_for_server,
 )
-from .schema import MapDisplayConfig, ScenarioData
+from .schema import (
+    DEFAULT_GLOBAL_BASE_CSS_FILE,
+    GlobalStylesConfig,
+    MapDisplayConfig,
+    ScenarioData,
+    UnitGraphicsTemplate,
+    default_global_styles_unresolved,
+)
 
 try:
     from .base import Scenario, ScenarioItem, LocationItem
@@ -18,8 +25,12 @@ except ImportError:
     _HAS_LEGACY = False
 
 __all__ = [
+    "DEFAULT_GLOBAL_BASE_CSS_FILE",
+    "GlobalStylesConfig",
     "MapDisplayConfig",
     "ScenarioData",
+    "UnitGraphicsTemplate",
+    "default_global_styles_unresolved",
     "load_scenario",
     "default_scenario_path",
     "resolve_scenario_path_for_server",

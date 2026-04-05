@@ -1,4 +1,7 @@
-# Packaged default scenario (folder layout). Edit resources/scenarios/test_scenario/ at project root for dev.
+# Scenario bundle: keep maps and other assets in this folder (e.g. assets/map.png).
+# [map].background: path relative to this file is turned into a site URL (e.g.
+# assets/map.png -> resources/scenarios/test_scenario/assets/map.png). If that file does not
+# exist, the value is used as-is (e.g. resources/test_map.png from project root).
 
 name = "Test Scenario"
 description = "A simple test scenario for the game."

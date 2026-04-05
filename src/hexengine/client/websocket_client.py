@@ -56,11 +56,15 @@ class BrowserWebSocketClient:
         
         # Last applied scenario map_display JSON (avoid reset_view on every state tick)
         self._applied_map_display_json: Optional[str] = None
+        self._applied_global_styles_json: Optional[str] = None
+        self._applied_unit_graphics_json: Optional[str] = None
         self._warned_stale_client = False
 
         # Callbacks
         self.on_state_update: Optional[Callable[[GameState], None]] = None
         self.on_map_display: Optional[Callable[[dict[str, Any]], None]] = None
+        self.on_global_styles: Optional[Callable[[dict[str, Any]], None]] = None
+        self.on_unit_graphics: Optional[Callable[[dict[str, Any]], None]] = None
         self.on_connection_change: Optional[Callable[[ConnectionState], None]] = None
         self.on_error: Optional[Callable[[str], None]] = None
         self.on_action_result: Optional[Callable[[bool, Optional[str]], None]] = None
@@ -243,11 +247,32 @@ class BrowserWebSocketClient:
             self.logger.warning(f"Out-of-order state update: {update.sequence_number}")
         self.sequence_number = update.sequence_number
 
+        if update.global_styles is not None and self.on_global_styles:
+            sig = json.dumps(update.global_styles, sort_keys=True)
+            if sig != self._applied_global_styles_json:
+                self._applied_global_styles_json = sig
+                try:
+                    self.on_global_styles(update.global_styles)
+                except Exception as e:
+                    self.logger.error("on_global_styles failed: %s", e)
+
         if update.map_display is not None and self.on_map_display:
             sig = json.dumps(update.map_display, sort_keys=True)
             if sig != self._applied_map_display_json:
                 self._applied_map_display_json = sig
-                self.on_map_display(update.map_display)
+                try:
+                    self.on_map_display(update.map_display)
+                except Exception as e:
+                    self.logger.error("on_map_display failed: %s", e)
+
+        if update.unit_graphics is not None and self.on_unit_graphics:
+            sig = json.dumps(update.unit_graphics, sort_keys=True)
+            if sig != self._applied_unit_graphics_json:
+                self._applied_unit_graphics_json = sig
+                try:
+                    self.on_unit_graphics(update.unit_graphics)
+                except Exception as e:
+                    self.logger.error("on_unit_graphics failed: %s", e)
 
         self._maybe_warn_server_newer(update.server_package_version)
 

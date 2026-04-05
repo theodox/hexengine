@@ -40,6 +40,8 @@ class GameServer:
         self,
         initial_state: Optional[GameState] = None,
         map_display: Optional[dict[str, Any]] = None,
+        global_styles: Optional[dict[str, Any]] = None,
+        unit_graphics: Optional[dict[str, Any]] = None,
     ):
         """
         Initialize the game server.
@@ -47,10 +49,14 @@ class GameServer:
         Args:
             initial_state: Starting game state, or None to create empty
             map_display: Optional scenario map presentation dict (JSON-safe)
+            global_styles: Optional global CSS dict (JSON-safe)
+            unit_graphics: Optional unit type -> template dict (JSON-safe)
         """
         self.game_state = initial_state or GameState.create_empty()
         self.action_manager = ActionManager(self.game_state)
         self.map_display = map_display
+        self.global_styles = global_styles
+        self.unit_graphics = unit_graphics
         self._server_package_version = hexes_package_version()
 
         # Player management
@@ -455,6 +461,8 @@ class GameServer:
             game_state=state_dict,
             sequence_number=self.sequence_number,
             map_display=self.map_display,
+            global_styles=self.global_styles,
+            unit_graphics=self.unit_graphics,
             server_package_version=self._server_package_version,
         )
         await self._send_message(player_id, update.to_message())
@@ -467,6 +475,8 @@ class GameServer:
             game_state=state_dict,
             sequence_number=self.sequence_number,
             map_display=self.map_display,
+            global_styles=self.global_styles,
+            unit_graphics=self.unit_graphics,
             server_package_version=self._server_package_version,
         )
         message = update.to_message()
