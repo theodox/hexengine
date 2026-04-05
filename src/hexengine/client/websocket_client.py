@@ -13,8 +13,13 @@ from dataclasses import asdict
 from ..document import js, create_proxy
 from ..state import GameState
 from ..server.protocol import (
-    Message, MessageType, ActionRequest, StateUpdate,
-    JoinGameRequest, PlayerInfo
+    Message,
+    MessageType,
+    ActionRequest,
+    LoadSnapshotRequest,
+    StateUpdate,
+    JoinGameRequest,
+    PlayerInfo,
 )
 
 
@@ -174,7 +179,20 @@ class BrowserWebSocketClient:
         request = RedoRequest(player_id=self.player_id or "unknown")
         self._send_message(request.to_message())
         self.logger.debug("Sent redo request to server")
-    
+
+    def send_load_snapshot(self, game_state: dict[str, Any]) -> None:
+        """Send a full game_state wire dict to replace server state."""
+        if not self.is_connected():
+            self.logger.error("Cannot load snapshot: not connected")
+            return
+
+        request = LoadSnapshotRequest(
+            game_state=game_state,
+            player_id=self.player_id or "unknown",
+        )
+        self._send_message(request.to_message())
+        self.logger.debug("Sent load_snapshot request to server")
+
     def is_connected(self) -> bool:
         """Check if currently connected to server."""
         return self.connection_state == ConnectionState.CONNECTED
@@ -391,53 +409,6 @@ class BrowserWebSocketClient:
     
     def _deserialize_game_state(self, state_dict: dict[str, Any]) -> GameState:
         """Reconstruct GameState from dictionary."""
-        from ..state.game_state import GameState, BoardState, TurnState, UnitState
-        from ..hexes.types import Hex
-        
-        # Reconstruct units
-        units = {}
-        for unit_id, unit_data in state_dict.get("board", {}).get("units", {}).items():
-            pos_data = unit_data["position"]
-            units[unit_id] = UnitState(
-                unit_id=unit_data["unit_id"],
-                unit_type=unit_data["unit_type"],
-                faction=unit_data["faction"],
-                position=Hex(**pos_data),
-                health=unit_data["health"],
-                active=unit_data.get("active", True),
-            )
-        
-        # Reconstruct locations (list form from server, or dict for backward compatibility)
-        locations = {}
-        raw_locations = state_dict.get("board", {}).get("locations", [])
-        if isinstance(raw_locations, dict):
-            # Legacy format: dict with Hex-like keys serialized by dataclasses
-            raw_iter = raw_locations.values()
-        else:
-            raw_iter = raw_locations
+        from ..state.snapshot import game_state_from_wire_dict
 
-        for loc in raw_iter:
-            pos_data = loc["position"]
-            pos = Hex(**pos_data)
-            from ..state.game_state import LocationState
-
-            locations[pos] = LocationState(
-                position=pos,
-                terrain_type=loc["terrain_type"],
-                movement_cost=loc["movement_cost"],
-            )
-
-        # Reconstruct board
-        board = BoardState(units=units, locations=locations)
-        
-        # Reconstruct turn
-        turn_data = state_dict.get("turn", {})
-        turn = TurnState(
-            turn_number=turn_data.get("turn_number", 1),
-            current_faction=turn_data.get("current_faction", "Red"),
-            current_phase=turn_data.get("current_phase", "Movement"),
-            phase_actions_remaining=turn_data.get("phase_actions_remaining", 2)
-        )
-        
-        # Create game state
-        return GameState(board=board, turn=turn)
+        return game_state_from_wire_dict(state_dict)

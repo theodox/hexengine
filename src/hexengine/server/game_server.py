@@ -15,11 +15,13 @@ from typing import Optional, Callable, Any
 
 from ..package_version import hexes_package_version
 from ..state import GameState, ActionManager
+from ..state.snapshot import game_state_from_wire_dict, game_state_to_wire_dict
 from ..state.actions import MoveUnit, DeleteUnit, AddUnit, SpendAction, NextPhase
 from .protocol import (
     Message,
     MessageType,
     ActionRequest,
+    LoadSnapshotRequest,
     StateUpdate,
     ActionResult,
     JoinGameRequest,
@@ -97,45 +99,8 @@ class GameServer:
         self.logger.info(f"Turn order: {self.turn_order}")
 
     def _serialize_state(self, state: GameState) -> dict[str, Any]:
-        """
-        Serialize GameState into JSON-safe primitives.
-
-        Hex keys in locations are converted into explicit position objects
-        so the payload can be JSON-encoded without errors.
-        """
-        units: dict[str, dict[str, Any]] = {}
-        for unit_id, unit in state.board.units.items():
-            units[unit_id] = {
-                "unit_id": unit.unit_id,
-                "unit_type": unit.unit_type,
-                "faction": unit.faction,
-                "position": {"i": unit.position.i, "j": unit.position.j, "k": unit.position.k},
-                "health": unit.health,
-                "active": unit.active,
-            }
-
-        locations: list[dict[str, Any]] = []
-        for pos, loc in state.board.locations.items():
-            locations.append(
-                {
-                    "position": {"i": pos.i, "j": pos.j, "k": pos.k},
-                    "terrain_type": loc.terrain_type,
-                    "movement_cost": loc.movement_cost,
-                }
-            )
-
-        return {
-            "board": {
-                "units": units,
-                "locations": locations,
-            },
-            "turn": {
-                "current_faction": state.turn.current_faction,
-                "current_phase": state.turn.current_phase,
-                "phase_actions_remaining": state.turn.phase_actions_remaining,
-                "turn_number": state.turn.turn_number,
-            },
-        }
+        """Serialize GameState into JSON-safe primitives."""
+        return game_state_to_wire_dict(state)
 
     def _get_next_phase(self) -> dict:
         """Get the next phase in the turn order."""
@@ -184,6 +149,8 @@ class GameServer:
                 await self._handle_redo_request(player_id, message)
             elif message.type == MessageType.LEAVE_GAME:
                 await self._handle_leave_game(player_id)
+            elif message.type == MessageType.LOAD_SNAPSHOT:
+                await self._handle_load_snapshot(player_id, message)
             else:
                 self.logger.warning(f"Unknown message type: {message.type}")
         except Exception as e:
@@ -394,6 +361,28 @@ class GameServer:
         except Exception as e:
             self.logger.error(f"Redo failed: {e}")
             await self._send_error(player_id, f"Redo failed: {e}")
+
+    async def _handle_load_snapshot(self, player_id: str, message: Message) -> None:
+        """Replace server state from a client snapshot and broadcast."""
+        request = LoadSnapshotRequest.from_message(message)
+
+        player = self.players.get(player_id)
+        if not player:
+            await self._send_error(player_id, "Player not in game")
+            return
+
+        try:
+            new_state = game_state_from_wire_dict(request.game_state)
+        except Exception as e:
+            self.logger.error(f"Invalid load_snapshot from {player_id}: {e}")
+            await self._send_error(player_id, f"Invalid snapshot: {e}")
+            return
+
+        self.action_manager.replace_state(new_state)
+        self.game_state = self.action_manager.current_state
+        self.logger.info(f"Loaded snapshot from {player.player_name}")
+
+        await self._broadcast_state_update()
 
     def _create_action(self, request: ActionRequest) -> Any:
         """

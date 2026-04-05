@@ -152,6 +152,13 @@ class ActionManager:
 
         return new_state
 
+    def replace_state(self, new_state: GameState) -> None:
+        """Replace committed state and clear undo/redo history."""
+        self._current_state = new_state
+        self._history = []
+        self._pointer = 0
+        self._notify_observers(new_state)
+
     def can_undo(self) -> bool:
         """Check if undo is available."""
         return self._pointer > 0

@@ -2,8 +2,16 @@ from .game_state import GameState, BoardState, UnitState, LocationState, TurnSta
 from .action_manager import ActionManager
 from .actions import MoveUnit, DeleteUnit, AddUnit, SpendAction, NextPhase
 from .logic import compute_reachable_hexes, compute_valid_moves, is_valid_move
+from .snapshot import (
+    SNAPSHOT_FORMAT_VERSION,
+    game_state_from_wire_dict,
+    game_state_to_wire_dict,
+)
 
 __all__ = [
+    "SNAPSHOT_FORMAT_VERSION",
+    "game_state_from_wire_dict",
+    "game_state_to_wire_dict",
     "GameState",
     "BoardState",
     "UnitState",

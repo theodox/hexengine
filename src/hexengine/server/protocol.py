@@ -20,6 +20,7 @@ class MessageType(Enum):
     LEAVE_GAME = "leave_game"
     UNDO_REQUEST = "undo_request"
     REDO_REQUEST = "redo_request"
+    LOAD_SNAPSHOT = "load_snapshot"
 
     # Server -> Client
     STATE_UPDATE = "state_update"
@@ -106,6 +107,31 @@ class ActionRequest:
     def from_message(cls, msg: Message) -> "ActionRequest":
         """Create from Message."""
         return cls(**msg.payload)
+
+
+@dataclass
+class LoadSnapshotRequest:
+    """Request to replace game state from a wire-format snapshot (server-authoritative)."""
+
+    game_state: dict[str, Any]
+    player_id: str
+
+    def to_message(self) -> Message:
+        return Message(
+            type=MessageType.LOAD_SNAPSHOT,
+            payload={
+                "game_state": self.game_state,
+                "player_id": self.player_id,
+            },
+        )
+
+    @classmethod
+    def from_message(cls, msg: Message) -> "LoadSnapshotRequest":
+        p = msg.payload
+        return cls(
+            game_state=p["game_state"],
+            player_id=p.get("player_id", ""),
+        )
 
 
 @dataclass

@@ -76,6 +76,11 @@ def async_main() -> None:
         GAME.connect()
         logger.info("GAME.connect() returned")
 
+        # Dev console: snapshot save/load (uses GAME after connect)
+        _g = globals()
+        _g["save_snapshot_json"] = lambda: GAME.save_snapshot_json()
+        _g["load_snapshot_json"] = lambda s: GAME.load_snapshot_json(s)
+
         # Don't populate scenario on client - units come from server state
         # The server initializes with the scenario units
         # TEST_SCENARIO.populate(GAME)  # <-- Removed

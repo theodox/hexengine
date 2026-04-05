@@ -5,8 +5,11 @@ This extends the base Game class to work with multiplayer by routing
 all actions through a WebSocket connection to the server.
 """
 
+import json
 import logging
 from typing import Any, Optional
+
+from ..state.snapshot import SNAPSHOT_FORMAT_VERSION, game_state_to_wire_dict
 
 from ..client.websocket_client import BrowserWebSocketClient, ConnectionState
 from ..client import LocalServerManager
@@ -344,3 +347,35 @@ class NetworkGame(Game):
             self.logger.info("Sent redo request to server")
         except Exception as e:
             self.logger.error(f"Failed to send redo request: {e}")
+
+    def save_snapshot_dict(self) -> dict[str, Any]:
+        """Build a versioned snapshot dict from the last server state on this client."""
+        if not self.client or self.client.game_state is None:
+            raise RuntimeError("No game state to save (not connected or no state yet)")
+        return {
+            "format_version": SNAPSHOT_FORMAT_VERSION,
+            "game_state": game_state_to_wire_dict(self.client.game_state),
+        }
+
+    def save_snapshot_json(self) -> str:
+        """JSON string for a versioned snapshot (indent=2)."""
+        return json.dumps(self.save_snapshot_dict(), indent=2)
+
+    def load_snapshot_dict(self, d: dict[str, Any]) -> None:
+        """Send a snapshot dict to the server (format_version must be supported)."""
+        if not self.client or not self.connected:
+            raise RuntimeError("Cannot load snapshot: not connected")
+
+        fv = d.get("format_version", SNAPSHOT_FORMAT_VERSION)
+        if fv != SNAPSHOT_FORMAT_VERSION:
+            raise ValueError(f"Unsupported snapshot format_version: {fv}")
+        gs = d.get("game_state")
+        if not isinstance(gs, dict):
+            raise ValueError("snapshot missing game_state dict")
+
+        self.client.send_load_snapshot(gs)
+        self.logger.info("Sent load_snapshot to server")
+
+    def load_snapshot_json(self, text: str) -> None:
+        """Parse JSON and send load_snapshot to the server."""
+        self.load_snapshot_dict(json.loads(text))
