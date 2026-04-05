@@ -1,4 +1,4 @@
-from ...hexes.types import Hex
+from ..hexes.types import Hex
 from .base import Scenario, ScenarioItem, LocationItem
 from .canuck import CanuckUnit
 from .generic import GenericUnit

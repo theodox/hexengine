@@ -1,8 +1,8 @@
 """
 Data type for scenario location definitions.
 
-Lives in map so that map.location can use it without importing from game.scenarios,
-breaking the circular dependency: map.location <-> game.scenarios.base.
+Lives in map so that map.location can use it without importing from scenarios.base,
+breaking the circular dependency: map.location <-> scenarios.base.
 """
 
 from ..hexes.types import Hex

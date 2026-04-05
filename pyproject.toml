@@ -26,4 +26,4 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-hexengine = ["game/scenarios/data/**/*.toml", "game/scenarios/data/**/*"]
+hexengine = ["scenarios/data/**/*.toml", "scenarios/data/**/*"]

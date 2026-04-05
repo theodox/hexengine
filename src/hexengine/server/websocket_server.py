@@ -168,8 +168,8 @@ async def main():
     )
 
     # Load scenario from TOML (prefer resources/scenarios/, else packaged default)
-    from ..game.scenarios.loader import scenario_to_initial_state
-    from ..game.scenarios.parse import load_scenario, resolve_scenario_path_for_server
+    from ..scenarios.loader import scenario_to_initial_state
+    from ..scenarios.parse import load_scenario, resolve_scenario_path_for_server
 
     scenario_path = resolve_scenario_path_for_server()
     scenario_data = load_scenario(scenario_path)

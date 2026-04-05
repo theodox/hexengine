@@ -191,7 +191,7 @@ class Map:
         Resets pan/zoom, redraws the grid, and updates CSS unit variables. Call
         DisplayManager.adopt_hex_layout() after this if units already exist.
         """
-        from ..game.scenarios.schema import MapDisplayConfig
+        from ..scenarios.schema import MapDisplayConfig
 
         m = MapDisplayConfig.from_wire_dict(config)
         self._hex_size = m.hex_size

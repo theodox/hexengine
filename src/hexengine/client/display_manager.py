@@ -165,8 +165,8 @@ class DisplayManager:
 
     def _get_graphics_creators(self):
         """Get map of unit type to graphics creator class."""
-        from ..game.scenarios.canuck import CanuckGraphicsCreator
-        from ..game.scenarios.generic import GenericGraphicsCreator
+        from ..scenarios.canuck import CanuckGraphicsCreator
+        from ..scenarios.generic import GenericGraphicsCreator
         from .scenario_unit_graphics import graphics_creator_class_for_template
 
         out: Dict[str, type] = {

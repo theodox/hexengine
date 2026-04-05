@@ -12,7 +12,7 @@ import logging
 from typing import Any, Mapping
 
 from ..document import js
-from ..game.scenarios.schema import DEFAULT_GLOBAL_BASE_CSS_FILE
+from ..scenarios.schema import DEFAULT_GLOBAL_BASE_CSS_FILE
 
 _BASE_LINK_ID = "hexengine-styles-base"
 _SCENARIO_LINK_ID = "hexengine-styles-scenario-file"

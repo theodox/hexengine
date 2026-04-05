@@ -7,14 +7,14 @@ ScenarioItem, LocationItem, etc. When those change, only this file changes.
 
 from typing import TYPE_CHECKING, Type
 
-from ...hexes.types import Hex
-from ...state import GameState, ActionManager
-from ...state.game_state import BoardState, LocationState, UnitState
+from ..hexes.types import Hex
+from ..state import GameState, ActionManager
+from ..state.game_state import BoardState, LocationState, UnitState
 
 from .schema import ScenarioData
 
 if TYPE_CHECKING:
-    from ...units.game import GameUnit
+    from ..units.game import GameUnit
 
 
 def _hex(pos: tuple[int, int, int]) -> Hex:
@@ -33,7 +33,7 @@ def scenario_to_initial_state(
     Does not use ActionManager — constructs state directly. When BoardState
     or UnitState/LocationState change, update only this function.
     """
-    from ...state.game_state import TurnState
+    from ..state.game_state import TurnState
 
     board = BoardState()
     turn = TurnState(
@@ -77,7 +77,7 @@ def scenario_to_actions(
     Locations are not applied (no AddLocation action yet). Use
     scenario_to_initial_state() if you need locations in state.
     """
-    from ...state.actions import AddUnit
+    from ..state.actions import AddUnit
 
     for u in data.units:
         action_mgr.execute(
@@ -101,7 +101,7 @@ def scenario_to_legacy_scenario(
     unit_registry maps type strings to classes, e.g. {"canuck": CanuckUnit, "soldier": GenericUnit}.
     When Scenario / ScenarioItem / LocationItem change, update only this function.
     """
-    from ...map.location_item import LocationItem
+    from ..map.location_item import LocationItem
     from .base import Scenario, ScenarioItem
 
     units = []

@@ -1,6 +1,6 @@
-from ...document import js
-from ...units import GameUnit
-from ...units.graphics import DisplayUnit, GraphicsCreator
+from ..document import js
+from ..units import GameUnit
+from ..units.graphics import DisplayUnit, GraphicsCreator
 
 
 class GenericGraphicsCreator(GraphicsCreator):

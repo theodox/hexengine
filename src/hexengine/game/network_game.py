@@ -75,8 +75,8 @@ class NetworkGame(Game):
             # Start local server if requested
             if self.use_local_server and not self.local_server:
                 self.logger.info("Starting local server...")
-                from ..game.scenarios.loader import scenario_to_initial_state
-                from ..game.scenarios.parse import load_scenario, resolve_scenario_path_for_server
+                from ..scenarios.loader import scenario_to_initial_state
+                from ..scenarios.parse import load_scenario, resolve_scenario_path_for_server
 
                 scenario_path = resolve_scenario_path_for_server()
                 scenario_data = load_scenario(scenario_path)
