@@ -6,6 +6,6 @@ dist/
 wheels/
 *.egg-info
 uv.lock
-
+.vscode/
 # Virtual environments
 .venv
