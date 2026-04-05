@@ -2,6 +2,7 @@ import unittest
 from hexengine.hexes.types import Hex
 from hexengine.hexes.shapes import (
     convex_hull,
+    fill_convex_polygon,
     outer_boundary,
     polygon,
     radius,
@@ -549,14 +550,10 @@ class TestHexShapes(unittest.TestCase):
         # Result should maintain hex constraint
         self.assertEqual(scaled.i + scaled.j + scaled.k, 0)
 
-        # Should be approximately scaled
-        original_cart = hex_to_cartesian(hex_coord)
-        scaled_cart = hex_to_cartesian(scaled)
-
-        # The scaled version should be roughly 1.5x larger
-        original_mag = (original_cart.x**2 + original_cart.y**2) ** 0.5
-        scaled_mag = (scaled_cart.x**2 + scaled_cart.y**2) ** 0.5
-
+        # Magnitude in continuous plane space (matches scale_cartesian_vector).
+        # Integer hex_to_cartesian rounding would skew the ratio (e.g. ~1.37 vs 1.5).
+        original_mag = hex_magnitude(hex_coord)
+        scaled_mag = hex_magnitude(scaled)
         self.assertAlmostEqual(scaled_mag / original_mag, scale, places=1)
 
 

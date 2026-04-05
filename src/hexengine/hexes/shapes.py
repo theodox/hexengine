@@ -376,3 +376,6 @@ def convex_polygon(vertices: Sequence[Hex]) -> Set[Hex]:
                 filled.add(candidate)
 
     return filled
+
+
+fill_convex_polygon = convex_polygon

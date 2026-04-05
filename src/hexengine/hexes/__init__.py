@@ -22,6 +22,7 @@ from .shapes import (
     angle,
     convex_hull,
     convex_polygon,
+    fill_convex_polygon,
     outer_boundary,
     path,
     polygon,
@@ -73,4 +74,5 @@ __all__ = [
     "outer_boundary",
     "polygon",
     "convex_polygon",
+    "fill_convex_polygon",
 ]
