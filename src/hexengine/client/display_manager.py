@@ -77,6 +77,12 @@ class DisplayManager:
             if unit_state is None or not unit_state.active:
                 self._remove_unit_display(unit_id)
 
+        self.redraw_terrain_overlay(game_state)
+
+    def redraw_terrain_overlay(self, game_state: GameState) -> None:
+        """Update the terrain tint canvas from ``LocationState.hex_color`` (under units)."""
+        self._canvas.redraw_terrain_overlay(game_state)
+
     def _create_unit_display(self, unit_state) -> None:
         """Create a new display for a unit."""
 
@@ -261,12 +267,14 @@ class DisplayManager:
         """Clear all hex highlights."""
         self._canvas.svg_layer.clear()
 
-    def adopt_hex_layout(self) -> None:
+    def adopt_hex_layout(self, game_state: GameState | None = None) -> None:
         """Point all unit displays at the map's current HexLayout and refresh transforms."""
         layout = self._canvas.hex_layout
         for display in self._unit_displays.values():
             display._hex_layout = layout
         self.refresh_unit_positions()
+        if game_state is not None:
+            self.redraw_terrain_overlay(game_state)
 
     def refresh_unit_positions(self) -> None:
         """

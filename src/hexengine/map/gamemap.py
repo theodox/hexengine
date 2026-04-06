@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING, Any
 
 from ..document import js, jsnull
 from ..hexes.types import Hex
-from .canvas_layer import CanvasLayer
+from ..state.game_state import GameState
+from .canvas_layer import CanvasLayer, TerrainOverlayLayer
 from .handler import MouseHandler
 from .layout import HexLayout
 from .svg_layer import SVGLayer
@@ -25,6 +26,7 @@ class Map:
         self,
         container_element: js.HTMLElement,
         canvas_element: js.HTMLCanvasElement,
+        terrain_canvas: js.HTMLCanvasElement,
         svg_element: js.SVGElement,
         unit_element: js.SVGElement,
     ):
@@ -76,6 +78,9 @@ class Map:
         self._canvas_layer = CanvasLayer(
             canvas_element, self._hex_layout, self._hex_color, self._hex_stroke
         )
+        self._terrain_layer = TerrainOverlayLayer(
+            terrain_canvas, self._hex_layout, visible=True
+        )
         self._svg_layer = SVGLayer(
             svg_element, self._hex_layout, self._hex_color, self._hex_stroke
         )
@@ -97,6 +102,7 @@ class Map:
         for el in (
             self._bg_element,
             canvas_element,
+            terrain_canvas,
             svg_element,
             unit_element,
         ):
@@ -139,6 +145,18 @@ class Map:
     def unit_layer(self) -> UnitLayer:
         return self._unit_layer
 
+    @property
+    def terrain_overlay_visible(self) -> bool:
+        return self._terrain_layer.visible
+
+    def set_terrain_overlay_visible(self, visible: bool) -> None:
+        self._terrain_layer.set_visible(visible)
+
+    def redraw_terrain_overlay(self, state: GameState) -> None:
+        """Repaint terrain tints from board locations (hex_color)."""
+        self._terrain_layer.set_layout(self._hex_layout)
+        self._terrain_layer.redraw_terrain(state.board.locations.values())
+
     def draw_hex(self, hex: Hex, cls="highlight"):
         self._svg_layer.draw_hexes([hex], cls=cls)
 
@@ -168,9 +186,10 @@ class Map:
         self._unit_layer.add_unit(unit)
 
     def _sync_overlay_svg_size(self) -> None:
-        """Match hex SVG and unit SVG pixel size to the map canvas."""
+        """Match terrain canvas and hex/unit SVG pixel size to the map grid canvas."""
         c = self._canvas_layer.canvas
         w, h = int(c.width), int(c.height)
+        self._terrain_layer.sync_size(w, h)
         for svg in (self._svg_layer._svg, self._unit_layer._svg):
             svg.setAttribute("width", str(w))
             svg.setAttribute("height", str(h))
@@ -246,6 +265,12 @@ class Map:
         self._svg_layer._hex_color = self._hex_color
         self._svg_layer._hex_stroke = self._hex_stroke
 
+        self._terrain_layer.set_layout(self._hex_layout)
+        self._terrain_layer.set_line_style(
+            m.terrain_overlay_line_color,
+            m.terrain_overlay_line_width,
+        )
+
         self._unit_layer._hex_layout = self._hex_layout
         self._unit_layer._hex_color = self._hex_color
         self._unit_layer._hex_stroke = self._hex_stroke
@@ -316,6 +341,7 @@ class Map:
             if self._bg_element:
                 self._bg_element.style.transform = transform
             self._canvas_layer.canvas.style.transform = transform
+            self._terrain_layer._canvas.style.transform = transform
             self._svg_layer._svg.style.transform = transform
             self._unit_layer._svg.style.transform = transform
 

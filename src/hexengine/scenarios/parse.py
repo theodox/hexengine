@@ -154,6 +154,8 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
       hex_margin = 0
       hex_stroke = 1
       hex_color = "#33443344"
+      terrain_overlay_line_color = "#33443344"
+      terrain_overlay_line_width = 2
       background = "assets/map.png"
       unit_size_multiplier = 1.5
       # Optional: fixed hex grid (HexRowCol: i + column, j + row from origin):
@@ -447,4 +449,8 @@ def _parse_map_table(
         hex_rows=hex_rows,
         hex_origin_i=int(raw.get("hex_origin_i", 0)),
         hex_origin_j=int(raw.get("hex_origin_j", 0)),
+        terrain_overlay_line_color=str(
+            raw.get("terrain_overlay_line_color", "#33443344")
+        ),
+        terrain_overlay_line_width=int(raw.get("terrain_overlay_line_width", 2)),
     )

@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from ..document import js
 from ..hexes.shapes import rectangle_from_corners
 from ..hexes.types import Cartesian, Hex
+from ..state.game_state import LocationState
 from .layout import HexLayout, fit_hex_grid_canvas, iter_map_grid_hexes
 
 
@@ -20,6 +21,8 @@ class CanvasLayer:
         hex_layout: HexLayout,
         hex_color: str,
         hex_stroke: int,
+        *,
+        skip_initial_grid: bool = False,
     ):
         self._canvas = canvas_element
         self._context = self._canvas.getContext("2d")
@@ -31,7 +34,8 @@ class CanvasLayer:
         self._fixed_canvas_w: int | None = None
         self._fixed_canvas_h: int | None = None
 
-        self._sync_canvas_resolution_and_draw_grid()
+        if not skip_initial_grid:
+            self._sync_canvas_resolution_and_draw_grid()
 
     @property
     def canvas(self) -> js.HTMLCanvasElement:
@@ -203,3 +207,73 @@ class CanvasLayer:
         Legacy mode: canvas follows CSS box. Scenario mode: fixed pixel size from grid.
         """
         self._sync_canvas_resolution_and_draw_grid()
+
+
+class TerrainOverlayLayer(CanvasLayer):
+    """Semi-transparent terrain tint between the grid and unit SVGs."""
+
+    def __init__(
+        self,
+        canvas: js.HTMLCanvasElement,
+        hex_layout: HexLayout,
+        *,
+        visible: bool = True,
+        line_color: str = "#33443344",
+        line_width: int = 2,
+    ) -> None:
+        super().__init__(
+            canvas,
+            hex_layout,
+            "#000000",
+            1,
+            skip_initial_grid=True,
+        )
+        self._line_color = line_color
+        self._line_width = int(line_width)
+        self._visible = visible
+        self._apply_visibility_style()
+
+    def set_layout(self, layout: HexLayout) -> None:
+        self._hex_layout = layout
+
+    def set_line_style(self, color: str, width: int) -> None:
+        self._line_color = str(color)
+        self._line_width = int(width)
+
+    @property
+    def visible(self) -> bool:
+        return self._visible
+
+    def set_visible(self, visible: bool) -> None:
+        self._visible = visible
+        self._apply_visibility_style()
+
+    def _apply_visibility_style(self) -> None:
+        self._canvas.style.display = "" if self._visible else "none"
+
+    def sync_size(self, width: int, height: int) -> None:
+        """Match the main grid canvas pixel dimensions."""
+        self._canvas.width = width
+        self._canvas.height = height
+        self._canvas.style.width = f"{width}px"
+        self._canvas.style.height = f"{height}px"
+
+    def redraw(self) -> None:
+        """Do not run the base grid pass; terrain is painted via ``redraw_terrain``."""
+        pass
+
+    def redraw_terrain(self, locations: Iterable[LocationState]) -> None:
+        """Repaint tint + outline from state; use ``display`` style to hide without losing pixels."""
+        ctx = self._context
+        w, h = int(self._canvas.width), int(self._canvas.height)
+        ctx.clearRect(0, 0, w, h)
+        for loc in locations:
+            hc = loc.hex_color
+            if not hc:
+                continue
+            self.draw_hex(
+                loc.position,
+                fill=str(hc),
+                stroke=self._line_color,
+                stroke_width=self._line_width,
+            )

@@ -98,6 +98,9 @@ class MapDisplayConfig:
     hex_rows: int | None = None
     hex_origin_i: int = 0
     hex_origin_j: int = 0
+    #: Terrain tint canvas stroke (CSS color, e.g. ``#RRGGBB`` / ``#RRGGBBAA``).
+    terrain_overlay_line_color: str = "#33443344"
+    terrain_overlay_line_width: int = 2
 
     def to_wire_dict(self) -> dict:
         """Stable keys for JSON StateUpdate (matches field names)."""
@@ -110,6 +113,8 @@ class MapDisplayConfig:
             "unit_size_multiplier": self.unit_size_multiplier,
             "hex_origin_i": self.hex_origin_i,
             "hex_origin_j": self.hex_origin_j,
+            "terrain_overlay_line_color": self.terrain_overlay_line_color,
+            "terrain_overlay_line_width": self.terrain_overlay_line_width,
         }
         if self.hex_columns is not None:
             d["hex_columns"] = self.hex_columns
@@ -140,6 +145,10 @@ class MapDisplayConfig:
             hex_rows=rows,
             hex_origin_i=int(d.get("hex_origin_i", 0)),
             hex_origin_j=int(d.get("hex_origin_j", 0)),
+            terrain_overlay_line_color=str(
+                d.get("terrain_overlay_line_color", "#33443344")
+            ),
+            terrain_overlay_line_width=int(d.get("terrain_overlay_line_width", 2)),
         )
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from ..client import DisplayManager, UIState
-from ..document import element
+from ..document import create_proxy, element, js, jsnull
 from ..map import Map
 from ..state import ActionManager, GameState
 from ..state.actions import NextPhase
@@ -29,6 +29,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.running = True
         container = element("map-container")
         map = element("map-canvas")
+        terrain = element("map-terrain")
         svg = element("map-svg")
         units = element("map-units")
         action_button = element("advance-button")
@@ -37,7 +38,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
         assert map is not None, "Map canvas element not found"
         assert svg is not None, "Map SVG element not found"
-        self.canvas = Map(container, map, svg, units)
+        self.canvas = Map(container, map, terrain, svg, units)
         self.board = GameBoard(self.canvas)
 
         initial_state = GameState.create_empty(
@@ -64,8 +65,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.logger = logging.getLogger("game")
         self.logger.info("Game initialized")
 
-        from ..document import js
-
         self.logger.info(
             f"[Game.__init__] Registering on_mouse_down: {self.on_mouse_down}"
         )
@@ -82,6 +81,15 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
         self._register_hotkeys()
 
+        terrain_toggle = element("terrain-overlay-toggle")
+        if terrain_toggle is not None:
+            terrain_toggle.checked = True
+
+            def _terrain_toggle_change(_ev) -> None:
+                self.canvas.set_terrain_overlay_visible(bool(terrain_toggle.checked))
+
+            terrain_toggle.addEventListener("change", create_proxy(_terrain_toggle_change))
+
         self.turn_manager = TurnManager(
             factions=[Faction("Red"), Faction("Blue")],
             phases=[
@@ -94,8 +102,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.turn_manager.handlers.append(self.update_turn_display)
 
         # Register resize handler to refresh map on window resize/zoom
-        from ..document import create_proxy
-
         js.window.addEventListener("resize", create_proxy(self._handle_resize))
         self.logger.info("Registered window resize handler")
 
@@ -129,6 +135,8 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         """
         self.logger.info("Window resized, refreshing map")
         self.canvas.refresh()
+        if self.action_mgr is not None:
+            self.display_mgr.redraw_terrain_overlay(self.action_mgr.current_state)
 
     def _handle_wheel(self, event) -> None:
         """
@@ -250,6 +258,18 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         """Reset zoom and pan to default."""
         self.canvas.reset_view()
         self.logger.info("View reset to default")
+
+    @Hotkey("t", Modifiers.NONE)
+    def toggle_terrain_overlay(self) -> None:
+        """Toggle terrain tint layer (same as the UI checkbox)."""
+        el = js.document.getElementById("terrain-overlay-toggle")
+        if el is not None and el is not jsnull:
+            el.checked = not el.checked
+            self.canvas.set_terrain_overlay_visible(bool(el.checked))
+        else:
+            self.canvas.set_terrain_overlay_visible(
+                not self.canvas.terrain_overlay_visible
+            )
 
     # ===== STATE SYSTEM HELPERS =====
 

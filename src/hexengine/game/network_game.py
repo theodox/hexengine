@@ -245,7 +245,7 @@ class NetworkGame(Game):
     def _on_map_display(self, config: dict[str, Any]) -> None:
         """Apply scenario map presentation before state sync (runs from websocket client)."""
         self.canvas.apply_map_display(config)
-        self.display_mgr.adopt_hex_layout()
+        self.display_mgr.adopt_hex_layout(self.action_mgr.current_state)
 
     def _on_unit_graphics(self, wire: dict[str, Any]) -> None:
         """Apply scenario unit graphics templates before state sync."""

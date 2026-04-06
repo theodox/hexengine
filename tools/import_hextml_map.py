@@ -256,6 +256,8 @@ def build_scenario_toml(
         "hex_margin = 0",
         "hex_stroke = 1",
         'hex_color = "#33443344"',
+        'terrain_overlay_line_color = "#33443344"',
+        "terrain_overlay_line_width = 2",
         'background = "resources/test_map.png"',
         "unit_size_multiplier = 1.5",
     ]
