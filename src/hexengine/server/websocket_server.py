@@ -169,7 +169,7 @@ async def main():
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    # Load scenario from TOML (prefer resources/scenarios/, else packaged default)
+    # Load scenario from TOML (prefer ./scenarios/ at cwd, else packaged default)
     from ..scenarios.loader import scenario_to_initial_state
     from ..scenarios.parse import load_scenario, resolve_scenario_path_for_server
 

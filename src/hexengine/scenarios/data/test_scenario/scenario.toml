@@ -1,4 +1,6 @@
-# Packaged default scenario (folder layout). Edit resources/scenarios/test_scenario/ at project root for dev.
+# Canonical default scenario (only copy in the repo). Lives next to co-bundled assets
+# such as dummy.svg. [map].background: path relative to this file is resolved when the file
+# exists; otherwise values like resources/test_map.png are treated as site-root-relative.
 
 name = "Test Scenario"
 description = "A simple test scenario for the game."
@@ -10,6 +12,8 @@ hex_stroke = 1
 hex_color = "#33443344"
 background = "resources/test_map.png"
 unit_size_multiplier = 1.5
+hex_columns = 17
+hex_rows = 7
 
 [[unit_graphics]]
 type = "canuck"
@@ -34,7 +38,8 @@ members = [
 ]
 
 [[locations]]
-position = [5, 5, -10]
+# Clamped j from 7 → 6 to fit hex_rows = 7 (j must be 0..6).
+position = [7, 6, -13]
 terrain = "forest"
 movement_cost = 1.5
 assault_modifier = 1.5
@@ -42,7 +47,7 @@ ranged_modifier = 1.5
 block_los = true
 
 [[locations]]
-position = [10, 2, -12]
+position = [12, 3, -15]
 terrain = "hill"
 movement_cost = 3.0
 assault_modifier = 2.0
@@ -50,7 +55,7 @@ ranged_modifier = 0.0
 block_los = true
 
 [[locations]]
-position = [8, 2, -10]
+position = [10, 4, -14]
 terrain = "hill"
 movement_cost = 3.0
 assault_modifier = 2.0

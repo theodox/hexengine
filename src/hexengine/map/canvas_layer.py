@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from ..document import js
 from ..hexes.shapes import rectangle_from_corners
 from ..hexes.types import Cartesian, Hex
-from .layout import HexLayout
+from .layout import HexLayout, fit_hex_grid_canvas, iter_map_grid_hexes
 
 
 class CanvasLayer:
@@ -23,33 +23,15 @@ class CanvasLayer:
     ):
         self._canvas = canvas_element
         self._context = self._canvas.getContext("2d")
-        # Set canvas internal resolution to match CSS display size
-        rect = self._canvas.getBoundingClientRect()
-        self._canvas.width = int(rect.width)
-        self._canvas.height = int(rect.height)
         self._hex_layout = hex_layout
         self.hex_color = hex_color
         self.hex_stroke = hex_stroke
+        # (columns, rows, origin_i, origin_j) or None = size canvas from CSS box
+        self._scenario_grid: tuple[int, int, int, int] | None = None
+        self._fixed_canvas_w: int | None = None
+        self._fixed_canvas_h: int | None = None
 
-        hs = int(hex_layout.size)
-
-        w = (self._canvas.width - (self._hex_layout.origin_x * 2)) // hs
-        h = (self._canvas.height - (self._hex_layout.origin_y * 2)) // hs
-
-        logging.getLogger().info(
-            f"Canvas size: {w}x{h}\n    hex size: {hex_layout.size}\n    grid size: {self._canvas.width}x{self._canvas.height}"
-        )
-
-        start = Hex.from_cartesian(Cartesian(0, 0))
-        br = Hex.from_cartesian(Cartesian(w, h))
-
-        self.draw_hex_rect(
-            start,
-            br,
-            fill="#FFFFFF10",
-            stroke=self.hex_color,
-            stroke_width=self.hex_stroke,
-        )
+        self._sync_canvas_resolution_and_draw_grid()
 
     @property
     def canvas(self) -> js.HTMLCanvasElement:
@@ -117,35 +99,104 @@ class CanvasLayer:
         for hex in rect:
             self.draw_hex(hex, fill=fill, stroke=stroke, stroke_width=stroke_width)
 
+    def set_scenario_grid(
+        self,
+        spec: tuple[int, int, int, int] | None,
+        hex_size: float,
+        hex_margin: float,
+        hex_stroke: int,
+    ) -> None:
+        """
+        Switch between scenario-sized grid and legacy CSS-fitted grid.
+
+        ``spec`` is (columns, rows, origin_i, origin_j) or None for legacy.
+        """
+        self._scenario_grid = spec
+        self.hex_stroke = int(hex_stroke)
+        if spec is not None:
+            cols, rows, oi, oj = spec
+            layout, cw, ch = fit_hex_grid_canvas(
+                hex_size,
+                cols,
+                rows,
+                origin_i=oi,
+                origin_j=oj,
+                margin_pad=hex_margin,
+                stroke_pad=max(2.0, float(hex_stroke)),
+            )
+            self._hex_layout = layout
+            self._fixed_canvas_w = cw
+            self._fixed_canvas_h = ch
+        else:
+            self._fixed_canvas_w = None
+            self._fixed_canvas_h = None
+            self._hex_layout = HexLayout(
+                hex_size,
+                hex_size + hex_margin,
+                hex_size + hex_margin,
+            )
+        self._sync_canvas_resolution_and_draw_grid()
+
+    def _sync_canvas_resolution_and_draw_grid(self) -> None:
+        if self._scenario_grid is not None:
+            assert self._fixed_canvas_w is not None and self._fixed_canvas_h is not None
+            self._canvas.width = self._fixed_canvas_w
+            self._canvas.height = self._fixed_canvas_h
+            self._canvas.style.width = f"{self._fixed_canvas_w}px"
+            self._canvas.style.height = f"{self._fixed_canvas_h}px"
+            cols, rows, oi, oj = self._scenario_grid
+            logging.getLogger().info(
+                "Scenario grid canvas: %dx%d hexes (origin i=%s j=%s), %dx%d px",
+                cols,
+                rows,
+                oi,
+                oj,
+                self._fixed_canvas_w,
+                self._fixed_canvas_h,
+            )
+        else:
+            rect = self._canvas.getBoundingClientRect()
+            self._canvas.width = int(rect.width)
+            self._canvas.height = int(rect.height)
+            hs = int(self._hex_layout.size)
+            w = (self._canvas.width - (self._hex_layout.origin_x * 2)) // max(hs, 1)
+            h = (self._canvas.height - (self._hex_layout.origin_y * 2)) // max(hs, 1)
+            logging.getLogger().info(
+                "Legacy canvas: %dx%d hexes (approx), %dx%d px",
+                w,
+                h,
+                self._canvas.width,
+                self._canvas.height,
+            )
+
+        self._context.clearRect(0, 0, self._canvas.width, self._canvas.height)
+
+        if self._scenario_grid is not None:
+            cols, rows, oi, oj = self._scenario_grid
+            for hx in iter_map_grid_hexes(cols, rows, oi, oj):
+                self.draw_hex(
+                    hx,
+                    fill="#FFFFFF10",
+                    stroke=self.hex_color,
+                    stroke_width=self.hex_stroke,
+                )
+        else:
+            hs = int(self._hex_layout.size)
+            w = (self._canvas.width - (self._hex_layout.origin_x * 2)) // max(hs, 1)
+            h = (self._canvas.height - (self._hex_layout.origin_y * 2)) // max(hs, 1)
+            start = Hex.from_cartesian(Cartesian(0, 0))
+            br = Hex.from_cartesian(Cartesian(w, h))
+            self.draw_hex_rect(
+                start,
+                br,
+                fill="#FFFFFF10",
+                stroke=self.hex_color,
+                stroke_width=self.hex_stroke,
+            )
+
     def redraw(self) -> None:
         """
         Redraw the canvas layer after a resize.
-        Updates canvas dimensions to match current display size and redraws hex grid.
+        Legacy mode: canvas follows CSS box. Scenario mode: fixed pixel size from grid.
         """
-        # Update canvas internal resolution to match current CSS display size
-        rect = self._canvas.getBoundingClientRect()
-        self._canvas.width = int(rect.width)
-        self._canvas.height = int(rect.height)
-
-        # Clear the canvas
-        self._context.clearRect(0, 0, self._canvas.width, self._canvas.height)
-
-        # Redraw hex grid
-        hs = int(self._hex_layout.size)
-        w = (self._canvas.width - (self._hex_layout.origin_x * 2)) // hs
-        h = (self._canvas.height - (self._hex_layout.origin_y * 2)) // hs
-
-        logging.getLogger().info(
-            f"Canvas redraw: {w}x{h} hexes, canvas size: {self._canvas.width}x{self._canvas.height}"
-        )
-
-        start = Hex.from_cartesian(Cartesian(0, 0))
-        br = Hex.from_cartesian(Cartesian(w, h))
-
-        self.draw_hex_rect(
-            start,
-            br,
-            fill="#FFFFFF10",
-            stroke=self.hex_color,
-            stroke_width=self.hex_stroke,
-        )
+        self._sync_canvas_resolution_and_draw_grid()

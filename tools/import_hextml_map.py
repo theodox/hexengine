@@ -253,8 +253,13 @@ def build_scenario_toml(
         'hex_color = "#33443344"',
         'background = "resources/test_map.png"',
         "unit_size_multiplier = 1.5",
-        "",
     ]
+    w = int(parsed.get("width") or 0)  # type: ignore[arg-type]
+    h = int(parsed.get("height") or 0)  # type: ignore[arg-type]
+    if w > 0 and h > 0:
+        lines.append(f"hex_columns = {w}")
+        lines.append(f"hex_rows = {h}")
+    lines.append("")
 
     for terrain in sorted(by_terrain.keys()):
         stats = _terrain_stats(terrain)

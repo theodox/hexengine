@@ -105,6 +105,7 @@ class Map:
 
         self._clamp_pan()
         self._apply_transform()
+        self._sync_overlay_svg_size()
 
     @property
     def on_drag(self):
@@ -163,6 +164,16 @@ class Map:
     def add_unit(self, unit: DisplayUnit):
         self._unit_layer.add_unit(unit)
 
+    def _sync_overlay_svg_size(self) -> None:
+        """Match hex SVG and unit SVG pixel size to the map canvas."""
+        c = self._canvas_layer.canvas
+        w, h = int(c.width), int(c.height)
+        for svg in (self._svg_layer._svg, self._unit_layer._svg):
+            svg.setAttribute("width", str(w))
+            svg.setAttribute("height", str(h))
+            svg.style.width = f"{w}px"
+            svg.style.height = f"{h}px"
+
     def refresh(self) -> None:
         """
         Refresh the map after a resize or zoom.
@@ -171,6 +182,7 @@ class Map:
         """
         # Redraw canvas with new dimensions
         self._canvas_layer.redraw()
+        self._sync_overlay_svg_size()
 
         self._set_unit_css_vars()
 
@@ -203,21 +215,29 @@ class Map:
         self._hex_stroke = int(m.hex_stroke)
         self._unit_size_multiplier = float(m.unit_size_multiplier)
 
-        self._hex_layout = HexLayout(
+        grid_spec: tuple[int, int, int, int] | None = None
+        if m.hex_columns is not None and m.hex_rows is not None:
+            grid_spec = (
+                m.hex_columns,
+                m.hex_rows,
+                m.hex_origin_i,
+                m.hex_origin_j,
+            )
+
+        self._canvas_layer.hex_color = self._hex_color
+        self._canvas_layer.set_scenario_grid(
+            grid_spec,
             self._hex_size,
-            self._hex_size + self._hex_margin,
-            self._hex_size + self._hex_margin,
+            self._hex_margin,
+            self._hex_stroke,
         )
+        self._hex_layout = self._canvas_layer._hex_layout
 
         c = self._canvas_layer.canvas
         c.setAttribute("data-hexsize", str(self._hex_size))
         c.setAttribute("data-hexcolor", self._hex_color)
         c.setAttribute("data-hexstroke", str(self._hex_stroke))
         c.setAttribute("data-hexmargin", str(int(self._hex_margin)))
-
-        self._canvas_layer._hex_layout = self._hex_layout
-        self._canvas_layer.hex_color = self._hex_color
-        self._canvas_layer.hex_stroke = self._hex_stroke
 
         self._svg_layer._hex_layout = self._hex_layout
         self._svg_layer._hex_color = self._hex_color

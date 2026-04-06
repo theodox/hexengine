@@ -23,14 +23,14 @@ from .schema import (
     UnitRow,
 )
 
-# Packaged default: folder layout scenarios/data/<id>/scenario.toml
+# Single packaged default: ``data/test_scenario/scenario.toml`` next to this package.
 _DEFAULT_PATH = (
     Path(__file__).resolve().parent / "data" / "test_scenario" / "scenario.toml"
 )
 
 
 def default_scenario_path() -> Path:
-    """Path to the packaged default scenario TOML."""
+    """Path to the packaged default scenario TOML (only canonical copy)."""
     return _DEFAULT_PATH
 
 
@@ -38,14 +38,11 @@ def resolve_scenario_path_for_server() -> Path:
     """
     Path to scenario for game server startup.
 
-    Prefers ``resources/scenarios/<id>/scenario.toml``, then flat
-    ``resources/scenarios/<name>.toml``, then legacy ``scenarios/`` paths at repo
-    root, then packaged default.
+    Prefers ``scenarios/<id>/scenario.toml`` or ``scenarios/<name>.toml`` at the
+    process current working directory (repo root), then the packaged default.
     """
     cwd = Path.cwd()
     candidates = [
-        cwd / "resources" / "scenarios" / "test_scenario" / "scenario.toml",
-        cwd / "resources" / "scenarios" / "test_scenario.toml",
         cwd / "scenarios" / "test_scenario" / "scenario.toml",
         cwd / "scenarios" / "test_scenario.toml",
     ]
@@ -158,6 +155,11 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
       hex_color = "#33443344"
       background = "assets/map.png"
       unit_size_multiplier = 1.5
+      # Optional: fixed hex grid (HexRowCol: i + column, j + row from origin):
+      hex_columns = 17
+      hex_rows = 7
+      # hex_origin_i = 0
+      # hex_origin_j = 0
 
       # Optional global CSS: default base is resources/default/global.css
       [styles]
@@ -413,6 +415,21 @@ def _parse_map_table(
         return MapDisplayConfig()
     bg_in = str(raw.get("background", MapDisplayConfig.background))
     bg_out = resolve_map_background_url(bg_in, scenario_toml, static_root)
+
+    hc_raw = raw.get("hex_columns")
+    hr_raw = raw.get("hex_rows")
+    hex_columns: int | None = None
+    hex_rows: int | None = None
+    if hc_raw is not None or hr_raw is not None:
+        if hc_raw is None or hr_raw is None:
+            raise ValueError(
+                "[map] hex_columns and hex_rows must both be set (or both omitted)"
+            )
+        hex_columns = int(hc_raw)
+        hex_rows = int(hr_raw)
+        if hex_columns < 1 or hex_rows < 1:
+            raise ValueError("[map] hex_columns and hex_rows must be >= 1")
+
     return MapDisplayConfig(
         hex_size=float(raw.get("hex_size", 24.0)),
         hex_margin=float(raw.get("hex_margin", 0.0)),
@@ -420,4 +437,8 @@ def _parse_map_table(
         hex_color=str(raw.get("hex_color", "#33443344")),
         background=bg_out,
         unit_size_multiplier=float(raw.get("unit_size_multiplier", 1.5)),
+        hex_columns=hex_columns,
+        hex_rows=hex_rows,
+        hex_origin_i=int(raw.get("hex_origin_i", 0)),
+        hex_origin_j=int(raw.get("hex_origin_j", 0)),
     )

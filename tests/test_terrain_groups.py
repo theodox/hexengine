@@ -72,6 +72,24 @@ def test_terrain_groups_inf_movement_cost(tmp_path: Path) -> None:
     assert data.locations[0].movement_cost == float("inf")
 
 
+def test_map_hex_columns_requires_hex_rows(tmp_path: Path) -> None:
+    p = tmp_path / "scenario.toml"
+    p.write_text(
+        textwrap.dedent(
+            """
+            name = "g"
+            description = ""
+
+            [map]
+            hex_columns = 5
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="hex_columns and hex_rows"):
+        load_scenario(p)
+
+
 def test_terrain_groups_member_requires_position(tmp_path: Path) -> None:
     p = tmp_path / "scenario.toml"
     p.write_text(

@@ -89,20 +89,44 @@ class MapDisplayConfig:
     hex_color: str = "#33443344"
     background: str = "resources/test_map.png"
     unit_size_multiplier: float = 1.5
+    # Fixed grid in cube coordinates: columns = i step, rows = j step (HexRowCol-style).
+    # When both are set, the client sizes the canvas/SVG to this grid; when None, legacy
+    # “fill the CSS canvas box” behavior.
+    hex_columns: int | None = None
+    hex_rows: int | None = None
+    hex_origin_i: int = 0
+    hex_origin_j: int = 0
 
     def to_wire_dict(self) -> dict:
         """Stable keys for JSON StateUpdate (matches field names)."""
-        return {
+        d: dict = {
             "hex_size": self.hex_size,
             "hex_margin": self.hex_margin,
             "hex_stroke": self.hex_stroke,
             "hex_color": self.hex_color,
             "background": self.background,
             "unit_size_multiplier": self.unit_size_multiplier,
+            "hex_origin_i": self.hex_origin_i,
+            "hex_origin_j": self.hex_origin_j,
         }
+        if self.hex_columns is not None:
+            d["hex_columns"] = self.hex_columns
+        if self.hex_rows is not None:
+            d["hex_rows"] = self.hex_rows
+        return d
 
     @classmethod
     def from_wire_dict(cls, d: dict) -> MapDisplayConfig:
+        hc = d.get("hex_columns")
+        hr = d.get("hex_rows")
+        if hc is None and hr is None:
+            cols: int | None = None
+            rows: int | None = None
+        else:
+            cols = int(hc) if hc is not None else None
+            rows = int(hr) if hr is not None else None
+            if cols is None or rows is None or cols < 1 or rows < 1:
+                cols, rows = None, None
         return cls(
             hex_size=float(d.get("hex_size", 24.0)),
             hex_margin=float(d.get("hex_margin", 0.0)),
@@ -110,6 +134,10 @@ class MapDisplayConfig:
             hex_color=str(d.get("hex_color", "#33443344")),
             background=str(d.get("background", "resources/test_map.png")),
             unit_size_multiplier=float(d.get("unit_size_multiplier", 1.5)),
+            hex_columns=cols,
+            hex_rows=rows,
+            hex_origin_i=int(d.get("hex_origin_i", 0)),
+            hex_origin_j=int(d.get("hex_origin_j", 0)),
         )
 
 
