@@ -2,7 +2,7 @@
 Scenario data schema: plain data only, no game types.
 
 This is the stable "DSL" representation. When game classes change
-(UnitState, LocationState, LocationItem, etc.), only the loader
+(UnitState, LocationState, etc.), only the loader
 that maps this schema onto those types needs to change.
 """
 
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-# Odd-q offset ``(col, row)`` as in TOML ``position = [col, row]`` (see ``HexRowCol``).
+# Odd-q offset ``(col, row)`` as in TOML ``position = [col, row]`` (see ``HexColRow``).
 Position = tuple[int, int]
 
 # Site-relative path served with the static root (see [styles] in scenario TOML).
@@ -60,7 +60,7 @@ class UnitRow:
 
     unit_id: str
     unit_type: str  # e.g. "canuck", "soldier" — loader maps to game class or action
-    #: Odd-q ``(col, row)`` after parse (same as :class:`~hexengine.hexes.types.HexRowCol`).
+    #: Odd-q ``(col, row)`` after parse (same as :class:`~hexengine.hexes.types.HexColRow`).
     position: Position
     faction: str
     health: int = 100
@@ -71,7 +71,7 @@ class UnitRow:
 class LocationRow:
     """One terrain location from a scenario file."""
 
-    #: Odd-q ``(col, row)`` after parse (same as :class:`~hexengine.hexes.types.HexRowCol`).
+    #: Odd-q ``(col, row)`` after parse (same as :class:`~hexengine.hexes.types.HexColRow`).
     position: Position
     terrain_type: str
     movement_cost: float
@@ -91,6 +91,9 @@ class MapDisplayConfig:
     hex_stroke: int = 1
     hex_color: str = "#33443344"
     background: str = "resources/test_map.png"
+    #: When True, ``#map-bg`` uses CSS ``background-size: cover`` (crop to map rect); when
+    #: False, ``background-size: 100% 100%`` stretches the image to the rect.
+    background_crop_to_map: bool = True
     unit_size_multiplier: float = 1.5
     # Fixed grid in cube coordinates: columns = i step, rows = j step (axial rectangle).
     # When both are set, the client sizes the canvas/SVG to this grid; when None, legacy
@@ -114,6 +117,7 @@ class MapDisplayConfig:
             "hex_stroke": self.hex_stroke,
             "hex_color": self.hex_color,
             "background": self.background,
+            "background_crop_to_map": self.background_crop_to_map,
             "unit_size_multiplier": self.unit_size_multiplier,
             "hex_origin_i": self.hex_origin_i,
             "hex_origin_j": self.hex_origin_j,
@@ -159,6 +163,11 @@ class MapDisplayConfig:
             hex_stroke=int(d.get("hex_stroke", 1)),
             hex_color=str(d.get("hex_color", "#33443344")),
             background=str(d.get("background", "resources/test_map.png")),
+            background_crop_to_map=(
+                True
+                if (v := d.get("background_crop_to_map", True)) is None
+                else bool(v)
+            ),
             unit_size_multiplier=float(d.get("unit_size_multiplier", 1.5)),
             hex_columns=cols,
             hex_rows=rows,

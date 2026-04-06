@@ -1,19 +1,20 @@
 # Canonical default scenario. Terrain + grid from Hextml import (resources/default/simple.gz)
 # via tools/import_hextml_map.py (odd-q offset → axial). Co-bundled assets: dummy.svg.
 # [map].background: path relative to this file when the file exists; else site-root-relative.
-# All ``position`` values are odd-q [col, row] (HexRowCol), not cube (i, j, k).
+# All ``position`` values are odd-q [col, row] (HexColRow), not cube (i, j, k).
 
 name = "Test Scenario"
 description = "Test scenario; terrain grid imported from Hextml simple export (8×9 axial bounds)."
 
 [map]
 hex_size = 24
-hex_margin = 0
+hex_margin = 1
 hex_stroke = 1
 hex_color = "#33443344"
 terrain_overlay_line_color = "#33443344"
 terrain_overlay_line_width = 2
 background = "resources/test_map.png"
+background_crop_to_map = false
 unit_size_multiplier = 1.5
 hex_columns = 8
 hex_rows = 9

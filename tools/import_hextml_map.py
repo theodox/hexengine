@@ -35,7 +35,7 @@ if _SRC.is_dir() and str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from hexengine.hexes.math import shift_axial_ij_cube_coords_to_origin  # noqa: E402
-from hexengine.hexes.types import HexRowCol  # noqa: E402
+from hexengine.hexes.types import Hex, HexColRow  # noqa: E402
 
 
 # Stub stats for Hextml CSS terrain classes → scenario ``terrain`` string is the
@@ -169,7 +169,7 @@ class _HextmlMapParser(HTMLParser):
                 k = -i - j
                 cells.append((i, j, k, raw))
             else:
-                h = HexRowCol(col=col, row=row).to_hex()
+                h = HexColRow(col=col, row=row).to_hex()
                 cells.append((h.i, h.j, h.k, raw))
 
     def handle_endtag(self, tag: str) -> None:
@@ -296,6 +296,7 @@ def build_scenario_toml(
         'terrain_overlay_line_color = "#33443344"',
         "terrain_overlay_line_width = 2",
         'background = "resources/test_map.png"',
+        "background_crop_to_map = true",
         "unit_size_multiplier = 1.5",
     ]
     # Hextml data-width/height are offset-map size; axial bounds after odd-q + normalize
@@ -330,7 +331,8 @@ def build_scenario_toml(
             lines.append(f'hex_color = "{_escape_toml_basic(hc.strip())}"')
         lines.append("members = [")
         for i, j, k in positions:
-            lines.append(f"  {{ position = [{i}, {j}, {k}] }},")
+            rc = HexColRow.from_hex(Hex(i, j, k))
+            lines.append(f"  {{ position = [{rc.col}, {rc.row}] }},")
         lines.append("]")
         lines.append("")
 

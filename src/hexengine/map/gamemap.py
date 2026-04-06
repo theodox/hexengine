@@ -22,6 +22,9 @@ class Map:
     A canvas for drawing hexagons.
     """
 
+    _MAP_BG_CLASS_CROP = "map-bg--crop"
+    _MAP_BG_CLASS_STRETCH = "map-bg--stretch"
+
     def __init__(
         self,
         container_element: js.HTMLElement,
@@ -112,6 +115,7 @@ class Map:
         self._clamp_pan()
         self._apply_transform()
         self._sync_overlay_svg_size()
+        self._sync_map_bg_dom_size()
 
     @property
     def on_drag(self):
@@ -196,6 +200,48 @@ class Map:
             svg.style.width = f"{w}px"
             svg.style.height = f"{h}px"
 
+    def _sync_map_world_dom_size(self) -> None:
+        """
+        Size #map-world to the grid canvas pixel box so the layout is not a huge CSS
+        aspect-ratio viewport with a small hex grid in the corner.
+        """
+        if self._transform_root is None:
+            return
+        c = self._canvas_layer.canvas
+        w, h = int(c.width), int(c.height)
+        if (
+            self._canvas_layer._fixed_canvas_w is not None
+            and self._canvas_layer._fixed_canvas_h is not None
+        ):
+            self._transform_root.style.width = f"{w}px"
+            self._transform_root.style.height = f"{h}px"
+        else:
+            self._transform_root.style.width = ""
+            self._transform_root.style.height = ""
+
+    def _sync_map_bg_dom_size(self) -> None:
+        """
+        Match ``#map-bg`` pixel box to the grid canvas (same as SVG overlays).
+
+        When left at ``width/height: 100%``, the layer sizes to ``#map-world``, which may
+        still be the wide ``aspect-ratio`` strip—so ``background-size: cover`` scales the
+        art to that large box. Explicit px ties the background to the hex map extent.
+        """
+        if self._bg_element is None:
+            return
+        c = self._canvas_layer.canvas
+        w, h = int(c.width), int(c.height)
+        st = self._bg_element.style
+        if (
+            self._canvas_layer._fixed_canvas_w is not None
+            and self._canvas_layer._fixed_canvas_h is not None
+        ):
+            st.setProperty("width", f"{w}px")
+            st.setProperty("height", f"{h}px")
+        else:
+            st.removeProperty("width")
+            st.removeProperty("height")
+
     def refresh(self) -> None:
         """
         Refresh the map after a resize or zoom.
@@ -205,6 +251,8 @@ class Map:
         # Redraw canvas with new dimensions
         self._canvas_layer.redraw()
         self._sync_overlay_svg_size()
+        self._sync_map_world_dom_size()
+        self._sync_map_bg_dom_size()
 
         self._set_unit_css_vars()
 
@@ -220,6 +268,26 @@ class Map:
         unit_size = max(1, int(self._hex_layout.size * self._unit_size_multiplier) - 2)
         js.document.documentElement.style.setProperty("--unit-width", f"{unit_size}px")
         js.document.documentElement.style.setProperty("--unit-height", f"{unit_size}px")
+
+    def _apply_map_background(self, m: Any) -> None:
+        """Set ``#map-bg`` image URL and crop vs stretch via CSS classes (see hexes.css)."""
+        if self._bg_element is None:
+            return
+        el = self._bg_element
+        el.classList.remove(self._MAP_BG_CLASS_CROP, self._MAP_BG_CLASS_STRETCH)
+        el.classList.add(
+            self._MAP_BG_CLASS_CROP
+            if m.background_crop_to_map
+            else self._MAP_BG_CLASS_STRETCH
+        )
+
+        url = str(m.background).strip().replace("\\", "/")
+        st = el.style
+        if not url:
+            st.setProperty("background-image", "none")
+            return
+        escaped = url.replace("\\", "\\\\").replace('"', '\\"')
+        st.setProperty("background-image", f'url("{escaped}")')
 
     def apply_map_display(self, config: dict[str, Any]) -> None:
         """
@@ -287,8 +355,7 @@ class Map:
         ):
             handler._layout = self._hex_layout
 
-        if self._bg_element is not None:
-            self._bg_element.setAttribute("src", m.background)
+        self._apply_map_background(m)
 
         self.reset_view()
         self.refresh()

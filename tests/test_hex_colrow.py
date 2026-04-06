@@ -1,4 +1,4 @@
-"""Tests for HexRowCol as odd-q offset coordinates (bijection with Hex)."""
+"""Tests for HexColRow as odd-q offset coordinates (bijection with Hex)."""
 
 from __future__ import annotations
 
@@ -7,11 +7,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from hexengine.hexes.types import Hex, HexRowCol
+from hexengine.hexes.types import Hex, HexColRow
 
 
-def test_hex_to_rowcol_to_hex() -> None:
-    """Hex -> HexRowCol (odd-q) -> Hex round trip."""
+def test_hex_to_col_row_to_hex() -> None:
+    """Hex -> HexColRow (odd-q) -> Hex round trip."""
     test_hexes = [
         Hex(0, 0, 0),
         Hex(5, -3, -2),
@@ -21,16 +21,16 @@ def test_hex_to_rowcol_to_hex() -> None:
         Hex(16, 4, -20),
     ]
     for original_hex in test_hexes:
-        rowcol = HexRowCol.from_hex(original_hex)
-        recovered_hex = rowcol.to_hex()
+        col_row = HexColRow.from_hex(original_hex)
+        recovered_hex = col_row.to_hex()
         assert original_hex == recovered_hex, (
-            f"Round trip failed: {original_hex} -> {rowcol} -> {recovered_hex}"
+            f"Round trip failed: {original_hex} -> {col_row} -> {recovered_hex}"
         )
-        assert Hex.from_hex_row_col(rowcol) == recovered_hex == original_hex
+        assert Hex.from_hex_col_row(col_row) == recovered_hex == original_hex
 
 
-def test_rowcol_to_hex_to_rowcol() -> None:
-    """HexRowCol -> Hex -> HexRowCol round trip (use from_hex to build valid odd-q pairs)."""
+def test_col_row_to_hex_to_col_row() -> None:
+    """HexColRow -> Hex -> HexColRow round trip (use from_hex to build valid odd-q pairs)."""
     seeds = [
         Hex(0, 0, 0),
         Hex(2, -1, -1),
@@ -38,29 +38,29 @@ def test_rowcol_to_hex_to_rowcol() -> None:
         Hex(16, 4, -20),
     ]
     for h in seeds:
-        original = HexRowCol.from_hex(h)
-        back = HexRowCol.from_hex(original.to_hex())
+        original = HexColRow.from_hex(h)
+        back = HexColRow.from_hex(original.to_hex())
         assert original == back, f"{original} -> {original.to_hex()} -> {back}"
 
 
 def test_odd_q_bijection_on_grid() -> None:
     """Odd-q pairs and hexes are in 1:1 correspondence on a bounded grid."""
     hex_set = {Hex(i, j, -i - j) for i in range(-5, 6) for j in range(-5, 6)}
-    rowcol_set = {HexRowCol.from_hex(h) for h in hex_set}
-    hex_set_recovered = {rc.to_hex() for rc in rowcol_set}
-    assert len(hex_set) == len(rowcol_set)
+    col_row_set = {HexColRow.from_hex(h) for h in hex_set}
+    hex_set_recovered = {cr.to_hex() for cr in col_row_set}
+    assert len(hex_set) == len(col_row_set)
     assert hex_set == hex_set_recovered
 
 
 def test_comparison_with_cartesian() -> None:
-    """Cartesian can collide; odd-q HexRowCol matches a unique hex like cube coords."""
+    """Cartesian can collide; odd-q HexColRow matches a unique hex like cube coords."""
     from hexengine.hexes.types import Cartesian
 
     cart1 = Cartesian(18, 13)
     cart2 = Cartesian(18, 14)
     hex1 = Hex.from_cartesian(cart1)
     hex2 = Hex.from_cartesian(cart2)
-    rowcol1 = HexRowCol.from_hex(hex1)
-    rowcol2 = HexRowCol.from_hex(hex2)
+    col_row1 = HexColRow.from_hex(hex1)
+    col_row2 = HexColRow.from_hex(hex2)
     if hex1 == hex2:
-        assert rowcol1 == rowcol2
+        assert col_row1 == col_row2

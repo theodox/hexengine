@@ -5,7 +5,9 @@
     overflow: hidden;
 }
 
-/* Pan/zoom target: one transform, no per-layer transition (avoids jank vs pointer). */
+/* Pan/zoom target: one transform, no per-layer transition (avoids jank vs pointer).
+   Scenario maps set width/height inline to match the hex canvas (tight bbox + margin),
+   overriding the legacy fill below. */
 #map-world {
     position: relative;
     width: 100%;
@@ -18,12 +20,29 @@
 
 #map-bg {
     position: absolute;
+    top: 0;
+    left: 0;
+    /* Legacy: fill #map-world. Fixed grid: Map._sync_map_bg_dom_size sets width/height in px
+       to match the canvas so the background is not tied to #map-world’s CSS box (100%×16:9). */
     width: 100%;
     height: 100%;
     background-color: rgb(200, 200, 200);
+    background-repeat: no-repeat;
+    background-position: center;
+    /* Default art until apply_map_display sets background-image */
+    background-image: url("resources/test_map.png");
     z-index: 0;
     user-select: none;
     pointer-events: auto;
+}
+
+/* Toggled from Map._apply_map_background (see map_display.background_crop_to_map). */
+#map-bg.map-bg--crop {
+    background-size: cover;
+}
+
+#map-bg.map-bg--stretch {
+    background-size: 100% 100%;
 }
 
 #map-canvas {

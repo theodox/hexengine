@@ -1,7 +1,7 @@
 """
 Parse scenario files (TOML) into ScenarioData.
 
-TOML ``position`` values are odd-q ``[col, row]`` (see :class:`~hexengine.hexes.types.HexRowCol`).
+TOML ``position`` values are odd-q ``[col, row]`` (see :class:`~hexengine.hexes.types.HexColRow`).
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ try:
 except ImportError:
     import tomli as tomllib  # fallback for older Python
 
-from ..hexes.types import Hex, HexRowCol
+from ..hexes.types import Hex, HexColRow
 
 from .schema import (
     DEFAULT_GLOBAL_BASE_CSS_FILE,
@@ -92,7 +92,7 @@ def resolve_map_background_url(
 
 def _parse_position(raw: list[int] | tuple[int, ...]) -> tuple[int, int]:
     """
-    Parse TOML ``position`` as odd-q ``[col, row]`` (:class:`~hexengine.hexes.types.HexRowCol`).
+    Parse TOML ``position`` as odd-q ``[col, row]`` (:class:`~hexengine.hexes.types.HexColRow`).
     """
     if len(raw) != 2:
         raise ValueError(
@@ -103,7 +103,7 @@ def _parse_position(raw: list[int] | tuple[int, ...]) -> tuple[int, int]:
 
 def _position_to_cube_tuple(pos: tuple[int, int]) -> tuple[int, int, int]:
     """Scenario ``Position`` → cube triple for :attr:`MapDisplayConfig.grid_hexes` / clients."""
-    h = Hex.from_hex_row_col(HexRowCol(col=pos[0], row=pos[1]))
+    h = Hex.from_hex_col_row(HexColRow(col=pos[0], row=pos[1]))
     return (h.i, h.j, h.k)
 
 
@@ -130,7 +130,7 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
       [[units]]
       id = "Canuck1"
       type = "canuck"
-      position = [16, 12]   # odd-q [col, row] (HexRowCol)
+      position = [16, 12]   # odd-q [col, row] (HexColRow)
       faction = "Red"
       # optional: health = 100, active = true
 
@@ -170,6 +170,7 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
       terrain_overlay_line_color = "#33443344"
       terrain_overlay_line_width = 2
       background = "assets/map.png"
+      # background_crop_to_map = false   # stretch bg to map rect; default true = crop (cover)
       unit_size_multiplier = 1.5
       # Optional: fixed hex grid (axial i + column step, j + row from origin):
       hex_columns = 17
@@ -301,23 +302,20 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
                 )
             )
 
-    if (
-        map_display.hex_columns is not None
-        and map_display.hex_rows is not None
-    ):
-        seen: set[tuple[int, int, int]] = set()
-        ordered: list[tuple[int, int, int]] = []
-        for loc in locations:
-            t = _position_to_cube_tuple(loc.position)
-            if t not in seen:
-                seen.add(t)
-                ordered.append(t)
-        for u in units:
-            t = _position_to_cube_tuple(u.position)
-            if t not in seen:
-                seen.add(t)
-                ordered.append(t)
-        ordered.sort()
+    seen: set[tuple[int, int, int]] = set()
+    ordered: list[tuple[int, int, int]] = []
+    for loc in locations:
+        t = _position_to_cube_tuple(loc.position)
+        if t not in seen:
+            seen.add(t)
+            ordered.append(t)
+    for u in units:
+        t = _position_to_cube_tuple(u.position)
+        if t not in seen:
+            seen.add(t)
+            ordered.append(t)
+    ordered.sort()
+    if ordered:
         map_display = replace(map_display, grid_hexes=tuple(ordered))
 
     return ScenarioData(
@@ -470,12 +468,20 @@ def _parse_map_table(
         if hex_columns < 1 or hex_rows < 1:
             raise ValueError("[map] hex_columns and hex_rows must be >= 1")
 
+    bg_crop_raw = raw.get("background_crop_to_map")
+    background_crop_to_map = (
+        MapDisplayConfig.background_crop_to_map
+        if bg_crop_raw is None
+        else bool(bg_crop_raw)
+    )
+
     return MapDisplayConfig(
         hex_size=float(raw.get("hex_size", 24.0)),
         hex_margin=float(raw.get("hex_margin", 0.0)),
         hex_stroke=int(raw.get("hex_stroke", 1)),
         hex_color=str(raw.get("hex_color", "#33443344")),
         background=bg_out,
+        background_crop_to_map=background_crop_to_map,
         unit_size_multiplier=float(raw.get("unit_size_multiplier", 1.5)),
         hex_columns=hex_columns,
         hex_rows=hex_rows,

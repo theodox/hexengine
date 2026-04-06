@@ -18,7 +18,7 @@ class Cartesian:
     same scale factors as continuous hex layout (see ``hexengine.hexes.constants``).
     The reverse map :meth:`Hex.from_cartesian` rounds to the nearest hex, so **several**
     distinct ``Cartesian`` values can yield the **same** :class:`Hex`—unlike
-    :class:`HexRowCol` (odd-q), which is 1:1 with hexes.
+    :class:`HexColRow` (odd-q), which is 1:1 with hexes.
 
     Useful for axis-aligned ranges and plane geometry (e.g. :mod:`hexengine.hexes.shapes`);
     it is **not** the same as odd-q ``[col, row]`` editor coordinates.
@@ -64,7 +64,7 @@ class Cartesian:
 
 
 @dataclasses.dataclass(frozen=True)
-class HexRowCol:
+class HexColRow:
     """
     **Odd-q offset** coordinates for a flat-top hex grid (human-friendly 2-number layout).
 
@@ -97,7 +97,7 @@ class HexRowCol:
         return i, j
 
     @classmethod
-    def offset_from_axial(cls, i: int, j: int) -> HexRowCol:
+    def offset_from_axial(cls, i: int, j: int) -> HexColRow:
         """
         Axial ``(i, j)`` → odd-q coordinates with ``col = i``.
 
@@ -113,7 +113,7 @@ class HexRowCol:
         object.__setattr__(self, "row", round(self.row))
 
     def __eq__(self, value):
-        if not isinstance(value, HexRowCol):
+        if not isinstance(value, HexColRow):
             return NotImplemented
         return self.col == value.col and self.row == value.row
 
@@ -121,10 +121,10 @@ class HexRowCol:
         return hash((self.col, self.row))
 
     def __repr__(self) -> str:
-        return f"HexRowCol(col={self.col}, row={self.row})"
+        return f"HexColRow(col={self.col}, row={self.row})"
 
     @classmethod
-    def from_hex(cls, hex_coord: Hex) -> HexRowCol:
+    def from_hex(cls, hex_coord: Hex) -> HexColRow:
         """Axial/cube hex → odd-q ``(col, row)`` with ``col = i``."""
         return cls.offset_from_axial(hex_coord.i, hex_coord.j)
 
@@ -214,6 +214,6 @@ class Hex:
         return cls(q, r, s)
 
     @classmethod
-    def from_hex_row_col(cls, row_col: HexRowCol) -> Hex:
-        """Odd-q :class:`HexRowCol` → cube hex (inverse of :meth:`HexRowCol.from_hex`)."""
-        return row_col.to_hex()
+    def from_hex_col_row(cls, col_row: HexColRow) -> Hex:
+        """Odd-q :class:`HexColRow` → cube hex (inverse of :meth:`HexColRow.from_hex`)."""
+        return col_row.to_hex()

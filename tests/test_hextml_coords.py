@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from hexengine.hexes.math import shift_axial_ij_cube_coords_to_origin  # noqa: E402
-from hexengine.hexes.types import HexRowCol  # noqa: E402
+from hexengine.hexes.types import HexColRow  # noqa: E402
 from tools.import_hextml_map import parse_hextml_html  # noqa: E402
 
 
@@ -17,7 +17,7 @@ def test_odd_q_round_trip_forward_row() -> None:
     for i in range(6):
         for j in range(4):
             row_off = j + (i - (i & 1)) // 2
-            ii, jj = HexRowCol.axial_from_offset(i, row_off)
+            ii, jj = HexColRow.axial_from_offset(i, row_off)
             assert (ii, jj) == (i, j), ((i, j), row_off, (ii, jj))
 
 

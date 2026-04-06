@@ -1,9 +1,4 @@
-"""
-Data type for scenario location definitions.
-
-Lives in map so that map.location can use it without importing from scenarios.base,
-breaking the circular dependency: map.location <-> scenarios.base.
-"""
+"""Plain data for building a :class:`~hexengine.map.location.Location` (no display / :class:`~hexengine.game.game.Game` in the ctor)."""
 
 from __future__ import annotations
 

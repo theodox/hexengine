@@ -36,7 +36,7 @@ from .shapes import (
     wedge,
     wedge_fill,
 )
-from .types import Hex, HexRowCol
+from .types import Hex, HexColRow
 
 __version__: str
 try:
@@ -48,7 +48,7 @@ except PackageNotFoundError:
 __all__ = [
     "Hex",
     "Cartesian",
-    "HexRowCol",
+    "HexColRow",
     # Math functions
     "distance",
     "neighbors",
