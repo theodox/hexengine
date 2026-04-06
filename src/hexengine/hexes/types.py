@@ -212,3 +212,8 @@ class Hex:
         else:
             s = -q - r
         return cls(q, r, s)
+
+    @classmethod
+    def from_hex_row_col(cls, row_col: HexRowCol) -> Hex:
+        """Odd-q :class:`HexRowCol` → cube hex (inverse of :meth:`HexRowCol.from_hex`)."""
+        return row_col.to_hex()

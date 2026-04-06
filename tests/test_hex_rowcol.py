@@ -26,6 +26,7 @@ def test_hex_to_rowcol_to_hex() -> None:
         assert original_hex == recovered_hex, (
             f"Round trip failed: {original_hex} -> {rowcol} -> {recovered_hex}"
         )
+        assert Hex.from_hex_row_col(rowcol) == recovered_hex == original_hex
 
 
 def test_rowcol_to_hex_to_rowcol() -> None:
