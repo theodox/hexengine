@@ -1,7 +1,7 @@
 """
 Parse scenario files (TOML) into ScenarioData.
 
-Uses :mod:`hexengine.hexes.math` only for odd-q ``position = [col, row]`` parsing.
+Uses :class:`~hexengine.hexes.types.HexRowCol` for odd-q ``position = [col, row]`` parsing.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ try:
 except ImportError:
     import tomli as tomllib  # fallback for older Python
 
-from ..hexes.math import hextml_offset_odd_q_to_axial
+from ..hexes.types import HexRowCol
 
 from .schema import (
     DEFAULT_GLOBAL_BASE_CSS_FILE,
@@ -99,7 +99,7 @@ def _parse_position(raw: list[int] | tuple[int, ...]) -> tuple[int, int, int]:
     """
     if len(raw) == 2:
         c, r = int(raw[0]), int(raw[1])
-        i, j = hextml_offset_odd_q_to_axial(c, r)
+        i, j = HexRowCol.axial_from_offset(c, r)
         return (i, j, -i - j)
     if len(raw) == 3:
         return (int(raw[0]), int(raw[1]), int(raw[2]))

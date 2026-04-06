@@ -48,28 +48,6 @@ def cube_round(coords: tuple[float, float, float]) -> Hex:
     return Hex(q, r, s)
 
 
-def hextml_offset_odd_q_to_axial(col: int, row: int) -> tuple[int, int]:
-    """
-    Odd-q offset column/row (as in Hextml ``data-x`` / ``data-y``) → axial ``(i, j)``.
-
-    Matches flat-top axial ``(i, j)`` used with odd-q offset maps (e.g. Hextml exports;
-    see Red Blob Games: offset coordinates → axial).
-    """
-    i = int(col)
-    j = int(row) - (i - (i & 1)) // 2
-    return i, j
-
-
-def odd_q_offset_row_from_axial_ij(i: int, j: int) -> int:
-    """
-    Axial ``(i, j)`` → odd-q **offset row** for column ``i`` (inverse of :func:`hextml_offset_odd_q_to_axial`).
-
-    Odd-q stores ``col = i`` and ``row = j + (i - (i & 1)) // 2``.
-    """
-    ii = int(i)
-    return int(j) + (ii - (ii & 1)) // 2
-
-
 def shift_axial_ij_cube_coords_to_origin(
     coords: Iterable[tuple[int, int, int]],
 ) -> list[tuple[int, int, int]]:
