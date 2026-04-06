@@ -8,8 +8,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from hexengine.hexes.math import shift_axial_ij_cube_coords_to_origin  # noqa: E402
-from hexengine.hexes.types import HexColRow  # noqa: E402
-from tools.import_hextml_map import parse_hextml_html  # noqa: E402
+from hexengine.hexes.types import Hex, HexColRow  # noqa: E402
+from tools.import_hextml_map import (  # noqa: E402
+    _normalize_oddq_col_row_cells,
+    parse_hextml_html,
+)
 
 
 def test_odd_q_round_trip_forward_row() -> None:
@@ -73,3 +76,17 @@ def test_normalize_shifts_origin() -> None:
     out = shift_axial_ij_cube_coords_to_origin(core)
     assert out[0] == (0, 0, 0)
     assert out[1] == (0, 1, -1)
+
+
+def test_oddq_normalize_tightens_row_origin() -> None:
+    """
+    After axial min (i, j) = (0, 0), odd-q offset rows can still start above 0
+    (e.g. one hex at high ``j`` with low ``i`` and another at low ``j`` with high ``i``).
+    The second normalize aligns TOML ``[col, row]`` to a tight top-left bbox.
+    """
+    cells = [(0, 100, -100, "a"), (30, 0, -30, "b")]
+    out = _normalize_oddq_col_row_cells(cells)
+    crs = [HexColRow.from_hex(Hex(c[0], c[1], c[2])) for c in out]
+    assert min(c.col for c in crs) == 0
+    assert min(c.row for c in crs) == 0
+    assert {c[3] for c in out} == {"a", "b"}
