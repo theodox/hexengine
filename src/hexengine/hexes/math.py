@@ -2,15 +2,19 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from .constants import (
+    FLAT_TOP_AXIAL_TO_PLANE_X,
+    FLAT_TOP_PLANE_TO_AXIAL_Q_SCALE,
+    HEX_SIDE_COUNT,
+    NORMALIZE_HEX_EPSILON,
+    SQRT_THREE,
+)
 from .types import Cartesian, Hex
-
-# Constants for hex to cartesian conversion
-SQRT_THREE = 3**0.5
 
 
 def _hex_to_axial_plane_xy(h: Hex) -> tuple[float, float]:
     """Continuous flat-top plane coords (matches polygon ray-cast in shapes)."""
-    x = 1.5 * h.i
+    x = FLAT_TOP_AXIAL_TO_PLANE_X * h.i
     y = SQRT_THREE * (h.j + h.i * 0.5)
     return (x, y)
 
@@ -44,9 +48,40 @@ def cube_round(coords: tuple[float, float, float]) -> Hex:
     return Hex(q, r, s)
 
 
+def hextml_offset_odd_q_to_axial(col: int, row: int) -> tuple[int, int]:
+    """
+    Odd-q offset column/row (as in Hextml ``data-x`` / ``data-y``) → axial ``(i, j)``.
+
+    Matches flat-top axial ``(i, j)`` used with odd-q offset maps (e.g. Hextml exports;
+    see Red Blob Games: offset coordinates → axial).
+    """
+    i = int(col)
+    j = int(row) - (i - (i & 1)) // 2
+    return i, j
+
+
+def shift_axial_ij_cube_coords_to_origin(
+    coords: Iterable[tuple[int, int, int]],
+) -> list[tuple[int, int, int]]:
+    """
+    Shift ``(i, j)`` so the set's minimum ``i`` and ``j`` are 0.
+
+    ``k`` is recomputed as ``-i - j`` after the shift (scenario-style bounding box),
+    ignoring any previous ``k`` in the input.
+    """
+    lst = list(coords)
+    if not lst:
+        return []
+    min_i = min(t[0] for t in lst)
+    min_j = min(t[1] for t in lst)
+    return [
+        (i - min_i, j - min_j, -(i - min_i) - (j - min_j)) for i, j, _k in lst
+    ]
+
+
 def normalize(hex: Hex) -> Hex:
-    i = (hex.i + 0.24999) / len(hex)
-    j = (hex.j - 0.24999) / len(hex)
+    i = (hex.i + NORMALIZE_HEX_EPSILON) / len(hex)
+    j = (hex.j - NORMALIZE_HEX_EPSILON) / len(hex)
     k = -i - j
     return Hex(round(i), round(j), round(k))
 
@@ -57,7 +92,7 @@ def neighbors(hex: Hex) -> Iterable[Hex]:
 
 
 def neighbor_hex(hex: Hex, direction: int) -> Hex:
-    return hex + _NEIGHBOR_OFFSETS[direction % 6]
+    return hex + _NEIGHBOR_OFFSETS[direction % HEX_SIDE_COUNT]
 
 
 def distance(a: Hex, b: Hex) -> int:
@@ -237,7 +272,7 @@ def scale_cartesian_vector(vector: Hex | Cartesian, scalar: float) -> Hex:
         x, y = float(vector.x), float(vector.y)
     x *= scalar
     y *= scalar
-    i = (2.0 / 3.0) * x
+    i = FLAT_TOP_PLANE_TO_AXIAL_Q_SCALE * x
     j = y / SQRT_THREE - i * 0.5
     k = -i - j
     return cube_round((i, j, k))

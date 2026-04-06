@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import dataclasses
 
-# Constants for hex to cartesian conversion
-SQRT_THREE = 3**0.5
+from .constants import (
+    FLAT_TOP_AXIAL_TO_PLANE_X,
+    FLAT_TOP_PLANE_TO_AXIAL_Q_SCALE,
+    SQRT_THREE,
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -42,7 +45,7 @@ class Cartesian:
     @classmethod
     def from_hex(cls, hex_coord: Hex) -> Cartesian:
         """Convert hex coordinates to integer Cartesian coordinates (flat-top orientation)."""
-        x = int(round(1.5 * hex_coord.i))
+        x = int(round(FLAT_TOP_AXIAL_TO_PLANE_X * hex_coord.i))
         y = int(round(SQRT_THREE * (hex_coord.j + hex_coord.i * 0.5)))
         return cls(x, y)
 
@@ -156,7 +159,7 @@ class Hex:
     @classmethod
     def from_cartesian(cls, cartesian: Cartesian) -> Hex:
         """Convert integer Cartesian coordinates to hex coordinates (flat-top orientation)."""
-        i = (2.0 / 3.0) * cartesian.x
+        i = FLAT_TOP_PLANE_TO_AXIAL_Q_SCALE * cartesian.x
         j = cartesian.y / SQRT_THREE - i * 0.5
         k = -i - j
 

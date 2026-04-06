@@ -7,11 +7,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from tools.import_hextml_map import (  # noqa: E402
-    _hextml_offset_odd_q_to_axial,
-    _normalize_axial_cells,
-    parse_hextml_html,
+from hexengine.hexes.math import (  # noqa: E402
+    hextml_offset_odd_q_to_axial,
+    shift_axial_ij_cube_coords_to_origin,
 )
+from tools.import_hextml_map import parse_hextml_html  # noqa: E402
 
 
 def test_odd_q_round_trip_forward_row() -> None:
@@ -19,7 +19,7 @@ def test_odd_q_round_trip_forward_row() -> None:
     for i in range(6):
         for j in range(4):
             row_off = j + (i - (i & 1)) // 2
-            ii, jj = _hextml_offset_odd_q_to_axial(i, row_off)
+            ii, jj = hextml_offset_odd_q_to_axial(i, row_off)
             assert (ii, jj) == (i, j), ((i, j), row_off, (ii, jj))
 
 
@@ -71,10 +71,7 @@ def test_parse_staggered_row_odd_q() -> None:
 
 
 def test_normalize_shifts_origin() -> None:
-    cells = [
-        (2, 3, -5, "x"),
-        (2, 4, -6, "y"),
-    ]
-    out = _normalize_axial_cells(cells)
-    assert out[0][:3] == (0, 0, 0)
-    assert out[1][:3] == (0, 1, -1)
+    core = [(2, 3, -5), (2, 4, -6)]
+    out = shift_axial_ij_cube_coords_to_origin(core)
+    assert out[0] == (0, 0, 0)
+    assert out[1] == (0, 1, -1)

@@ -15,7 +15,8 @@ Run from repo root::
 
     python tools/import_hextml_map.py path/to/export.tar.gz -o out/scenario.toml
 
-Requires Python 3.11+ (stdlib only).
+Requires Python 3.11+. Expects the repo ``src`` layout (``hexengine`` on ``sys.path``);
+the script prepends ``<repo>/src`` when run as a file.
 """
 
 from __future__ import annotations
@@ -27,6 +28,16 @@ import tarfile
 from collections import defaultdict
 from html.parser import HTMLParser
 from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_SRC = _REPO_ROOT / "src"
+if _SRC.is_dir() and str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
+
+from hexengine.hexes.math import (  # noqa: E402
+    hextml_offset_odd_q_to_axial,
+    shift_axial_ij_cube_coords_to_origin,
+)
 
 
 # Stub stats for Hextml CSS terrain classes → scenario ``terrain`` string is the
@@ -76,28 +87,14 @@ TERRAIN_DEFAULTS: dict[str, dict[str, object]] = {
 }
 
 
-def _hextml_offset_odd_q_to_axial(col: int, row: int) -> tuple[int, int]:
-    """Odd-q offset (col, row) → axial ``(i, j)`` matching flat-top HexLayout."""
-    i = int(col)
-    j = int(row) - (i - (i & 1)) // 2
-    return i, j
-
-
 def _normalize_axial_cells(
     cells: list[tuple[int, int, int, str]],
 ) -> list[tuple[int, int, int, str]]:
     """Shift all positions so min i and min j are zero (scenario origin)."""
     if not cells:
         return cells
-    min_i = min(c[0] for c in cells)
-    min_j = min(c[1] for c in cells)
-    out: list[tuple[int, int, int, str]] = []
-    for i, j, _k, raw in cells:
-        ni = i - min_i
-        nj = j - min_j
-        nk = -ni - nj
-        out.append((ni, nj, nk, raw))
-    return out
+    shifted = shift_axial_ij_cube_coords_to_origin((c[0], c[1], c[2]) for c in cells)
+    return [(t[0], t[1], t[2], cells[i][3]) for i, t in enumerate(shifted)]
 
 
 def _terrain_stats(terrain: str) -> dict[str, object]:
@@ -172,7 +169,7 @@ class _HextmlMapParser(HTMLParser):
             if self._coord_mode == "raw":
                 i, j = col, row
             else:
-                i, j = _hextml_offset_odd_q_to_axial(col, row)
+                i, j = hextml_offset_odd_q_to_axial(col, row)
             k = -i - j
             cells.append((i, j, k, raw))
 

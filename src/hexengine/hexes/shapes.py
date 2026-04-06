@@ -4,13 +4,15 @@ from collections.abc import Iterable, Sequence
 from functools import singledispatch
 from math import atan2, cos, pi, sin
 
+from .constants import (
+    FLAT_TOP_AXIAL_TO_PLANE_X,
+    PI_OVER_3,
+    PI_OVER_6,
+    SQRT_THREE,
+    TWO_PI,
+)
 from .math import cross_product, distance, line, neighbor_hex, neighbors
 from .types import Cartesian, Hex
-
-TWO_PI = 2 * pi
-PI_OVER_3 = pi / 3.0
-PI_OVER_6 = pi / 6.0
-SQRT_THREE = 3**0.5
 
 
 @singledispatch
@@ -277,7 +279,7 @@ def _point_in_polygon(point: Hex, vertices: Sequence[Hex]) -> bool:
     """
 
     def hex_to_cartesian(hex_coord: Hex) -> tuple[float, float]:
-        x = 1.5 * hex_coord.i
+        x = FLAT_TOP_AXIAL_TO_PLANE_X * hex_coord.i
         y = SQRT_THREE * (hex_coord.j + hex_coord.i * 0.5)
         return (x, y)
 

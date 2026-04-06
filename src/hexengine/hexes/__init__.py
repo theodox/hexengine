@@ -12,6 +12,7 @@ from .math import (
     dot_product,
     hex_magnitude,
     hex_to_cartesian,
+    hextml_offset_odd_q_to_axial,
     lerp,
     line,
     neighbor_hex,
@@ -20,6 +21,7 @@ from .math import (
     rotate_left,
     rotate_right,
     scale_cartesian_vector,
+    shift_axial_ij_cube_coords_to_origin,
     subtract_cartesian_vectors,
 )
 from .shapes import (
@@ -58,6 +60,8 @@ __all__ = [
     "rotate_right",
     "cube_round",
     "normalize",
+    "hextml_offset_odd_q_to_axial",
+    "shift_axial_ij_cube_coords_to_origin",
     "hex_to_cartesian",
     "cartesian_to_hex",
     "dot_product",
