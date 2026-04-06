@@ -98,6 +98,9 @@ class MapDisplayConfig:
     hex_rows: int | None = None
     hex_origin_i: int = 0
     hex_origin_j: int = 0
+    #: When set with ``hex_columns`` / ``hex_rows``, canvas bounds and grid lines use this
+    #: occupied set instead of the full axis-aligned rectangle (sparse Hextml-style maps).
+    grid_hexes: tuple[tuple[int, int, int], ...] | None = None
     #: Terrain tint canvas stroke (CSS color, e.g. ``#RRGGBB`` / ``#RRGGBBAA``).
     terrain_overlay_line_color: str = "#33443344"
     terrain_overlay_line_width: int = 2
@@ -120,6 +123,8 @@ class MapDisplayConfig:
             d["hex_columns"] = self.hex_columns
         if self.hex_rows is not None:
             d["hex_rows"] = self.hex_rows
+        if self.grid_hexes is not None:
+            d["grid_hexes"] = [list(t) for t in self.grid_hexes]
         return d
 
     @classmethod
@@ -134,6 +139,19 @@ class MapDisplayConfig:
             rows = int(hr) if hr is not None else None
             if cols is None or rows is None or cols < 1 or rows < 1:
                 cols, rows = None, None
+        raw_gh = d.get("grid_hexes")
+        grid_hexes: tuple[tuple[int, int, int], ...] | None = None
+        if raw_gh is not None:
+            if not isinstance(raw_gh, list):
+                raise TypeError("map_display.grid_hexes must be a list of [i,j,k]")
+            triples: list[tuple[int, int, int]] = []
+            for i, item in enumerate(raw_gh):
+                if not isinstance(item, (list, tuple)) or len(item) != 3:
+                    raise ValueError(
+                        f"map_display.grid_hexes[{i}] must be [i, j, k], got {item!r}"
+                    )
+                triples.append((int(item[0]), int(item[1]), int(item[2])))
+            grid_hexes = tuple(triples)
         return cls(
             hex_size=float(d.get("hex_size", 24.0)),
             hex_margin=float(d.get("hex_margin", 0.0)),
@@ -145,6 +163,7 @@ class MapDisplayConfig:
             hex_rows=rows,
             hex_origin_i=int(d.get("hex_origin_i", 0)),
             hex_origin_j=int(d.get("hex_origin_j", 0)),
+            grid_hexes=grid_hexes,
             terrain_overlay_line_color=str(
                 d.get("terrain_overlay_line_color", "#33443344")
             ),

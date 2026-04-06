@@ -175,6 +175,7 @@ async def main():
 
     scenario_path = resolve_scenario_path_for_server()
     scenario_data = load_scenario(scenario_path)
+
     initial_state = scenario_to_initial_state(
         scenario_data,
         initial_faction="Red",

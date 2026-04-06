@@ -7,7 +7,12 @@ from ..document import js
 from ..hexes.shapes import rectangle_from_corners
 from ..hexes.types import Cartesian, Hex
 from ..state.game_state import LocationState
-from .layout import HexLayout, fit_hex_grid_canvas, iter_map_grid_hexes
+from .layout import (
+    HexLayout,
+    fit_hex_grid_canvas,
+    fit_hex_grid_canvas_for_hexes,
+    iter_map_grid_hexes,
+)
 
 
 class CanvasLayer:
@@ -31,6 +36,8 @@ class CanvasLayer:
         self.hex_stroke = hex_stroke
         # (columns, rows, origin_i, origin_j) or None = size canvas from CSS box
         self._scenario_grid: tuple[int, int, int, int] | None = None
+        #: When set, canvas size and grid lines use this list (sparse map), not full rect.
+        self._grid_hex_list: list[Hex] | None = None
         self._fixed_canvas_w: int | None = None
         self._fixed_canvas_h: int | None = None
 
@@ -112,15 +119,31 @@ class CanvasLayer:
         hex_size: float,
         hex_margin: float,
         hex_stroke: int,
+        *,
+        grid_hexes: Iterable[Hex] | None = None,
     ) -> None:
         """
         Switch between scenario-sized grid and legacy CSS-fitted grid.
 
         ``spec`` is (columns, rows, origin_i, origin_j) or None for legacy.
+        When ``grid_hexes`` is non-empty, canvas bounds and drawn grid use that set;
+        ``spec`` is still used for logging when provided.
         """
-        self._scenario_grid = spec
         self.hex_stroke = int(hex_stroke)
-        if spec is not None:
+        gh = list(grid_hexes) if grid_hexes is not None else []
+        self._grid_hex_list = gh if gh else None
+        self._scenario_grid = spec
+        if self._grid_hex_list is not None:
+            layout, cw, ch = fit_hex_grid_canvas_for_hexes(
+                hex_size,
+                self._grid_hex_list,
+                margin_pad=hex_margin,
+                stroke_pad=max(2.0, float(hex_stroke)),
+            )
+            self._hex_layout = layout
+            self._fixed_canvas_w = cw
+            self._fixed_canvas_h = ch
+        elif spec is not None:
             cols, rows, oi, oj = spec
             layout, cw, ch = fit_hex_grid_canvas(
                 hex_size,
@@ -145,7 +168,32 @@ class CanvasLayer:
         self._sync_canvas_resolution_and_draw_grid()
 
     def _sync_canvas_resolution_and_draw_grid(self) -> None:
-        if self._scenario_grid is not None:
+        if self._grid_hex_list is not None:
+            assert self._fixed_canvas_w is not None and self._fixed_canvas_h is not None
+            self._canvas.width = self._fixed_canvas_w
+            self._canvas.height = self._fixed_canvas_h
+            self._canvas.style.width = f"{self._fixed_canvas_w}px"
+            self._canvas.style.height = f"{self._fixed_canvas_h}px"
+            if self._scenario_grid is not None:
+                cols, rows, oi, oj = self._scenario_grid
+                logging.getLogger().info(
+                    "Scenario grid canvas (explicit %d hexes, rect %dx%d @ i=%s j=%s): %dx%d px",
+                    len(self._grid_hex_list),
+                    cols,
+                    rows,
+                    oi,
+                    oj,
+                    self._fixed_canvas_w,
+                    self._fixed_canvas_h,
+                )
+            else:
+                logging.getLogger().info(
+                    "Scenario grid canvas (explicit %d hexes): %dx%d px",
+                    len(self._grid_hex_list),
+                    self._fixed_canvas_w,
+                    self._fixed_canvas_h,
+                )
+        elif self._scenario_grid is not None:
             assert self._fixed_canvas_w is not None and self._fixed_canvas_h is not None
             self._canvas.width = self._fixed_canvas_w
             self._canvas.height = self._fixed_canvas_h
@@ -178,7 +226,15 @@ class CanvasLayer:
 
         self._context.clearRect(0, 0, self._canvas.width, self._canvas.height)
 
-        if self._scenario_grid is not None:
+        if self._grid_hex_list is not None:
+            for hx in self._grid_hex_list:
+                self.draw_hex(
+                    hx,
+                    fill="#FFFFFF10",
+                    stroke=self.hex_color,
+                    stroke_width=self.hex_stroke,
+                )
+        elif self._scenario_grid is not None:
             cols, rows, oi, oj = self._scenario_grid
             for hx in iter_map_grid_hexes(cols, rows, oi, oj):
                 self.draw_hex(

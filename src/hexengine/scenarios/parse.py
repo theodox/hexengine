@@ -6,6 +6,7 @@ No game types or hexengine.map/state imports — only schema and stdlib.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 try:
@@ -287,6 +288,25 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
                     hex_color=hex_color,
                 )
             )
+
+    if (
+        map_display.hex_columns is not None
+        and map_display.hex_rows is not None
+    ):
+        seen: set[tuple[int, int, int]] = set()
+        ordered: list[tuple[int, int, int]] = []
+        for loc in locations:
+            t = loc.position
+            if t not in seen:
+                seen.add(t)
+                ordered.append(t)
+        for u in units:
+            t = u.position
+            if t not in seen:
+                seen.add(t)
+                ordered.append(t)
+        ordered.sort()
+        map_display = replace(map_display, grid_hexes=tuple(ordered))
 
     return ScenarioData(
         name=name,

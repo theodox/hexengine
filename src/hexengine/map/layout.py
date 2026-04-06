@@ -108,3 +108,43 @@ def fit_hex_grid_canvas(
     cw = max(1, int(math.ceil(max_x2 + pad)))
     ch = max(1, int(math.ceil(max_y2 + pad)))
     return layout, cw, ch
+
+
+def fit_hex_grid_canvas_for_hexes(
+    hex_size: float,
+    hexes: Iterable[Hex],
+    *,
+    margin_pad: float = 0.0,
+    stroke_pad: float = 2.0,
+) -> tuple[HexLayout, int, int]:
+    """
+    Like :func:`fit_hex_grid_canvas` but bounds the canvas to an explicit hex set
+    (e.g. scenario terrain cells), omitting empty slots in an axis-aligned rectangle.
+    """
+    hex_list = list(hexes)
+    if not hex_list:
+        return HexLayout(hex_size, 0.0, 0.0), 1, 1
+    probe = HexLayout(hex_size, 0.0, 0.0)
+    min_x = min_y = math.inf
+    max_x = max_y = -math.inf
+    for h in hex_list:
+        for x, y in probe.hex_corners(h):
+            min_x = min(min_x, x)
+            max_x = max(max_x, x)
+            min_y = min(min_y, y)
+            max_y = max(max_y, y)
+
+    pad = float(stroke_pad) + float(margin_pad)
+    ox = pad - min_x
+    oy = pad - min_y
+    layout = HexLayout(hex_size, ox, oy)
+
+    max_x2 = max_y2 = -math.inf
+    for h in hex_list:
+        for x, y in layout.hex_corners(h):
+            max_x2 = max(max_x2, x)
+            max_y2 = max(max_y2, y)
+
+    cw = max(1, int(math.ceil(max_x2 + pad)))
+    ch = max(1, int(math.ceil(max_y2 + pad)))
+    return layout, cw, ch

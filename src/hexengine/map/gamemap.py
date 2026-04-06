@@ -246,12 +246,17 @@ class Map:
                 m.hex_origin_j,
             )
 
+        grid_hex_models: list[Hex] | None = None
+        if m.grid_hexes:
+            grid_hex_models = [Hex(t[0], t[1], t[2]) for t in m.grid_hexes]
+
         self._canvas_layer.hex_color = self._hex_color
         self._canvas_layer.set_scenario_grid(
             grid_spec,
             self._hex_size,
             self._hex_margin,
             self._hex_stroke,
+            grid_hexes=grid_hex_models,
         )
         self._hex_layout = self._canvas_layer._hex_layout
 

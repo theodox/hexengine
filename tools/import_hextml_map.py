@@ -4,8 +4,12 @@ Import a Hextml-exported HTML map (from ``.tar.gz`` / ``.tgz``, a gzip-compresse
 ``.html`` (``.gz``), or a plain ``.html`` file) into hexes scenario TOML with
 ``[[terrain_groups]]`` (shared stats + member positions).
 
-Coordinate mapping matches hexengine ``HexRowCol``: Hextml ``data-x`` → cube ``i``,
-``data-y`` → ``j``, ``k = -i - j``.
+Hextml stores **odd-q offset** coordinates on export: ``data-x`` is the column,
+``data-y`` (on ``hexline``) is the offset row, not cube ``j`` (see Red Blob Games
+“offset coordinates → axial”). We convert with ``j = row - (col - (col & 1)) // 2``,
+``i = col``, then shift so the map’s minimum ``(i, j)`` is ``(0, 0)`` to match
+``iter_map_grid_hexes`` / ``[map]`` hex_columns × hex_rows. Use ``--coords raw``
+for legacy imports that were already axial.
 
 Run from repo root::
 
@@ -39,37 +43,61 @@ TERRAIN_DEFAULTS: dict[str, dict[str, object]] = {
         "assault_modifier": 0.0,
         "ranged_modifier": 0.0,
         "block_los": True,
-        "hex_color": "#a0a0a0",
+        "hex_color": "#a0a0a073",
     },
     "plain": {
         "movement_cost": 1.0,
         "assault_modifier": 0.0,
         "ranged_modifier": 0.0,
         "block_los": True,
-        "hex_color": "#c8e6c8",
+        "hex_color": "#c8e6c873",
     },
     "beach": {
         "movement_cost": 1.5,
         "assault_modifier": 0.0,
         "ranged_modifier": 0.0,
         "block_los": True,
-        "hex_color": "#e8d4a8",
+        "hex_color": "#e8d4a873",
     },
     "ocean": {
         "movement_cost": "inf",
         "assault_modifier": 0.0,
         "ranged_modifier": 0.0,
         "block_los": True,
-        "hex_color": "#4a90c8",
+        "hex_color": "#4a90c873",
     },
     "evergreen-hills": {
         "movement_cost": 2.5,
         "assault_modifier": 0.0,
         "ranged_modifier": 0.0,
         "block_los": True,
-        "hex_color": "#3d6b3d",
+        "hex_color": "#3d6b3d73",
     },
 }
+
+
+def _hextml_offset_odd_q_to_axial(col: int, row: int) -> tuple[int, int]:
+    """Odd-q offset (col, row) → axial ``(i, j)`` matching flat-top HexLayout."""
+    i = int(col)
+    j = int(row) - (i - (i & 1)) // 2
+    return i, j
+
+
+def _normalize_axial_cells(
+    cells: list[tuple[int, int, int, str]],
+) -> list[tuple[int, int, int, str]]:
+    """Shift all positions so min i and min j are zero (scenario origin)."""
+    if not cells:
+        return cells
+    min_i = min(c[0] for c in cells)
+    min_j = min(c[1] for c in cells)
+    out: list[tuple[int, int, int, str]] = []
+    for i, j, _k, raw in cells:
+        ni = i - min_i
+        nj = j - min_j
+        nk = -ni - nj
+        out.append((ni, nj, nk, raw))
+    return out
 
 
 def _terrain_stats(terrain: str) -> dict[str, object]:
@@ -90,8 +118,11 @@ def _toml_float_or_str(v: object) -> str:
 class _HextmlMapParser(HTMLParser):
     """Collect hex cells from ``section.map`` … ``article.hexline`` … ``hexBlock``."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, coord_mode: str = "odd_q") -> None:
         super().__init__(convert_charrefs=True)
+        if coord_mode not in ("odd_q", "raw"):
+            raise ValueError("coord_mode must be 'odd_q' or 'raw'")
+        self._coord_mode = coord_mode
         self._sections: list[dict[str, object]] = []
         self._cur: dict[str, object] | None = None
         self._section_depth = 0
@@ -136,7 +167,12 @@ class _HextmlMapParser(HTMLParser):
             raw = extra[0] if extra else "plain"
             cells = cur["cells"]
             assert isinstance(cells, list)
-            i, j = self._x, self._y
+            col = self._x
+            row = self._y
+            if self._coord_mode == "raw":
+                i, j = col, row
+            else:
+                i, j = _hextml_offset_odd_q_to_axial(col, row)
             k = -i - j
             cells.append((i, j, k, raw))
 
@@ -212,8 +248,12 @@ def _read_html_from_tar(tf: tarfile.TarFile, inner: str | None) -> str:
     return _read_html_bytes(f.read())
 
 
-def parse_hextml_html(html: str) -> dict[str, object]:
-    p = _HextmlMapParser()
+def parse_hextml_html(
+    html: str,
+    *,
+    coord_mode: str = "odd_q",
+) -> dict[str, object]:
+    p = _HextmlMapParser(coord_mode=coord_mode)
     p.feed(html)
     p.close()
     sec = p.best_section()
@@ -221,11 +261,12 @@ def parse_hextml_html(html: str) -> dict[str, object]:
         raise ValueError("No <section class=\"map\"> found in HTML")
     cells = sec["cells"]
     assert isinstance(cells, list)
+    normalized = _normalize_axial_cells(list(cells))
     return {
         "title": sec.get("title", ""),
         "width": sec.get("width", 0),
         "height": sec.get("height", 0),
-        "cells": cells,
+        "cells": normalized,
     }
 
 
@@ -261,8 +302,16 @@ def build_scenario_toml(
         'background = "resources/test_map.png"',
         "unit_size_multiplier = 1.5",
     ]
-    w = int(parsed.get("width") or 0)  # type: ignore[arg-type]
-    h = int(parsed.get("height") or 0)  # type: ignore[arg-type]
+    # Hextml data-width/height are offset-map size; axial bounds after odd-q + normalize
+    # can differ (e.g. j spans more than data-height). Prefer actual cell extent.
+    if cells:
+        max_i = max(c[0] for c in cells)
+        max_j = max(c[1] for c in cells)
+        w = max_i + 1
+        h = max_j + 1
+    else:
+        w = int(parsed.get("width") or 0)  # type: ignore[arg-type]
+        h = int(parsed.get("height") or 0)  # type: ignore[arg-type]
     if w > 0 and h > 0:
         lines.append(f"hex_columns = {w}")
         lines.append(f"hex_rows = {h}")
@@ -320,6 +369,15 @@ def main(argv: list[str] | None = None) -> int:
         default="Imported from Hextml.",
         help="Scenario description",
     )
+    parser.add_argument(
+        "--coords",
+        choices=("odd_q", "raw"),
+        default="odd_q",
+        help=(
+            "How to interpret data-x/data-y: odd_q (Hextml offset, default) or "
+            "raw (treat as axial i/j — legacy)"
+        ),
+    )
     args = parser.parse_args(argv)
 
     path: Path = args.input
@@ -335,7 +393,7 @@ def main(argv: list[str] | None = None) -> int:
             html = _load_html_from_gzip_or_tar(path, args.html)
         else:
             html = _load_html_from_path(path)
-        parsed = parse_hextml_html(html)
+        parsed = parse_hextml_html(html, coord_mode=args.coords)
     except (OSError, ValueError, tarfile.TarError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
