@@ -1,9 +1,9 @@
-# Canonical default scenario (only copy in the repo). Lives next to co-bundled assets
-# such as dummy.svg. [map].background: path relative to this file is resolved when the file
-# exists; otherwise values like resources/test_map.png are treated as site-root-relative.
+# Canonical default scenario. Terrain + grid from Hextml import (resources/default/simple.gz)
+# via tools/import_hextml_map.py. Co-bundled assets: dummy.svg.
+# [map].background: path relative to this file when the file exists; else site-root-relative.
 
 name = "Test Scenario"
-description = "A simple test scenario for the game."
+description = "Test scenario; terrain grid imported from Hextml simple export (8×6)."
 
 [map]
 hex_size = 24
@@ -12,8 +12,8 @@ hex_stroke = 1
 hex_color = "#33443344"
 background = "resources/test_map.png"
 unit_size_multiplier = 1.5
-hex_columns = 17
-hex_rows = 7
+hex_columns = 8
+hex_rows = 6
 
 [[unit_graphics]]
 type = "canuck"
@@ -23,89 +23,100 @@ svg_file = "dummy.svg"
 type = "canuck"
 faction = "Red"
 members = [
-  { id = "Canuck1", position = [16, 4, -20] },
-  { id = "Canuck2", position = [16, 5, -21] },
-  { id = "Canuck3", position = [16, 6, -22] },
+  { id = "Canuck1", position = [0, 0, 0] },
+  { id = "Canuck2", position = [1, 0, -1] },
+  { id = "Canuck3", position = [2, 0, -2] },
 ]
 
 [[squads]]
 type = "soldier"
 faction = "Blue"
 members = [
-  { id = "Generic1", position = [7, 3, -10] },
-  { id = "Generic2", position = [6, 4, -10] },
-  { id = "Generic3", position = [8, 4, -12] },
+  { id = "Generic1", position = [7, 0, -7] },
+  { id = "Generic2", position = [7, 1, -8] },
+  { id = "Generic3", position = [7, 2, -9] },
 ]
 
-[[locations]]
-# Clamped j from 7 → 6 to fit hex_rows = 7 (j must be 0..6).
-position = [7, 6, -13]
-terrain = "forest"
+[[terrain_groups]]
+terrain = "beach"
 movement_cost = 1.5
-assault_modifier = 1.5
-ranged_modifier = 1.5
-block_los = true
-
-[[locations]]
-position = [12, 3, -15]
-terrain = "hill"
-movement_cost = 3.0
-assault_modifier = 2.0
+assault_modifier = 0.0
 ranged_modifier = 0.0
 block_los = true
+members = [
+  { position = [3, 1, -4] },
+  { position = [3, 2, -5] },
+  { position = [3, 3, -6] },
+  { position = [3, 4, -7] },
+  { position = [4, 1, -5] },
+  { position = [4, 2, -6] },
+  { position = [4, 3, -7] },
+  { position = [4, 4, -8] },
+]
 
-[[locations]]
-position = [10, 4, -14]
-terrain = "hill"
-movement_cost = 3.0
-assault_modifier = 2.0
+[[terrain_groups]]
+terrain = "evergreen-hills"
+movement_cost = 2.5
+assault_modifier = 0.0
 ranged_modifier = 0.0
 block_los = true
+members = [
+  { position = [1, 1, -2] },
+  { position = [1, 2, -3] },
+  { position = [1, 3, -4] },
+  { position = [1, 4, -5] },
+  { position = [2, 1, -3] },
+  { position = [2, 2, -4] },
+  { position = [2, 3, -5] },
+  { position = [2, 4, -6] },
+]
 
-[[locations]]
-position = [9, 4, -13]
-terrain = "forest"
-movement_cost = 1.5
-assault_modifier = 1.5
-ranged_modifier = 1.5
-block_los = true
-
-[[locations]]
-position = [6, 2, -8]
-terrain = "forest"
-movement_cost = 1.5
-assault_modifier = 1.5
-ranged_modifier = 1.5
-block_los = true
-
-[[locations]]
-position = [6, 3, -9]
-terrain = "forest"
-movement_cost = 1.5
-assault_modifier = 1.5
-ranged_modifier = 1.5
-block_los = true
-
-[[locations]]
-position = [6, 5, -11]
-terrain = "water"
+[[terrain_groups]]
+terrain = "ocean"
 movement_cost = "inf"
+assault_modifier = 0.0
+ranged_modifier = 0.0
 block_los = true
+members = [
+  { position = [5, 1, -6] },
+  { position = [5, 2, -7] },
+  { position = [5, 3, -8] },
+  { position = [5, 4, -9] },
+  { position = [6, 1, -7] },
+  { position = [6, 2, -8] },
+  { position = [6, 3, -9] },
+  { position = [6, 4, -10] },
+]
 
-[[locations]]
-position = [7, 5, -12]
-terrain = "water"
-movement_cost = "inf"
+[[terrain_groups]]
+terrain = "plain"
+movement_cost = 1.0
+assault_modifier = 0.0
+ranged_modifier = 0.0
 block_los = true
-
-[[locations]]
-position = [7, 4, -11]
-terrain = "water"
-movement_cost = "inf"
-block_los = true
-
-[[locations]]
-position = [8, 4, -12]
-terrain = "water"
-movement_cost = "inf"
-block_los = true
+members = [
+  { position = [0, 0, 0] },
+  { position = [0, 1, -1] },
+  { position = [0, 2, -2] },
+  { position = [0, 3, -3] },
+  { position = [0, 4, -4] },
+  { position = [0, 5, -5] },
+  { position = [1, 0, -1] },
+  { position = [1, 5, -6] },
+  { position = [2, 0, -2] },
+  { position = [2, 5, -7] },
+  { position = [3, 0, -3] },
+  { position = [3, 5, -8] },
+  { position = [4, 0, -4] },
+  { position = [4, 5, -9] },
+  { position = [5, 0, -5] },
+  { position = [5, 5, -10] },
+  { position = [6, 0, -6] },
+  { position = [6, 5, -11] },
+  { position = [7, 0, -7] },
+  { position = [7, 1, -8] },
+  { position = [7, 2, -9] },
+  { position = [7, 3, -10] },
+  { position = [7, 4, -11] },
+  { position = [7, 5, -12] },
+]
