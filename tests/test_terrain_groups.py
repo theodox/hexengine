@@ -1,0 +1,93 @@
+"""Scenario TOML ``[[terrain_groups]]`` expands to ``LocationRow`` list."""
+
+from __future__ import annotations
+
+import textwrap
+from pathlib import Path
+
+import pytest
+
+from hexengine.scenarios.parse import load_scenario
+
+
+def test_terrain_groups_expand(tmp_path: Path) -> None:
+    p = tmp_path / "scenario.toml"
+    p.write_text(
+        textwrap.dedent(
+            """
+            name = "g"
+            description = ""
+
+            [[terrain_groups]]
+            terrain = "sand"
+            movement_cost = 2.0
+            assault_modifier = 0.5
+            ranged_modifier = 0.25
+            block_los = false
+            members = [
+              { position = [1, 0, -1] },
+              { position = [2, -1, -1] },
+            ]
+
+            [[locations]]
+            position = [0, 0, 0]
+            terrain = "plain"
+            movement_cost = 1.0
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+    data = load_scenario(p)
+    assert len(data.locations) == 3
+    sand = [loc for loc in data.locations if loc.terrain_type == "sand"]
+    assert len(sand) == 2
+    assert sand[0].movement_cost == 2.0
+    assert sand[0].assault_modifier == 0.5
+    assert sand[0].ranged_modifier == 0.25
+    assert sand[0].block_los is False
+    plain = [loc for loc in data.locations if loc.terrain_type == "plain"]
+    assert len(plain) == 1
+
+
+def test_terrain_groups_inf_movement_cost(tmp_path: Path) -> None:
+    p = tmp_path / "scenario.toml"
+    p.write_text(
+        textwrap.dedent(
+            """
+            name = "g"
+            description = ""
+
+            [[terrain_groups]]
+            terrain = "water"
+            movement_cost = "inf"
+            members = [
+              { position = [1, 2, -3] },
+            ]
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+    data = load_scenario(p)
+    assert len(data.locations) == 1
+    assert data.locations[0].movement_cost == float("inf")
+
+
+def test_terrain_groups_member_requires_position(tmp_path: Path) -> None:
+    p = tmp_path / "scenario.toml"
+    p.write_text(
+        textwrap.dedent(
+            """
+            name = "g"
+            description = ""
+
+            [[terrain_groups]]
+            terrain = "x"
+            members = [
+              { terrain = "oops" },
+            ]
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="position"):
+        load_scenario(p)

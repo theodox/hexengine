@@ -139,6 +139,18 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
       movement_cost = 1.5
       # optional: assault_modifier, ranged_modifier, block_los
 
+      # Or group many hexes that share terrain / costs (like squads for units):
+      [[terrain_groups]]
+      terrain = "forest"
+      movement_cost = 1.5
+      assault_modifier = 0.0
+      ranged_modifier = 0.0
+      block_los = true
+      members = [
+        { position = [5, 5, -10] },
+        { position = [6, 4, -10] },
+      ]
+
       [map]
       hex_size = 24
       hex_margin = 0
@@ -226,6 +238,45 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
                 block_los=bool(loc.get("block_los", True)),
             )
         )
+    for gi, grp in enumerate(data.get("terrain_groups", [])):
+        if not isinstance(grp, dict):
+            raise TypeError(
+                f"terrain_groups[{gi}] must be a table, got {type(grp).__name__}"
+            )
+        terrain_type = str(grp.get("terrain", "plain"))
+        mc = grp.get("movement_cost", 1.0)
+        movement_cost = (
+            _float_or_inf(mc) if isinstance(mc, str) else float(mc)
+        )
+        assault_modifier = float(grp.get("assault_modifier", 0.0))
+        ranged_modifier = float(grp.get("ranged_modifier", 0.0))
+        block_los = bool(grp.get("block_los", True))
+        members = grp.get("members", [])
+        if not isinstance(members, list):
+            raise TypeError(
+                f"terrain_groups[{gi}].members must be a list, got {type(members).__name__}"
+            )
+        for mi, m in enumerate(members):
+            if not isinstance(m, dict):
+                raise TypeError(
+                    f"terrain_groups[{gi}].members[{mi}] must be a table, "
+                    f"got {type(m).__name__}"
+                )
+            if "position" not in m:
+                raise ValueError(
+                    f"terrain_groups[{gi}].members[{mi}] missing required key 'position'"
+                )
+            pos = _parse_position(m["position"])
+            locations.append(
+                LocationRow(
+                    position=pos,
+                    terrain_type=terrain_type,
+                    movement_cost=movement_cost,
+                    assault_modifier=assault_modifier,
+                    ranged_modifier=ranged_modifier,
+                    block_los=block_los,
+                )
+            )
 
     return ScenarioData(
         name=name,
