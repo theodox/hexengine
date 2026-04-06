@@ -11,6 +11,19 @@ from .constants import (
 
 @dataclasses.dataclass(frozen=True)
 class Cartesian:
+    """
+    Integer point on the **flat-top hex embedding plane** (skewed 2D lattice).
+
+    Each :class:`Hex` maps to a canonical ``(x, y)`` via :meth:`from_hex` using the
+    same scale factors as continuous hex layout (see ``hexengine.hexes.constants``).
+    The reverse map :meth:`Hex.from_cartesian` rounds to the nearest hex, so **several**
+    distinct ``Cartesian`` values can yield the **same** :class:`Hex`—unlike
+    :class:`HexRowCol` (odd-q), which is 1:1 with hexes.
+
+    Useful for axis-aligned ranges and plane geometry (e.g. :mod:`hexengine.hexes.shapes`);
+    it is **not** the same as odd-q ``[col, row]`` editor coordinates.
+    """
+
     x: int
     y: int
 
@@ -53,51 +66,54 @@ class Cartesian:
 @dataclasses.dataclass(frozen=True)
 class HexRowCol:
     """
-    Hex-aligned row/column coordinates for flat-topped hexes.
+    **Odd-q offset** coordinates for a flat-top hex grid (human-friendly 2-number layout).
 
-    This provides a 1:1 mapping with Hex coordinates:
-    - row: the hex row (j coordinate)
-    - col: the hex column position (i coordinate)
+    - ``col`` — column index; matches axial ``i`` and typical editor ``data-x`` / Hextml.
+    - ``row`` — **offset row**, not axial ``j``. Neighboring hexes do not simply increment
+      ``row``; stagger follows the odd-q rule (Red Blob Games: offset coordinates).
 
-    Unlike Cartesian coordinates, each HexRowCol maps to exactly one Hex
-    and vice versa.
+    This is the same convention as :func:`hexengine.hexes.math.hextml_offset_odd_q_to_axial`
+    and scenario TOML ``position = [col, row]`` when given **two** numbers.
+
+    Bijective with :class:`Hex` (cube / axial) for integer grids; use :meth:`to_hex` /
+    :meth:`from_hex` to convert. This is **not** the same as integer :class:`Cartesian`
+    plane coordinates.
     """
 
-    row: int
     col: int
+    row: int
 
     def __post_init__(self):
-        object.__setattr__(self, "row", round(self.row))
         object.__setattr__(self, "col", round(self.col))
+        object.__setattr__(self, "row", round(self.row))
 
     def __eq__(self, value):
         if not isinstance(value, HexRowCol):
             return NotImplemented
-        return self.row == value.row and self.col == value.col
+        return self.col == value.col and self.row == value.row
 
     def __hash__(self) -> int:
-        return hash((self.row, self.col))
+        return hash((self.col, self.row))
 
     def __repr__(self) -> str:
-        return f"HexRowCol(row={self.row}, col={self.col})"
-
-    def __add__(self, other: HexRowCol) -> HexRowCol:
-        return HexRowCol(self.row + other.row, self.col + other.col)
-
-    def __sub__(self, other: HexRowCol) -> HexRowCol:
-        return HexRowCol(self.row - other.row, self.col - other.col)
+        return f"HexRowCol(col={self.col}, row={self.row})"
 
     @classmethod
     def from_hex(cls, hex_coord: Hex) -> HexRowCol:
-        """Convert hex coordinates to row/col coordinates (1:1 mapping)."""
-        return cls(row=hex_coord.j, col=hex_coord.i)
+        """Axial/cube hex → odd-q ``(col, row)`` with ``col = i``."""
+        from .math import odd_q_offset_row_from_axial_ij
+
+        return cls(
+            col=hex_coord.i,
+            row=odd_q_offset_row_from_axial_ij(hex_coord.i, hex_coord.j),
+        )
 
     def to_hex(self) -> Hex:
-        """Convert row/col coordinates to hex coordinates (1:1 mapping)."""
-        i = self.col
-        j = self.row
-        k = -i - j
-        return Hex(i, j, k)
+        """Odd-q ``(col, row)`` → cube hex (``k = -i - j``)."""
+        from .math import hextml_offset_odd_q_to_axial
+
+        i, j = hextml_offset_odd_q_to_axial(self.col, self.row)
+        return Hex(i, j, -i - j)
 
 
 @dataclasses.dataclass(frozen=True)

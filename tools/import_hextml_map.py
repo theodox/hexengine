@@ -34,10 +34,8 @@ _SRC = _REPO_ROOT / "src"
 if _SRC.is_dir() and str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from hexengine.hexes.math import (  # noqa: E402
-    hextml_offset_odd_q_to_axial,
-    shift_axial_ij_cube_coords_to_origin,
-)
+from hexengine.hexes.math import shift_axial_ij_cube_coords_to_origin  # noqa: E402
+from hexengine.hexes.types import HexRowCol  # noqa: E402
 
 
 # Stub stats for Hextml CSS terrain classes → scenario ``terrain`` string is the
@@ -168,10 +166,11 @@ class _HextmlMapParser(HTMLParser):
             row = self._y
             if self._coord_mode == "raw":
                 i, j = col, row
+                k = -i - j
+                cells.append((i, j, k, raw))
             else:
-                i, j = hextml_offset_odd_q_to_axial(col, row)
-            k = -i - j
-            cells.append((i, j, k, raw))
+                h = HexRowCol(col=col, row=row).to_hex()
+                cells.append((h.i, h.j, h.k, raw))
 
     def handle_endtag(self, tag: str) -> None:
         if tag != "section" or self._cur is None:

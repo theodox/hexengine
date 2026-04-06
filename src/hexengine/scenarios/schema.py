@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-# Position as (i, j, k) so we don't depend on hexengine.hexes here.
-# Loader converts to Hex when building game objects.
+# After parse, always cube (i, j, k). TOML may use three numbers for (i, j, k), or two
+# numbers ``[col, row]`` for odd-q offset (see ``HexRowCol`` in ``hexengine.hexes.types``).
 Position = tuple[int, int, int]
 
 # Site-relative path served with the static root (see [styles] in scenario TOML).
@@ -61,6 +61,7 @@ class UnitRow:
 
     unit_id: str
     unit_type: str  # e.g. "canuck", "soldier" — loader maps to game class or action
+    #: Cube ``(i, j, k)`` after parse; TOML may supply two values for odd-q ``[col, row]``.
     position: Position
     faction: str
     health: int = 100
@@ -71,6 +72,7 @@ class UnitRow:
 class LocationRow:
     """One terrain location from a scenario file."""
 
+    #: Cube ``(i, j, k)`` after parse; TOML may supply two values for odd-q ``[col, row]``.
     position: Position
     terrain_type: str
     movement_cost: float
@@ -91,7 +93,7 @@ class MapDisplayConfig:
     hex_color: str = "#33443344"
     background: str = "resources/test_map.png"
     unit_size_multiplier: float = 1.5
-    # Fixed grid in cube coordinates: columns = i step, rows = j step (HexRowCol-style).
+    # Fixed grid in cube coordinates: columns = i step, rows = j step (axial rectangle).
     # When both are set, the client sizes the canvas/SVG to this grid; when None, legacy
     # “fill the CSS canvas box” behavior.
     hex_columns: int | None = None

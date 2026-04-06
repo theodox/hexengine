@@ -71,7 +71,7 @@ def iter_map_grid_hexes(
     origin_i: int = 0,
     origin_j: int = 0,
 ) -> Iterable[Hex]:
-    """Cube hexes for a rectangular map in (i, j) space (matches HexRowCol indexing)."""
+    """Cube hexes for a rectangular map in axial ``(i, j)`` space."""
     for dj in range(rows):
         for di in range(columns):
             i = origin_i + di

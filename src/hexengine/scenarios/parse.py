@@ -1,7 +1,7 @@
 """
 Parse scenario files (TOML) into ScenarioData.
 
-No game types or hexengine.map/state imports — only schema and stdlib.
+Uses :mod:`hexengine.hexes.math` only for odd-q ``position = [col, row]`` parsing.
 """
 
 from __future__ import annotations
@@ -13,6 +13,8 @@ try:
     import tomllib  # stdlib 3.11+
 except ImportError:
     import tomli as tomllib  # fallback for older Python
+
+from ..hexes.math import hextml_offset_odd_q_to_axial
 
 from .schema import (
     DEFAULT_GLOBAL_BASE_CSS_FILE,
@@ -89,10 +91,21 @@ def resolve_map_background_url(
 
 
 def _parse_position(raw: list[int] | tuple[int, ...]) -> tuple[int, int, int]:
-    """Convert [i, j, k] or (i, j, k) to (i, j, k). Validates length."""
-    if len(raw) != 3:
-        raise ValueError(f"position must have 3 elements (i, j, k), got {len(raw)}")
-    return (int(raw[0]), int(raw[1]), int(raw[2]))
+    """
+    Normalize TOML ``position`` to cube ``(i, j, k)``.
+
+    - **3 elements** — cube / axial + ``k`` (explicit ``k`` may be corrected to ``-i-j`` downstream).
+    - **2 elements** — odd-q offset ``[col, row]`` (same as :class:`~hexengine.hexes.types.HexRowCol`).
+    """
+    if len(raw) == 2:
+        c, r = int(raw[0]), int(raw[1])
+        i, j = hextml_offset_odd_q_to_axial(c, r)
+        return (i, j, -i - j)
+    if len(raw) == 3:
+        return (int(raw[0]), int(raw[1]), int(raw[2]))
+    raise ValueError(
+        f"position must have 2 elements [col, row] odd-q or 3 elements (i, j, k), got {len(raw)}"
+    )
 
 
 def _float_or_inf(v: str | float) -> float:
@@ -118,7 +131,7 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
       [[units]]
       id = "Canuck1"
       type = "canuck"
-      position = [16, 4, -20]
+      position = [16, 4, -20]   # cube (i, j, k), or odd-q: position = [16, 12]
       faction = "Red"
       # optional: health = 100, active = true
 
@@ -159,7 +172,7 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
       terrain_overlay_line_width = 2
       background = "assets/map.png"
       unit_size_multiplier = 1.5
-      # Optional: fixed hex grid (HexRowCol: i + column, j + row from origin):
+      # Optional: fixed hex grid (axial i + column step, j + row from origin):
       hex_columns = 17
       hex_rows = 7
       # hex_origin_i = 0
