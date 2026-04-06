@@ -26,12 +26,12 @@ def test_terrain_groups_expand(tmp_path: Path) -> None:
             block_los = false
             hex_color = "#c9a227"
             members = [
-              { position = [1, 0, -1] },
-              { position = [2, -1, -1] },
+              { position = [1, 0] },
+              { position = [2, -1] },
             ]
 
             [[locations]]
-            position = [0, 0, 0]
+            position = [0, 0]
             terrain = "plain"
             movement_cost = 1.0
             """
@@ -65,8 +65,8 @@ def test_terrain_groups_member_hex_color_overrides_group(tmp_path: Path) -> None
             movement_cost = 1.0
             hex_color = "#111111"
             members = [
-              { position = [0, 0, 0] },
-              { position = [1, 0, -1], hex_color = "#222222" },
+              { position = [0, 0] },
+              { position = [1, 0], hex_color = "#222222" },
             ]
             """
         ).strip(),
@@ -74,8 +74,8 @@ def test_terrain_groups_member_hex_color_overrides_group(tmp_path: Path) -> None
     )
     data = load_scenario(p)
     by_pos = {loc.position: loc for loc in data.locations}
-    assert by_pos[(0, 0, 0)].hex_color == "#111111"
-    assert by_pos[(1, 0, -1)].hex_color == "#222222"
+    assert by_pos[(0, 0)].hex_color == "#111111"
+    assert by_pos[(1, 0)].hex_color == "#222222"
 
 
 def test_terrain_groups_inf_movement_cost(tmp_path: Path) -> None:
@@ -90,7 +90,7 @@ def test_terrain_groups_inf_movement_cost(tmp_path: Path) -> None:
             terrain = "water"
             movement_cost = "inf"
             members = [
-              { position = [1, 2, -3] },
+              { position = [1, 2] },
             ]
             """
         ).strip(),

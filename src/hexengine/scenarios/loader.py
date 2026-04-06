@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..hexes.types import Hex
+from ..hexes.types import Hex, HexRowCol
 from ..state import GameState
 from ..state.game_state import BoardState, LocationState, UnitState
 from .schema import ScenarioData
@@ -19,8 +19,9 @@ if TYPE_CHECKING:
     from .base import Scenario
 
 
-def _hex(pos: tuple[int, int, int]) -> Hex:
-    return Hex(pos[0], pos[1], pos[2])
+def _hex(pos: tuple[int, int]) -> Hex:
+    """Scenario ``Position`` is odd-q ``(col, row)``."""
+    return Hex.from_hex_row_col(HexRowCol(col=pos[0], row=pos[1]))
 
 
 def scenario_to_initial_state(

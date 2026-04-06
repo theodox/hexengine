@@ -10,9 +10,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-# After parse, always cube (i, j, k). TOML may use three numbers for (i, j, k), or two
-# numbers ``[col, row]`` for odd-q offset (see ``HexRowCol`` in ``hexengine.hexes.types``).
-Position = tuple[int, int, int]
+# Odd-q offset ``(col, row)`` as in TOML ``position = [col, row]`` (see ``HexRowCol``).
+Position = tuple[int, int]
 
 # Site-relative path served with the static root (see [styles] in scenario TOML).
 DEFAULT_GLOBAL_BASE_CSS_FILE = "resources/default/global.css"
@@ -61,7 +60,7 @@ class UnitRow:
 
     unit_id: str
     unit_type: str  # e.g. "canuck", "soldier" — loader maps to game class or action
-    #: Cube ``(i, j, k)`` after parse; TOML may supply two values for odd-q ``[col, row]``.
+    #: Odd-q ``(col, row)`` after parse (same as :class:`~hexengine.hexes.types.HexRowCol`).
     position: Position
     faction: str
     health: int = 100
@@ -72,7 +71,7 @@ class UnitRow:
 class LocationRow:
     """One terrain location from a scenario file."""
 
-    #: Cube ``(i, j, k)`` after parse; TOML may supply two values for odd-q ``[col, row]``.
+    #: Odd-q ``(col, row)`` after parse (same as :class:`~hexengine.hexes.types.HexRowCol`).
     position: Position
     terrain_type: str
     movement_cost: float

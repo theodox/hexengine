@@ -1,7 +1,7 @@
 """
 Parse scenario files (TOML) into ScenarioData.
 
-Uses :class:`~hexengine.hexes.types.HexRowCol` for odd-q ``position = [col, row]`` parsing.
+TOML ``position`` values are odd-q ``[col, row]`` (see :class:`~hexengine.hexes.types.HexRowCol`).
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ try:
 except ImportError:
     import tomli as tomllib  # fallback for older Python
 
-from ..hexes.types import HexRowCol
+from ..hexes.types import Hex, HexRowCol
 
 from .schema import (
     DEFAULT_GLOBAL_BASE_CSS_FILE,
@@ -90,22 +90,21 @@ def resolve_map_background_url(
     return bg.replace("\\", "/")
 
 
-def _parse_position(raw: list[int] | tuple[int, ...]) -> tuple[int, int, int]:
+def _parse_position(raw: list[int] | tuple[int, ...]) -> tuple[int, int]:
     """
-    Normalize TOML ``position`` to cube ``(i, j, k)``.
+    Parse TOML ``position`` as odd-q ``[col, row]`` (:class:`~hexengine.hexes.types.HexRowCol`).
+    """
+    if len(raw) != 2:
+        raise ValueError(
+            f"position must be [col, row] (two integers, odd-q), got {len(raw)} values"
+        )
+    return (int(raw[0]), int(raw[1]))
 
-    - **3 elements** — cube / axial + ``k`` (explicit ``k`` may be corrected to ``-i-j`` downstream).
-    - **2 elements** — odd-q offset ``[col, row]`` (same as :class:`~hexengine.hexes.types.HexRowCol`).
-    """
-    if len(raw) == 2:
-        c, r = int(raw[0]), int(raw[1])
-        i, j = HexRowCol.axial_from_offset(c, r)
-        return (i, j, -i - j)
-    if len(raw) == 3:
-        return (int(raw[0]), int(raw[1]), int(raw[2]))
-    raise ValueError(
-        f"position must have 2 elements [col, row] odd-q or 3 elements (i, j, k), got {len(raw)}"
-    )
+
+def _position_to_cube_tuple(pos: tuple[int, int]) -> tuple[int, int, int]:
+    """Scenario ``Position`` → cube triple for :attr:`MapDisplayConfig.grid_hexes` / clients."""
+    h = Hex.from_hex_row_col(HexRowCol(col=pos[0], row=pos[1]))
+    return (h.i, h.j, h.k)
 
 
 def _float_or_inf(v: str | float) -> float:
@@ -131,7 +130,7 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
       [[units]]
       id = "Canuck1"
       type = "canuck"
-      position = [16, 4, -20]   # cube (i, j, k), or odd-q: position = [16, 12]
+      position = [16, 12]   # odd-q [col, row] (HexRowCol)
       faction = "Red"
       # optional: health = 100, active = true
 
@@ -140,12 +139,12 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
       type = "canuck"
       faction = "Red"
       members = [
-        { id = "Canuck1", position = [16, 4, -20] },
-        { id = "Canuck2", position = [16, 5, -21] },
+        { id = "Canuck1", position = [16, 12] },
+        { id = "Canuck2", position = [16, 13] },
       ]
 
       [[locations]]
-      position = [5, 5, -10]
+      position = [5, 7]
       terrain = "forest"
       movement_cost = 1.5
       # optional: assault_modifier, ranged_modifier, block_los, hex_color (e.g. "#338833")
@@ -159,8 +158,8 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
       block_los = true
       # optional group hex_color; member rows may set hex_color to override
       members = [
-        { position = [5, 5, -10] },
-        { position = [6, 4, -10] },
+        { position = [5, 7] },
+        { position = [6, 7] },
       ]
 
       [map]
@@ -309,12 +308,12 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
         seen: set[tuple[int, int, int]] = set()
         ordered: list[tuple[int, int, int]] = []
         for loc in locations:
-            t = loc.position
+            t = _position_to_cube_tuple(loc.position)
             if t not in seen:
                 seen.add(t)
                 ordered.append(t)
         for u in units:
-            t = u.position
+            t = _position_to_cube_tuple(u.position)
             if t not in seen:
                 seen.add(t)
                 ordered.append(t)
