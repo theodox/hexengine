@@ -46,6 +46,7 @@ class LocationState:
     position: Hex
     terrain_type: str
     movement_cost: float
+    hex_color: str | None = None
 
     def is_passable(self) -> bool:
         """Check if this location can be traversed."""

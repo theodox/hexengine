@@ -65,17 +65,20 @@ class CanvasLayer:
         stroke: str = "black",
         stroke_width: int = 1,
     ) -> None:
-        points = self._hex_layout.hex_corners(hex)
-        points.append(points[0])  # Close the hexagon
-        self._context.beginPath()
-        self._context.strokeStyle = stroke
-        self._context.lineWidth = stroke_width
-        self._context.fillStyle = fill
-        for p in points:
-            self._context.lineTo(*p)
-            self._context.stroke()
-        self._context.closePath()
-        self._context.fill()
+        corners = self._hex_layout.hex_corners(hex)
+        if len(corners) < 3:
+            return
+        ctx = self._context
+        ctx.beginPath()
+        ctx.moveTo(corners[0][0], corners[0][1])
+        for x, y in corners[1:]:
+            ctx.lineTo(x, y)
+        ctx.closePath()
+        ctx.strokeStyle = stroke
+        ctx.lineWidth = stroke_width
+        ctx.fillStyle = fill
+        ctx.fill()
+        ctx.stroke()
 
     def draw_hexes(
         self,

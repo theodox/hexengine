@@ -150,16 +150,19 @@ class Map:
             self.draw_bg_hex(hex, fill=fill, stroke=stroke)
 
     def draw_bg_hex(self, hex: Hex, fill="white", stroke="black"):
-        points = self._hex_layout.hex_corners(hex)
-        points.append(points[0])  # Close the hexagon
-        self.canvas.context.beginPath()
-        self.canvas.context.strokeStyle = stroke
-        self.canvas.context.fillStyle = fill
-        for p in points:
-            self.canvas.context.lineTo(*p)
-            self.canvas.context.stroke()
-        self.canvas.context.closePath()
-        self.canvas.context.fill()
+        corners = self._hex_layout.hex_corners(hex)
+        if len(corners) < 3:
+            return
+        ctx = self.canvas.context
+        ctx.beginPath()
+        ctx.moveTo(corners[0][0], corners[0][1])
+        for x, y in corners[1:]:
+            ctx.lineTo(x, y)
+        ctx.closePath()
+        ctx.strokeStyle = stroke
+        ctx.fillStyle = fill
+        ctx.fill()
+        ctx.stroke()
 
     def add_unit(self, unit: DisplayUnit):
         self._unit_layer.add_unit(unit)

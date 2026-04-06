@@ -37,13 +37,14 @@ def game_state_to_wire_dict(state: GameState) -> dict[str, Any]:
 
     locations: list[dict[str, Any]] = []
     for pos, loc in state.board.locations.items():
-        locations.append(
-            {
-                "position": {"i": pos.i, "j": pos.j, "k": pos.k},
-                "terrain_type": loc.terrain_type,
-                "movement_cost": loc.movement_cost,
-            }
-        )
+        d: dict[str, Any] = {
+            "position": {"i": pos.i, "j": pos.j, "k": pos.k},
+            "terrain_type": loc.terrain_type,
+            "movement_cost": loc.movement_cost,
+        }
+        if loc.hex_color is not None:
+            d["hex_color"] = loc.hex_color
+        locations.append(d)
 
     return {
         "board": {
@@ -83,10 +84,17 @@ def game_state_from_wire_dict(state_dict: dict[str, Any]) -> GameState:
     for loc in raw_iter:
         pos_data = loc["position"]
         pos = Hex(**pos_data)
+        raw_hc = loc.get("hex_color")
+        hex_color = (
+            None
+            if raw_hc is None
+            else (s if (s := str(raw_hc).strip()) else None)
+        )
         locations[pos] = LocationState(
             position=pos,
             terrain_type=loc["terrain_type"],
             movement_cost=loc["movement_cost"],
+            hex_color=hex_color,
         )
 
     board = BoardState(units=units, locations=locations)

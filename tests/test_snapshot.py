@@ -27,7 +27,12 @@ class TestSnapshotRoundTrip(unittest.TestCase):
                 )
             },
             locations={
-                h0: LocationState(position=h0, terrain_type="plain", movement_cost=1.0),
+                h0: LocationState(
+                    position=h0,
+                    terrain_type="plain",
+                    movement_cost=1.0,
+                    hex_color="#aabbcc",
+                ),
                 h1: LocationState(position=h1, terrain_type="hill", movement_cost=2.0),
             },
         )

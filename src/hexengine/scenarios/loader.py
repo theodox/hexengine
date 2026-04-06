@@ -51,6 +51,7 @@ def scenario_to_initial_state(
                 position=_hex(loc.position),
                 terrain_type=loc.terrain_type,
                 movement_cost=loc.movement_cost,
+                hex_color=loc.hex_color,
             )
         )
 
@@ -105,6 +106,7 @@ def scenario_to_legacy_scenario(
             loc.assault_modifier,
             loc.ranged_modifier,
             loc.block_los,
+            loc.hex_color,
         )
         for loc in data.locations
     ]

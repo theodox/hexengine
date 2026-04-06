@@ -21,6 +21,7 @@ class LocationItem:
         assault_modifier: float,
         ranged_modifier: float,
         block_los: bool,
+        hex_color: str | None = None,
     ) -> None:
         self.position: Hex = pos
         self.movement_cost = movement_cost
@@ -28,3 +29,4 @@ class LocationItem:
         self.assault_modifier = assault_modifier
         self.ranged_modifier = ranged_modifier
         self.block_los = block_los
+        self.hex_color = hex_color

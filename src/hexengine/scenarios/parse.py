@@ -134,7 +134,7 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
       position = [5, 5, -10]
       terrain = "forest"
       movement_cost = 1.5
-      # optional: assault_modifier, ranged_modifier, block_los
+      # optional: assault_modifier, ranged_modifier, block_los, hex_color (e.g. "#338833")
 
       # Or group many hexes that share terrain / costs (like squads for units):
       [[terrain_groups]]
@@ -143,6 +143,7 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
       assault_modifier = 0.0
       ranged_modifier = 0.0
       block_los = true
+      # optional group hex_color; member rows may set hex_color to override
       members = [
         { position = [5, 5, -10] },
         { position = [6, 4, -10] },
@@ -238,6 +239,7 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
                 assault_modifier=float(loc.get("assault_modifier", 0.0)),
                 ranged_modifier=float(loc.get("ranged_modifier", 0.0)),
                 block_los=bool(loc.get("block_los", True)),
+                hex_color=_optional_nonempty_str(loc, "hex_color"),
             )
         )
     for gi, grp in enumerate(data.get("terrain_groups", [])):
@@ -253,6 +255,7 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
         assault_modifier = float(grp.get("assault_modifier", 0.0))
         ranged_modifier = float(grp.get("ranged_modifier", 0.0))
         block_los = bool(grp.get("block_los", True))
+        group_hex_color = _optional_nonempty_str(grp, "hex_color")
         members = grp.get("members", [])
         if not isinstance(members, list):
             raise TypeError(
@@ -269,6 +272,8 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
                     f"terrain_groups[{gi}].members[{mi}] missing required key 'position'"
                 )
             pos = _parse_position(m["position"])
+            member_hex_color = _optional_nonempty_str(m, "hex_color")
+            hex_color = member_hex_color or group_hex_color
             locations.append(
                 LocationRow(
                     position=pos,
@@ -277,6 +282,7 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
                     assault_modifier=assault_modifier,
                     ranged_modifier=ranged_modifier,
                     block_los=block_los,
+                    hex_color=hex_color,
                 )
             )
 

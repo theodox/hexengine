@@ -39,30 +39,35 @@ TERRAIN_DEFAULTS: dict[str, dict[str, object]] = {
         "assault_modifier": 0.0,
         "ranged_modifier": 0.0,
         "block_los": True,
+        "hex_color": "#a0a0a0",
     },
     "plain": {
         "movement_cost": 1.0,
         "assault_modifier": 0.0,
         "ranged_modifier": 0.0,
         "block_los": True,
+        "hex_color": "#c8e6c8",
     },
     "beach": {
         "movement_cost": 1.5,
         "assault_modifier": 0.0,
         "ranged_modifier": 0.0,
         "block_los": True,
+        "hex_color": "#e8d4a8",
     },
     "ocean": {
         "movement_cost": "inf",
         "assault_modifier": 0.0,
         "ranged_modifier": 0.0,
         "block_los": True,
+        "hex_color": "#4a90c8",
     },
     "evergreen-hills": {
         "movement_cost": 2.5,
         "assault_modifier": 0.0,
         "ranged_modifier": 0.0,
         "block_los": True,
+        "hex_color": "#3d6b3d",
     },
 }
 
@@ -273,6 +278,9 @@ def build_scenario_toml(
             "block_los = "
             + ("true" if bool(stats.get("block_los", True)) else "false")
         )
+        hc = stats.get("hex_color")
+        if isinstance(hc, str) and hc.strip():
+            lines.append(f'hex_color = "{_escape_toml_basic(hc.strip())}"')
         lines.append("members = [")
         for i, j, k in positions:
             lines.append(f"  {{ position = [{i}, {j}, {k}] }},")

@@ -77,6 +77,8 @@ class LocationRow:
     assault_modifier: float = 0.0
     ranged_modifier: float = 0.0
     block_los: bool = True
+    #: Optional CSS-style hex for terrain overlay (e.g. ``#RRGGBB`` or ``#RRGGBBAA``).
+    hex_color: str | None = None
 
 
 @dataclass(frozen=True)
