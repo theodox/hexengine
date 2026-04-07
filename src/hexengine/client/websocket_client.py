@@ -12,6 +12,7 @@ from collections.abc import Callable
 from enum import Enum
 from typing import Any
 
+from .. import dev_console
 from ..document import create_proxy, js
 from ..server.protocol import (
     ActionRequest,
@@ -256,7 +257,7 @@ class BrowserWebSocketClient:
         self._stop_connection_health_check()
         msg = f"Disconnected (WebSocket closed, code {event.code})"
         self.logger.warning(msg)
-        self._status_line(msg)
+        dev_console.set_status(msg)
         self.websocket = None
         self._set_connection_state(ConnectionState.DISCONNECTED)
 
@@ -358,12 +359,7 @@ class BrowserWebSocketClient:
             "Refresh or install a matching wheel to avoid mismatches."
         )
         self.logger.warning(msg)
-        try:
-            from .. import dev_console
-
-            dev_console.set_status(msg)
-        except Exception:
-            pass
+        dev_console.set_status(msg)
 
     def _handle_player_joined(self, message: Message) -> None:
         """Handle notification of another player joining."""
@@ -438,15 +434,6 @@ class BrowserWebSocketClient:
 
         return game_state_from_wire_dict(state_dict)
 
-    def _status_line(self, message: str) -> None:
-        """Mirror important connection messages to the dev console status strip."""
-        try:
-            from .. import dev_console
-
-            dev_console.set_status(message)
-        except Exception:
-            pass
-
     def _start_connection_health_check(self) -> None:
         """Periodic check that the browser socket is still OPEN (detects lost link if close lags)."""
         self._stop_connection_health_check()
@@ -478,7 +465,7 @@ class BrowserWebSocketClient:
                 "server may be unreachable."
             )
             self.logger.error("Connection check: %s", msg)
-            self._status_line(msg)
+            dev_console.set_status(msg)
             self._set_connection_state(ConnectionState.DISCONNECTED)
             self._stop_connection_health_check()
             return
@@ -499,7 +486,7 @@ class BrowserWebSocketClient:
             "server unreachable or connection lost."
         )
         self.logger.error("Connection check: %s", log_detail)
-        self._status_line(
+        dev_console.set_status(
             f"Connection lost: socket {labels.get(rs, '?')} — server may be unreachable."
         )
         self.websocket = None

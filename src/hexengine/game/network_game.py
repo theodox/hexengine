@@ -11,6 +11,7 @@ import json
 import logging
 from typing import Any
 
+from .. import dev_console
 from ..client import LocalServerManager
 from ..client.websocket_client import BrowserWebSocketClient, ConnectionState
 from ..state import GameState
@@ -323,12 +324,7 @@ class NetworkGame(Game):
             error: Error message
         """
         self.logger.error(f"Server error: {error}")
-        try:
-            from .. import dev_console
-
-            dev_console.set_status(f"Server: {error}")
-        except Exception:
-            pass
+        dev_console.set_status(f"Server: {error}")
 
     def _handle_action_result(self, success: bool, error_msg: str | None) -> None:
         """
@@ -343,12 +339,7 @@ class NetworkGame(Game):
         else:
             self.logger.warning(f"Action rejected: {error_msg}")
             if error_msg:
-                try:
-                    from .. import dev_console
-
-                    dev_console.set_status(f"Server: {error_msg}")
-                except Exception:
-                    pass
+                dev_console.set_status(f"Server: {error_msg}")
 
     def is_my_turn(self) -> bool:
         """Check if it's currently this player's turn."""
