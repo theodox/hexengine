@@ -1,5 +1,8 @@
-import unittest
+from __future__ import annotations
+
 import dataclasses
+import unittest
+
 from hexengine.hexes.types import Hex
 
 

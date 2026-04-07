@@ -1,5 +1,8 @@
+from __future__ import annotations
+
+from collections.abc import Iterable
 from contextlib import contextmanager
-from typing import Iterable, Protocol
+from typing import Protocol
 
 from ..document import js
 from ..hexes.types import Hex
@@ -12,10 +15,9 @@ class GraphicsCreator(Protocol):
 
     # Display constants
     UNIT_SIZE_DIVISOR = 1.5
-    HEAD_OFFSET_DIVISOR = 5
     HEAD_RADIUS_DIVISOR = 5
 
-    def create(self, display_unit: "DisplayUnit"):
+    def create(self, display_unit: DisplayUnit):
         """
         the create method builds the SVG elements
         for a given unit and appends them to the unit's proxy.
@@ -68,7 +70,7 @@ class DisplayUnit:
         for cl in classes:
             self.proxy.classList.add(cl)
 
-    def set_text_element(self, element: "js.Element") -> None:
+    def set_text_element(self, element: js.Element) -> None:
         self.text_element = element
 
     def set_text(self, text: str) -> None:
@@ -81,27 +83,25 @@ class DisplayUnit:
         Note: When used during drag preview, coordinates should be in map space
         (inverse-transformed) since the parent SVG has CSS transforms applied.
         """
-        import logging
-        logger = logging.getLogger("unit_display")
-        current_transform = self.proxy.getAttribute("transform")
-        logger.debug(f"display_at({x:.1f}, {y:.1f}) for unit {self.unit_id}, was: {current_transform}")
         self.proxy.setAttribute("transform", f"translate({x},{y})")
 
-    def display_at_screen(self, screen_x: float, screen_y: float, zoom: float, pan_x: float, pan_y: float) -> None:
+    def display_at_screen(
+        self, screen_x: float, screen_y: float, zoom: float, pan_x: float, pan_y: float
+    ) -> None:
         """
-        Set unit position in screen coordinates, accounting for parent CSS transform.   
-        
+        Set unit position in screen coordinates, accounting for parent CSS transform.
+
         CSS transform: translate(pan_x, pan_y) scale(zoom)
         For a child SVG element at position (x, y), the final screen position is:
         - (x * zoom + pan_x, y * zoom + pan_y)
-        
+
         So to get (x, y) from screen coordinates:
         - x = (screen_x - pan_x) / zoom
         - y = (screen_y - pan_y) / zoom
         """
         map_x = (screen_x - pan_x) / zoom
         map_y = (screen_y - pan_y) / zoom
-        
+
         self.proxy.setAttribute("transform", f"translate({map_x},{map_y})")
 
     def _set_visible(self, value: bool) -> None:

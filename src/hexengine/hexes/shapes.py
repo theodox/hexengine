@@ -1,15 +1,18 @@
+from __future__ import annotations
+
+from collections.abc import Iterable, Sequence
 from functools import singledispatch
 from math import atan2, cos, pi, sin
-from typing import Iterable, List, Sequence, Set
 
+from .constants import (
+    FLAT_TOP_AXIAL_TO_PLANE_X,
+    PI_OVER_3,
+    PI_OVER_6,
+    SQRT_THREE,
+    TWO_PI,
+)
 from .math import cross_product, distance, line, neighbor_hex, neighbors
 from .types import Cartesian, Hex
-
-TWO_PI = 2 * pi
-PI_OVER_3 = pi / 3.0
-PI_OVER_6 = pi / 6.0
-SQRT_THREE = 3**0.5
-THREE_HALF_POWER = SQRT_THREE / 2
 
 
 @singledispatch
@@ -22,8 +25,7 @@ def path(steps: Sequence[Hex]) -> Iterable[Hex]:
     for idx in range(len(steps) - 1):
         a = steps[idx]
         b = steps[idx + 1]
-        for h in line(a, b):
-            yield h
+        yield from line(a, b)
 
 
 @path.register(Cartesian)
@@ -36,8 +38,7 @@ def _path(steps: Sequence[Cartesian]) -> Iterable[Hex]:
     for idx in range(len(steps) - 1):
         a = Hex.from_cartesian(steps[idx])
         b = Hex.from_cartesian(steps[idx + 1])
-        for h in line(a, b):
-            yield h
+        yield from line(a, b)
 
 
 @singledispatch
@@ -147,7 +148,7 @@ def wedge_fill(
             yield rad
 
 
-def convex_hull(hexes: Iterable[Hex]) -> List[Hex]:
+def convex_hull(hexes: Iterable[Hex]) -> list[Hex]:
     """
     Find the convex hull of a set of hexes.
 
@@ -198,7 +199,7 @@ def convex_hull(hexes: Iterable[Hex]) -> List[Hex]:
     return hull
 
 
-def outer_boundary(hexes: Iterable[Hex]) -> Set[Hex]:
+def outer_boundary(hexes: Iterable[Hex]) -> set[Hex]:
     """
     Find all hexes on the outer boundary of a set of hexes.
 
@@ -217,7 +218,7 @@ def outer_boundary(hexes: Iterable[Hex]) -> Set[Hex]:
     return boundary
 
 
-def polygon(vertices: Sequence[Hex]) -> Set[Hex]:
+def polygon(vertices: Sequence[Hex]) -> set[Hex]:
     """
     Fill a polygon defined by hex vertices using a scanline algorithm.
 
@@ -278,7 +279,7 @@ def _point_in_polygon(point: Hex, vertices: Sequence[Hex]) -> bool:
     """
 
     def hex_to_cartesian(hex_coord: Hex) -> tuple[float, float]:
-        x = 1.5 * hex_coord.i
+        x = FLAT_TOP_AXIAL_TO_PLANE_X * hex_coord.i
         y = SQRT_THREE * (hex_coord.j + hex_coord.i * 0.5)
         return (x, y)
 
@@ -300,8 +301,8 @@ def _point_in_polygon(point: Hex, vertices: Sequence[Hex]) -> bool:
 
 def _flood_fill(
     start: Hex,
-    boundary: Set[Hex],
-    filled: Set[Hex],
+    boundary: set[Hex],
+    filled: set[Hex],
     min_i: int,
     max_i: int,
     min_j: int,
@@ -333,7 +334,7 @@ def _flood_fill(
                 stack.append(neighbor)
 
 
-def convex_polygon(vertices: Sequence[Hex]) -> Set[Hex]:
+def convex_polygon(vertices: Sequence[Hex]) -> set[Hex]:
     """
     Fill a convex polygon more efficiently using scanline algorithm.
 
@@ -376,3 +377,6 @@ def convex_polygon(vertices: Sequence[Hex]) -> Set[Hex]:
                 filled.add(candidate)
 
     return filled
+
+
+fill_convex_polygon = convex_polygon

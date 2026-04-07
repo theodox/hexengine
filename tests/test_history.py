@@ -1,15 +1,15 @@
+from __future__ import annotations
+
+import os
+import sys
 import unittest
 from unittest.mock import Mock
-import sys
-import os
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 try:
-    from src.hexengine.state import ActionManager, GameState, UnitState, BoardState
-    from src.hexengine.state.action_manager import StateAction
-
+    __import__("src.hexengine.state")
     NEW_STATE_SYSTEM_AVAILABLE = True
 except ImportError:
     NEW_STATE_SYSTEM_AVAILABLE = False

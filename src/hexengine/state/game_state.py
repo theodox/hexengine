@@ -5,8 +5,9 @@ These represent the pure game state without any display or UI concerns.
 All state models are frozen dataclasses for immutability and structural sharing.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field, replace
-from typing import Optional
 
 from ..hexes.types import Hex
 
@@ -25,15 +26,15 @@ class UnitState:
     health: int = 100
     active: bool = True
 
-    def with_position(self, new_position: Hex) -> "UnitState":
+    def with_position(self, new_position: Hex) -> UnitState:
         """Return a new UnitState with updated position."""
         return replace(self, position=new_position)
 
-    def with_health(self, new_health: int) -> "UnitState":
+    def with_health(self, new_health: int) -> UnitState:
         """Return a new UnitState with updated health."""
         return replace(self, health=new_health)
 
-    def with_active(self, is_active: bool) -> "UnitState":
+    def with_active(self, is_active: bool) -> UnitState:
         """Return a new UnitState with updated active status."""
         return replace(self, active=is_active)
 
@@ -45,6 +46,7 @@ class LocationState:
     position: Hex
     terrain_type: str
     movement_cost: float
+    hex_color: str | None = None
 
     def is_passable(self) -> bool:
         """Check if this location can be traversed."""
@@ -62,22 +64,22 @@ class BoardState:
     units: dict[str, UnitState] = field(default_factory=dict)
     locations: dict[Hex, LocationState] = field(default_factory=dict)
 
-    def with_unit(self, unit: UnitState) -> "BoardState":
+    def with_unit(self, unit: UnitState) -> BoardState:
         """Return a new BoardState with the unit added or updated."""
         new_units = {**self.units, unit.unit_id: unit}
         return replace(self, units=new_units)
 
-    def without_unit(self, unit_id: str) -> "BoardState":
+    def without_unit(self, unit_id: str) -> BoardState:
         """Return a new BoardState with the unit removed."""
         new_units = {uid: u for uid, u in self.units.items() if uid != unit_id}
         return replace(self, units=new_units)
 
-    def with_location(self, location: LocationState) -> "BoardState":
+    def with_location(self, location: LocationState) -> BoardState:
         """Return a new BoardState with the location added or updated."""
         new_locations = {**self.locations, location.position: location}
         return replace(self, locations=new_locations)
 
-    def get_unit_at(self, position: Hex) -> Optional[UnitState]:
+    def get_unit_at(self, position: Hex) -> UnitState | None:
         """Find unit at the given position, if any."""
         for unit in self.units.values():
             if unit.position == position and unit.active:
@@ -105,7 +107,7 @@ class TurnState:
     phase_actions_remaining: int
     turn_number: int = 1
 
-    def with_actions_spent(self, amount: int = 1) -> "TurnState":
+    def with_actions_spent(self, amount: int = 1) -> TurnState:
         """Return a new TurnState with actions spent."""
         return replace(
             self, phase_actions_remaining=self.phase_actions_remaining - amount
@@ -113,7 +115,7 @@ class TurnState:
 
     def with_next_phase(
         self, new_faction: str, new_phase: str, max_actions: int
-    ) -> "TurnState":
+    ) -> TurnState:
         """Return a new TurnState for the next phase."""
         return replace(
             self,
@@ -122,7 +124,7 @@ class TurnState:
             phase_actions_remaining=max_actions,
         )
 
-    def with_next_turn(self, turn_number: int) -> "TurnState":
+    def with_next_turn(self, turn_number: int) -> TurnState:
         """Return a new TurnState with incremented turn number."""
         return replace(self, turn_number=turn_number)
 
@@ -139,18 +141,18 @@ class GameState:
     board: BoardState
     turn: TurnState
 
-    def with_board(self, new_board: BoardState) -> "GameState":
+    def with_board(self, new_board: BoardState) -> GameState:
         """Return a new GameState with updated board."""
         return replace(self, board=new_board)
 
-    def with_turn(self, new_turn: TurnState) -> "GameState":
+    def with_turn(self, new_turn: TurnState) -> GameState:
         """Return a new GameState with updated turn."""
         return replace(self, turn=new_turn)
 
     @classmethod
     def create_empty(
         cls, initial_faction: str = "Blue", initial_phase: str = "Movement"
-    ) -> "GameState":
+    ) -> GameState:
         """Create a new empty game state."""
         return cls(
             board=BoardState(),

@@ -1,12 +1,14 @@
+from __future__ import annotations
+
 import logging
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
 from . import dev_console
 from .document import element, js
 from .excepthook import install_exception_hook
 from .game import NetworkGame
 
-__version__ = "0.1.1"
+__version__ = "0.1.3"
 
 
 GAME = None
@@ -76,9 +78,21 @@ def async_main() -> None:
         GAME.connect()
         logger.info("GAME.connect() returned")
 
+        # Dev console: snapshot save/load (uses GAME after connect)
+        _g = globals()
+        _g["save_snapshot_json"] = lambda: GAME.save_snapshot_json()
+        _g["load_snapshot_json"] = lambda s: GAME.load_snapshot_json(s)
+        _g["set_terrain_overlay"] = lambda visible: GAME.canvas.set_terrain_overlay_visible(
+            bool(visible)
+        )
+        _g["terrain_overlay_visible"] = lambda: GAME.canvas.terrain_overlay_visible
+
+        logger.info(
+            "Dev console terrain tint: set_terrain_overlay(True|False), "
+            "terrain_overlay_visible(); key T toggles."
+        )
+
         # Don't populate scenario on client - units come from server state
-        # The server initializes with the scenario units
-        # TEST_SCENARIO.populate(GAME)  # <-- Removed
 
         logger.info("Initialization complete!")
 
@@ -92,5 +106,5 @@ def main() -> None:
     logger.debug("main() called")
     try:
         async_main()
-    except Exception as e:
+    except Exception:
         logging.exception("FATAL ERROR in main()")

@@ -9,20 +9,26 @@ The server:
 - Handles player connections and turn management
 """
 
+from __future__ import annotations
+
 import logging
 import uuid
-from typing import Optional, Callable, Any
+from collections.abc import Callable
+from typing import Any
 
-from ..state import GameState, ActionManager
-from ..state.actions import MoveUnit, DeleteUnit, AddUnit, SpendAction, NextPhase
+from ..package_version import hexes_package_version
+from ..state import ActionManager, GameState
+from ..state.actions import AddUnit, DeleteUnit, MoveUnit, NextPhase, SpendAction
+from ..state.snapshot import game_state_from_wire_dict, game_state_to_wire_dict
 from .protocol import (
-    Message,
-    MessageType,
     ActionRequest,
-    StateUpdate,
     ActionResult,
     JoinGameRequest,
+    LoadSnapshotRequest,
+    Message,
+    MessageType,
     PlayerInfo,
+    StateUpdate,
 )
 
 
@@ -35,15 +41,28 @@ class GameServer:
     to process client requests.
     """
 
-    def __init__(self, initial_state: Optional[GameState] = None):
+    def __init__(
+        self,
+        initial_state: GameState | None = None,
+        map_display: dict[str, Any] | None = None,
+        global_styles: dict[str, Any] | None = None,
+        unit_graphics: dict[str, Any] | None = None,
+    ):
         """
         Initialize the game server.
 
         Args:
             initial_state: Starting game state, or None to create empty
+            map_display: Optional scenario map presentation dict (JSON-safe)
+            global_styles: Optional global CSS dict (JSON-safe)
+            unit_graphics: Optional unit type -> template dict (JSON-safe)
         """
         self.game_state = initial_state or GameState.create_empty()
         self.action_manager = ActionManager(self.game_state)
+        self.map_display = map_display
+        self.global_styles = global_styles
+        self.unit_graphics = unit_graphics
+        self._server_package_version = hexes_package_version()
 
         # Player management
         self.players: dict[str, PlayerInfo] = {}
@@ -83,45 +102,8 @@ class GameServer:
         self.logger.info(f"Turn order: {self.turn_order}")
 
     def _serialize_state(self, state: GameState) -> dict[str, Any]:
-        """
-        Serialize GameState into JSON-safe primitives.
-
-        Hex keys in locations are converted into explicit position objects
-        so the payload can be JSON-encoded without errors.
-        """
-        units: dict[str, dict[str, Any]] = {}
-        for unit_id, unit in state.board.units.items():
-            units[unit_id] = {
-                "unit_id": unit.unit_id,
-                "unit_type": unit.unit_type,
-                "faction": unit.faction,
-                "position": {"i": unit.position.i, "j": unit.position.j, "k": unit.position.k},
-                "health": unit.health,
-                "active": unit.active,
-            }
-
-        locations: list[dict[str, Any]] = []
-        for pos, loc in state.board.locations.items():
-            locations.append(
-                {
-                    "position": {"i": pos.i, "j": pos.j, "k": pos.k},
-                    "terrain_type": loc.terrain_type,
-                    "movement_cost": loc.movement_cost,
-                }
-            )
-
-        return {
-            "board": {
-                "units": units,
-                "locations": locations,
-            },
-            "turn": {
-                "current_faction": state.turn.current_faction,
-                "current_phase": state.turn.current_phase,
-                "phase_actions_remaining": state.turn.phase_actions_remaining,
-                "turn_number": state.turn.turn_number,
-            },
-        }
+        """Serialize GameState into JSON-safe primitives."""
+        return game_state_to_wire_dict(state)
 
     def _get_next_phase(self) -> dict:
         """Get the next phase in the turn order."""
@@ -170,6 +152,8 @@ class GameServer:
                 await self._handle_redo_request(player_id, message)
             elif message.type == MessageType.LEAVE_GAME:
                 await self._handle_leave_game(player_id)
+            elif message.type == MessageType.LOAD_SNAPSHOT:
+                await self._handle_load_snapshot(player_id, message)
             else:
                 self.logger.warning(f"Unknown message type: {message.type}")
         except Exception as e:
@@ -228,8 +212,10 @@ class GameServer:
         self.logger.info(f"Player {request.player_name} joined as {faction}")
 
         # Send player_joined to the joining player (so they know their faction)
+        join_payload = dict(player.to_dict())
+        join_payload["package_version"] = self._server_package_version
         await self._send_message(
-            player_id, Message(type=MessageType.PLAYER_JOINED, payload=player.to_dict())
+            player_id, Message(type=MessageType.PLAYER_JOINED, payload=join_payload)
         )
 
         # Send full state to joining player
@@ -274,7 +260,7 @@ class GameServer:
             # Spend an action for moves (other action types may cost different amounts)
             if request.action_type in ["MoveUnit"]:
                 try:
-                    self.logger.debug(f"Spending 1 action for MoveUnit")
+                    self.logger.debug("Spending 1 action for MoveUnit")
                     spend_action = SpendAction(amount=1)
                     self.action_manager.execute(spend_action)
 
@@ -288,7 +274,7 @@ class GameServer:
 
                     if current_state.turn.phase_actions_remaining <= 0:
                         next_phase_info = self._get_next_phase()
-                        self.logger.info(f"Actions depleted, advancing to next phase")
+                        self.logger.info("Actions depleted, advancing to next phase")
                         next_phase_action = NextPhase(
                             new_faction=next_phase_info["faction"],
                             new_phase=next_phase_info["phase"],
@@ -315,9 +301,10 @@ class GameServer:
     async def _handle_undo_request(self, player_id: str, message: Message) -> None:
         """Handle an undo request from a client."""
         from .protocol import UndoRequest
+
         self.logger.debug(f"Handling undo request from player {player_id}")
-        
-        request = UndoRequest.from_message(message)
+
+        UndoRequest.from_message(message)
 
         # Validate player
         player = self.players.get(player_id)
@@ -350,7 +337,7 @@ class GameServer:
         """Handle a redo request from a client."""
         from .protocol import RedoRequest
 
-        request = RedoRequest.from_message(message)
+        RedoRequest.from_message(message)
 
         # Validate player
         player = self.players.get(player_id)
@@ -379,6 +366,28 @@ class GameServer:
             self.logger.error(f"Redo failed: {e}")
             await self._send_error(player_id, f"Redo failed: {e}")
 
+    async def _handle_load_snapshot(self, player_id: str, message: Message) -> None:
+        """Replace server state from a client snapshot and broadcast."""
+        request = LoadSnapshotRequest.from_message(message)
+
+        player = self.players.get(player_id)
+        if not player:
+            await self._send_error(player_id, "Player not in game")
+            return
+
+        try:
+            new_state = game_state_from_wire_dict(request.game_state)
+        except Exception as e:
+            self.logger.error(f"Invalid load_snapshot from {player_id}: {e}")
+            await self._send_error(player_id, f"Invalid snapshot: {e}")
+            return
+
+        self.action_manager.replace_state(new_state)
+        self.game_state = self.action_manager.current_state
+        self.logger.info(f"Loaded snapshot from {player.player_name}")
+
+        await self._broadcast_state_update()
+
     def _create_action(self, request: ActionRequest) -> Any:
         """
         Create an action instance from a request.
@@ -396,9 +405,9 @@ class GameServer:
         # Import and instantiate the appropriate action class
         match action_type:
             case "MoveUnit":
-
-
-                from ..hexes.types import Hex  # Import here to avoid circular dependency
+                from ..hexes.types import (
+                    Hex,  # Import here to avoid circular dependency
+                )
 
                 return MoveUnit(
                     unit_id=params["unit_id"],
@@ -427,8 +436,6 @@ class GameServer:
                 )
             case _:
                 raise ValueError(f"Unknown action type: {action_type}")
-        
-        
 
     async def _handle_leave_game(self, player_id: str) -> None:
         """Handle a player leaving the game."""
@@ -442,7 +449,12 @@ class GameServer:
         """Send current game state to a specific player."""
         state_dict = self._serialize_state(self.action_manager.current_state)
         update = StateUpdate(
-            game_state=state_dict, sequence_number=self.sequence_number
+            game_state=state_dict,
+            sequence_number=self.sequence_number,
+            map_display=self.map_display,
+            global_styles=self.global_styles,
+            unit_graphics=self.unit_graphics,
+            server_package_version=self._server_package_version,
         )
         await self._send_message(player_id, update.to_message())
 
@@ -451,7 +463,12 @@ class GameServer:
         self.sequence_number += 1
         state_dict = self._serialize_state(self.action_manager.current_state)
         update = StateUpdate(
-            game_state=state_dict, sequence_number=self.sequence_number
+            game_state=state_dict,
+            sequence_number=self.sequence_number,
+            map_display=self.map_display,
+            global_styles=self.global_styles,
+            unit_graphics=self.unit_graphics,
+            server_package_version=self._server_package_version,
         )
         message = update.to_message()
 

@@ -6,16 +6,15 @@ It observes state changes and updates displays accordingly, and handles temporar
 preview visuals during drag operations.
 """
 
-from typing import TYPE_CHECKING, Dict, Optional
-
-from ..hexes.types import Hex
-from ..units import DisplayUnit, GameUnit
-from ..state import GameState
-from ..units.graphics import DisplayUnit
-from ..units.game import GameUnit
+from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING, Any
 
+from ..hexes.types import Hex
+from ..state import GameState
+from ..units.game import GameUnit
+from ..units.graphics import DisplayUnit
 
 if TYPE_CHECKING:
     from ..map import Map
@@ -34,7 +33,7 @@ class DisplayManager:
     Game logic modifies GameState, DisplayManager syncs displays to match.
     """
 
-    def __init__(self, map_canvas: "Map", game_board=None):
+    def __init__(self, map_canvas: Map, game_board=None):
         """
         Initialize display manager.
 
@@ -44,8 +43,13 @@ class DisplayManager:
         """
         self._canvas = map_canvas
         self._board = game_board
-        self._unit_displays: Dict[str, DisplayUnit] = {}
+        self._unit_displays: dict[str, DisplayUnit] = {}
+        self._unit_graphics_wire: dict[str, dict[str, Any]] = {}
         self.logger = logging.getLogger("display_manager")
+
+    def apply_unit_graphics(self, wire: dict[str, Any]) -> None:
+        """Replace scenario-driven unit graphics templates (unit type → wire dict)."""
+        self._unit_graphics_wire = {str(k): dict(v) for k, v in wire.items()}
 
     def sync_from_state(self, game_state: GameState) -> None:
         """
@@ -72,6 +76,12 @@ class DisplayManager:
             unit_state = game_state.board.units.get(unit_id)
             if unit_state is None or not unit_state.active:
                 self._remove_unit_display(unit_id)
+
+        self.redraw_terrain_overlay(game_state)
+
+    def redraw_terrain_overlay(self, game_state: GameState) -> None:
+        """Update the terrain tint canvas from ``LocationState.hex_color`` (under units)."""
+        self._canvas.redraw_terrain_overlay(game_state)
 
     def _create_unit_display(self, unit_state) -> None:
         """Create a new display for a unit."""
@@ -105,8 +115,6 @@ class DisplayManager:
         display.position = unit_state.position
         display.visible = unit_state.active
 
-        from ..document import js
-
         self.logger.debug(
             f"Created unit {unit_state.unit_id}, visible={unit_state.active}, display attr={display.proxy.getAttribute('display')}"
         )
@@ -117,8 +125,6 @@ class DisplayManager:
         # Add to layer - access the UnitLayer's SVG element directly
         unit_layer = self._canvas._unit_layer
         unit_layer._svg.appendChild(display.proxy)
-
-        from ..document import js
 
         self.logger.debug(
             f"Added {unit_state.unit_id} to SVG with id: {unit_layer._svg.id}"
@@ -160,13 +166,19 @@ class DisplayManager:
 
     def _get_graphics_creators(self):
         """Get map of unit type to graphics creator class."""
-        from ..game.scenarios.canuck import CanuckGraphicsCreator
-        from ..game.scenarios.generic import GenericGraphicsCreator
+        from ..scenarios.canuck import CanuckGraphicsCreator
+        from ..scenarios.generic import GenericGraphicsCreator
+        from .scenario_unit_graphics import graphics_creator_class_for_template
 
-        return {
+        out: dict[str, type] = {
             "canuck": CanuckGraphicsCreator,
             "soldier": GenericGraphicsCreator,
         }
+        for utype, tmpl in self._unit_graphics_wire.items():
+            cls = graphics_creator_class_for_template(tmpl)
+            if cls is not None:
+                out[utype] = cls
+        return out
 
     def _update_unit_display(self, unit_id: str, unit_state) -> None:
         """Update an existing display to match state."""
@@ -213,7 +225,7 @@ class DisplayManager:
             self.logger.debug(
                 f"show_preview: unit={unit_id}, type={unit_type}, coords=({pixel_x:.1f}, {pixel_y:.1f})"
             )
-            
+
             # Use map-space coordinates directly (no further transformation needed)
             display.display_at(pixel_x, pixel_y)
 
@@ -237,7 +249,7 @@ class DisplayManager:
             # Restore enabled state
             display.enabled = True
 
-    def get_display(self, unit_id: str) -> Optional[DisplayUnit]:
+    def get_display(self, unit_id: str) -> DisplayUnit | None:
         """Get display unit by ID."""
         return self._unit_displays.get(unit_id)
 
@@ -255,15 +267,26 @@ class DisplayManager:
         """Clear all hex highlights."""
         self._canvas.svg_layer.clear()
 
+    def adopt_hex_layout(self, game_state: GameState | None = None) -> None:
+        """Point all unit displays at the map's current HexLayout and refresh transforms."""
+        layout = self._canvas.hex_layout
+        for display in self._unit_displays.values():
+            display._hex_layout = layout
+        self.refresh_unit_positions()
+        if game_state is not None:
+            self.redraw_terrain_overlay(game_state)
+
     def refresh_unit_positions(self) -> None:
         """
-        Refresh all unit positions after a map resize/zoom.
-        Recalculates pixel positions for all units based on current hex layout.
+        Recompute every unit's SVG transform from its hex and the current hex layout.
+
+        Not needed for pan/zoom: those use CSS transforms on map layers while unit
+        coordinates stay in map space. Call when hex layout parameters change.
         """
-        for unit_id, display in self._unit_displays.items():
+        for _unit_id, display in self._unit_displays.items():
             # Re-apply the position to force recalculation with current layout
             hex_pos = display._hex
             x, y = self._canvas.hex_layout.hex_to_pixel(hex_pos)
             display.proxy.setAttribute("transform", f"translate({x},{y})")
 
-        self.logger.info(f"Refreshed {len(self._unit_displays)} unit positions")
+        self.logger.debug("Refreshed %s unit positions", len(self._unit_displays))

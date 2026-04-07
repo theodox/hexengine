@@ -5,16 +5,18 @@ This package provides both a hexagonal mathematics library (src.hexes)
 and application components for building hex-based games and visualizations.
 """
 
+from __future__ import annotations
+
 from .hexes import *  # Import all the hex math library functions
 
 # Application modules are available as submodules
 # from . import engine, document, map, dev_console
 
-__version__ = "0.1.0"
+__version__ = "0.1.3"
 
 
 # Main entry point
-def main():
+def main() -> None:
     """Entry point for the application."""
     from . import __main__
 

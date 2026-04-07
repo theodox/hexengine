@@ -1,6 +1,10 @@
-from typing import Any
+from __future__ import annotations
+
 import logging
-from .document import element, create_proxy, js
+from importlib.metadata import PackageNotFoundError, version
+from typing import Any
+
+from .document import create_proxy, element, js
 
 """
 A development console that logs messages to a text area in the web page, using
@@ -9,7 +13,10 @@ standard Python logging idioms
 
 ROOT_LOGGER = None
 
-__version__ = "0.1.0"
+try:
+    __version__ = version("hexes")
+except PackageNotFoundError:
+    __version__ = "0.1.3"
 
 
 def initialize(name: str, game_globals: dict[str, Any]) -> logging.Logger:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .events.hotkey import Hotkey, Modifiers
 
 
@@ -10,7 +12,7 @@ class GameHistoryMixin:
         if self.client.is_my_turn():
             self.undo()
         else:
-            self.logger.warning("Cannot undo: not your turn")   
+            self.logger.warning("Cannot undo: not your turn")
 
     @Hotkey("y", Modifiers.CONTROL)
     def redo_it(self) -> None:
@@ -18,8 +20,8 @@ class GameHistoryMixin:
         if self.client.is_my_turn():
             self.redo()
         else:
-            self.logger.warning("Cannot redo: not your turn")   
-            
+            self.logger.warning("Cannot redo: not your turn")
+
     def undo(self) -> None:
         """Default undo implementation using ActionManager. Subclasses can override."""
         if hasattr(self, "action_mgr") and self.action_mgr.can_undo():

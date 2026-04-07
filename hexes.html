@@ -16,7 +16,7 @@
       await pyodide.loadPackage("micropip");
       const micropip = pyodide.pyimport("micropip");
       // Cache-bust so Pyodide fetches the latest wheel after rebuilds (bump when you change package code)
-      await micropip.install("../dist/hexes-0.1.0-py3-none-any.whl?v=2");
+      await micropip.install("../dist/hexes-0.1.3-py3-none-any.whl?v=5");
 
       let hexes = pyodide.pyimport("hexengine.__main__");
       console.log(hexes.__version__);
@@ -29,17 +29,16 @@
   <div id="main-frame">
     <!--- map canvas and svg overlay --->
     <div id="map-container">
-      <!--bitmap bg-->
-      <img id="map-bg" src="resources/test_map.png" />
-      
-      <!--static bg overlay & hexes-->
-      <canvas id="map-canvas" data-hexsize="24" , data-hexcolor="#33443344" , data-hexstroke="1" ,
-        data-hexmargin="0"></canvas>
-      
-        <!--interactive svg overlay-->
-      <svg id="map-svg"></svg>
-      <svg id="map-units"></svg>
-      
+      <!-- Single CSS transform for bg + grid + overlays + units (see Map._apply_transform) -->
+      <div id="map-world">
+        <div id="map-bg" class="map-bg--crop" aria-hidden="true"></div>
+        <canvas id="map-canvas" data-hexsize="24" , data-hexcolor="#33443344" , data-hexstroke="1" ,
+          data-hexmargin="0"></canvas>
+        <canvas id="map-terrain"></canvas>
+        <svg id="map-svg"></svg>
+        <svg id="map-units"></svg>
+      </div>
+
       <!--- loading screen -->
       <div id="loading">
         <b>Loading...</b>

@@ -1,5 +1,6 @@
-import logging
+from __future__ import annotations
 
+import logging
 from enum import Enum
 
 
@@ -97,27 +98,24 @@ class TurnManager:
             if faction != f:
                 return faction
         return None
-    
-    def prospective_phase(self):
 
+    def prospective_phase(self):
         this_faction, this_phase = self.current
 
         for i, (faction, phase) in enumerate(self.phases):
             if faction.name == this_faction.name and phase.name == this_phase.name:
                 # Get the next phase in sequence
-                next_index = (i + 1) % len(self.phases)    
+                next_index = (i + 1) % len(self.phases)
                 return self.phases[next_index]
-
-
 
     @property
     def actions(self):
         return self.max_actions
 
     @classmethod
-    def Ordered(cls, factions: list[str], phases: list[str, int]) -> "TurnManager":
+    def Ordered(cls, factions: list[str], phases: list[str, int]) -> TurnManager:
         return cls(factions, phases, TurnOrdering.SEQUENTIAL)
 
     @classmethod
-    def Interleaved(cls, factions: list[str], phases: list[str, int]) -> "TurnManager":
+    def Interleaved(cls, factions: list[str], phases: list[str, int]) -> TurnManager:
         return cls(factions, phases, TurnOrdering.INTERLEAVED)

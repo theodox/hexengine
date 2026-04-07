@@ -5,10 +5,12 @@ Provides a WebSocket transport layer on top of GameServer.
 Clients connect via WebSocket and send/receive JSON messages.
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
-from typing import Optional
+from typing import Any
 
 import websockets
 from websockets.server import WebSocketServerProtocol
@@ -29,7 +31,10 @@ class WebSocketGameServer:
         self,
         host: str = "localhost",
         port: int = 8765,
-        initial_state: Optional[GameState] = None,
+        initial_state: GameState | None = None,
+        map_display: dict[str, Any] | None = None,
+        global_styles: dict[str, Any] | None = None,
+        unit_graphics: dict[str, Any] | None = None,
     ):
         """
         Initialize WebSocket server.
@@ -38,10 +43,18 @@ class WebSocketGameServer:
             host: Host to bind to
             port: Port to listen on
             initial_state: Initial game state
+            map_display: Optional scenario map presentation (JSON-safe dict)
+            global_styles: Optional global CSS dict (JSON-safe)
+            unit_graphics: Optional unit type -> template dict (JSON-safe)
         """
         self.host = host
         self.port = port
-        self.game_server = GameServer(initial_state)
+        self.game_server = GameServer(
+            initial_state,
+            map_display=map_display,
+            global_styles=global_styles,
+            unit_graphics=unit_graphics,
+        )
 
         # Map connection to player_id
         self.connections: dict[WebSocketServerProtocol, str] = {}
@@ -156,16 +169,13 @@ async def main():
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    # Load scenario from TOML (prefer project-root scenarios/, else packaged default)
-    from pathlib import Path
+    # Load scenario from TOML (prefer ./scenarios/ at cwd, else packaged default)
+    from ..scenarios.loader import scenario_to_initial_state
+    from ..scenarios.parse import load_scenario, resolve_scenario_path_for_server
 
-    from ..game.scenarios.loader import scenario_to_initial_state
-    from ..game.scenarios.parse import default_scenario_path, load_scenario
-
-    scenario_path = Path.cwd() / "scenarios" / "test_scenario.toml"
-    if not scenario_path.exists():
-        scenario_path = default_scenario_path()
+    scenario_path = resolve_scenario_path_for_server()
     scenario_data = load_scenario(scenario_path)
+
     initial_state = scenario_to_initial_state(
         scenario_data,
         initial_faction="Red",
@@ -174,7 +184,12 @@ async def main():
     )
 
     server = WebSocketGameServer(
-        host="0.0.0.0", port=8765, initial_state=initial_state
+        host="0.0.0.0",
+        port=8765,
+        initial_state=initial_state,
+        map_display=scenario_data.map_display.to_wire_dict(),
+        global_styles=scenario_data.global_styles.to_wire_dict(),
+        unit_graphics=scenario_data.unit_graphics_to_wire_dict(),
     )
     await server.start()
 

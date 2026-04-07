@@ -1,8 +1,10 @@
 """Event handling package for game interactions."""
 
+from __future__ import annotations
+
+from .handler import EventInfo, Modifiers
+from .hotkey import Hotkey, HotkeyHandlerMixin
 from .mouse import MouseEventHandlerMixin
-from .hotkey import HotkeyHandlerMixin, Hotkey
-from .handler import Modifiers, EventInfo
 
 __all__ = [
     "MouseEventHandlerMixin",

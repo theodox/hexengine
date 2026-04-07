@@ -1,16 +1,22 @@
+from __future__ import annotations
+
 import logging
 
-from .events import MouseEventHandlerMixin, HotkeyHandlerMixin, Hotkey, Modifiers
-from .history import GameHistoryMixin
-
-from .board import GameBoard
-from .turn import TurnManager, Faction, Phase, TurnOrdering
-from ..client import UIState, DisplayManager
-from ..document import element
+from ..client import DisplayManager, UIState
+from ..document import create_proxy, element, js
 from ..map import Map
-from ..state import GameState, ActionManager
+from ..state import ActionManager, GameState
 from ..state.actions import NextPhase
 from ..ui.popups import PopupManager
+from .board import GameBoard
+from .events import Hotkey, HotkeyHandlerMixin, Modifiers, MouseEventHandlerMixin
+from .history import GameHistoryMixin
+from .turn import Faction, Phase, TurnManager, TurnOrdering
+
+# Screen-space pan per arrow key when zoomed in; Shift multiplies step.
+_PAN_KEY_STEP = 48
+_PAN_KEY_SHIFT_MULT = 3
+
 
 class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     """
@@ -18,10 +24,12 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     The mixins are used to split the file into multiple files, not for reuses
     """
+
     def __init__(self) -> None:
         self.running = True
         container = element("map-container")
         map = element("map-canvas")
+        terrain = element("map-terrain")
         svg = element("map-svg")
         units = element("map-units")
         action_button = element("advance-button")
@@ -30,7 +38,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
         assert map is not None, "Map canvas element not found"
         assert svg is not None, "Map SVG element not found"
-        self.canvas = Map(container, map, svg, units)
+        self.canvas = Map(container, map, terrain, svg, units)
         self.board = GameBoard(self.canvas)
 
         initial_state = GameState.create_empty(
@@ -57,21 +65,19 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.logger = logging.getLogger("game")
         self.logger.info("Game initialized")
 
-        from ..document import js
-
         self.logger.info(
             f"[Game.__init__] Registering on_mouse_down: {self.on_mouse_down}"
         )
         self.canvas.on_mouse_down < self.on_mouse_down
-        self.logger.info(f"[Game.__init__] Registered on_mouse_down")
+        self.logger.info("[Game.__init__] Registered on_mouse_down")
 
         self.logger.info(f"[Game.__init__] Registering on_mouse_up: {self.on_mouse_up}")
         self.canvas.on_mouse_up < self.on_mouse_up
-        self.logger.info(f"[Game.__init__] Registered on_mouse_up")
+        self.logger.info("[Game.__init__] Registered on_mouse_up")
 
         self.logger.info(f"[Game.__init__] Registering on_drag: {self.on_drag}")
         self.canvas.on_drag < self.on_drag
-        self.logger.info(f"[Game.__init__] Registered on_drag")
+        self.logger.info("[Game.__init__] Registered on_drag")
 
         self._register_hotkeys()
 
@@ -87,8 +93,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.turn_manager.handlers.append(self.update_turn_display)
 
         # Register resize handler to refresh map on window resize/zoom
-        from ..document import create_proxy
-        
         js.window.addEventListener("resize", create_proxy(self._handle_resize))
         self.logger.info("Registered window resize handler")
 
@@ -117,35 +121,30 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def _handle_resize(self, event) -> None:
         """
         Handle window resize and zoom events.
-        Refreshes the map canvas and updates all unit positions.
+        Refreshes the map canvas; pan/zoom are applied on layer roots, so unit
+        transforms (map-space) stay valid.
         """
-        self.logger.info("Window resized, refreshing map and units")
-        
-        # Refresh the map (canvas layer and CSS variables)
+        self.logger.info("Window resized, refreshing map")
         self.canvas.refresh()
-        
-        # Refresh all unit positions
-        self.display_mgr.refresh_unit_positions()
+        if self.action_mgr is not None:
+            self.display_mgr.redraw_terrain_overlay(self.action_mgr.current_state)
 
     def _handle_wheel(self, event) -> None:
         """
         Handle mouse wheel for zooming.
         """
         event.preventDefault()
-        
+
         # Get mouse position relative to container
         rect = self.canvas._container.getBoundingClientRect()
         mouse_x = event.clientX - rect.left
         mouse_y = event.clientY - rect.top
-        
+
         # Zoom in or out based on wheel delta
         zoom_speed = 0.001
         delta = -event.deltaY * zoom_speed
-        
+
         self.canvas.adjust_zoom(delta, mouse_x, mouse_y)
-        
-        # Refresh unit positions to account for zoom
-        self.display_mgr.refresh_unit_positions()
 
     def _handle_keydown(self, event) -> None:
         """
@@ -190,6 +189,29 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def remove_unit(self, unit) -> None:
         self.board.remove_unit(unit)
 
+    def pan_view(self, delta_x: float, delta_y: float) -> None:
+        """Pan the map in screen pixels (CSS transform on layers; units stay in map space)."""
+        self.canvas.adjust_pan(delta_x, delta_y)
+
+    def on_key_down(self, event) -> None:
+        key = event.key.lower()
+        modifiers = Modifiers.from_event(event)
+        if key in ("arrowleft", "arrowright", "arrowup", "arrowdown"):
+            if self.canvas.zoom_level > 1.01:
+                step = _PAN_KEY_STEP * (
+                    _PAN_KEY_SHIFT_MULT if modifiers & Modifiers.SHIFT else 1
+                )
+                deltas = {
+                    "arrowleft": (-step, 0),
+                    "arrowright": (step, 0),
+                    "arrowup": (0, -step),
+                    "arrowdown": (0, step),
+                }
+                self.pan_view(*deltas[key])
+                event.preventDefault()
+                return
+        HotkeyHandlerMixin.on_key_down(self, event)
+
     @Hotkey("delete", Modifiers.NONE)
     def delete_selected_unit(self) -> None:
         if self.ui_state.selected_unit_id:
@@ -208,7 +230,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     @Hotkey("enter", Modifiers.NONE)
     def popup_selected_unit_info(self) -> None:
-        self.popup_manager.clear()
         if self.selection:
             loc = self.layout.hex_to_pixel(self.selection.position)
             self.popup_manager.create_popup(
@@ -216,6 +237,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             )
             self.logger.info(f"Showing info for unit {self.selection.unit_id}")
         else:
+            self.popup_manager.clear()
             self.logger.debug("No unit selected to show info")
 
     @Hotkey("escape", Modifiers.NONE)
@@ -226,8 +248,14 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def reset_view(self) -> None:
         """Reset zoom and pan to default."""
         self.canvas.reset_view()
-        self.display_mgr.refresh_unit_positions()
         self.logger.info("View reset to default")
+
+    @Hotkey("t", Modifiers.NONE)
+    def toggle_terrain_overlay(self) -> None:
+        """Toggle terrain tint layer (console: ``set_terrain_overlay`` / ``terrain_overlay_visible()``)."""
+        self.canvas.set_terrain_overlay_visible(
+            not self.canvas.terrain_overlay_visible
+        )
 
     # ===== STATE SYSTEM HELPERS =====
 
@@ -242,6 +270,21 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def get_current_state(self):
         """Get current committed game state (immutable)."""
         return self.action_mgr.current_state
+
+    def is_my_turn(self) -> bool:
+        """Local / hotseat: always True. NetworkGame overrides."""
+        return True
+
+    def _clear_drag_and_highlights(self) -> None:
+        """Clear local drag preview, selection, and hex highlights (no server action)."""
+        if self.ui_state.drag_preview:
+            preview = self.ui_state.end_drag()
+            if preview and self.action_mgr and self.action_mgr.current_state:
+                u = self.action_mgr.current_state.board.units.get(preview.unit_id)
+                if u:
+                    self.display_mgr.clear_preview(preview.unit_id, u.position)
+        self.ui_state.select_unit(None)
+        self.display_mgr.clear_highlights()
 
     def start_drag_preview(self, unit_id: str):
         """Start drag preview for a unit."""
@@ -278,7 +321,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 f"update_drag_preview: screen=({pixel_x:.1f},{pixel_y:.1f}), "
                 f"zoom={self.canvas._zoom_level:.2f}, pan=({self.canvas._pan_x:.1f},{self.canvas._pan_y:.1f})"
             )
-            
+
             self.display_mgr.show_preview(
                 unit_id=self.ui_state.drag_preview.unit_id,
                 pixel_x=pixel_x,

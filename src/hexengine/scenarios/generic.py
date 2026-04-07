@@ -1,6 +1,8 @@
-from ...document import js
-from ...units import GameUnit
-from ...units.graphics import DisplayUnit, GraphicsCreator
+from __future__ import annotations
+
+from ..document import js
+from ..units import GameUnit
+from ..units.graphics import DisplayUnit, GraphicsCreator
 
 
 class GenericGraphicsCreator(GraphicsCreator):
@@ -10,7 +12,11 @@ class GenericGraphicsCreator(GraphicsCreator):
         display_unit.push_classes(*self.BASE_CLASSES)
 
         # Get unit size from layout
-        unit_size = int(display_unit._hex_layout.size * self.UNIT_SIZE_DIVISOR) if display_unit._hex_layout else 30
+        unit_size = (
+            int(display_unit._hex_layout.size * self.UNIT_SIZE_DIVISOR)
+            if display_unit._hex_layout
+            else 30
+        )
         half_size = unit_size / 2
 
         rect = js.document.createElementNS("http://www.w3.org/2000/svg", "rect")

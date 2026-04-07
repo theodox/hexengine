@@ -1,4 +1,7 @@
-from typing import Iterable, TYPE_CHECKING
+from __future__ import annotations
+
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from ..document import js
 from ..hexes.types import Hex
@@ -18,7 +21,7 @@ class Location:
         assault_modifier: float,
         ranged_modifier: float,
         block_los: bool,
-        game: "Game",
+        game: Game,
     ) -> None:
         self._hex = hex
         self._type = terrain_type
@@ -50,7 +53,7 @@ class Location:
         return self._ranged_modifier
 
     @classmethod
-    def create(cls, loc_item: LocationItem, game: "Game" = None) -> "Location":
+    def create(cls, loc_item: LocationItem, game: Game = None) -> Location:
         return cls(
             loc_item.position,
             loc_item.type,

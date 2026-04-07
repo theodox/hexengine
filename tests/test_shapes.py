@@ -1,26 +1,30 @@
+from __future__ import annotations
+
+import math
 import unittest
-from hexengine.hexes.types import Hex
+
+from hexengine.hexes.math import (
+    cartesian_to_hex,
+    cross_product,
+    distance,
+    dot_product,
+    hex_magnitude,
+    hex_to_cartesian,
+    scale_cartesian_vector,
+    vector_angle,
+)
 from hexengine.hexes.shapes import (
+    angle,
     convex_hull,
+    fill_convex_polygon,
     outer_boundary,
+    path,
     polygon,
     radius,
     ring,
-    path,
-    angle,
     wedge_fill,
 )
-from hexengine.hexes.math import (
-    dot_product,
-    vector_angle,
-    hex_magnitude,
-    cross_product,
-    hex_to_cartesian,
-    cartesian_to_hex,
-    scale_cartesian_vector,
-    distance,
-)
-import math
+from hexengine.hexes.types import Hex
 
 
 class TestHexShapes(unittest.TestCase):
@@ -549,14 +553,10 @@ class TestHexShapes(unittest.TestCase):
         # Result should maintain hex constraint
         self.assertEqual(scaled.i + scaled.j + scaled.k, 0)
 
-        # Should be approximately scaled
-        original_cart = hex_to_cartesian(hex_coord)
-        scaled_cart = hex_to_cartesian(scaled)
-
-        # The scaled version should be roughly 1.5x larger
-        original_mag = (original_cart.x**2 + original_cart.y**2) ** 0.5
-        scaled_mag = (scaled_cart.x**2 + scaled_cart.y**2) ** 0.5
-
+        # Magnitude in continuous plane space (matches scale_cartesian_vector).
+        # Integer hex_to_cartesian rounding would skew the ratio (e.g. ~1.37 vs 1.5).
+        original_mag = hex_magnitude(hex_coord)
+        scaled_mag = hex_magnitude(scaled)
         self.assertAlmostEqual(scaled_mag / original_mag, scale, places=1)
 
 

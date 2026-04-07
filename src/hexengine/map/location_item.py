@@ -1,9 +1,6 @@
-"""
-Data type for scenario location definitions.
+"""Plain data for building a :class:`~hexengine.map.location.Location` (no display / :class:`~hexengine.game.game.Game` in the ctor)."""
 
-Lives in map so that map.location can use it without importing from game.scenarios,
-breaking the circular dependency: map.location <-> game.scenarios.base.
-"""
+from __future__ import annotations
 
 from ..hexes.types import Hex
 
@@ -19,6 +16,7 @@ class LocationItem:
         assault_modifier: float,
         ranged_modifier: float,
         block_los: bool,
+        hex_color: str | None = None,
     ) -> None:
         self.position: Hex = pos
         self.movement_cost = movement_cost
@@ -26,3 +24,4 @@ class LocationItem:
         self.assault_modifier = assault_modifier
         self.ranged_modifier = ranged_modifier
         self.block_los = block_los
+        self.hex_color = hex_color

@@ -1,12 +1,29 @@
+from __future__ import annotations
+
 import dataclasses
 
-# Constants for hex to cartesian conversion
-SQRT_THREE = 3**0.5
-THREE_HALF_POWER = SQRT_THREE / 2
+from .constants import (
+    FLAT_TOP_AXIAL_TO_PLANE_X,
+    FLAT_TOP_PLANE_TO_AXIAL_Q_SCALE,
+    SQRT_THREE,
+)
 
 
 @dataclasses.dataclass(frozen=True)
 class Cartesian:
+    """
+    Integer point on the **flat-top hex embedding plane** (skewed 2D lattice).
+
+    Each :class:`Hex` maps to a canonical ``(x, y)`` via :meth:`from_hex` using the
+    same scale factors as continuous hex layout (see ``hexengine.hexes.constants``).
+    The reverse map :meth:`Hex.from_cartesian` rounds to the nearest hex, so **several**
+    distinct ``Cartesian`` values can yield the **same** :class:`Hex`—unlike
+    :class:`HexColRow` (odd-q), which is 1:1 with hexes.
+
+    Useful for axis-aligned ranges and plane geometry (e.g. :mod:`hexengine.hexes.shapes`);
+    it is **not** the same as odd-q ``[col, row]`` editor coordinates.
+    """
+
     x: int
     y: int
 
@@ -26,74 +43,95 @@ class Cartesian:
     def __repr__(self) -> str:
         return f"Cartesian({self.x},{self.y})"
 
-    def __add__(self, other: "Cartesian") -> "Cartesian":
+    def __add__(self, other: Cartesian) -> Cartesian:
         return Cartesian(self.x + other.x, self.y + other.y)
 
-    def __sub__(self, other: "Cartesian") -> "Cartesian":
+    def __sub__(self, other: Cartesian) -> Cartesian:
         return Cartesian(self.x - other.x, self.y - other.y)
 
-    def __mul__(self, k: int) -> "Cartesian":
+    def __mul__(self, k: int) -> Cartesian:
         return Cartesian(self.x * k, self.y * k)
 
-    def __truediv__(self, k: int) -> "Cartesian":
+    def __truediv__(self, k: int) -> Cartesian:
         return Cartesian(self.x // k, self.y // k)
 
     @classmethod
-    def from_hex(cls, hex_coord: "Hex") -> "Cartesian":
+    def from_hex(cls, hex_coord: Hex) -> Cartesian:
         """Convert hex coordinates to integer Cartesian coordinates (flat-top orientation)."""
-        x = int(round(1.5 * hex_coord.i))
+        x = int(round(FLAT_TOP_AXIAL_TO_PLANE_X * hex_coord.i))
         y = int(round(SQRT_THREE * (hex_coord.j + hex_coord.i * 0.5)))
         return cls(x, y)
 
 
 @dataclasses.dataclass(frozen=True)
-class HexRowCol:
+class HexColRow:
     """
-    Hex-aligned row/column coordinates for flat-topped hexes.
+    **Odd-q offset** coordinates for a flat-top hex grid (human-friendly 2-number layout).
 
-    This provides a 1:1 mapping with Hex coordinates:
-    - row: the hex row (j coordinate)
-    - col: the hex column position (i coordinate)
+    - ``col`` — column index; matches axial ``i`` and typical editor ``data-x`` / Hextml.
+    - ``row`` — **offset row**, not axial ``j``. Neighboring hexes do not simply increment
+      ``row``; stagger follows the odd-q rule (Red Blob Games: offset coordinates).
 
-    Unlike Cartesian coordinates, each HexRowCol maps to exactly one Hex
-    and vice versa.
+    Use :meth:`axial_from_offset` and :meth:`offset_from_axial` for the odd-q ↔ axial
+    formulas (Red Blob Games: offset coordinates → axial). Scenario TOML
+    ``position = [col, row]`` uses the same two numbers.
+
+    Bijective with :class:`Hex` (cube / axial) for integer grids; use :meth:`to_hex` /
+    :meth:`from_hex` to convert. This is **not** the same as integer :class:`Cartesian`
+    plane coordinates.
     """
 
-    row: int
     col: int
-
-    def __post_init__(self):
-        object.__setattr__(self, "row", round(self.row))
-        object.__setattr__(self, "col", round(self.col))
-
-    def __eq__(self, value):
-        if not isinstance(value, HexRowCol):
-            return NotImplemented
-        return self.row == value.row and self.col == value.col
-
-    def __hash__(self) -> int:
-        return hash((self.row, self.col))
-
-    def __repr__(self) -> str:
-        return f"HexRowCol(row={self.row}, col={self.col})"
-
-    def __add__(self, other: "HexRowCol") -> "HexRowCol":
-        return HexRowCol(self.row + other.row, self.col + other.col)
-
-    def __sub__(self, other: "HexRowCol") -> "HexRowCol":
-        return HexRowCol(self.row - other.row, self.col - other.col)
+    row: int
 
     @classmethod
-    def from_hex(cls, hex_coord: "Hex") -> "HexRowCol":
-        """Convert hex coordinates to row/col coordinates (1:1 mapping)."""
-        return cls(row=hex_coord.j, col=hex_coord.i)
+    def axial_from_offset(cls, col: int, row: int) -> tuple[int, int]:
+        """
+        Odd-q offset ``(col, row)`` → axial ``(i, j)``.
 
-    def to_hex(self) -> "Hex":
-        """Convert row/col coordinates to hex coordinates (1:1 mapping)."""
-        i = self.col
-        j = self.row
-        k = -i - j
-        return Hex(i, j, k)
+        ``col`` equals axial ``i`` (e.g. Hextml ``data-x``); ``row`` is the staggered
+        offset index (e.g. ``data-y``), not axial ``j``.
+        """
+        i = int(col)
+        j = int(row) - (i - (i & 1)) // 2
+        return i, j
+
+    @classmethod
+    def offset_from_axial(cls, i: int, j: int) -> HexColRow:
+        """
+        Axial ``(i, j)`` → odd-q coordinates with ``col = i``.
+
+        ``row`` is the offset-row index: ``j + (i - (i & 1)) // 2`` (inverse of
+        :meth:`axial_from_offset` for the row component).
+        """
+        ii = int(i)
+        row = int(j) + (ii - (ii & 1)) // 2
+        return cls(col=ii, row=row)
+
+    def __post_init__(self):
+        object.__setattr__(self, "col", round(self.col))
+        object.__setattr__(self, "row", round(self.row))
+
+    def __eq__(self, value):
+        if not isinstance(value, HexColRow):
+            return NotImplemented
+        return self.col == value.col and self.row == value.row
+
+    def __hash__(self) -> int:
+        return hash((self.col, self.row))
+
+    def __repr__(self) -> str:
+        return f"HexColRow(col={self.col}, row={self.row})"
+
+    @classmethod
+    def from_hex(cls, hex_coord: Hex) -> HexColRow:
+        """Axial/cube hex → odd-q ``(col, row)`` with ``col = i``."""
+        return cls.offset_from_axial(hex_coord.i, hex_coord.j)
+
+    def to_hex(self) -> Hex:
+        """Odd-q ``(col, row)`` → cube hex (``k = -i - j``)."""
+        i, j = self.__class__.axial_from_offset(self.col, self.row)
+        return Hex(i, j, -i - j)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -111,30 +149,30 @@ class Hex:
         if self.i + self.j + self.k != 0:
             object.__setattr__(self, "k", -self.i - self.j)  # Enforce constraint
 
-    def __add__(self, other: "Hex") -> "Hex":
+    def __add__(self, other: Hex) -> Hex:
         return Hex(self.i + other.i, self.j + other.j, self.k + other.k)
 
-    def __iadd__(self, other: "Hex") -> "Hex":
+    def __iadd__(self, other: Hex) -> Hex:
         raise NotImplementedError("In-place addition is not supported for Hex")
 
-    def __sub__(self, other: "Hex") -> "Hex":
+    def __sub__(self, other: Hex) -> Hex:
         return Hex(self.i - other.i, self.j - other.j, self.k - other.k)
 
-    def __isub__(self, other: "Hex") -> "Hex":
+    def __isub__(self, other: Hex) -> Hex:
         raise NotImplementedError("In-place subtraction is not supported for Hex")
 
-    def __mul__(self, k: float) -> "Hex":
+    def __mul__(self, k: float) -> Hex:
         k *= 1.0
         return Hex(self.i * k, self.j * k, self.k * k)
 
-    def __imul__(self, k: float) -> "Hex":
+    def __imul__(self, k: float) -> Hex:
         raise NotImplementedError("In-place multiplication is not supported for Hex")
 
-    def __truediv__(self, k: float) -> "Hex":
+    def __truediv__(self, k: float) -> Hex:
         k *= 1.0
         return Hex(self.i / k, self.j / k, self.k / k)
 
-    def __floordiv__(self, k: float) -> "Hex":
+    def __floordiv__(self, k: float) -> Hex:
         k *= 1.0
         return Hex(self.i // k, self.j // k, self.k // k)
 
@@ -153,9 +191,9 @@ class Hex:
         return hash((self.i + 1024, self.j + 2048, self.k + 4096))
 
     @classmethod
-    def from_cartesian(cls, cartesian: Cartesian) -> "Hex":
+    def from_cartesian(cls, cartesian: Cartesian) -> Hex:
         """Convert integer Cartesian coordinates to hex coordinates (flat-top orientation)."""
-        i = (2.0 / 3.0) * cartesian.x
+        i = FLAT_TOP_PLANE_TO_AXIAL_Q_SCALE * cartesian.x
         j = cartesian.y / SQRT_THREE - i * 0.5
         k = -i - j
 
@@ -174,3 +212,8 @@ class Hex:
         else:
             s = -q - r
         return cls(q, r, s)
+
+    @classmethod
+    def from_hex_col_row(cls, col_row: HexColRow) -> Hex:
+        """Odd-q :class:`HexColRow` → cube hex (inverse of :meth:`HexColRow.from_hex`)."""
+        return col_row.to_hex()

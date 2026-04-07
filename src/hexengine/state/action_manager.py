@@ -8,9 +8,11 @@ This is the ONLY way to permanently modify game state. It provides:
 - Event sourcing (action history)
 """
 
+from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Callable
+from collections.abc import Callable
 
 from .game_state import GameState
 
@@ -36,6 +38,7 @@ class StateAction(ABC):
     def should_revert_prior(self) -> bool:
         """Indicate if prior actions should be reverted when undoing this action."""
         ...
+
 
 class ActionManager:
     """Manages game state transitions through actions.
@@ -90,7 +93,7 @@ class ActionManager:
 
         return new_state
 
-    def undo(self) -> Optional[GameState]:
+    def undo(self) -> GameState | None:
         """Undo the last action.
 
         Returns:
@@ -106,7 +109,7 @@ class ActionManager:
         try:
             new_state = action.revert(self._current_state)
             self._current_state = new_state
-            
+
             if action.should_revert_prior() and self._pointer > 0:
                 new_state = self._history[self._pointer - 1].revert(new_state)
                 self._pointer -= 1
@@ -115,7 +118,6 @@ class ActionManager:
             self.logger.error(f"Failed to revert action {action}: {e}")
             self._pointer += 1  # Restore pointer
             raise
-  
 
         self._current_state = new_state
         self.logger.info(f"Undid action {action} (now at #{self._pointer})")
@@ -125,7 +127,7 @@ class ActionManager:
 
         return new_state
 
-    def redo(self) -> Optional[GameState]:
+    def redo(self) -> GameState | None:
         """Redo the next action in history.
 
         Returns:
@@ -152,6 +154,13 @@ class ActionManager:
 
         return new_state
 
+    def replace_state(self, new_state: GameState) -> None:
+        """Replace committed state and clear undo/redo history."""
+        self._current_state = new_state
+        self._history = []
+        self._pointer = 0
+        self._notify_observers(new_state)
+
     def can_undo(self) -> bool:
         """Check if undo is available."""
         return self._pointer > 0
@@ -168,7 +177,7 @@ class ActionManager:
         """
         self._observers.append(observer)
 
-    def __iadd__(self, observer: Callable[[GameState], None]) -> "ActionManager":
+    def __iadd__(self, observer: Callable[[GameState], None]) -> ActionManager:
         """Shortcut to add an observer using += syntax."""
         self.add_observer(observer)
         return self
@@ -178,7 +187,7 @@ class ActionManager:
         if observer in self._observers:
             self._observers.remove(observer)
 
-    def __isub__(self, observer: Callable[[GameState], None]) -> "ActionManager":
+    def __isub__(self, observer: Callable[[GameState], None]) -> ActionManager:
         """Shortcut to remove an observer using -= syntax."""
         self.remove_observer(observer)
         return self

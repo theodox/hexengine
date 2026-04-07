@@ -1,5 +1,8 @@
-from hexengine.map.location import Location
+"""Placeholder for future combat and rules logic."""
 
+from __future__ import annotations
+
+__all__: list[str] = []
 
 # class AssaultRule:
 #     def __init__(self):

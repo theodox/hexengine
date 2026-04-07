@@ -5,13 +5,16 @@ This extends the base Game class to work with multiplayer by routing
 all actions through a WebSocket connection to the server.
 """
 
-import logging
-from typing import Optional
+from __future__ import annotations
 
-from ..client.websocket_client import BrowserWebSocketClient, ConnectionState
+import json
+import logging
+from typing import Any
+
 from ..client import LocalServerManager
+from ..client.websocket_client import BrowserWebSocketClient, ConnectionState
 from ..state import GameState
-from ..hexes.types import Hex
+from ..state.snapshot import SNAPSHOT_FORMAT_VERSION, game_state_to_wire_dict
 from .game import Game
 
 
@@ -30,7 +33,7 @@ class NetworkGame(Game):
         self,
         server_url: str = "ws://localhost:8765",
         player_name: str = "Player",
-        preferred_faction: Optional[str] = None,
+        preferred_faction: str | None = None,
         use_local_server: bool = True,
     ):
         """
@@ -55,12 +58,12 @@ class NetworkGame(Game):
         self.use_local_server = use_local_server
 
         # Client connection
-        self.client: Optional[BrowserWebSocketClient] = None
-        self.local_server: Optional[LocalServerManager] = None
+        self.client: BrowserWebSocketClient | None = None
+        self.local_server: LocalServerManager | None = None
 
         # Connection state
         self.connected = False
-        self.my_faction: Optional[str] = None
+        self.my_faction: str | None = None
 
         self.logger = logging.getLogger("network_game")
 
@@ -75,8 +78,25 @@ class NetworkGame(Game):
             # Start local server if requested
             if self.use_local_server and not self.local_server:
                 self.logger.info("Starting local server...")
+                from ..scenarios.loader import scenario_to_initial_state
+                from ..scenarios.parse import (
+                    load_scenario,
+                    resolve_scenario_path_for_server,
+                )
+
+                scenario_path = resolve_scenario_path_for_server()
+                scenario_data = load_scenario(scenario_path)
+                initial_state = scenario_to_initial_state(
+                    scenario_data,
+                    initial_faction="Red",
+                    initial_phase="Movement",
+                    phase_actions_remaining=2,
+                )
                 self.local_server = LocalServerManager(
-                    initial_state=self.action_mgr.current_state
+                    initial_state=initial_state,
+                    map_display=scenario_data.map_display.to_wire_dict(),
+                    global_styles=scenario_data.global_styles.to_wire_dict(),
+                    unit_graphics=scenario_data.unit_graphics_to_wire_dict(),
                 )
                 if not self.local_server.start():
                     self.logger.error("Failed to start local server")
@@ -89,6 +109,9 @@ class NetworkGame(Game):
             self.client = BrowserWebSocketClient(self.server_url)
 
             self.client.on_state_update = self._handle_state_update
+            self.client.on_map_display = self._on_map_display
+            self.client.on_global_styles = self._on_global_styles
+            self.client.on_unit_graphics = self._on_unit_graphics
             self.client.on_connection_change = self._handle_connection_change
             self.client.on_error = self._handle_error
             self.client.on_action_result = self._handle_action_result
@@ -126,7 +149,6 @@ class NetworkGame(Game):
         Args:
             action: Action to execute (e.g., MoveUnit, DeleteUnit)
         """
-        from ..document import js
 
         if not self.client or not self.connected:
             self.logger.warning("Cannot execute action: not connected to server")
@@ -134,9 +156,15 @@ class NetworkGame(Game):
 
         # Check if it's our turn (client-side validation for UX)
         if not self.client.is_my_turn():
-            current_faction = self.client.game_state.turn.current_faction if self.client.game_state else "unknown"
+            current_faction = (
+                self.client.game_state.turn.current_faction
+                if self.client.game_state
+                else "unknown"
+            )
             my_faction = self.client.faction if self.client.faction else "unknown"
-            self.logger.warning(f"Cannot execute action: not your turn (current: {current_faction}, you: {my_faction})")
+            self.logger.warning(
+                f"Cannot execute action: not your turn (current: {current_faction}, you: {my_faction})"
+            )
             return
 
         # Serialize action to server format
@@ -160,7 +188,13 @@ class NetworkGame(Game):
         Returns:
             Dictionary of action parameters
         """
-        from ..state.actions import MoveUnit, DeleteUnit, AddUnit, SpendAction, NextPhase
+        from ..state.actions import (
+            AddUnit,
+            DeleteUnit,
+            MoveUnit,
+            NextPhase,
+            SpendAction,
+        )
 
         if isinstance(action, MoveUnit):
             return {
@@ -202,6 +236,21 @@ class NetworkGame(Game):
             self.logger.error(f"Unknown action type: {type(action)}")
             return {}
 
+    def _on_global_styles(self, wire: dict[str, Any]) -> None:
+        """Apply global + scenario CSS before map / units (runs from websocket client)."""
+        from ..client.global_styles import apply_global_styles_safe
+
+        apply_global_styles_safe(wire)
+
+    def _on_map_display(self, config: dict[str, Any]) -> None:
+        """Apply scenario map presentation before state sync (runs from websocket client)."""
+        self.canvas.apply_map_display(config)
+        self.display_mgr.adopt_hex_layout(self.action_mgr.current_state)
+
+    def _on_unit_graphics(self, wire: dict[str, Any]) -> None:
+        """Apply scenario unit graphics templates before state sync."""
+        self.display_mgr.apply_unit_graphics(wire)
+
     def _handle_state_update(self, new_state: GameState) -> None:
         """
         Callback when server sends a state update.
@@ -212,6 +261,10 @@ class NetworkGame(Game):
         self.logger.info(
             f"Received state update with {len(new_state.board.units)} units"
         )
+
+        # Drop any in-progress local drag/highlights — server state is authoritative
+        # and stale selection caused inactive clients to run _unit_drag / clear churn.
+        self._clear_drag_and_highlights()
 
         # Update local state (don't use ActionManager.execute - server is source of truth)
         self.action_mgr._current_state = new_state
@@ -255,13 +308,7 @@ class NetworkGame(Game):
 
     def _handle_error(self, error: str) -> None:
         """
-        CaUpdate faction when connected
-        if self.connected and self.client:
-            self.my_faction = self.client.faction
-            if self.my_faction:
-                self.logger.info(f"Playing as {self.my_faction}")
-
-        # llback when an error occurs.
+        Callback when an error occurs.
 
         Args:
             error: Error message
@@ -270,7 +317,7 @@ class NetworkGame(Game):
 
         # TODO: Show error to user
 
-    def _handle_action_result(self, success: bool, error_msg: Optional[str]) -> None:
+    def _handle_action_result(self, success: bool, error_msg: str | None) -> None:
         """
         Callback when server responds to an action we sent.
 
@@ -314,3 +361,35 @@ class NetworkGame(Game):
             self.logger.info("Sent redo request to server")
         except Exception as e:
             self.logger.error(f"Failed to send redo request: {e}")
+
+    def save_snapshot_dict(self) -> dict[str, Any]:
+        """Build a versioned snapshot dict from the last server state on this client."""
+        if not self.client or self.client.game_state is None:
+            raise RuntimeError("No game state to save (not connected or no state yet)")
+        return {
+            "format_version": SNAPSHOT_FORMAT_VERSION,
+            "game_state": game_state_to_wire_dict(self.client.game_state),
+        }
+
+    def save_snapshot_json(self) -> str:
+        """JSON string for a versioned snapshot (indent=2)."""
+        return json.dumps(self.save_snapshot_dict(), indent=2)
+
+    def load_snapshot_dict(self, d: dict[str, Any]) -> None:
+        """Send a snapshot dict to the server (format_version must be supported)."""
+        if not self.client or not self.connected:
+            raise RuntimeError("Cannot load snapshot: not connected")
+
+        fv = d.get("format_version", SNAPSHOT_FORMAT_VERSION)
+        if fv != SNAPSHOT_FORMAT_VERSION:
+            raise ValueError(f"Unsupported snapshot format_version: {fv}")
+        gs = d.get("game_state")
+        if not isinstance(gs, dict):
+            raise ValueError("snapshot missing game_state dict")
+
+        self.client.send_load_snapshot(gs)
+        self.logger.info("Sent load_snapshot to server")
+
+    def load_snapshot_json(self, text: str) -> None:
+        """Parse JSON and send load_snapshot to the server."""
+        self.load_snapshot_dict(json.loads(text))

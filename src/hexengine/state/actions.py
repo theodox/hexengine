@@ -2,6 +2,8 @@
 State-based actions for the immutable state system.
 """
 
+from __future__ import annotations
+
 import logging
 from typing import TYPE_CHECKING
 
@@ -20,12 +22,12 @@ class MoveUnit(StateAction):
     This is a pure state transformation - no side effects, no mutations.
     """
 
-    def __init__(self, unit_id: str, from_hex: "Hex", to_hex: "Hex"):
+    def __init__(self, unit_id: str, from_hex: Hex, to_hex: Hex):
         self.unit_id = unit_id
         self.from_hex = from_hex
         self.to_hex = to_hex
 
-    def apply(self, state: "GameState") -> "GameState":
+    def apply(self, state: GameState) -> GameState:
         """Apply the move, returning a new game state."""
         # Get the unit
         unit = state.board.units.get(self.unit_id)
@@ -47,7 +49,7 @@ class MoveUnit(StateAction):
         # Create new game state with updated board
         return state.with_board(new_board)
 
-    def revert(self, state: "GameState") -> "GameState":
+    def revert(self, state: GameState) -> GameState:
         """Revert the move, returning a new game state."""
         # Get the unit
         unit = state.board.units.get(self.unit_id)
@@ -80,7 +82,7 @@ class DeleteUnit(StateAction):
     def __init__(self, unit_id: str):
         self.unit_id = unit_id
 
-    def apply(self, state: "GameState") -> "GameState":
+    def apply(self, state: GameState) -> GameState:
         """Deactivate the unit, returning a new game state."""
         # Get the unit
         unit = state.board.units.get(self.unit_id)
@@ -96,7 +98,7 @@ class DeleteUnit(StateAction):
         # Create new game state with updated board
         return state.with_board(new_board)
 
-    def revert(self, state: "GameState") -> "GameState":
+    def revert(self, state: GameState) -> GameState:
         """Reactivate the unit, returning a new game state."""
         # Get the unit
         unit = state.board.units.get(self.unit_id)
@@ -127,7 +129,7 @@ class AddUnit(StateAction):
         unit_id: str,
         unit_type: str,
         faction: str,
-        position: "Hex",
+        position: Hex,
         health: int = 100,
     ):
         self.unit_id = unit_id
@@ -136,7 +138,7 @@ class AddUnit(StateAction):
         self.position = position
         self.health = health
 
-    def apply(self, state: "GameState") -> "GameState":
+    def apply(self, state: GameState) -> GameState:
         """Add the unit, returning a new game state."""
         from ..state.game_state import UnitState
 
@@ -164,7 +166,7 @@ class AddUnit(StateAction):
         # Create new game state with updated board
         return state.with_board(new_board)
 
-    def revert(self, state: "GameState") -> "GameState":
+    def revert(self, state: GameState) -> GameState:
         """Remove the unit, returning a new game state."""
         # Create new board without the unit
         new_board = state.board.without_unit(self.unit_id)
@@ -186,7 +188,7 @@ class SpendAction(StateAction):
         self.amount = amount
         self.previous_remaining = None  # Stored for undo
 
-    def apply(self, state: "GameState") -> "GameState":
+    def apply(self, state: GameState) -> GameState:
         """Spend actions, returning a new game state."""
         # Store previous value for undo
         self.previous_remaining = state.turn.phase_actions_remaining
@@ -197,7 +199,7 @@ class SpendAction(StateAction):
         # Create new game state with updated turn
         return state.with_turn(new_turn)
 
-    def revert(self, state: "GameState") -> "GameState":
+    def revert(self, state: GameState) -> GameState:
         """Restore spent actions, returning a new game state."""
         from dataclasses import replace
 
@@ -238,7 +240,7 @@ class NextPhase(StateAction):
         self.prev_phase = None
         self.prev_actions = None
 
-    def apply(self, state: "GameState") -> "GameState":
+    def apply(self, state: GameState) -> GameState:
         """Advance to next phase, returning a new game state."""
         # Store previous values for undo
         self.prev_faction = state.turn.current_faction
@@ -253,7 +255,7 @@ class NextPhase(StateAction):
         # Create new game state with updated turn
         return state.with_turn(new_turn)
 
-    def revert(self, state: "GameState") -> "GameState":
+    def revert(self, state: GameState) -> GameState:
         """Restore previous phase, returning a new game state."""
         # Restore previous phase
         new_turn = state.turn.with_next_phase(

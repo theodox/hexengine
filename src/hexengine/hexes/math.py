@@ -1,9 +1,22 @@
-from .types import Hex, Cartesian
-from typing import Iterable
+from __future__ import annotations
 
-# Constants for hex to cartesian conversion
-SQRT_THREE = 3**0.5
-THREE_HALF_POWER = SQRT_THREE / 2
+from collections.abc import Iterable
+
+from .constants import (
+    FLAT_TOP_AXIAL_TO_PLANE_X,
+    FLAT_TOP_PLANE_TO_AXIAL_Q_SCALE,
+    HEX_SIDE_COUNT,
+    NORMALIZE_HEX_EPSILON,
+    SQRT_THREE,
+)
+from .types import Cartesian, Hex
+
+
+def _hex_to_axial_plane_xy(h: Hex) -> tuple[float, float]:
+    """Continuous flat-top plane coords (matches polygon ray-cast in shapes)."""
+    x = FLAT_TOP_AXIAL_TO_PLANE_X * h.i
+    y = SQRT_THREE * (h.j + h.i * 0.5)
+    return (x, y)
 
 
 _NEIGHBOR_OFFSETS = []
@@ -35,9 +48,28 @@ def cube_round(coords: tuple[float, float, float]) -> Hex:
     return Hex(q, r, s)
 
 
+def shift_axial_ij_cube_coords_to_origin(
+    coords: Iterable[tuple[int, int, int]],
+) -> list[tuple[int, int, int]]:
+    """
+    Shift ``(i, j)`` so the set's minimum ``i`` and ``j`` are 0.
+
+    ``k`` is recomputed as ``-i - j`` after the shift (scenario-style bounding box),
+    ignoring any previous ``k`` in the input.
+    """
+    lst = list(coords)
+    if not lst:
+        return []
+    min_i = min(t[0] for t in lst)
+    min_j = min(t[1] for t in lst)
+    return [
+        (i - min_i, j - min_j, -(i - min_i) - (j - min_j)) for i, j, _k in lst
+    ]
+
+
 def normalize(hex: Hex) -> Hex:
-    i = (hex.i + 0.24999) / len(hex)
-    j = (hex.j - 0.24999) / len(hex)
+    i = (hex.i + NORMALIZE_HEX_EPSILON) / len(hex)
+    j = (hex.j - NORMALIZE_HEX_EPSILON) / len(hex)
     k = -i - j
     return Hex(round(i), round(j), round(k))
 
@@ -48,7 +80,7 @@ def neighbors(hex: Hex) -> Iterable[Hex]:
 
 
 def neighbor_hex(hex: Hex, direction: int) -> Hex:
-    return hex + _NEIGHBOR_OFFSETS[direction % 6]
+    return hex + _NEIGHBOR_OFFSETS[direction % HEX_SIDE_COUNT]
 
 
 def distance(a: Hex, b: Hex) -> int:
@@ -95,10 +127,13 @@ def dot_product(a: Hex, b: Hex) -> float:
     - Zero: Vectors are perpendicular
     - Negative: Vectors point in opposite directions
     - Magnitude: Related to the cosine of angle between vectors
+
+    Uses continuous flat-top plane coordinates (same as polygon fills in shapes),
+    not rounded integer pixel coords, so cube-collinear vectors stay collinear.
     """
-    a_cart = Cartesian.from_hex(a)
-    b_cart = Cartesian.from_hex(b)
-    return float(a_cart.x) * float(b_cart.x) + float(a_cart.y) * float(b_cart.y)
+    ax, ay = _hex_to_axial_plane_xy(a)
+    bx, by = _hex_to_axial_plane_xy(b)
+    return ax * bx + ay * by
 
 
 def cross_product(o: Hex, a: Hex, b: Hex) -> float:
@@ -113,12 +148,10 @@ def cross_product(o: Hex, a: Hex, b: Hex) -> float:
         - Negative: Clockwise turn (right turn)
         - Zero: Collinear points
     """
-    o_cart = Cartesian.from_hex(o)
-    a_cart = Cartesian.from_hex(a)
-    b_cart = Cartesian.from_hex(b)
-    return (float(a_cart.x) - float(o_cart.x)) * (float(b_cart.y) - float(o_cart.y)) - (
-        float(a_cart.y) - float(o_cart.y)
-    ) * (float(b_cart.x) - float(o_cart.x))
+    oxy = _hex_to_axial_plane_xy(o)
+    axy = _hex_to_axial_plane_xy(a)
+    bxy = _hex_to_axial_plane_xy(b)
+    return (axy[0] - oxy[0]) * (bxy[1] - oxy[1]) - (axy[1] - oxy[1]) * (bxy[0] - oxy[0])
 
 
 def vector_angle(a: Hex, b: Hex) -> float:
@@ -135,18 +168,12 @@ def vector_angle(a: Hex, b: Hex) -> float:
     from math import acos, sqrt
 
     dot = dot_product(a, b)
-
-    # Calculate magnitudes using Cartesian coordinates
-    a_cart = Cartesian.from_hex(a)
-    b_cart = Cartesian.from_hex(b)
-
-    mag_a = sqrt(float(a_cart.x) * float(a_cart.x) + float(a_cart.y) * float(a_cart.y))
-    mag_b = sqrt(float(b_cart.x) * float(b_cart.x) + float(b_cart.y) * float(b_cart.y))
+    mag_a = sqrt(dot_product(a, a))
+    mag_b = sqrt(dot_product(b, b))
 
     if mag_a == 0 or mag_b == 0:
         return 0.0  # Zero vector has no defined angle
 
-    # Clamp to avoid floating point errors in acos
     cos_angle = max(-1.0, min(1.0, dot / (mag_a * mag_b)))
     return acos(cos_angle)
 
@@ -163,8 +190,8 @@ def hex_magnitude(hex_coord: Hex) -> float:
     """
     from math import sqrt
 
-    cart = Cartesian.from_hex(hex_coord)
-    return sqrt(float(cart.x) * float(cart.x) + float(cart.y) * float(cart.y))
+    x, y = _hex_to_axial_plane_xy(hex_coord)
+    return sqrt(x * x + y * y)
 
 
 def hex_to_cartesian(hex_coord: Hex) -> Cartesian:
@@ -221,15 +248,19 @@ def subtract_cartesian_vectors(a: Cartesian, b: Cartesian) -> Cartesian:
     return a - b
 
 
-def scale_cartesian_vector(vector: Cartesian, scalar: int) -> Cartesian:
+def scale_cartesian_vector(vector: Hex | Cartesian, scalar: float) -> Hex:
     """
-    Scale a Cartesian vector by a scalar value.
+    Scale a vector in continuous flat-top plane space, then round to the nearest hex.
 
-    Args:
-        vector: Vector to scale
-        scalar: Scalar multiplier
-
-    Returns:
-        Scaled vector
+    Accepts a Hex or integer Cartesian lattice vector and a float scalar.
     """
-    return vector * scalar
+    if isinstance(vector, Hex):
+        x, y = _hex_to_axial_plane_xy(vector)
+    else:
+        x, y = float(vector.x), float(vector.y)
+    x *= scalar
+    y *= scalar
+    i = FLAT_TOP_PLANE_TO_AXIAL_Q_SCALE * x
+    j = y / SQRT_THREE - i * 0.5
+    k = -i - j
+    return cube_round((i, j, k))

@@ -1,7 +1,9 @@
-import js  # pyright: ignore[reportMissingImports]
-from pyodide.ffi import jsnull, create_proxy  # pyright: ignore[reportMissingImports]
+from __future__ import annotations
 
 import logging
+
+import js  # pyright: ignore[reportMissingImports]
+from pyodide.ffi import create_proxy, jsnull  # pyright: ignore[reportMissingImports]
 
 
 def element(id: str) -> js.HTMLElement:

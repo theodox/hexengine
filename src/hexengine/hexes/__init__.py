@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from importlib.metadata import PackageNotFoundError, version
+
 from .math import (
     Cartesian,
     add_cartesian_vectors,
@@ -16,12 +20,14 @@ from .math import (
     rotate_left,
     rotate_right,
     scale_cartesian_vector,
+    shift_axial_ij_cube_coords_to_origin,
     subtract_cartesian_vectors,
 )
 from .shapes import (
     angle,
     convex_hull,
     convex_polygon,
+    fill_convex_polygon,
     outer_boundary,
     path,
     polygon,
@@ -30,16 +36,19 @@ from .shapes import (
     wedge,
     wedge_fill,
 )
-from .types import Hex, HexRowCol
+from .types import Hex, HexColRow
 
-# Version info
-__version__ = "0.1.0"
+__version__: str
+try:
+    __version__ = version("hexes")
+except PackageNotFoundError:
+    __version__ = "0.1.3"
 
 # Commonly used items available at package level
 __all__ = [
     "Hex",
     "Cartesian",
-    "HexRowCol",
+    "HexColRow",
     # Math functions
     "distance",
     "neighbors",
@@ -50,6 +59,7 @@ __all__ = [
     "rotate_right",
     "cube_round",
     "normalize",
+    "shift_axial_ij_cube_coords_to_origin",
     "hex_to_cartesian",
     "cartesian_to_hex",
     "dot_product",
@@ -69,4 +79,5 @@ __all__ = [
     "outer_boundary",
     "polygon",
     "convex_polygon",
+    "fill_convex_polygon",
 ]

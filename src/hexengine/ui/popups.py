@@ -1,6 +1,8 @@
-from typing import TYPE_CHECKING
+from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
+
 from ..document import create_proxy, js
 
 if TYPE_CHECKING:
@@ -14,14 +16,14 @@ class PopupManager:
         self.canvas = canvas
         self.popups = []
 
-    def add_popup(self, popup: "Popup") -> None:
+    def add_popup(self, popup: Popup) -> None:
         self.popups.append(popup)
 
-    def remove_popup(self, popup: "Popup") -> None:
+    def remove_popup(self, popup: Popup) -> None:
         if popup in self.popups:
             self.popups.remove(popup)
 
-    def get_all_popups(self) -> list["Popup"]:
+    def get_all_popups(self) -> list[Popup]:
         return self.popups
 
     def clear(self) -> None:
@@ -29,7 +31,8 @@ class PopupManager:
             p.delete(self.canvas)
         self.popups = []
 
-    def create_popup(self, message: str, position: tuple[float, float]) -> "Popup":
+    def create_popup(self, message: str, position: tuple[float, float]) -> Popup:
+        self.clear()
         popup = Popup(message, position)
         logging.info(f"Creating popup with message: {message} at position: {position}")
         self.add_popup(popup)
