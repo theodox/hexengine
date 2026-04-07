@@ -89,7 +89,10 @@ class BrowserWebSocketClient:
             player_name: Display name for this player
             preferred_faction: Preferred faction (or None for auto-assign)
         """
-        if self.connection_state != ConnectionState.DISCONNECTED:
+        if self.connection_state not in (
+            ConnectionState.DISCONNECTED,
+            ConnectionState.FAILED,
+        ):
             self.logger.warning("Already connected or connecting")
             return
 
@@ -235,6 +238,7 @@ class BrowserWebSocketClient:
     def _on_close(self, event) -> None:
         """Called when WebSocket closes."""
         self.logger.warning(f"WebSocket closed (code: {event.code})")
+        self.websocket = None
         self._set_connection_state(ConnectionState.DISCONNECTED)
 
     # Message handlers

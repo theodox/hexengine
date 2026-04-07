@@ -45,6 +45,62 @@ class TestGameServer(unittest.TestCase):
         self.assertEqual(player.player_name, "Alice")
         self.assertEqual(player.faction, "Blue")
 
+    def test_leave_frees_faction_for_reconnect(self):
+        """Disconnect removes player so a new WebSocket id can take the same faction."""
+
+        async def run():
+            server = GameServer(self.initial_state)
+            join_red = JoinGameRequest(player_name="Alice", faction="Red").to_message()
+            leave = Message(type=MessageType.LEAVE_GAME, payload={})
+
+            await server.handle_message("conn-a", join_red)
+            self.assertIn("conn-a", server.players)
+            self.assertEqual(server.faction_to_player.get("Red"), "conn-a")
+
+            await server.handle_message("conn-a", leave)
+            self.assertEqual(len(server.players), 0)
+            self.assertNotIn("Red", server.faction_to_player)
+
+            await server.handle_message(
+                "conn-b", JoinGameRequest(player_name="Bob", faction="Blue").to_message()
+            )
+            await server.handle_message(
+                "conn-c", JoinGameRequest(player_name="Carol", faction="Red").to_message()
+            )
+            self.assertEqual(len(server.players), 2)
+            self.assertEqual(server.faction_to_player["Red"], "conn-c")
+            self.assertEqual(server.faction_to_player["Blue"], "conn-b")
+
+        asyncio.run(run())
+
+    def test_explicit_faction_taken_is_rejected(self):
+        """If client names a faction that is already taken, do not auto-assign another."""
+
+        async def run():
+            server = GameServer(self.initial_state)
+            errors: list[tuple[str, str]] = []
+
+            def capture(pid: str, m: Message) -> None:
+                if m.type == MessageType.ERROR:
+                    errors.append((pid, str(m.payload.get("error", ""))))
+
+            server.add_message_handler(capture)
+
+            await server.handle_message(
+                "conn-1",
+                JoinGameRequest(player_name="P1", faction="Blue").to_message(),
+            )
+            await server.handle_message(
+                "conn-2",
+                JoinGameRequest(player_name="P2", faction="Blue").to_message(),
+            )
+            self.assertEqual(len(server.players), 1)
+            self.assertEqual(server.faction_to_player.get("Blue"), "conn-1")
+            self.assertTrue(errors)
+            self.assertIn("already taken", errors[-1][1])
+
+        asyncio.run(run())
+
     async def test_action_request_wrong_turn(self):
         """Test action rejected if not player's turn."""
         # Join as Blue faction
