@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from ..client import DisplayManager, UIState
-from ..document import create_proxy, element, js, jsnull
+from ..document import create_proxy, element, js
 from ..map import Map
 from ..state import ActionManager, GameState
 from ..state.actions import NextPhase
@@ -80,15 +80,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.logger.info("[Game.__init__] Registered on_drag")
 
         self._register_hotkeys()
-
-        terrain_toggle = element("terrain-overlay-toggle")
-        if terrain_toggle is not None:
-            terrain_toggle.checked = True
-
-            def _terrain_toggle_change(_ev) -> None:
-                self.canvas.set_terrain_overlay_visible(bool(terrain_toggle.checked))
-
-            terrain_toggle.addEventListener("change", create_proxy(_terrain_toggle_change))
 
         self.turn_manager = TurnManager(
             factions=[Faction("Red"), Faction("Blue")],
@@ -261,15 +252,10 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     @Hotkey("t", Modifiers.NONE)
     def toggle_terrain_overlay(self) -> None:
-        """Toggle terrain tint layer (same as the UI checkbox)."""
-        el = js.document.getElementById("terrain-overlay-toggle")
-        if el is not None and el is not jsnull:
-            el.checked = not el.checked
-            self.canvas.set_terrain_overlay_visible(bool(el.checked))
-        else:
-            self.canvas.set_terrain_overlay_visible(
-                not self.canvas.terrain_overlay_visible
-            )
+        """Toggle terrain tint layer (console: ``set_terrain_overlay`` / ``terrain_overlay_visible()``)."""
+        self.canvas.set_terrain_overlay_visible(
+            not self.canvas.terrain_overlay_visible
+        )
 
     # ===== STATE SYSTEM HELPERS =====
 

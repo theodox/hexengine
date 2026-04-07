@@ -12,7 +12,7 @@ import logging
 from collections.abc import Mapping
 from typing import Any
 
-from ..document import js
+from ..document import js, jsnull
 from ..scenarios.schema import DEFAULT_GLOBAL_BASE_CSS_FILE
 
 _BASE_LINK_ID = "hexengine-styles-base"
@@ -28,11 +28,13 @@ def _norm_href(href: str) -> str:
 
 def _remove_by_id(doc, element_id: str) -> None:
     el = doc.getElementById(element_id)
-    if el is None:
+    # Pyodide: missing elements are JsNull, not Python None — ``el is None`` is false.
+    if el is None or el is jsnull:
         return
     parent = el.parentNode
-    if parent is not None:
-        parent.removeChild(el)
+    if parent is None or parent is jsnull:
+        return
+    parent.removeChild(el)
 
 
 def apply_global_styles(config: Mapping[str, Any]) -> None:
