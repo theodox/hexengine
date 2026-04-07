@@ -61,7 +61,18 @@ def update_log_display(event, textArea: js.HTMLElement) -> None:
 
 
 def set_status(message: str) -> None:
-    StatusLine.INSTANCE.set_status(message)
+    """
+    Update the dev status line (``#status-line``).
+
+    Safe to call before :func:`initialize` or if the DOM is unavailable (no-op).
+    """
+    try:
+        inst = StatusLine.INSTANCE
+        if inst is None:
+            return
+        inst.set_status(message)
+    except Exception:
+        pass
 
 
 class TextAreaWriter:

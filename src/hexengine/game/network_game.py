@@ -11,6 +11,7 @@ import json
 import logging
 from typing import Any
 
+from .. import dev_console
 from ..client import LocalServerManager
 from ..client.websocket_client import BrowserWebSocketClient, ConnectionState
 from ..state import GameState
@@ -71,10 +72,19 @@ class NetworkGame(Game):
         """
         Connect to the game server.
 
+        Safe to call again after disconnect or a dropped connection (e.g. refresh
+        in single-player still restarts the page; remote server + freed slots allows
+        reconnect without restarting the server process).
+
         Returns:
             True if connected successfully
         """
         try:
+            # Drop any previous client so proxies/handlers are not orphaned
+            if self.client is not None:
+                self.client.disconnect()
+                self.client = None
+
             # Start local server if requested
             if self.use_local_server and not self.local_server:
                 self.logger.info("Starting local server...")
@@ -314,8 +324,7 @@ class NetworkGame(Game):
             error: Error message
         """
         self.logger.error(f"Server error: {error}")
-
-        # TODO: Show error to user
+        dev_console.set_status(f"Server: {error}")
 
     def _handle_action_result(self, success: bool, error_msg: str | None) -> None:
         """
@@ -329,7 +338,8 @@ class NetworkGame(Game):
             self.logger.debug("Action accepted by server")
         else:
             self.logger.warning(f"Action rejected: {error_msg}")
-            # TODO: Show error to user
+            if error_msg:
+                dev_console.set_status(f"Server: {error_msg}")
 
     def is_my_turn(self) -> bool:
         """Check if it's currently this player's turn."""

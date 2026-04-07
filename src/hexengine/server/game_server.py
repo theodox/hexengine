@@ -171,14 +171,16 @@ class GameServer:
             await self._send_state_update(player_id)
             return
 
-        # Assign faction
-        faction = request.faction
+        # Assign faction: explicit preference must be honored or rejected — never
+        # silently auto-assign to another faction when the client named one.
+        requested = request.faction
+        if isinstance(requested, str) and not requested.strip():
+            requested = None
 
-        # Define available factions (hardcoded for now)
         available_factions = ["Red", "Blue"]
 
-        if not faction or faction in self.faction_to_player:
-            # Auto-assign to first available faction
+        if requested is None:
+            # No preference: first free faction
             taken = set(self.faction_to_player.keys())
             available = [f for f in available_factions if f not in taken]
             if not available:
@@ -187,17 +189,19 @@ class GameServer:
                 )
                 return
             faction = available[0]
-        elif faction not in available_factions:
-            # Requested faction doesn't exist
+        elif requested not in available_factions:
             await self._send_error(
                 player_id,
-                f"Invalid faction: {faction}. Available: {available_factions}",
+                f"Invalid faction: {requested}. Available: {available_factions}",
             )
             return
-        elif faction in self.faction_to_player:
-            # Requested faction already taken
-            await self._send_error(player_id, f"Faction {faction} already taken")
+        elif requested in self.faction_to_player:
+            await self._send_error(
+                player_id, f"Faction {requested} already taken"
+            )
             return
+        else:
+            faction = requested
 
         # Create player info
         player = PlayerInfo(
@@ -441,9 +445,12 @@ class GameServer:
         """Handle a player leaving the game."""
         player = self.players.get(player_id)
         if player:
-            player.connected = False
             self.logger.info(f"Player {player.player_name} disconnected")
             await self._broadcast_player_left(player)
+            # Free faction slot: each WebSocket gets a new player_id on reconnect.
+            if self.faction_to_player.get(player.faction) == player_id:
+                del self.faction_to_player[player.faction]
+            del self.players[player_id]
 
     async def _send_state_update(self, player_id: str) -> None:
         """Send current game state to a specific player."""

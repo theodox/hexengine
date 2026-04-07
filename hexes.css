@@ -29,8 +29,8 @@
     background-color: rgb(200, 200, 200);
     background-repeat: no-repeat;
     background-position: center;
-    /* Default art until apply_map_display sets background-image */
-    background-image: url("resources/test_map.png");
+    /* Splash / init art until apply_map_display sets the scenario map background */
+    background-image: url("resources/frontispiece.png");
     z-index: 0;
     user-select: none;
     pointer-events: auto;
