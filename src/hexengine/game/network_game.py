@@ -283,9 +283,19 @@ class NetworkGame(Game):
             f"Received state update with {len(new_state.board.units)} units"
         )
 
+        old_state = self.action_mgr.current_state
+
         # Drop any in-progress local drag/highlights — server state is authoritative
         # and stale selection caused inactive clients to run _unit_drag / clear churn.
         self._clear_drag_and_highlights()
+
+        if old_state is not None:
+            ot, nt = old_state.turn, new_state.turn
+            if (
+                ot.current_faction != nt.current_faction
+                or ot.current_phase != nt.current_phase
+            ):
+                self.selection = None
 
         # Update local state (don't use ActionManager.execute - server is source of truth)
         self.action_mgr._current_state = new_state

@@ -177,12 +177,13 @@ class MouseEventHandlerMixin:
     # ---------------------
 
     def _unit_click(self, eventInfo: EventInfo) -> None:
+        """End of double-click window after a unit click (selection already applied on mouseup)."""
         unit = self._event_unit(eventInfo)
         self.logger.debug(
             f"Click on {unit.unit_id}" if unit else "Click with no selection"
         )
+        self.pending_click_timeout = None
         self.last_click_time = 0
-        self.selection = unit
 
     def _unit_dbl_click(self, eventInfo: EventInfo) -> None:
         unit = self._event_unit(eventInfo)
@@ -370,6 +371,9 @@ class MouseEventHandlerMixin:
                 if self.pending_click_timeout is not None:
                     js.clearTimeout(self.pending_click_timeout)
 
+                unit = self._event_unit(eventInfo)
+                if unit:
+                    self.selection = unit
                 self.pending_click_timeout = js.setTimeout(
                     create_proxy(lambda: self._unit_click(eventInfo)),
                     self.DBL_CLICK_THRESHOLD,

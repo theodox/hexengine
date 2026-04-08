@@ -294,6 +294,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             return
 
         self.ui_state.select_unit(unit_id)
+        game_unit = self.board.get_unit(unit_id)
+        if game_unit:
+            self.selection = game_unit
 
         # Initialize drag preview with unit's current position
         pixel_pos = self.canvas.hex_layout.hex_to_pixel(unit_state.position)
@@ -386,6 +389,8 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                     max_actions=next_phase.max_actions,
                 )
                 self.logger.info(f"Executing NextPhase action: {np}")
+                self._clear_drag_and_highlights()
+                self.selection = None
                 self.execute_action(np)
                 return
 

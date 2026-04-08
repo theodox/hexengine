@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from ..hexes.types import Hex
@@ -53,7 +54,7 @@ class DisplayManager:
         Replace scenario-driven unit graphics templates (unit type → wire dict).
 
         When the payload changes, existing unit SVGs are removed so the next
-        ``sync_from_state`` rebuilds them with the new ``GraphicsCreator`` types.
+        ``sync_from_state`` rebuilds them with new display creator callables.
         """
         raw: Any = wire.to_py() if hasattr(wire, "to_py") else wire
         if not isinstance(raw, dict):
@@ -110,15 +111,19 @@ class DisplayManager:
         graphics_creators = self._get_graphics_creators()
 
         # Get the appropriate creator for this unit type
-        creator_class = graphics_creators.get(unit_state.unit_type)
-        if not creator_class:
+        creator = graphics_creators.get(unit_state.unit_type)
+        if creator is None:
             self.logger.error(
                 f"No graphics creator for unit type {unit_state.unit_type}"
             )
             return
 
-        # Register the creator's CSS if not already done
-        creator_class.register()
+        self.logger.debug(
+            "Creating display for %s type=%s creator=%s",
+            unit_state.unit_id,
+            unit_state.unit_type,
+            getattr(creator, "name", repr(creator)),
+        )
 
         # Create display unit
         display = DisplayUnit(
@@ -128,8 +133,7 @@ class DisplayManager:
         )
 
         # Use the graphics creator to build the SVG elements
-        creator = creator_class()
-        creator.create(display)
+        creator(display)
 
         # Position it
         display.position = unit_state.position
@@ -184,19 +188,30 @@ class DisplayManager:
         # Track the display
         self._unit_displays[unit_state.unit_id] = display
 
-    def _get_graphics_creators(self):
-        """Get map of unit type to graphics creator class."""
+    def _get_graphics_creators(self) -> dict[str, Callable[[DisplayUnit], None]]:
+        """Get map of unit type to display-creator callable."""
         from ..scenarios.canuck import CanuckGraphicsCreator
         from ..scenarios.generic_counter import SoldierCounterGraphicsCreator
-        from .scenario_unit_graphics import graphics_creator_class_for_template
+        from .scenario_unit_graphics import (
+            graphics_creator_for_template,
+            unit_display_creator_from_class,
+        )
 
-        out: dict[str, type] = {}
+        out: dict[str, Callable[[DisplayUnit], None]] = {}
         for utype, tmpl in self._unit_graphics_wire.items():
-            cls = graphics_creator_class_for_template(tmpl)
-            if cls is not None:
-                out[utype] = cls
-        out.setdefault("canuck", CanuckGraphicsCreator)
-        out.setdefault("soldier", SoldierCounterGraphicsCreator)
+            fn = graphics_creator_for_template(tmpl)
+            if fn is not None:
+                out[utype] = fn
+        out.setdefault(
+            "canuck",
+            unit_display_creator_from_class(CanuckGraphicsCreator, name="builtin(canuck)"),
+        )
+        out.setdefault(
+            "soldier",
+            unit_display_creator_from_class(
+                SoldierCounterGraphicsCreator, name="builtin(soldier_counter)"
+            ),
+        )
         return out
 
     def _update_unit_display(self, unit_id: str, unit_state) -> None:

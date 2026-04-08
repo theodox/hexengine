@@ -4,6 +4,7 @@ GraphicsCreator subclasses built from scenario ``unit_graphics`` wire payloads.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from ..document import js
@@ -17,6 +18,22 @@ _REGISTERED_STYLE_KEYS: set[str] = set()
 _SVG_IMAGE_CLASS_CACHE: dict[str, type] = {}
 _INLINE_SVG_CLASS_CACHE: dict[str, type] = {}
 _SVG_FILE_INLINE_CLASS_CACHE: dict[str, type] = {}
+
+UnitDisplayCreator = Callable[[DisplayUnit], None]
+
+
+def unit_display_creator_from_class(cls: type, *, name: str) -> UnitDisplayCreator:
+    """
+    Wrap a :class:`GraphicsCreator` subclass as ``callable(DisplayUnit) -> None``.
+
+    Sets ``fn.name`` for logging (partial/lambdas often lack ``__name__``).
+    """
+    def fn(display_unit: DisplayUnit) -> None:
+        cls.register()
+        cls().create(display_unit)
+
+    setattr(fn, "name", name)
+    return fn
 
 
 def _register_template_styles_once(key: str, css: str | None, css_href: str | None) -> None:
@@ -132,10 +149,10 @@ def _inline_svg_markup_class(
     return InlineSvgTemplateGraphics
 
 
-def graphics_creator_class_for_template(tmpl: dict[str, Any]) -> type | None:
+def graphics_creator_for_template(tmpl: dict[str, Any]) -> UnitDisplayCreator | None:
     """
-    Map one template ``to_wire_dict()`` to a GraphicsCreator subclass, or None to
-    fall back to built-in creators.
+    Map one template ``to_wire_dict()`` to a :data:`UnitDisplayCreator`, or ``None``
+    so :class:`DisplayManager` can fall back to built-in types.
     """
     render = str(tmpl.get("render", "image")).lower()
     css = tmpl.get("css")
@@ -150,23 +167,29 @@ def graphics_creator_class_for_template(tmpl: dict[str, Any]) -> type | None:
         c = tmpl.get("caption")
         glyph = "\u25c7" if g is None else str(g)
         caption = "" if c is None else str(c)
-        return make_counter_graphics_creator(
+        cls = make_counter_graphics_creator(
             glyph,
             caption,
             extra_css=css,
             extra_css_href=css_href,
+        )
+        return unit_display_creator_from_class(
+            cls, name=f"counter({tmpl.get('type','?')},{glyph!r},{caption!r})"
         )
 
     svg_file = tmpl.get("svg_file")
     if svg_file:
         sf = str(svg_file)
         if render == "image":
-            return _svg_image_file_class(sf, css, css_href)
+            cls = _svg_image_file_class(sf, css, css_href)
+            return unit_display_creator_from_class(cls, name=f"svg_image({sf})")
         if render == "inline":
             ck = f"file-inline:{sf}|{css or ''}|{css_href or ''}"
             cached = _SVG_FILE_INLINE_CLASS_CACHE.get(ck)
             if cached is not None:
-                return cached
+                return unit_display_creator_from_class(
+                    cached, name=f"svg_inline_file_cached({sf})"
+                )
             text = _sync_fetch_text(sf)
             cls = _inline_svg_markup_class(
                 text,
@@ -175,12 +198,13 @@ def graphics_creator_class_for_template(tmpl: dict[str, Any]) -> type | None:
                 cache_key=ck + f"|h{hash(text) & 0xFFFFFFFF:x}",
             )
             _SVG_FILE_INLINE_CLASS_CACHE[ck] = cls
-            return cls
+            return unit_display_creator_from_class(cls, name=f"svg_inline_file({sf})")
 
     raw_svg = tmpl.get("svg")
     if raw_svg and render == "inline":
         text = str(raw_svg)
         ck = f"inline:{hash(text) & 0xFFFFFFFF:x}|{css or ''}|{css_href or ''}"
-        return _inline_svg_markup_class(text, css=css, css_href=css_href, cache_key=ck)
+        cls = _inline_svg_markup_class(text, css=css, css_href=css_href, cache_key=ck)
+        return unit_display_creator_from_class(cls, name="svg_inline(markup)")
 
     return None
