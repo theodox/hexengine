@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Hexes unit art template (copy into your scenario folder and customize).
+
+  Coordinate system: viewBox 0 0 100 100, origin at top-left of the art box.
+  The game places the unit at the hex center; keep important content near (50, 50).
+
+  Scenario TOML (see parse.py / schema UnitGraphicsTemplate):
+
+  1) External file as a scaled image (simplest; whole file is drawn like a bitmap):
+       [[unit_graphics]]
+       type = "my_unit"
+       svg_file = "units/my_unit.svg"    # path relative to scenario.toml
+       render = "image"
+       # Optional: copy resources/default/unit_template.css as a starting point
+       css_file = "units/my_unit.css"
+
+  2) Inline markup (children of this root <svg> are cloned into the unit <g>):
+       [[unit_graphics]]
+       type = "my_unit"
+       render = "inline"
+       svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"> ... </svg>'''
+       css = ".unit-template-chassis { fill: #4a5568; }"
+
+  Styling notes:
+  - The outer DOM node is <g class="unit ..." id="UNIT_ID"> (see render mode below).
+  - With render = "inline", children are in the live DOM: scenario css/css_file can
+    target .unit-template-chassis etc. Selection uses .hilited on the unit <g>, e.g.
+      .unit.hilited .unit-template-chassis { fill: #e53e3e; }
+  - With render = "image", the SVG is drawn via <image href="...">; external CSS does
+    not reach shapes inside the file—set fills/strokes in the SVG, or use inline + css.
+  - Avoid bare <rect> for the main body (unless you override in css): global hexes.css
+    applies .unit rect { x/y/width/height } from --unit-* and can break nested art.
+    This template uses a <path> for the chassis.
+
+  See resources/default/unit_template.css for rules that work with render = "inline".
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <g class="unit-template-art">
+    <!-- Main body (path avoids global .unit rect sizing rules) -->
+    <path
+      id="unit-template-chassis"
+      class="unit-template-chassis"
+      d="M 22 10 L 78 10 Q 90 10 90 22 L 90 78 Q 90 90 78 90 L 22 90 Q 10 90 10 78 L 10 22 Q 10 10 22 10 Z"
+      fill="#4a5568"
+      stroke="rgba(0,0,0,0.28)"
+      stroke-width="1.2"
+    />
+    <!-- Example emblem (replace with your iconography) -->
+    <circle
+      class="unit-template-emblem"
+      cx="50"
+      cy="38"
+      r="14"
+      fill="rgba(255,255,255,0.2)"
+      stroke="rgba(0,0,0,0.15)"
+      stroke-width="0.8"
+    />
+    <!-- Example ID line; health/caption may be updated in code for counters -->
+    <text
+      class="unit-template-label"
+      x="50"
+      y="80"
+      text-anchor="middle"
+      font-family="system-ui, Segoe UI, sans-serif"
+      font-size="20"
+      font-weight="600"
+      fill="rgba(16,16,16,0.92)"
+    >1</text>
+  </g>
+</svg>
