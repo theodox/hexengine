@@ -378,7 +378,8 @@ def _parse_unit_graphics_table(
     Parse ``[[unit_graphics]]`` rows.
 
     - Default: exactly one of ``svg_file`` or ``svg`` (file paths like ``[map].background``).
-    - ``render = \"counter\"``: optional ``glyph`` / ``caption``; no SVG asset required.
+    - ``render = \"counter\"``: optional ``glyph`` / ``caption``; optional ``counter_fill``,
+      ``counter_fill_hover``, ``counter_fill_hilite`` (CSS colors, e.g. ``#c53030``); no SVG asset required.
     """
     if not rows:
         return {}
@@ -411,6 +412,9 @@ def _parse_unit_graphics_table(
                 caption=cap_v,
                 css=css,
                 css_file=css_file_out,
+                counter_fill=_optional_nonempty_str(row, "counter_fill"),
+                counter_fill_hover=_optional_nonempty_str(row, "counter_fill_hover"),
+                counter_fill_hilite=_optional_nonempty_str(row, "counter_fill_hilite"),
             )
             continue
 

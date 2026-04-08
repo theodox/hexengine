@@ -21,7 +21,10 @@ def test_parse_unit_graphics_counter_row(tmp_path: Path) -> None:
         'type = "soldier"\n'
         'render = "counter"\n'
         'glyph = "X"\n'
-        'caption = "9"\n',
+        'caption = "9"\n'
+        'counter_fill = "#112233"\n'
+        'counter_fill_hover = "#334455"\n'
+        'counter_fill_hilite = "#ff00aa"\n',
         encoding="utf-8",
     )
     data = load_scenario(p)
@@ -30,6 +33,9 @@ def test_parse_unit_graphics_counter_row(tmp_path: Path) -> None:
     assert ug.render == "counter"
     assert ug.glyph == "X"
     assert ug.caption == "9"
+    assert ug.counter_fill == "#112233"
+    assert ug.counter_fill_hover == "#334455"
+    assert ug.counter_fill_hilite == "#ff00aa"
 
 
 def test_unit_graphics_template_wire_includes_counter_fields() -> None:
@@ -40,8 +46,13 @@ def test_unit_graphics_template_wire_includes_counter_fields() -> None:
         render="counter",
         glyph="G",
         caption="c",
+        counter_fill="#aabbcc",
+        counter_fill_hilite="#ddeeff",
     )
     w = t.to_wire_dict()
     assert w["render"] == "counter"
     assert w["glyph"] == "G"
     assert w["caption"] == "c"
+    assert w["counter_fill"] == "#aabbcc"
+    assert "counter_fill_hover" not in w
+    assert w["counter_fill_hilite"] == "#ddeeff"

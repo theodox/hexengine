@@ -190,6 +190,8 @@ class UnitGraphicsTemplate:
     ``render`` is ``image`` / ``inline`` for ``svg_file``, or ``inline`` for embedded ``svg``.
 
     For ``render`` = ``counter``, use optional ``glyph`` / ``caption`` strings instead of SVG.
+    Optional ``counter_fill`` / ``counter_fill_hover`` / ``counter_fill_hilite`` set CSS custom
+    properties on the unit (same names as ``resources/default/unit_counter.css`` fallbacks).
     """
 
     unit_type: str
@@ -200,6 +202,9 @@ class UnitGraphicsTemplate:
     css_file: str | None = None
     glyph: str | None = None
     caption: str | None = None
+    counter_fill: str | None = None
+    counter_fill_hover: str | None = None
+    counter_fill_hilite: str | None = None
 
     def to_wire_dict(self) -> dict:
         """JSON-safe keys for StateUpdate (``type`` matches TOML / unit rows)."""
@@ -216,6 +221,12 @@ class UnitGraphicsTemplate:
             d["glyph"] = self.glyph
         if self.caption is not None:
             d["caption"] = self.caption
+        if self.counter_fill is not None:
+            d["counter_fill"] = self.counter_fill
+        if self.counter_fill_hover is not None:
+            d["counter_fill_hover"] = self.counter_fill_hover
+        if self.counter_fill_hilite is not None:
+            d["counter_fill_hilite"] = self.counter_fill_hilite
         return d
 
 

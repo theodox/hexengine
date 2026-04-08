@@ -19,20 +19,21 @@
 }
 
 .unit-counter-glyph {
-  fill: rgba(255, 255, 255, 0.92);
+  fill: rgba(16,16,16, 1.0  );
   font-family: system-ui, "Segoe UI", sans-serif;
-  font-size: 32;
+  font-size: 48;
   font-weight: 600;
   text-anchor: middle;
-  dominant-baseline: middle;
+  dominant-baseline: mathematical;
   pointer-events: none;
   user-select: none;
 }
 
 .unit-counter-caption {
-  fill: rgba(20, 20, 20, 0.88);
+  fill: rgba(16,16,16, 1.0);
   font-family: system-ui, "Segoe UI", sans-serif;
-  font-size: 24;
+  font-style: bold;
+  font-size: 28;
   font-weight: 600;
   text-anchor: middle;
   dominant-baseline: middle;
@@ -41,12 +42,12 @@
 }
 
 .unit.unit-counter:hover .unit-counter-base {
-  fill: var(--unit-counter-fill-hover, #5a6578);
+  fill: var(--unit-counter-fill-hover, #9d9171ce);
   filter: brightness(1.06);
 }
 
 .unit.unit-counter.hilited .unit-counter-base {
-  fill: var(--unit-counter-fill-hilite, #ff6b6b);
+  fill: var(--unit-counter-fill-hilite, #e7c66cce);
   stroke: rgba(0, 0, 0, 0.35);
 }
 

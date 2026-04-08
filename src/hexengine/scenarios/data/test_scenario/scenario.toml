@@ -790,6 +790,9 @@ type = "canuck"
 render = "counter"
 glyph = "🍁"
 caption = "CAN"
+counter_fill = "#9b2c2c"
+counter_fill_hover = "#c53030"
+counter_fill_hilite = "#ff8787"
 
 
 [[unit_graphics]]
@@ -797,6 +800,9 @@ type = "soldier"
 render = "counter"
 glyph = "⚔"
 caption = "5-3-5"
+counter_fill = "#2c5282"
+counter_fill_hover = "#3182ce"
+counter_fill_hilite = "#90cdf4"
 
 
 [[squads]]

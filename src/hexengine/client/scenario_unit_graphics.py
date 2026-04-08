@@ -163,6 +163,13 @@ def graphics_creator_for_template(tmpl: dict[str, Any]) -> UnitDisplayCreator | 
     if render == "counter":
         from ..scenarios.generic_counter import make_counter_graphics_creator
 
+        def _wire_color(key: str) -> str | None:
+            v = tmpl.get(key)
+            if v is None:
+                return None
+            s = str(v).strip()
+            return s if s else None
+
         g = tmpl.get("glyph")
         c = tmpl.get("caption")
         glyph = "\u25c7" if g is None else str(g)
@@ -172,6 +179,9 @@ def graphics_creator_for_template(tmpl: dict[str, Any]) -> UnitDisplayCreator | 
             caption,
             extra_css=css,
             extra_css_href=css_href,
+            counter_fill=_wire_color("counter_fill"),
+            counter_fill_hover=_wire_color("counter_fill_hover"),
+            counter_fill_hilite=_wire_color("counter_fill_hilite"),
         )
         return unit_display_creator_from_class(
             cls, name=f"counter({tmpl.get('type','?')},{glyph!r},{caption!r})"

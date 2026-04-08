@@ -26,12 +26,22 @@ def _ensure_counter_css_in_document() -> None:
     _COUNTER_CSS_IN_HEAD = True
 
 
+def _strip_color(value: str | None) -> str | None:
+    if value is None:
+        return None
+    s = str(value).strip()
+    return s if s else None
+
+
 def make_counter_graphics_creator(
     glyph_text: str = "\u25c7",
     caption_text: str = "",
     *,
     extra_css: str | None = None,
     extra_css_href: str | None = None,
+    counter_fill: str | None = None,
+    counter_fill_hover: str | None = None,
+    counter_fill_hilite: str | None = None,
 ) -> type:
     """
     Build a :class:`GraphicsCreator` subclass with fixed glyph/caption strings.
@@ -45,6 +55,9 @@ def make_counter_graphics_creator(
     c0 = caption_text
     xcss = extra_css.strip() if extra_css else ""
     xhref = extra_css_href.strip() if extra_css_href else ""
+    f_fill = _strip_color(counter_fill)
+    f_hover = _strip_color(counter_fill_hover)
+    f_hilite = _strip_color(counter_fill_hilite)
     extra_sig = (xcss, xhref)
 
     class CounterUnitGraphics(GraphicsCreator):
@@ -113,6 +126,14 @@ def make_counter_graphics_creator(
             display_unit.set_glyph_element(glyph_el)
             display_unit.set_caption_element(cap_el)
             display_unit.set_text_element(cap_el)
+
+            st = display_unit.proxy.style
+            if f_fill is not None:
+                st.setProperty("--unit-counter-fill", f_fill)
+            if f_hover is not None:
+                st.setProperty("--unit-counter-fill-hover", f_hover)
+            if f_hilite is not None:
+                st.setProperty("--unit-counter-fill-hilite", f_hilite)
 
             return display_unit
 
