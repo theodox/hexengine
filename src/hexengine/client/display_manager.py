@@ -275,13 +275,10 @@ class DisplayManager:
             committed_position: The position from committed GameState
         """
         display = self._unit_displays.get(unit_id)
-        if display:
-            # Restore committed position
-            x, y = self._canvas.hex_layout.hex_to_pixel(committed_position)
-            display.position = committed_position
-
-            # Restore enabled state
-            display.enabled = True
+        if not display:
+            return
+        display.position = committed_position
+        display.enabled = True
 
     def get_display(self, unit_id: str) -> DisplayUnit | None:
         """Get display unit by ID."""

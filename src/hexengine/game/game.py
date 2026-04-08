@@ -279,12 +279,26 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         """Clear local drag preview, selection, and hex highlights (no server action)."""
         if self.ui_state.drag_preview:
             preview = self.ui_state.end_drag()
-            if preview and self.action_mgr and self.action_mgr.current_state:
-                u = self.action_mgr.current_state.board.units.get(preview.unit_id)
-                if u:
-                    self.display_mgr.clear_preview(preview.unit_id, u.position)
+            self._restore_drag_preview_to_committed(preview)
         self.ui_state.select_unit(None)
         self.display_mgr.clear_highlights()
+
+    def _restore_drag_preview_to_committed(self, preview) -> None:
+        """Re-snap unit SVG to its committed hex after a cancelled drag (see mouse maybe_click path)."""
+        if preview is None or self.action_mgr is None:
+            return
+        uid = str(preview.unit_id)
+        # Prefer live state; fall back to drag start (preview always has original_position).
+        committed_hex = preview.original_position
+        st = self.action_mgr.current_state
+        u = None
+        if st is not None:
+            u = st.board.units.get(uid)
+            if u is not None:
+                committed_hex = u.position
+        self.display_mgr.clear_preview(uid, committed_hex)
+        # show_preview only changes transform; _hex stays committed. Refresh forces translate.
+        self.display_mgr.refresh_unit_positions()
 
     def start_drag_preview(self, unit_id: str):
         """Start drag preview for a unit."""
@@ -342,17 +356,21 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         if not preview:
             return False
 
-        # Clear preview visually
-        state = self.action_mgr.current_state
-        unit = state.board.units.get(preview.unit_id)
-        if unit:
-            self.display_mgr.clear_preview(preview.unit_id, unit.position)
+        # Current hex is in movement_constraints (cost 0), so same-hex drags look
+        # "valid" but must not commit: state would not change and _update_unit_display
+        # would skip re-applying the transform, leaving the unit stuck at preview coords.
+        will_commit = (
+            preview.is_valid
+            and preview.potential_target is not None
+            and preview.potential_target != preview.original_position
+        )
 
-        # Clear highlights
+        if not will_commit:
+            self._restore_drag_preview_to_committed(preview)
+
         self.display_mgr.clear_highlights()
 
-        # Commit if valid
-        if preview.is_valid and preview.potential_target:
+        if will_commit:
             from ..state.actions import MoveUnit
 
             action = MoveUnit(

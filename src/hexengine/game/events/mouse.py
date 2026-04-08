@@ -348,7 +348,8 @@ class MouseEventHandlerMixin:
                 self._unit_dbl_click(eventInfo)
                 self.last_click_time = 0
                 if self.ui_state.selected_unit_id:
-                    self.ui_state.end_drag()
+                    preview = self.ui_state.end_drag()
+                    self._restore_drag_preview_to_committed(preview)
                     self.display_mgr.clear_highlights()
                 return
 
@@ -379,8 +380,10 @@ class MouseEventHandlerMixin:
                     self.DBL_CLICK_THRESHOLD,
                 )
                 self.last_click_time = current_time
-                # Clear preview without committing
-                self.ui_state.end_drag()
+                # Clear preview without committing (net movement below threshold, but
+                # on_drag may have moved the SVG — restore to committed hex center).
+                preview = self.ui_state.end_drag()
+                self._restore_drag_preview_to_committed(preview)
                 self.display_mgr.clear_highlights()
                 return
 
@@ -403,6 +406,15 @@ class MouseEventHandlerMixin:
                 return
 
             # Handle regular drag move
+            # Final sample at release: last mousemove can miss the drop hex/position,
+            # so validity must reflect mouseup (invalid release → snap back in end_drag_preview).
+            if self.ui_state.drag_preview:
+                mx, my = eventInfo.position
+                self.update_drag_preview(
+                    pixel_x=mx,
+                    pixel_y=my,
+                    target_hex=eventInfo.hex,
+                )
             move_committed = self.end_drag_preview()
             if not move_committed:
                 self.logger.warning("Invalid move")

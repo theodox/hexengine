@@ -346,6 +346,8 @@ class NetworkGame(Game):
         """
         self.logger.error(f"Server error: {error}")
         dev_console.set_status(f"Server: {error}")
+        # Invalid move uses MessageType.ERROR, not action_result(success=False).
+        self.display_mgr.refresh_unit_positions()
 
     def _handle_action_result(self, success: bool, error_msg: str | None) -> None:
         """
@@ -361,6 +363,8 @@ class NetworkGame(Game):
             self.logger.warning(f"Action rejected: {error_msg}")
             if error_msg:
                 dev_console.set_status(f"Server: {error_msg}")
+            # Move (etc.) did not apply; preview may still follow the cursor transform.
+            self.display_mgr.refresh_unit_positions()
 
     def is_my_turn(self) -> bool:
         """Check if it's currently this player's turn."""
