@@ -11,26 +11,84 @@ from ..units.graphics import DisplayUnit, GraphicsCreator
 
 # Match CanuckGraphicsCreator / map unit sizing until layout exposes multiplier here.
 _UNIT_SIZE_DIVISOR = 1.5
+_SVG_NS = "http://www.w3.org/2000/svg"
 
+_REGISTERED_STYLE_KEYS: set[str] = set()
 _SVG_IMAGE_CLASS_CACHE: dict[str, type] = {}
+_INLINE_SVG_CLASS_CACHE: dict[str, type] = {}
+_SVG_FILE_INLINE_CLASS_CACHE: dict[str, type] = {}
 
 
-def _svg_image_file_class(href: str) -> type:
-    cached = _SVG_IMAGE_CLASS_CACHE.get(href)
+def _register_template_styles_once(key: str, css: str | None, css_href: str | None) -> None:
+    if key in _REGISTERED_STYLE_KEYS:
+        return
+    if css_href:
+        link = js.document.createElement("link")
+        link.rel = "stylesheet"
+        link.href = css_href
+        js.document.head.appendChild(link)
+    if css:
+        style = js.document.createElement("style")
+        style.setAttribute("data-hexes-unit-template", key[:120])
+        style.innerHTML = css
+        js.document.head.appendChild(style)
+    _REGISTERED_STYLE_KEYS.add(key)
+
+
+def _sync_fetch_text(url: str) -> str:
+    """Best-effort synchronous GET for embedding ``svg_file`` as inline markup."""
+    xhr = js.XMLHttpRequest.new()
+    xhr.open("GET", url, False)
+    xhr.send(None)
+    status = int(xhr.status)
+    text = str(xhr.responseText or "")
+    if status and (status < 200 or status >= 300):
+        raise OSError(f"Failed to load {url!r}: HTTP {status}")
+    if not text.strip():
+        raise OSError(f"Empty response for {url!r}")
+    return text
+
+
+def _append_parsed_svg_markup(display_unit: DisplayUnit, svg_markup: str) -> None:
+    parser = js.DOMParser.new()
+    doc = parser.parseFromString(svg_markup, "image/svg+xml")
+    root = doc.documentElement
+    if root is None:
+        return
+    tag = str(root.tagName).lower()
+    if tag == "svg":
+        children = root.children
+        n = int(children.length)
+        for i in range(n):
+            child = children.item(i)
+            if child is not None:
+                display_unit.proxy.appendChild(js.document.importNode(child, True))
+    else:
+        display_unit.proxy.appendChild(js.document.importNode(root, True))
+
+
+def _svg_image_file_class(href: str, css: str | None, css_href: str | None) -> type:
+    cache_key = f"img:{href}|{css or ''}|{css_href or ''}"
+    cached = _SVG_IMAGE_CLASS_CACHE.get(cache_key)
     if cached is not None:
         return cached
     href_local = href
+    sk = cache_key
 
-    class SvgFileTemplateGraphics(GraphicsCreator):
+    class SvgFileImageTemplateGraphics(GraphicsCreator):
         BASE_CLASSES = ("unit", "unit-svg-template")
         STYLE_CREATED = True
+
+        @classmethod
+        def register(cls) -> None:
+            _register_template_styles_once(sk, css, css_href)
 
         def create(self, display_unit: DisplayUnit) -> DisplayUnit:
             display_unit.push_classes(*self.BASE_CLASSES)
             layout = display_unit._hex_layout
             unit_size = int(layout.size * _UNIT_SIZE_DIVISOR) if layout else 30
             half = unit_size / 2
-            img = js.document.createElementNS("http://www.w3.org/2000/svg", "image")
+            img = js.document.createElementNS(_SVG_NS, "image")
             with self._attach(display_unit, img, "unit-svg-template-img"):
                 img.setAttributeNS("http://www.w3.org/1999/xlink", "href", href_local)
                 img.setAttribute("x", str(-half))
@@ -39,8 +97,39 @@ def _svg_image_file_class(href: str) -> type:
                 img.setAttribute("height", str(unit_size))
             return display_unit
 
-    _SVG_IMAGE_CLASS_CACHE[href] = SvgFileTemplateGraphics
-    return SvgFileTemplateGraphics
+    _SVG_IMAGE_CLASS_CACHE[cache_key] = SvgFileImageTemplateGraphics
+    return SvgFileImageTemplateGraphics
+
+
+def _inline_svg_markup_class(
+    svg_markup: str,
+    *,
+    css: str | None,
+    css_href: str | None,
+    cache_key: str,
+) -> type:
+    cached = _INLINE_SVG_CLASS_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    markup = svg_markup
+    sk = cache_key
+
+    class InlineSvgTemplateGraphics(GraphicsCreator):
+        BASE_CLASSES = ("unit", "unit-svg-inline-template")
+        STYLE_CREATED = True
+
+        @classmethod
+        def register(cls) -> None:
+            _register_template_styles_once(sk, css, css_href)
+
+        def create(self, display_unit: DisplayUnit) -> DisplayUnit:
+            display_unit.push_classes(*self.BASE_CLASSES)
+            _append_parsed_svg_markup(display_unit, markup)
+            return display_unit
+
+    _INLINE_SVG_CLASS_CACHE[cache_key] = InlineSvgTemplateGraphics
+    return InlineSvgTemplateGraphics
 
 
 def graphics_creator_class_for_template(tmpl: dict[str, Any]) -> type | None:
@@ -48,8 +137,50 @@ def graphics_creator_class_for_template(tmpl: dict[str, Any]) -> type | None:
     Map one template ``to_wire_dict()`` to a GraphicsCreator subclass, or None to
     fall back to built-in creators.
     """
-    svg_file = tmpl.get("svg_file")
     render = str(tmpl.get("render", "image")).lower()
-    if svg_file and render == "image":
-        return _svg_image_file_class(str(svg_file))
+    css = tmpl.get("css")
+    css = str(css).strip() if css else None
+    cf = tmpl.get("css_file")
+    css_href = str(cf).strip() if cf else None
+
+    if render == "counter":
+        from ..scenarios.generic_counter import make_counter_graphics_creator
+
+        g = tmpl.get("glyph")
+        c = tmpl.get("caption")
+        glyph = "\u25c7" if g is None else str(g)
+        caption = "" if c is None else str(c)
+        return make_counter_graphics_creator(
+            glyph,
+            caption,
+            extra_css=css,
+            extra_css_href=css_href,
+        )
+
+    svg_file = tmpl.get("svg_file")
+    if svg_file:
+        sf = str(svg_file)
+        if render == "image":
+            return _svg_image_file_class(sf, css, css_href)
+        if render == "inline":
+            ck = f"file-inline:{sf}|{css or ''}|{css_href or ''}"
+            cached = _SVG_FILE_INLINE_CLASS_CACHE.get(ck)
+            if cached is not None:
+                return cached
+            text = _sync_fetch_text(sf)
+            cls = _inline_svg_markup_class(
+                text,
+                css=css,
+                css_href=css_href,
+                cache_key=ck + f"|h{hash(text) & 0xFFFFFFFF:x}",
+            )
+            _SVG_FILE_INLINE_CLASS_CACHE[ck] = cls
+            return cls
+
+    raw_svg = tmpl.get("svg")
+    if raw_svg and render == "inline":
+        text = str(raw_svg)
+        ck = f"inline:{hash(text) & 0xFFFFFFFF:x}|{css or ''}|{css_href or ''}"
+        return _inline_svg_markup_class(text, css=css, css_href=css_href, cache_key=ck)
+
     return None

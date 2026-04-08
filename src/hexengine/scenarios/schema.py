@@ -186,8 +186,10 @@ class UnitGraphicsTemplate:
     """
     Per-unit-type presentation from scenario (no DOM).
 
-    Exactly one of ``svg_file`` or ``svg`` is set after parse.
+    For SVG assets: exactly one of ``svg_file`` or ``svg`` is set after parse.
     ``render`` is ``image`` / ``inline`` for ``svg_file``, or ``inline`` for embedded ``svg``.
+
+    For ``render`` = ``counter``, use optional ``glyph`` / ``caption`` strings instead of SVG.
     """
 
     unit_type: str
@@ -196,6 +198,8 @@ class UnitGraphicsTemplate:
     svg: str | None = None
     css: str | None = None
     css_file: str | None = None
+    glyph: str | None = None
+    caption: str | None = None
 
     def to_wire_dict(self) -> dict:
         """JSON-safe keys for StateUpdate (``type`` matches TOML / unit rows)."""
@@ -208,6 +212,10 @@ class UnitGraphicsTemplate:
             d["css"] = self.css
         if self.css_file is not None:
             d["css_file"] = self.css_file
+        if self.glyph is not None:
+            d["glyph"] = self.glyph
+        if self.caption is not None:
+            d["caption"] = self.caption
         return d
 
 

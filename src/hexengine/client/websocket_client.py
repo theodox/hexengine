@@ -292,7 +292,7 @@ class BrowserWebSocketClient:
         self.sequence_number = update.sequence_number
 
         if update.global_styles is not None and self.on_global_styles:
-            sig = json.dumps(update.global_styles, sort_keys=True)
+            sig = json.dumps(update.global_styles, sort_keys=True, ensure_ascii=True)
             if sig != self._applied_global_styles_json:
                 self._applied_global_styles_json = sig
                 try:
@@ -301,7 +301,7 @@ class BrowserWebSocketClient:
                     self.logger.error("on_global_styles failed: %s", e)
 
         if update.map_display is not None and self.on_map_display:
-            sig = json.dumps(update.map_display, sort_keys=True)
+            sig = json.dumps(update.map_display, sort_keys=True, ensure_ascii=True)
             if sig != self._applied_map_display_json:
                 self._applied_map_display_json = sig
                 try:
@@ -310,7 +310,7 @@ class BrowserWebSocketClient:
                     self.logger.error("on_map_display failed: %s", e)
 
         if update.unit_graphics is not None and self.on_unit_graphics:
-            sig = json.dumps(update.unit_graphics, sort_keys=True)
+            sig = json.dumps(update.unit_graphics, sort_keys=True, ensure_ascii=True)
             if sig != self._applied_unit_graphics_json:
                 self._applied_unit_graphics_json = sig
                 try:

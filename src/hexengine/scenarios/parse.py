@@ -375,9 +375,10 @@ def _parse_unit_graphics_table(
     static_root: Path,
 ) -> dict[str, UnitGraphicsTemplate]:
     """
-    Parse ``[[unit_graphics]]`` rows. Each row must set exactly one of
-    ``svg_file`` or ``svg``. File paths resolve like ``[map].background``
-    (URLs and site-relative paths pass through).
+    Parse ``[[unit_graphics]]`` rows.
+
+    - Default: exactly one of ``svg_file`` or ``svg`` (file paths like ``[map].background``).
+    - ``render = \"counter\"``: optional ``glyph`` / ``caption``; no SVG asset required.
     """
     if not rows:
         return {}
@@ -390,6 +391,28 @@ def _parse_unit_graphics_table(
         unit_type = _optional_nonempty_str(row, "type")
         if not unit_type:
             raise ValueError(f"unit_graphics[{i}] requires non-empty type")
+
+        render_early = _optional_nonempty_str(row, "render")
+        if render_early and render_early.lower() == "counter":
+            glyph_v = _optional_nonempty_str(row, "glyph")
+            cap_raw = row.get("caption")
+            cap_v = None if cap_raw is None else str(cap_raw)
+            css = _optional_nonempty_str(row, "css")
+            css_file_in = _optional_nonempty_str(row, "css_file")
+            css_file_out = (
+                resolve_map_background_url(css_file_in, scenario_toml, static_root)
+                if css_file_in
+                else None
+            )
+            out[unit_type] = UnitGraphicsTemplate(
+                unit_type=unit_type,
+                render="counter",
+                glyph=glyph_v,
+                caption=cap_v,
+                css=css,
+                css_file=css_file_out,
+            )
+            continue
 
         svg_file_in = _optional_nonempty_str(row, "svg_file")
         svg_in = _optional_nonempty_str(row, "svg")

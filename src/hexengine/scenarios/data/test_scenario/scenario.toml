@@ -784,9 +784,20 @@ members = [
   { position = [26, 2] },
   { position = [27, 2] },
 ]
+
 [[unit_graphics]]
 type = "canuck"
-svg_file = "dummy.svg"
+render = "counter"
+glyph = "🍁"
+caption = "CAN"
+
+
+[[unit_graphics]]
+type = "soldier"
+render = "counter"
+glyph = "⚔"
+caption = "5-3-5"
+
 
 [[squads]]
 type = "canuck"
@@ -799,6 +810,7 @@ members = [
 
 ]
 
+
 [[squads]]
 type = "soldier"
 faction = "Blue"
@@ -806,5 +818,5 @@ members = [
   { id = "Generic1", position = [10, 10] },
   { id = "Generic2", position = [10, 11] },
   { id = "Generic3", position = [10, 12] },
-  { id = "Generic3", position = [10, 13] },
+  { id = "Generic4", position = [10, 13] },
 ]

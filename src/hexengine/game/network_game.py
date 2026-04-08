@@ -85,6 +85,8 @@ class NetworkGame(Game):
                 self.client.disconnect()
                 self.client = None
 
+            preloaded_unit_graphics: dict[str, Any] | None = None
+
             # Start local server if requested
             if self.use_local_server and not self.local_server:
                 self.logger.info("Starting local server...")
@@ -96,6 +98,7 @@ class NetworkGame(Game):
 
                 scenario_path = resolve_scenario_path_for_server()
                 scenario_data = load_scenario(scenario_path)
+                preloaded_unit_graphics = scenario_data.unit_graphics_to_wire_dict()
                 initial_state = scenario_to_initial_state(
                     scenario_data,
                     initial_faction="Red",
@@ -106,7 +109,7 @@ class NetworkGame(Game):
                     initial_state=initial_state,
                     map_display=scenario_data.map_display.to_wire_dict(),
                     global_styles=scenario_data.global_styles.to_wire_dict(),
-                    unit_graphics=scenario_data.unit_graphics_to_wire_dict(),
+                    unit_graphics=preloaded_unit_graphics,
                 )
                 if not self.local_server.start():
                     self.logger.error("Failed to start local server")
@@ -125,6 +128,14 @@ class NetworkGame(Game):
             self.client.on_connection_change = self._handle_connection_change
             self.client.on_error = self._handle_error
             self.client.on_action_result = self._handle_action_result
+
+            # Apply the same unit_graphics the server uses before the first StateUpdate
+            # so the initial sync_from_state picks up scenario templates (not builtins only).
+            if preloaded_unit_graphics is not None:
+                self.display_mgr.apply_unit_graphics(preloaded_unit_graphics)
+                self.client._applied_unit_graphics_json = json.dumps(
+                    preloaded_unit_graphics, sort_keys=True, ensure_ascii=True
+                )
 
             # Connect to server (synchronous in browser)
             self.client.connect(

@@ -8,6 +8,7 @@ preview visuals during drag operations.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -48,8 +49,27 @@ class DisplayManager:
         self.logger = logging.getLogger("display_manager")
 
     def apply_unit_graphics(self, wire: dict[str, Any]) -> None:
-        """Replace scenario-driven unit graphics templates (unit type → wire dict)."""
-        self._unit_graphics_wire = {str(k): dict(v) for k, v in wire.items()}
+        """
+        Replace scenario-driven unit graphics templates (unit type → wire dict).
+
+        When the payload changes, existing unit SVGs are removed so the next
+        ``sync_from_state`` rebuilds them with the new ``GraphicsCreator`` types.
+        """
+        raw: Any = wire.to_py() if hasattr(wire, "to_py") else wire
+        if not isinstance(raw, dict):
+            raw = dict(raw)
+        normalized: dict[str, dict[str, Any]] = {}
+        for k, v in raw.items():
+            if hasattr(v, "to_py"):
+                v = v.to_py()
+            normalized[str(k)] = dict(v) if v is not None else {}
+        prev_sig = json.dumps(self._unit_graphics_wire, sort_keys=True, ensure_ascii=True)
+        new_sig = json.dumps(normalized, sort_keys=True, ensure_ascii=True)
+        if new_sig == prev_sig:
+            return
+        self._unit_graphics_wire = normalized
+        for uid in list(self._unit_displays.keys()):
+            self._remove_unit_display(uid)
 
     def sync_from_state(self, game_state: GameState) -> None:
         """
@@ -167,17 +187,16 @@ class DisplayManager:
     def _get_graphics_creators(self):
         """Get map of unit type to graphics creator class."""
         from ..scenarios.canuck import CanuckGraphicsCreator
-        from ..scenarios.generic import GenericGraphicsCreator
+        from ..scenarios.generic_counter import SoldierCounterGraphicsCreator
         from .scenario_unit_graphics import graphics_creator_class_for_template
 
-        out: dict[str, type] = {
-            "canuck": CanuckGraphicsCreator,
-            "soldier": GenericGraphicsCreator,
-        }
+        out: dict[str, type] = {}
         for utype, tmpl in self._unit_graphics_wire.items():
             cls = graphics_creator_class_for_template(tmpl)
             if cls is not None:
                 out[utype] = cls
+        out.setdefault("canuck", CanuckGraphicsCreator)
+        out.setdefault("soldier", SoldierCounterGraphicsCreator)
         return out
 
     def _update_unit_display(self, unit_id: str, unit_state) -> None:
@@ -191,8 +210,8 @@ class DisplayManager:
         # Update visibility
         display.visible = unit_state.active
 
-        # Update health display if text element exists
-        if display.text_element:
+        # Update health display (caption for counters, else legacy single text node)
+        if display.caption_element is not None or display.text_element is not None:
             display.set_text(str(unit_state.health))
 
     def _remove_unit_display(self, unit_id: str) -> None:

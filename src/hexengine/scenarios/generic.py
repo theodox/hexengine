@@ -3,6 +3,7 @@ from __future__ import annotations
 from ..document import js
 from ..units import GameUnit
 from ..units.graphics import DisplayUnit, GraphicsCreator
+from .generic_counter import SoldierCounterGraphicsCreator
 
 
 class GenericGraphicsCreator(GraphicsCreator):
@@ -85,5 +86,5 @@ class GenericGraphicsCreator(GraphicsCreator):
 
 class GenericUnit(GameUnit):
     FACTION: str = "Blue"
-    GRAPHICS_CREATOR: GraphicsCreator = GenericGraphicsCreator
-    """A game unit with logic and state, using the GenericGraphicsCreator for display."""
+    GRAPHICS_CREATOR: GraphicsCreator = SoldierCounterGraphicsCreator
+    """Soldier-style unit; display uses the generic SVG counter (see generic_counter)."""
