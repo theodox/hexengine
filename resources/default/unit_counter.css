@@ -4,7 +4,7 @@
 }
 
 .unit.unit-counter .unit-counter-base {
-  fill: var(--unit-counter-fill, #4a5568);
+  fill: var(--unit-counter-fill, rgb(74, 85, 104));
   stroke: rgba(0, 0, 0, 0.28);
   stroke-width: 0.8;
   /* Override global `.unit rect { x/y/width/height: var(--unit-*) }` which would
@@ -42,12 +42,12 @@
 }
 
 .unit.unit-counter:hover .unit-counter-base {
-  fill: var(--unit-counter-fill-hover, #9d9171ce);
+  fill: var(--unit-counter-fill-hover, rgba(157, 145, 113, 0.808));
   filter: brightness(1.06);
 }
 
 .unit.unit-counter.hilited .unit-counter-base {
-  fill: var(--unit-counter-fill-hilite, #e7c66cce);
+  fill: var(--unit-counter-fill-hilite, rgba(231, 198, 108, 0.808));
   stroke: rgba(0, 0, 0, 0.35);
 }
 

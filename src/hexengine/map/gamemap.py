@@ -31,6 +31,7 @@ class Map:
         canvas_element: js.HTMLCanvasElement,
         terrain_canvas: js.HTMLCanvasElement,
         svg_element: js.SVGElement,
+        marker_element: js.SVGElement,
         unit_element: js.SVGElement,
     ):
         self._container = container_element
@@ -87,6 +88,9 @@ class Map:
         self._svg_layer = SVGLayer(
             svg_element, self._hex_layout, self._hex_color, self._hex_stroke
         )
+        self._marker_layer = SVGLayer(
+            marker_element, self._hex_layout, self._hex_color, self._hex_stroke
+        )
         self._unit_layer = UnitLayer(
             unit_element, self._hex_layout, self._hex_color, self._hex_stroke
         )
@@ -107,6 +111,7 @@ class Map:
             canvas_element,
             terrain_canvas,
             svg_element,
+            marker_element,
             unit_element,
         ):
             if el is not None:
@@ -148,6 +153,10 @@ class Map:
     @property
     def unit_layer(self) -> UnitLayer:
         return self._unit_layer
+
+    @property
+    def marker_layer(self) -> SVGLayer:
+        return self._marker_layer
 
     @property
     def terrain_overlay_visible(self) -> bool:
@@ -194,7 +203,7 @@ class Map:
         c = self._canvas_layer.canvas
         w, h = int(c.width), int(c.height)
         self._terrain_layer.sync_size(w, h)
-        for svg in (self._svg_layer._svg, self._unit_layer._svg):
+        for svg in (self._svg_layer._svg, self._marker_layer._svg, self._unit_layer._svg):
             svg.setAttribute("width", str(w))
             svg.setAttribute("height", str(h))
             svg.style.width = f"{w}px"

@@ -230,6 +230,16 @@ class UnitGraphicsTemplate:
         return d
 
 
+@dataclass(frozen=True)
+class MarkerRow:
+    """One marker instance from a scenario file (phase 1: non-interactive)."""
+
+    marker_id: str
+    marker_type: str
+    position: Position
+    active: bool = True
+
+
 @dataclass
 class ScenarioData:
     """Parsed scenario: name, description, and rows. No game imports."""
@@ -243,7 +253,29 @@ class ScenarioData:
         default_factory=default_global_styles_unresolved
     )
     unit_graphics: dict[str, UnitGraphicsTemplate] = field(default_factory=dict)
+    marker_graphics: dict[str, UnitGraphicsTemplate] = field(default_factory=dict)
+    markers: list[MarkerRow] = field(default_factory=list)
 
     def unit_graphics_to_wire_dict(self) -> dict[str, dict]:
         """Map unit type string → template payload for JSON sync."""
         return {k: v.to_wire_dict() for k, v in self.unit_graphics.items()}
+
+    def marker_graphics_to_wire_dict(self) -> dict[str, dict]:
+        """Map marker type string → template payload for JSON sync."""
+        return {k: v.to_wire_dict() for k, v in self.marker_graphics.items()}
+
+    def markers_to_wire_list(self) -> list[dict]:
+        """Marker instances for JSON sync."""
+        out: list[dict] = []
+        for m in self.markers:
+            col, row = m.position
+            out.append(
+                {
+                    "id": m.marker_id,
+                    "type": m.marker_type,
+                    "active": m.active,
+                    # Position is odd-q (col,row). Client/server convert as needed.
+                    "position": [int(col), int(row)],
+                }
+            )
+        return out

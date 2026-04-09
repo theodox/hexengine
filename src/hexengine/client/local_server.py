@@ -30,6 +30,8 @@ class LocalServerManager:
         map_display: dict[str, Any] | None = None,
         global_styles: dict[str, Any] | None = None,
         unit_graphics: dict[str, Any] | None = None,
+        marker_graphics: dict[str, Any] | None = None,
+        markers: list[dict[str, Any]] | None = None,
     ):
         """
         Initialize the local server manager.
@@ -44,6 +46,8 @@ class LocalServerManager:
         self.map_display = map_display
         self.global_styles = global_styles
         self.unit_graphics = unit_graphics
+        self.marker_graphics = marker_graphics
+        self.markers = markers
         self.server: GameServer | None = None
         self.server_thread: threading.Thread | None = None
         self.logger = logging.getLogger("local_server")
@@ -74,6 +78,8 @@ class LocalServerManager:
                 map_display=self.map_display,
                 global_styles=self.global_styles,
                 unit_graphics=self.unit_graphics,
+                marker_graphics=self.marker_graphics,
+                markers=self.markers,
             )
 
             # Start in background thread

@@ -790,9 +790,9 @@ type = "canuck"
 render = "counter"
 glyph = "🍁"
 caption = "CAN"
-counter_fill = "#9b2c2c"
-counter_fill_hover = "#c53030"
-counter_fill_hilite = "#ff8787"
+counter_fill = "rgb(155, 44, 44)"
+counter_fill_hover = "rgb(197, 48, 48)"
+counter_fill_hilite = "rgb(255, 135, 135)"
 
 
 [[unit_graphics]]
@@ -800,9 +800,24 @@ type = "soldier"
 render = "counter"
 glyph = "⚔"
 caption = "5-3-5"
-counter_fill = "#2c5282"
-counter_fill_hover = "#3182ce"
-counter_fill_hilite = "#90cdf4"
+counter_fill = "rgb(44, 82, 130)"
+counter_fill_hover = "rgb(49, 130, 206)"
+counter_fill_hilite = "rgb(144, 205, 244)"
+
+
+[[marker_graphics]]
+type = "objective"
+render = "counter"
+glyph = "★"
+caption = "OBJ"
+counter_fill = "rgb(175, 77, 173)"
+counter_fill_hover = "rgba(16, 16, 16, 0.45)"
+counter_fill_hilite = "rgba(255, 215, 0, 0.75)"
+
+[[markers]]
+id = "obj-1"
+type = "objective"
+position = [10, 12]
 
 
 [[squads]]

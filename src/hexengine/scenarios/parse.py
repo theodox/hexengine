@@ -211,6 +211,8 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
     map_display = _parse_map_table(data.get("map"), path, root)
     global_styles = _parse_styles_table(data.get("styles"), path, root)
     unit_graphics = _parse_unit_graphics_table(data.get("unit_graphics"), path, root)
+    marker_graphics = _parse_unit_graphics_table(data.get("marker_graphics"), path, root)
+    markers = _parse_markers_table(data.get("markers"))
 
     units: list[UnitRow] = []
     for u in data.get("units", []):
@@ -326,7 +328,31 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
         map_display=map_display,
         global_styles=global_styles,
         unit_graphics=unit_graphics,
+        marker_graphics=marker_graphics,
+        markers=markers,
     )
+
+
+def _parse_markers_table(rows: list | None) -> list["MarkerRow"]:
+    """Parse ``[[markers]]`` rows: id, type, position, optional active."""
+    if not rows:
+        return []
+    from .schema import MarkerRow
+
+    out: list[MarkerRow] = []
+    for i, row in enumerate(rows):
+        if not isinstance(row, dict):
+            raise TypeError(f"markers[{i}] must be a table, got {type(row).__name__}")
+        mid = _optional_nonempty_str(row, "id")
+        mtype = _optional_nonempty_str(row, "type")
+        if not mid:
+            raise ValueError(f"markers[{i}] requires non-empty id")
+        if not mtype:
+            raise ValueError(f"markers[{i}] requires non-empty type")
+        pos = _parse_position(row["position"])
+        active = bool(row.get("active", True))
+        out.append(MarkerRow(marker_id=mid, marker_type=mtype, position=pos, active=active))
+    return out
 
 
 def _parse_styles_table(

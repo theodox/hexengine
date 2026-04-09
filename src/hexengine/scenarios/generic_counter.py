@@ -85,9 +85,7 @@ def make_counter_graphics_creator(
             display_unit.push_classes(*self.BASE_CLASSES)
 
             layout = display_unit._hex_layout
-            unit_size = (
-                int(layout.size * self.UNIT_SIZE_DIVISOR) if layout else 30
-            )
+            unit_size = int(layout.size * self.UNIT_SIZE_DIVISOR) if layout else 30
             half = unit_size / 2.0
 
             inner = js.document.createElementNS(_SVG_NS, "svg")
@@ -125,7 +123,10 @@ def make_counter_graphics_creator(
 
             display_unit.set_glyph_element(glyph_el)
             display_unit.set_caption_element(cap_el)
-            display_unit.set_text_element(cap_el)
+            # If caption was provided by the scenario/template, keep it static.
+            # If caption is empty, reuse it as the health text sink.
+            if not c0:
+                display_unit.set_text_element(cap_el)
 
             st = display_unit.proxy.style
             if f_fill is not None:
@@ -140,5 +141,4 @@ def make_counter_graphics_creator(
     return CounterUnitGraphics
 
 
-# Default soldier presentation: diamond glyph, empty caption (health fills caption via set_text).
-SoldierCounterGraphicsCreator = make_counter_graphics_creator("\u25c7", "")
+FallbackCounterGraphicsCreator = make_counter_graphics_creator("?", "DEBUG")

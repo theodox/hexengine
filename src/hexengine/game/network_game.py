@@ -13,6 +13,7 @@ from typing import Any
 
 from .. import dev_console
 from ..client import LocalServerManager
+from ..client.marker_manager import MarkerManager
 from ..client.websocket_client import BrowserWebSocketClient, ConnectionState
 from ..state import GameState
 from ..state.snapshot import SNAPSHOT_FORMAT_VERSION, game_state_to_wire_dict
@@ -67,6 +68,7 @@ class NetworkGame(Game):
         self.my_faction: str | None = None
 
         self.logger = logging.getLogger("network_game")
+        self.marker_mgr = MarkerManager(self.canvas)
 
     def connect(self) -> bool:
         """
@@ -86,6 +88,8 @@ class NetworkGame(Game):
                 self.client = None
 
             preloaded_unit_graphics: dict[str, Any] | None = None
+            preloaded_marker_graphics: dict[str, Any] | None = None
+            preloaded_markers: list[dict[str, Any]] | None = None
 
             # Start local server if requested
             if self.use_local_server and not self.local_server:
@@ -99,6 +103,12 @@ class NetworkGame(Game):
                 scenario_path = resolve_scenario_path_for_server()
                 scenario_data = load_scenario(scenario_path)
                 preloaded_unit_graphics = scenario_data.unit_graphics_to_wire_dict()
+                preloaded_marker_graphics = getattr(
+                    scenario_data, "marker_graphics_to_wire_dict", lambda: {}
+                )()
+                preloaded_markers = getattr(
+                    scenario_data, "markers_to_wire_list", lambda: []
+                )()
                 initial_state = scenario_to_initial_state(
                     scenario_data,
                     initial_faction="Red",
@@ -110,6 +120,8 @@ class NetworkGame(Game):
                     map_display=scenario_data.map_display.to_wire_dict(),
                     global_styles=scenario_data.global_styles.to_wire_dict(),
                     unit_graphics=preloaded_unit_graphics,
+                    marker_graphics=preloaded_marker_graphics,
+                    markers=preloaded_markers,
                 )
                 if not self.local_server.start():
                     self.logger.error("Failed to start local server")
@@ -125,6 +137,8 @@ class NetworkGame(Game):
             self.client.on_map_display = self._on_map_display
             self.client.on_global_styles = self._on_global_styles
             self.client.on_unit_graphics = self._on_unit_graphics
+            self.client.on_marker_graphics = self._on_marker_graphics
+            self.client.on_markers = self._on_markers
             self.client.on_connection_change = self._handle_connection_change
             self.client.on_error = self._handle_error
             self.client.on_action_result = self._handle_action_result
@@ -136,6 +150,14 @@ class NetworkGame(Game):
                 self.client._applied_unit_graphics_json = json.dumps(
                     preloaded_unit_graphics, sort_keys=True, ensure_ascii=True
                 )
+
+            if preloaded_marker_graphics is not None:
+                self.marker_mgr.apply_marker_graphics(preloaded_marker_graphics)
+                self.client._applied_marker_graphics_json = json.dumps(
+                    preloaded_marker_graphics, sort_keys=True, ensure_ascii=True
+                )
+            if preloaded_markers is not None:
+                self.marker_mgr.sync_markers(preloaded_markers)
 
             # Connect to server (synchronous in browser)
             self.client.connect(
@@ -271,6 +293,14 @@ class NetworkGame(Game):
     def _on_unit_graphics(self, wire: dict[str, Any]) -> None:
         """Apply scenario unit graphics templates before state sync."""
         self.display_mgr.apply_unit_graphics(wire)
+
+    def _on_marker_graphics(self, wire: dict[str, Any]) -> None:
+        """Apply scenario marker graphics templates before state sync."""
+        self.marker_mgr.apply_marker_graphics(wire)
+
+    def _on_markers(self, wire: list[dict[str, Any]]) -> None:
+        """Sync markers list (phase 1: non-interactive)."""
+        self.marker_mgr.sync_markers(wire)
 
     def _handle_state_update(self, new_state: GameState) -> None:
         """

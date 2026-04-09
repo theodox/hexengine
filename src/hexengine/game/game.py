@@ -31,6 +31,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         map = element("map-canvas")
         terrain = element("map-terrain")
         svg = element("map-svg")
+        markers = element("map-markers")
         units = element("map-units")
         action_button = element("advance-button")
         action_button.onclick = self.advance_turn
@@ -38,7 +39,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
         assert map is not None, "Map canvas element not found"
         assert svg is not None, "Map SVG element not found"
-        self.canvas = Map(container, map, terrain, svg, units)
+        self.canvas = Map(container, map, terrain, svg, markers, units)
         self.board = GameBoard(self.canvas)
 
         initial_state = GameState.create_empty(

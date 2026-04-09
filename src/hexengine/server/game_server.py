@@ -47,6 +47,8 @@ class GameServer:
         map_display: dict[str, Any] | None = None,
         global_styles: dict[str, Any] | None = None,
         unit_graphics: dict[str, Any] | None = None,
+        marker_graphics: dict[str, Any] | None = None,
+        markers: list[dict[str, Any]] | None = None,
     ):
         """
         Initialize the game server.
@@ -62,6 +64,8 @@ class GameServer:
         self.map_display = map_display
         self.global_styles = global_styles
         self.unit_graphics = unit_graphics
+        self.marker_graphics = marker_graphics
+        self.markers = markers
         self._server_package_version = hexes_package_version()
 
         # Player management
@@ -461,6 +465,8 @@ class GameServer:
             map_display=self.map_display,
             global_styles=self.global_styles,
             unit_graphics=self.unit_graphics,
+            marker_graphics=self.marker_graphics,
+            markers=self.markers,
             server_package_version=self._server_package_version,
         )
         await self._send_message(player_id, update.to_message())
@@ -475,6 +481,8 @@ class GameServer:
             map_display=self.map_display,
             global_styles=self.global_styles,
             unit_graphics=self.unit_graphics,
+            marker_graphics=self.marker_graphics,
+            markers=self.markers,
             server_package_version=self._server_package_version,
         )
         message = update.to_message()

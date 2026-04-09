@@ -64,7 +64,9 @@ class DisplayManager:
             if hasattr(v, "to_py"):
                 v = v.to_py()
             normalized[str(k)] = dict(v) if v is not None else {}
-        prev_sig = json.dumps(self._unit_graphics_wire, sort_keys=True, ensure_ascii=True)
+        prev_sig = json.dumps(
+            self._unit_graphics_wire, sort_keys=True, ensure_ascii=True
+        )
         new_sig = json.dumps(normalized, sort_keys=True, ensure_ascii=True)
         if new_sig == prev_sig:
             return
@@ -190,8 +192,7 @@ class DisplayManager:
 
     def _get_graphics_creators(self) -> dict[str, Callable[[DisplayUnit], None]]:
         """Get map of unit type to display-creator callable."""
-        from ..scenarios.canuck import CanuckGraphicsCreator
-        from ..scenarios.generic_counter import SoldierCounterGraphicsCreator
+        from ..scenarios.generic_counter import FallbackCounterGraphicsCreator
         from .scenario_unit_graphics import (
             graphics_creator_for_template,
             unit_display_creator_from_class,
@@ -203,13 +204,9 @@ class DisplayManager:
             if fn is not None:
                 out[utype] = fn
         out.setdefault(
-            "canuck",
-            unit_display_creator_from_class(CanuckGraphicsCreator, name="builtin(canuck)"),
-        )
-        out.setdefault(
             "soldier",
             unit_display_creator_from_class(
-                SoldierCounterGraphicsCreator, name="builtin(soldier_counter)"
+                FallbackCounterGraphicsCreator, name="builtin(soldier_counter)"
             ),
         )
         return out
@@ -225,8 +222,9 @@ class DisplayManager:
         # Update visibility
         display.visible = unit_state.active
 
-        # Update health display (caption for counters, else legacy single text node)
-        if display.caption_element is not None or display.text_element is not None:
+        # Update health display (only when a text sink is explicitly registered).
+        # Scenario counters may use caption as static label; don't overwrite it.
+        if display.text_element is not None:
             display.set_text(str(unit_state.health))
 
     def _remove_unit_display(self, unit_id: str) -> None:
