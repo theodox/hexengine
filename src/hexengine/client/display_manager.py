@@ -192,7 +192,7 @@ class DisplayManager:
 
     def _get_graphics_creators(self) -> dict[str, Callable[[DisplayUnit], None]]:
         """Get map of unit type to display-creator callable."""
-        from ..scenarios.generic_counter import FallbackCounterGraphicsCreator
+        from ..scenarios.counters import FallbackCounterGraphicsCreator
         from .scenario_unit_graphics import (
             graphics_creator_for_template,
             unit_display_creator_from_class,

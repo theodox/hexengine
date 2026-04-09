@@ -153,7 +153,7 @@ def creator_for_template(tmpl: dict[str, Any]) -> DisplayCreator | None:
     css_href = str(cf).strip() if cf else None
 
     if render == "counter":
-        from ..scenarios.generic_counter import make_counter_graphics_creator
+        from ..scenarios.counters import make_counter_graphics_creator
 
         def _wire_color(key: str) -> str | None:
             v = tmpl.get(key)
