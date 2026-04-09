@@ -8,10 +8,78 @@ that maps this schema onto those types needs to change.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass, field, fields
+from typing import Any, TypeVar
 
 # Odd-q offset ``(col, row)`` as in TOML ``position = [col, row]`` (see ``HexColRow``).
 Position = tuple[int, int]
+
+ST = TypeVar("ST")
+
+
+def toml_field(
+    toml_key: str,
+    *,
+    nonempty: bool = False,
+    coerce: str | None = None,
+    optional_str: bool = False,
+) -> dict[str, Any]:
+    """
+    Metadata for :func:`~hexengine.scenarios.scenario_row_parse.parse_scenario_row`.
+
+    - ``nonempty``: strip string; reject blank (required TOML string fields).
+    - ``coerce``: registered name (e.g. ``\"position\"``, ``\"movement_cost\"``).
+    - ``optional_str``: strip; empty or missing uses field default (often ``None``).
+    """
+    m: dict[str, Any] = {"toml_key": toml_key}
+    if nonempty:
+        m["nonempty"] = True
+    if coerce is not None:
+        m["coerce"] = coerce
+    if optional_str:
+        m["optional_str"] = True
+    return m
+
+
+def scenario_toml_table(table_name: str) -> Callable[[type[ST]], type[ST]]:
+    """Declare the TOML array name for this row type (errors / tooling)."""
+
+    def deco(cls: type[ST]) -> type[ST]:
+        cls.__scenario_toml_table__ = table_name  # type: ignore[attr-defined]
+        return cls
+
+    return deco
+
+
+def _dataclass_to_wire_dict(
+    obj: object,
+    *,
+    rename: dict[str, str] | None = None,
+    omit_none: bool = False,
+    value_transforms: dict[str, Callable[[Any], Any]] | None = None,
+) -> dict[str, Any]:
+    """
+    Serialize a dataclass instance to a JSON-friendly dict by walking ``fields(obj)``.
+
+    - ``rename``: Python field name → wire key (e.g. ``unit_type`` → ``type``).
+    - ``omit_none``: drop keys whose value is ``None`` after optional transforms.
+    - ``value_transforms``: per *Python* field name; run on the attribute value
+      (``None`` is passed through without calling the transform).
+    """
+    rename = rename or {}
+    value_transforms = value_transforms or {}
+    out: dict[str, Any] = {}
+    for f in fields(obj):
+        val = getattr(obj, f.name)
+        tr = value_transforms.get(f.name)
+        if tr is not None:
+            val = tr(val)
+        if omit_none and val is None:
+            continue
+        out[rename.get(f.name, f.name)] = val
+    return out
+
 
 # Site-relative path served with the static root (see [styles] in scenario TOML).
 DEFAULT_GLOBAL_BASE_CSS_FILE = "resources/default/global.css"
@@ -31,12 +99,7 @@ class GlobalStylesConfig:
 
     def to_wire_dict(self) -> dict:
         """JSON-safe dict for StateUpdate."""
-        d: dict = {"base_css_file": self.base_css_file}
-        if self.css is not None:
-            d["css"] = self.css
-        if self.css_file is not None:
-            d["css_file"] = self.css_file
-        return d
+        return _dataclass_to_wire_dict(self, omit_none=True)
 
     @classmethod
     def from_wire_dict(cls, d: dict) -> GlobalStylesConfig:
@@ -54,32 +117,44 @@ def default_global_styles_unresolved() -> GlobalStylesConfig:
     return GlobalStylesConfig(base_css_file=DEFAULT_GLOBAL_BASE_CSS_FILE)
 
 
+@scenario_toml_table("units")
 @dataclass(frozen=True)
 class UnitRow:
     """One unit from a scenario file. No Python class references."""
 
-    unit_id: str
-    unit_type: str  # e.g. "canuck", "soldier" — loader maps to game class or action
+    unit_id: str = field(metadata=toml_field("id", nonempty=True))
+    unit_type: str = field(
+        metadata=toml_field("type", nonempty=True)
+    )  # e.g. "canuck", "soldier"
     #: Odd-q ``(col, row)`` after parse (same as :class:`~hexengine.hexes.types.HexColRow`).
-    position: Position
-    faction: str
-    health: int = 100
-    active: bool = True
+    position: Position = field(metadata=toml_field("position", coerce="position"))
+    faction: str = field(metadata=toml_field("faction", nonempty=True))
+    health: int = field(default=100, metadata=toml_field("health"))
+    active: bool = field(default=True, metadata=toml_field("active"))
 
 
+@scenario_toml_table("locations")
 @dataclass(frozen=True)
 class LocationRow:
     """One terrain location from a scenario file."""
 
     #: Odd-q ``(col, row)`` after parse (same as :class:`~hexengine.hexes.types.HexColRow`).
-    position: Position
-    terrain_type: str
-    movement_cost: float
-    assault_modifier: float = 0.0
-    ranged_modifier: float = 0.0
-    block_los: bool = True
+    position: Position = field(metadata=toml_field("position", coerce="position"))
+    terrain_type: str = field(default="plain", metadata=toml_field("terrain"))
+    movement_cost: float = field(
+        default=1.0, metadata=toml_field("movement_cost", coerce="movement_cost")
+    )
+    assault_modifier: float = field(
+        default=0.0, metadata=toml_field("assault_modifier")
+    )
+    ranged_modifier: float = field(
+        default=0.0, metadata=toml_field("ranged_modifier")
+    )
+    block_los: bool = field(default=True, metadata=toml_field("block_los"))
     #: Optional CSS-style hex for terrain overlay (e.g. ``#RRGGBB`` or ``#RRGGBBAA``).
-    hex_color: str | None = None
+    hex_color: str | None = field(
+        default=None, metadata=toml_field("hex_color", optional_str=True)
+    )
 
 
 @dataclass(frozen=True)
@@ -111,26 +186,13 @@ class MapDisplayConfig:
 
     def to_wire_dict(self) -> dict:
         """Stable keys for JSON StateUpdate (matches field names)."""
-        d: dict = {
-            "hex_size": self.hex_size,
-            "hex_margin": self.hex_margin,
-            "hex_stroke": self.hex_stroke,
-            "hex_color": self.hex_color,
-            "background": self.background,
-            "background_crop_to_map": self.background_crop_to_map,
-            "unit_size_multiplier": self.unit_size_multiplier,
-            "hex_origin_i": self.hex_origin_i,
-            "hex_origin_j": self.hex_origin_j,
-            "terrain_overlay_line_color": self.terrain_overlay_line_color,
-            "terrain_overlay_line_width": self.terrain_overlay_line_width,
-        }
-        if self.hex_columns is not None:
-            d["hex_columns"] = self.hex_columns
-        if self.hex_rows is not None:
-            d["hex_rows"] = self.hex_rows
-        if self.grid_hexes is not None:
-            d["grid_hexes"] = [list(t) for t in self.grid_hexes]
-        return d
+        return _dataclass_to_wire_dict(
+            self,
+            omit_none=True,
+            value_transforms={
+                "grid_hexes": lambda gh: [list(t) for t in gh] if gh is not None else None,
+            },
+        )
 
     @classmethod
     def from_wire_dict(cls, d: dict) -> MapDisplayConfig:
@@ -151,7 +213,7 @@ class MapDisplayConfig:
                 raise TypeError("map_display.grid_hexes must be a list of [i,j,k]")
             triples: list[tuple[int, int, int]] = []
             for i, item in enumerate(raw_gh):
-                if not isinstance(item, (list, tuple)) or len(item) != 3:
+                if not isinstance(item, list | tuple) or len(item) != 3:
                     raise ValueError(
                         f"map_display.grid_hexes[{i}] must be [i, j, k], got {item!r}"
                     )
@@ -208,36 +270,32 @@ class UnitGraphicsTemplate:
 
     def to_wire_dict(self) -> dict:
         """JSON-safe keys for StateUpdate (``type`` matches TOML / unit rows)."""
-        d: dict = {"type": self.unit_type, "render": self.render}
-        if self.svg_file is not None:
-            d["svg_file"] = self.svg_file
-        if self.svg is not None:
-            d["svg"] = self.svg
-        if self.css is not None:
-            d["css"] = self.css
-        if self.css_file is not None:
-            d["css_file"] = self.css_file
-        if self.glyph is not None:
-            d["glyph"] = self.glyph
-        if self.caption is not None:
-            d["caption"] = self.caption
-        if self.counter_fill is not None:
-            d["counter_fill"] = self.counter_fill
-        if self.counter_fill_hover is not None:
-            d["counter_fill_hover"] = self.counter_fill_hover
-        if self.counter_fill_hilite is not None:
-            d["counter_fill_hilite"] = self.counter_fill_hilite
-        return d
+        return _dataclass_to_wire_dict(
+            self,
+            rename={"unit_type": "type"},
+            omit_none=True,
+        )
 
 
+@scenario_toml_table("markers")
 @dataclass(frozen=True)
 class MarkerRow:
     """One marker instance from a scenario file (phase 1: non-interactive)."""
 
-    marker_id: str
-    marker_type: str
-    position: Position
-    active: bool = True
+    marker_id: str = field(metadata=toml_field("id", nonempty=True))
+    marker_type: str = field(metadata=toml_field("type", nonempty=True))
+    position: Position = field(metadata=toml_field("position", coerce="position"))
+    active: bool = field(default=True, metadata=toml_field("active"))
+
+    def to_wire_dict(self) -> dict[str, Any]:
+        """Marker payload for StateUpdate (odd-q ``position`` as ``[col, row]``)."""
+        return _dataclass_to_wire_dict(
+            self,
+            rename={"marker_id": "id", "marker_type": "type"},
+            value_transforms={
+                "position": lambda p: [int(p[0]), int(p[1])],
+            },
+        )
 
 
 @dataclass
@@ -266,16 +324,4 @@ class ScenarioData:
 
     def markers_to_wire_list(self) -> list[dict]:
         """Marker instances for JSON sync."""
-        out: list[dict] = []
-        for m in self.markers:
-            col, row = m.position
-            out.append(
-                {
-                    "id": m.marker_id,
-                    "type": m.marker_type,
-                    "active": m.active,
-                    # Position is odd-q (col,row). Client/server convert as needed.
-                    "position": [int(col), int(row)],
-                }
-            )
-        return out
+        return [m.to_wire_dict() for m in self.markers]

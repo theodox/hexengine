@@ -814,10 +814,11 @@ counter_fill = "rgb(175, 77, 173)"
 counter_fill_hover = "rgba(16, 16, 16, 0.45)"
 counter_fill_hilite = "rgba(255, 215, 0, 0.75)"
 
-[[markers]]
-id = "obj-1"
+[[marker_squads]]
 type = "objective"
-position = [10, 12]
+members = [
+  { id = "obj-1", position = [10, 12] },
+]
 
 
 [[squads]]

@@ -14,13 +14,18 @@ try:
 except ImportError:
     import tomli as tomllib  # fallback for older Python
 
-from ..hexes.types import Hex, HexColRow
-
+from .scenario_coercion import coerce_movement_cost, position_to_cube_tuple
+from .scenario_row_parse import (
+    ensure_dict_table,
+    parse_members_list,
+    parse_scenario_row,
+)
 from .schema import (
     DEFAULT_GLOBAL_BASE_CSS_FILE,
     GlobalStylesConfig,
     LocationRow,
     MapDisplayConfig,
+    MarkerRow,
     ScenarioData,
     UnitGraphicsTemplate,
     UnitRow,
@@ -88,31 +93,6 @@ def resolve_map_background_url(
         except ValueError:
             return bg.replace("\\", "/")
     return bg.replace("\\", "/")
-
-
-def _parse_position(raw: list[int] | tuple[int, ...]) -> tuple[int, int]:
-    """
-    Parse TOML ``position`` as odd-q ``[col, row]`` (:class:`~hexengine.hexes.types.HexColRow`).
-    """
-    if len(raw) != 2:
-        raise ValueError(
-            f"position must be [col, row] (two integers, odd-q), got {len(raw)} values"
-        )
-    return (int(raw[0]), int(raw[1]))
-
-
-def _position_to_cube_tuple(pos: tuple[int, int]) -> tuple[int, int, int]:
-    """Scenario ``Position`` → cube triple for :attr:`MapDisplayConfig.grid_hexes` / clients."""
-    h = Hex.from_hex_col_row(HexColRow(col=pos[0], row=pos[1]))
-    return (h.i, h.j, h.k)
-
-
-def _float_or_inf(v: str | float) -> float:
-    if isinstance(v, int | float):
-        return float(v)
-    if isinstance(v, str) and v.strip().lower() in ("inf", "infinity"):
-        return float("inf")
-    return float(v)
 
 
 def load_scenario(path: Path | str, *, static_root: Path | None = None) -> ScenarioData:
@@ -195,6 +175,19 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
       type = "badge"
       svg = '''<svg xmlns="http://www.w3.org/2000/svg">...</svg>'''
       css = ".x { fill: red; }"
+
+      # Markers: flat rows or grouped type (like squads; members can override active):
+      [[markers]]
+      id = "obj-1"
+      type = "objective"
+      position = [10, 12]
+
+      [[marker_squads]]
+      type = "objective"
+      # optional: active = true
+      members = [
+        { id = "obj-2", position = [11, 12] },
+      ]
     """
     path = Path(path).resolve()
     root = (static_root or Path.cwd()).resolve()
@@ -212,107 +205,91 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
     global_styles = _parse_styles_table(data.get("styles"), path, root)
     unit_graphics = _parse_unit_graphics_table(data.get("unit_graphics"), path, root)
     marker_graphics = _parse_unit_graphics_table(data.get("marker_graphics"), path, root)
-    markers = _parse_markers_table(data.get("markers"))
+    markers = _parse_markers_table(data.get("markers")) + _parse_marker_squads_table(
+        data.get("marker_squads")
+    )
 
     units: list[UnitRow] = []
-    for u in data.get("units", []):
-        pos = _parse_position(u["position"])
-        units.append(
-            UnitRow(
-                unit_id=str(u["id"]),
-                unit_type=str(u["type"]),
-                position=pos,
-                faction=str(u["faction"]),
-                health=int(u.get("health", 100)),
-                active=bool(u.get("active", True)),
-            )
-        )
-    for squad in data.get("squads", []):
-        unit_type = str(squad["type"])
-        faction = str(squad["faction"])
-        squad_health = int(squad.get("health", 100))
-        squad_active = bool(squad.get("active", True))
-        for m in squad.get("members", []):
-            pos = _parse_position(m["position"])
+    for ui, u in enumerate(data.get("units", [])):
+        row = ensure_dict_table(u, f"units[{ui}]")
+        units.append(parse_scenario_row(UnitRow, row, path=f"units[{ui}]"))
+
+    for si, squad in enumerate(data.get("squads", [])):
+        g = ensure_dict_table(squad, f"squads[{si}]")
+        unit_type = _optional_nonempty_str(g, "type")
+        faction = _optional_nonempty_str(g, "faction")
+        if not unit_type:
+            raise ValueError(f"squads[{si}] requires non-empty type")
+        if not faction:
+            raise ValueError(f"squads[{si}] requires non-empty faction")
+        squad_health = int(g.get("health", 100))
+        squad_active = bool(g.get("active", True))
+        members = parse_members_list(g.get("members", []), f"squads[{si}].members")
+        base = {
+            "type": unit_type,
+            "faction": faction,
+            "health": squad_health,
+            "active": squad_active,
+        }
+        for mi, m in enumerate(members):
             units.append(
-                UnitRow(
-                    unit_id=str(m["id"]),
-                    unit_type=unit_type,
-                    position=pos,
-                    faction=faction,
-                    health=int(m.get("health", squad_health)),
-                    active=bool(m.get("active", squad_active)),
+                parse_scenario_row(
+                    UnitRow,
+                    m,
+                    path=f"squads[{si}].members[{mi}]",
+                    base=base,
                 )
             )
 
     locations: list[LocationRow] = []
-    for loc in data.get("locations", []):
-        pos = _parse_position(loc["position"])
-        mc = loc.get("movement_cost", 1.0)
-        locations.append(
-            LocationRow(
-                position=pos,
-                terrain_type=str(loc.get("terrain", "plain")),
-                movement_cost=_float_or_inf(mc) if isinstance(mc, str) else float(mc),
-                assault_modifier=float(loc.get("assault_modifier", 0.0)),
-                ranged_modifier=float(loc.get("ranged_modifier", 0.0)),
-                block_los=bool(loc.get("block_los", True)),
-                hex_color=_optional_nonempty_str(loc, "hex_color"),
-            )
-        )
+    for li, loc in enumerate(data.get("locations", [])):
+        row = ensure_dict_table(loc, f"locations[{li}]")
+        locations.append(parse_scenario_row(LocationRow, row, path=f"locations[{li}]"))
+
     for gi, grp in enumerate(data.get("terrain_groups", [])):
-        if not isinstance(grp, dict):
-            raise TypeError(
-                f"terrain_groups[{gi}] must be a table, got {type(grp).__name__}"
-            )
-        terrain_type = str(grp.get("terrain", "plain"))
-        mc = grp.get("movement_cost", 1.0)
-        movement_cost = (
-            _float_or_inf(mc) if isinstance(mc, str) else float(mc)
-        )
-        assault_modifier = float(grp.get("assault_modifier", 0.0))
-        ranged_modifier = float(grp.get("ranged_modifier", 0.0))
-        block_los = bool(grp.get("block_los", True))
-        group_hex_color = _optional_nonempty_str(grp, "hex_color")
-        members = grp.get("members", [])
-        if not isinstance(members, list):
-            raise TypeError(
-                f"terrain_groups[{gi}].members must be a list, got {type(members).__name__}"
-            )
+        g = ensure_dict_table(grp, f"terrain_groups[{gi}]")
+        terrain_type = str(g.get("terrain", "plain"))
+        movement_cost = coerce_movement_cost(g.get("movement_cost", 1.0))
+        assault_modifier = float(g.get("assault_modifier", 0.0))
+        ranged_modifier = float(g.get("ranged_modifier", 0.0))
+        block_los = bool(g.get("block_los", True))
+        group_hex_color = _optional_nonempty_str(g, "hex_color")
+        members = parse_members_list(g.get("members", []), f"terrain_groups[{gi}].members")
+        base = {
+            "terrain": terrain_type,
+            "movement_cost": movement_cost,
+            "assault_modifier": assault_modifier,
+            "ranged_modifier": ranged_modifier,
+            "block_los": block_los,
+            "hex_color": group_hex_color,
+        }
         for mi, m in enumerate(members):
-            if not isinstance(m, dict):
-                raise TypeError(
-                    f"terrain_groups[{gi}].members[{mi}] must be a table, "
-                    f"got {type(m).__name__}"
-                )
             if "position" not in m:
                 raise ValueError(
                     f"terrain_groups[{gi}].members[{mi}] missing required key 'position'"
                 )
-            pos = _parse_position(m["position"])
-            member_hex_color = _optional_nonempty_str(m, "hex_color")
-            hex_color = member_hex_color or group_hex_color
+            member_hex = _optional_nonempty_str(m, "hex_color")
+            row_base = dict(base)
+            if member_hex is not None:
+                row_base["hex_color"] = member_hex
             locations.append(
-                LocationRow(
-                    position=pos,
-                    terrain_type=terrain_type,
-                    movement_cost=movement_cost,
-                    assault_modifier=assault_modifier,
-                    ranged_modifier=ranged_modifier,
-                    block_los=block_los,
-                    hex_color=hex_color,
+                parse_scenario_row(
+                    LocationRow,
+                    m,
+                    path=f"terrain_groups[{gi}].members[{mi}]",
+                    base=row_base,
                 )
             )
 
     seen: set[tuple[int, int, int]] = set()
     ordered: list[tuple[int, int, int]] = []
     for loc in locations:
-        t = _position_to_cube_tuple(loc.position)
+        t = position_to_cube_tuple(loc.position)
         if t not in seen:
             seen.add(t)
             ordered.append(t)
     for u in units:
-        t = _position_to_cube_tuple(u.position)
+        t = position_to_cube_tuple(u.position)
         if t not in seen:
             seen.add(t)
             ordered.append(t)
@@ -333,25 +310,43 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
     )
 
 
-def _parse_markers_table(rows: list | None) -> list["MarkerRow"]:
+def _parse_markers_table(rows: list | None) -> list[MarkerRow]:
     """Parse ``[[markers]]`` rows: id, type, position, optional active."""
     if not rows:
         return []
-    from .schema import MarkerRow
-
     out: list[MarkerRow] = []
     for i, row in enumerate(rows):
-        if not isinstance(row, dict):
-            raise TypeError(f"markers[{i}] must be a table, got {type(row).__name__}")
-        mid = _optional_nonempty_str(row, "id")
-        mtype = _optional_nonempty_str(row, "type")
-        if not mid:
-            raise ValueError(f"markers[{i}] requires non-empty id")
+        d = ensure_dict_table(row, f"markers[{i}]")
+        out.append(parse_scenario_row(MarkerRow, d, path=f"markers[{i}]"))
+    return out
+
+
+def _parse_marker_squads_table(groups: list | None) -> list[MarkerRow]:
+    """Parse ``[[marker_squads]]`` rows: shared type, optional default active, members with id/position."""
+    if not groups:
+        return []
+    out: list[MarkerRow] = []
+    for gi, grp in enumerate(groups):
+        g = ensure_dict_table(grp, f"marker_squads[{gi}]")
+        mtype = _optional_nonempty_str(g, "type")
         if not mtype:
-            raise ValueError(f"markers[{i}] requires non-empty type")
-        pos = _parse_position(row["position"])
-        active = bool(row.get("active", True))
-        out.append(MarkerRow(marker_id=mid, marker_type=mtype, position=pos, active=active))
+            raise ValueError(f"marker_squads[{gi}] requires non-empty type")
+        squad_active = bool(g.get("active", True))
+        members = parse_members_list(g.get("members", []), f"marker_squads[{gi}].members")
+        base = {"type": mtype, "active": squad_active}
+        for mi, m in enumerate(members):
+            if "position" not in m:
+                raise ValueError(
+                    f"marker_squads[{gi}].members[{mi}] missing required key 'position'"
+                )
+            out.append(
+                parse_scenario_row(
+                    MarkerRow,
+                    m,
+                    path=f"marker_squads[{gi}].members[{mi}]",
+                    base=base,
+                )
+            )
     return out
 
 
