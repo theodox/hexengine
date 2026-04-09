@@ -14,13 +14,13 @@ try:
 except ImportError:
     import tomli as tomllib  # fallback for older Python
 
-from .scenario_coercion import coerce_movement_cost, position_to_cube_tuple
-from .scenario_row_parse import (
+from .coercion import coerce_movement_cost, position_to_cube_tuple
+from .rows import (
     ensure_dict_table,
     parse_members_list,
     parse_scenario_row,
 )
-from .schema import (
+from ..schema import (
     DEFAULT_GLOBAL_BASE_CSS_FILE,
     GlobalStylesConfig,
     LocationRow,
@@ -31,10 +31,9 @@ from .schema import (
     UnitRow,
 )
 
-# Single packaged default: ``data/test_scenario/scenario.toml`` next to this package.
-_DEFAULT_PATH = (
-    Path(__file__).resolve().parent / "data" / "test_scenario" / "scenario.toml"
-)
+# Packaged default: ``scenarios/data/test_scenario/scenario.toml`` (sibling of ``load/``).
+_SCENARIOS_PKG = Path(__file__).resolve().parent.parent
+_DEFAULT_PATH = _SCENARIOS_PKG / "data" / "test_scenario" / "scenario.toml"
 
 
 def default_scenario_path() -> Path:

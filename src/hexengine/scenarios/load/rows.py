@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from dataclasses import MISSING, fields
 from typing import Any, TypeVar, get_type_hints
 
-from .scenario_coercion import coerce_movement_cost, parse_position
+from .coercion import coerce_movement_cost, parse_position
 
 T = TypeVar("T")
 

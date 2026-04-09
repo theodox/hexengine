@@ -4,7 +4,7 @@ Pure TOML value coercions for scenario rows (no parse.py imports).
 
 from __future__ import annotations
 
-from ..hexes.types import Hex, HexColRow
+from ...hexes.types import Hex, HexColRow
 
 
 def parse_position(raw: list[int] | tuple[int, ...]) -> tuple[int, int]:

@@ -6,8 +6,11 @@ import textwrap
 from pathlib import Path
 
 from hexengine.hexes.types import Hex, HexColRow
-from hexengine.scenarios.parse import load_scenario
-from hexengine.scenarios.scenario_coercion import parse_position, position_to_cube_tuple
+from hexengine.scenarios import load_scenario
+from hexengine.scenarios.load.coercion import (
+    parse_position,
+    position_to_cube_tuple,
+)
 
 
 def test_parse_position_returns_col_row() -> None:

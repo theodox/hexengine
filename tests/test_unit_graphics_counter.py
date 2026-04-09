@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hexengine.scenarios.parse import load_scenario
+from hexengine.scenarios import load_scenario
 
 
 def test_parse_unit_graphics_counter_row(tmp_path: Path) -> None:

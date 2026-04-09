@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from hexengine.scenarios.parse import load_scenario
+from hexengine.scenarios import load_scenario
 
 
 def test_terrain_groups_expand(tmp_path: Path) -> None:

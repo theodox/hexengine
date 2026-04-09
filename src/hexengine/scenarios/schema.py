@@ -26,7 +26,7 @@ def toml_field(
     optional_str: bool = False,
 ) -> dict[str, Any]:
     """
-    Metadata for :func:`~hexengine.scenarios.scenario_row_parse.parse_scenario_row`.
+    Metadata for :func:`~hexengine.scenarios.load.rows.parse_scenario_row`.
 
     - ``nonempty``: strip string; reject blank (required TOML string fields).
     - ``coerce``: registered name (e.g. ``\"position\"``, ``\"movement_cost\"``).
