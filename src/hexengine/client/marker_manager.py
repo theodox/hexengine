@@ -53,6 +53,11 @@ class MarkerManager:
         display.position = committed_position
         display.enabled = True
 
+    def set_marker_hilite(self, marker_id: str | None) -> None:
+        """Highlight at most one marker (selection / drag affordance)."""
+        for mid, disp in self._marker_displays.items():
+            disp.hilited = marker_id is not None and mid == marker_id
+
     def apply_marker_graphics(self, wire: dict[str, Any]) -> None:
         raw: Any = wire.to_py() if hasattr(wire, "to_py") else wire
         if not isinstance(raw, dict):

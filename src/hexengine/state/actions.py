@@ -283,3 +283,26 @@ class MoveMarker:
 
     def __repr__(self) -> str:
         return f"<MoveMarker {self.marker_id!r} {self.from_hex} -> {self.to_hex}>"
+
+
+@dataclass(frozen=True)
+class AddMarker:
+    """Add a marker row (server-side list update; not a :class:`StateAction`)."""
+
+    marker_id: str
+    marker_type: str
+    position: Hex
+    active: bool = True
+
+    def __repr__(self) -> str:
+        return f"<AddMarker {self.marker_id!r} type={self.marker_type!r} {self.position}>"
+
+
+@dataclass(frozen=True)
+class RemoveMarker:
+    """Remove a marker by id from the server marker list."""
+
+    marker_id: str
+
+    def __repr__(self) -> str:
+        return f"<RemoveMarker {self.marker_id!r}>"

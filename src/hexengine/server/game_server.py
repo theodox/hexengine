@@ -20,6 +20,7 @@ from ..hexes.types import Hex, HexColRow
 from ..package_version import hexes_package_version
 from ..state import ActionManager, GameState
 from ..state.actions import AddUnit, DeleteUnit, MoveUnit, NextPhase, SpendAction
+from ..state.marker_placement import MarkerPlacementRule, default_marker_destination_allowed
 from ..state.snapshot import game_state_from_wire_dict, game_state_to_wire_dict
 from .protocol import (
     ActionRequest,
@@ -50,8 +51,7 @@ class GameServer:
         unit_graphics: dict[str, Any] | None = None,
         marker_graphics: dict[str, Any] | None = None,
         markers: list[dict[str, Any]] | None = None,
-        marker_placement_rule: Callable[[GameState, dict[str, Any], Hex], bool]
-        | None = None,
+        marker_placement_rule: MarkerPlacementRule | None = None,
     ):
         """
         Initialize the game server.
@@ -62,7 +62,7 @@ class GameServer:
             global_styles: Optional global CSS dict (JSON-safe)
             unit_graphics: Optional unit type -> template dict (JSON-safe)
             marker_placement_rule: Optional ``(state, marker_wire_dict, to_hex) -> bool``
-                for :class:`MoveMarker`; if omitted, destinations must be known board hexes.
+                for marker moves/adds; if omitted, uses empty-hex rule (board hex, no unit).
         """
         self.game_state = initial_state or GameState.create_empty()
         self.action_manager = ActionManager(self.game_state)
@@ -259,9 +259,33 @@ class GameServer:
 
         if request.action_type == "MoveMarker":
             try:
-                self._apply_move_marker(request)
+                self._apply_move_marker(request.params)
             except Exception as e:
                 self.logger.error("MoveMarker failed: %s", e, exc_info=True)
+                await self._send_error(player_id, f"Action failed: {e}")
+                return
+            result = ActionResult(success=True, action_id=str(uuid.uuid4()))
+            await self._send_message(player_id, result.to_message())
+            await self._broadcast_state_update()
+            return
+
+        if request.action_type == "AddMarker":
+            try:
+                self._apply_add_marker(request.params)
+            except Exception as e:
+                self.logger.error("AddMarker failed: %s", e, exc_info=True)
+                await self._send_error(player_id, f"Action failed: {e}")
+                return
+            result = ActionResult(success=True, action_id=str(uuid.uuid4()))
+            await self._send_message(player_id, result.to_message())
+            await self._broadcast_state_update()
+            return
+
+        if request.action_type == "RemoveMarker":
+            try:
+                self._apply_remove_marker(request.params)
+            except Exception as e:
+                self.logger.error("RemoveMarker failed: %s", e, exc_info=True)
                 await self._send_error(player_id, f"Action failed: {e}")
                 return
             result = ActionResult(success=True, action_id=str(uuid.uuid4()))
@@ -414,9 +438,47 @@ class GameServer:
 
         await self._broadcast_state_update()
 
-    def _apply_move_marker(self, request: ActionRequest) -> None:
+    def _marker_destination_allowed(
+        self, state: GameState, marker_wire: dict[str, Any], to_hex: Hex
+    ) -> bool:
+        if self._marker_placement_rule is not None:
+            return self._marker_placement_rule(state, marker_wire, to_hex)
+        return default_marker_destination_allowed(state, marker_wire, to_hex)
+
+    def add_marker_row(
+        self,
+        marker_id: str,
+        marker_type: str,
+        col: int,
+        row: int,
+        *,
+        active: bool = True,
+    ) -> None:
+        """
+        Append a marker (same validation as the ``AddMarker`` wire action).
+
+        Does not broadcast; call :meth:`_broadcast_state_update` (or equivalent)
+        from async game code after mutating server state.
+        """
+        self._apply_add_marker(
+            {
+                "marker_id": marker_id,
+                "marker_type": marker_type,
+                "position": [col, row],
+                "active": active,
+            }
+        )
+
+    def remove_marker_by_id(self, marker_id: str) -> None:
+        """
+        Remove a marker by id (same as ``RemoveMarker``).
+
+        Does not broadcast; see :meth:`add_marker_row`.
+        """
+        self._apply_remove_marker({"marker_id": marker_id})
+
+    def _apply_move_marker(self, params: dict[str, Any]) -> None:
         """Update ``self.markers`` when a client sends ``MoveMarker``."""
-        params = request.params
         mid = str(params["marker_id"])
         fp = params["from_position"]
         tp = params["to_position"]
@@ -448,17 +510,44 @@ class GameServer:
             raise ValueError("from_position does not match server marker position")
 
         state = self.action_manager.current_state
-        rule = self._marker_placement_rule
-        if rule is not None:
-            allowed = rule(state, cur, to_hex)
-        else:
-            allowed = to_hex in state.board.locations
-        if not allowed:
+        if not self._marker_destination_allowed(state, cur, to_hex):
             raise ValueError("Illegal marker placement")
 
         new_row = {**cur, "position": [int(tp[0]), int(tp[1])]}
         self.markers = [dict(m) for m in self.markers]
         self.markers[idx] = new_row
+
+    def _apply_add_marker(self, params: dict[str, Any]) -> None:
+        mid = str(params["marker_id"])
+        mtype = str(params["marker_type"])
+        pos = params["position"]
+        active = bool(params.get("active", True))
+        if not mid or not mtype:
+            raise ValueError("marker_id and marker_type are required")
+        if not isinstance(pos, (list, tuple)) or len(pos) != 2:
+            raise ValueError("position must be [col, row]")
+        if any(str(m.get("id")) == mid for m in self.markers):
+            raise ValueError(f"duplicate marker id {mid!r}")
+        mg = self.marker_graphics
+        if mg is not None and mtype not in mg:
+            raise ValueError(f"unknown marker type {mtype!r} (no marker_graphics entry)")
+        to_hex = Hex.from_hex_col_row(HexColRow(col=int(pos[0]), row=int(pos[1])))
+        state = self.action_manager.current_state
+        row = {
+            "id": mid,
+            "type": mtype,
+            "position": [int(pos[0]), int(pos[1])],
+            "active": active,
+        }
+        if not self._marker_destination_allowed(state, row, to_hex):
+            raise ValueError("Illegal marker placement")
+        self.markers = [*self.markers, row]
+
+    def _apply_remove_marker(self, params: dict[str, Any]) -> None:
+        mid = str(params["marker_id"])
+        if not any(str(m.get("id")) == mid for m in self.markers):
+            raise ValueError(f"Unknown marker {mid!r}")
+        self.markers = [m for m in self.markers if str(m.get("id")) != mid]
 
     def _create_action(self, request: ActionRequest) -> Any:
         """

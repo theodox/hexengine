@@ -230,14 +230,26 @@ class NetworkGame(Game):
         """
         from ..hexes.types import HexColRow
         from ..state.actions import (
+            AddMarker,
             AddUnit,
             DeleteUnit,
             MoveMarker,
             MoveUnit,
             NextPhase,
+            RemoveMarker,
             SpendAction,
         )
 
+        if isinstance(action, AddMarker):
+            cr = HexColRow.from_hex(action.position)
+            return {
+                "marker_id": action.marker_id,
+                "marker_type": action.marker_type,
+                "position": [cr.col, cr.row],
+                "active": action.active,
+            }
+        if isinstance(action, RemoveMarker):
+            return {"marker_id": action.marker_id}
         if isinstance(action, MoveMarker):
             fc = HexColRow.from_hex(action.from_hex)
             tc = HexColRow.from_hex(action.to_hex)

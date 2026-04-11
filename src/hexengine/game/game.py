@@ -283,6 +283,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             self._restore_drag_preview_to_committed(preview)
         self.ui_state.select_unit(None)
         self.ui_state.select_marker(None)
+        mg = getattr(self, "marker_mgr", None)
+        if mg is not None:
+            mg.set_marker_hilite(None)
         self.display_mgr.clear_highlights()
 
     def _restore_drag_preview_to_committed(self, preview) -> None:
@@ -335,7 +338,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.display_mgr.highlight_hexes(valid_moves)
 
     def start_drag_preview_marker(self, marker_id: str) -> None:
-        """Begin marker drag: highlights valid destination hexes (board keys by default)."""
+        """Begin marker drag: highlights valid destination hexes (default: empty board hexes)."""
+        from ..state.marker_placement import marker_destination_hexes_for_preview
+
         mgr = getattr(self, "marker_mgr", None)
         if mgr is None or not mgr.has_display(marker_id):
             return
@@ -348,9 +353,13 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         pos_hex = display.position
         self.ui_state.select_unit(None)
         self.ui_state.select_marker(marker_id)
+        mgr.set_marker_hilite(marker_id)
         pixel_pos = self.canvas.hex_layout.hex_to_pixel(pos_hex)
         self.ui_state.start_drag(marker_id, pos_hex, pixel_pos[0], pixel_pos[1])
-        valid = set(state.board.locations.keys())
+        # Preview uses default empty-hex rule; custom server rules need a client hook later.
+        valid = marker_destination_hexes_for_preview(
+            state, {"id": marker_id, "type": display.unit_type}, None
+        )
         self.ui_state.set_constraints(valid)
         self.display_mgr.clear_highlights()
         self.display_mgr.highlight_hexes(valid)
@@ -443,9 +452,13 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 )
                 self.execute_action(action)
             self.ui_state.select_marker(None)
+            if mgr is not None:
+                mgr.set_marker_hilite(None)
             return True
 
         self.ui_state.select_marker(None)
+        if mgr is not None:
+            mgr.set_marker_hilite(None)
         return False
 
     def advance_turn(self, _) -> None:

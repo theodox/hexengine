@@ -4,7 +4,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from ...document import create_proxy, js, jsnull
-from ...hexes.types import Hex
+from ...hexes.types import Hex, HexColRow
 from .handler import EventInfo, Modifiers
 
 if TYPE_CHECKING:
@@ -119,6 +119,26 @@ class MouseEventHandlerMixin:
         else:
             self._unit_mouseup(eventInfo)
 
+    def _marker_dbl_click(self, eventInfo: EventInfo) -> None:
+        """Inspect marker (type, id, odd-q position) in a small popup."""
+        mid = eventInfo.marker_id or self.ui_state.selected_marker_id
+        mgr = getattr(self, "marker_mgr", None)
+        if not mgr or not mid:
+            self.last_click_time = 0
+            return
+        disp = mgr.get_display(mid)
+        if not disp:
+            self.last_click_time = 0
+            return
+        offset_pos = eventInfo.raw_position[0] + 10, eventInfo.raw_position[1] + 20
+        h = disp.position
+        cr = HexColRow.from_hex(h)
+        pos_s = f"[{cr.col}, {cr.row}]"
+        self.popup_manager.create_popup(
+            f"marker {mid} ({disp.unit_type}) @ {pos_s}", offset_pos
+        )
+        self.last_click_time = 0
+
     def _marker_mousedown(self, eventInfo: EventInfo) -> None:
         if not self.is_my_turn():
             self._clear_drag_and_highlights()
@@ -158,12 +178,20 @@ class MouseEventHandlerMixin:
 
         try:
             if maybe_click and maybe_dbl_click and self.ui_state.drag_preview is None:
+                if self.pending_click_timeout is not None:
+                    js.clearTimeout(self.pending_click_timeout)
+                    self.pending_click_timeout = None
+                self._marker_dbl_click(eventInfo)
                 self.last_click_time = 0
+                if self.ui_state.selected_marker_id:
+                    preview = self.ui_state.end_drag()
+                    self._restore_drag_preview_to_committed(preview)
+                    self.display_mgr.clear_highlights()
                 return
 
             if not self.is_my_turn():
                 self._clear_drag_and_highlights()
-                if maybe_click:
+                if not self.ui_state.selected_marker_id and maybe_click:
                     self.last_click_time = current_time
                 return
 
@@ -175,10 +203,14 @@ class MouseEventHandlerMixin:
             if maybe_click:
                 if self.pending_click_timeout is not None:
                     js.clearTimeout(self.pending_click_timeout)
+                self.pending_click_timeout = js.setTimeout(
+                    create_proxy(lambda: self._marker_click_simple()),
+                    self.DBL_CLICK_THRESHOLD,
+                )
+                self.last_click_time = current_time
                 preview = self.ui_state.end_drag()
                 self._restore_drag_preview_to_committed(preview)
                 self.display_mgr.clear_highlights()
-                self.last_click_time = current_time
                 return
 
             if self.ui_state.drag_preview:
@@ -192,6 +224,10 @@ class MouseEventHandlerMixin:
             self.last_click_time = 0
         finally:
             self.hex_path.clear()
+
+    def _marker_click_simple(self) -> None:
+        self.pending_click_timeout = None
+        self.last_click_time = 0
 
     # ---------------------
     # background events
@@ -224,6 +260,9 @@ class MouseEventHandlerMixin:
     def _bg_mousedown(self, eventInfo: EventInfo) -> None:
         self.selection = None
         self.ui_state.select_marker(None)
+        mgr = getattr(self, "marker_mgr", None)
+        if mgr is not None:
+            mgr.set_marker_hilite(None)
         self.logger.warning(
             f"Mouse down on background with modifiers {eventInfo.modifiers}"
         )
