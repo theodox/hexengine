@@ -15,6 +15,7 @@ EventInfo = namedtuple(
         "modifiers",
         "target",
         "unit_id",
+        "marker_id",
         "hex",
     ],
 )

@@ -50,7 +50,7 @@ def parse_scenario_row(
     """
     Instantiate a dataclass row from TOML keys declared via ``field(metadata=toml_field(...))``.
 
-    ``base`` is merged under ``row`` (row wins) so squad / group defaults can be applied
+    ``base`` is merged under ``row`` (row wins) so unit_placement / group defaults can be applied
     using the same TOML key names as in the file.
     """
     merged: dict[str, Any] = {**(base or {}), **dict(row)}

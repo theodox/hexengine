@@ -228,14 +228,24 @@ class NetworkGame(Game):
         Returns:
             Dictionary of action parameters
         """
+        from ..hexes.types import HexColRow
         from ..state.actions import (
             AddUnit,
             DeleteUnit,
+            MoveMarker,
             MoveUnit,
             NextPhase,
             SpendAction,
         )
 
+        if isinstance(action, MoveMarker):
+            fc = HexColRow.from_hex(action.from_hex)
+            tc = HexColRow.from_hex(action.to_hex)
+            return {
+                "marker_id": action.marker_id,
+                "from_position": [fc.col, fc.row],
+                "to_position": [tc.col, tc.row],
+            }
         if isinstance(action, MoveUnit):
             return {
                 "unit_id": action.unit_id,
@@ -296,7 +306,7 @@ class NetworkGame(Game):
         self.marker_mgr.apply_marker_graphics(wire)
 
     def _on_markers(self, wire: list[dict[str, Any]]) -> None:
-        """Sync markers list (phase 1: non-interactive)."""
+        """Sync markers list from server (authoritative positions)."""
         self.marker_mgr.sync_markers(wire)
 
     def _handle_state_update(self, new_state: GameState) -> None:

@@ -16,6 +16,7 @@ import uuid
 from collections.abc import Callable
 from typing import Any
 
+from ..hexes.types import Hex, HexColRow
 from ..package_version import hexes_package_version
 from ..state import ActionManager, GameState
 from ..state.actions import AddUnit, DeleteUnit, MoveUnit, NextPhase, SpendAction
@@ -49,6 +50,8 @@ class GameServer:
         unit_graphics: dict[str, Any] | None = None,
         marker_graphics: dict[str, Any] | None = None,
         markers: list[dict[str, Any]] | None = None,
+        marker_placement_rule: Callable[[GameState, dict[str, Any], Hex], bool]
+        | None = None,
     ):
         """
         Initialize the game server.
@@ -58,6 +61,8 @@ class GameServer:
             map_display: Optional scenario map presentation dict (JSON-safe)
             global_styles: Optional global CSS dict (JSON-safe)
             unit_graphics: Optional unit type -> template dict (JSON-safe)
+            marker_placement_rule: Optional ``(state, marker_wire_dict, to_hex) -> bool``
+                for :class:`MoveMarker`; if omitted, destinations must be known board hexes.
         """
         self.game_state = initial_state or GameState.create_empty()
         self.action_manager = ActionManager(self.game_state)
@@ -65,7 +70,8 @@ class GameServer:
         self.global_styles = global_styles
         self.unit_graphics = unit_graphics
         self.marker_graphics = marker_graphics
-        self.markers = markers
+        self.markers = [] if markers is None else list(markers)
+        self._marker_placement_rule = marker_placement_rule
         self._server_package_version = hexes_package_version()
 
         # Player management
@@ -251,6 +257,18 @@ class GameServer:
             )
             return
 
+        if request.action_type == "MoveMarker":
+            try:
+                self._apply_move_marker(request)
+            except Exception as e:
+                self.logger.error("MoveMarker failed: %s", e, exc_info=True)
+                await self._send_error(player_id, f"Action failed: {e}")
+                return
+            result = ActionResult(success=True, action_id=str(uuid.uuid4()))
+            await self._send_message(player_id, result.to_message())
+            await self._broadcast_state_update()
+            return
+
         # Create action from request
         try:
             action = self._create_action(request)
@@ -395,6 +413,52 @@ class GameServer:
         self.logger.info(f"Loaded snapshot from {player.player_name}")
 
         await self._broadcast_state_update()
+
+    def _apply_move_marker(self, request: ActionRequest) -> None:
+        """Update ``self.markers`` when a client sends ``MoveMarker``."""
+        params = request.params
+        mid = str(params["marker_id"])
+        fp = params["from_position"]
+        tp = params["to_position"]
+        if (
+            not isinstance(fp, (list, tuple))
+            or len(fp) != 2
+            or not isinstance(tp, (list, tuple))
+            or len(tp) != 2
+        ):
+            raise ValueError("from_position and to_position must be [col, row]")
+        from_hex = Hex.from_hex_col_row(HexColRow(col=int(fp[0]), row=int(fp[1])))
+        to_hex = Hex.from_hex_col_row(HexColRow(col=int(tp[0]), row=int(tp[1])))
+        if from_hex == to_hex:
+            return
+
+        idx: int | None = None
+        cur: dict[str, Any] | None = None
+        for i, m in enumerate(self.markers):
+            if str(m.get("id")) == mid:
+                idx = i
+                cur = dict(m)
+                break
+        if cur is None or idx is None:
+            raise ValueError(f"Unknown marker {mid!r}")
+        pos = cur.get("position")
+        if not isinstance(pos, (list, tuple)) or len(pos) != 2:
+            raise ValueError("marker has invalid position")
+        if int(pos[0]) != int(fp[0]) or int(pos[1]) != int(fp[1]):
+            raise ValueError("from_position does not match server marker position")
+
+        state = self.action_manager.current_state
+        rule = self._marker_placement_rule
+        if rule is not None:
+            allowed = rule(state, cur, to_hex)
+        else:
+            allowed = to_hex in state.board.locations
+        if not allowed:
+            raise ValueError("Illegal marker placement")
+
+        new_row = {**cur, "position": [int(tp[0]), int(tp[1])]}
+        self.markers = [dict(m) for m in self.markers]
+        self.markers[idx] = new_row
 
     def _create_action(self, request: ActionRequest) -> Any:
         """

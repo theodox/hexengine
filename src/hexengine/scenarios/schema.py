@@ -311,6 +311,7 @@ class ScenarioData:
         default_factory=default_global_styles_unresolved
     )
     unit_graphics: dict[str, UnitGraphicsTemplate] = field(default_factory=dict)
+    # marker_graphics + markers mirror unit_graphics + units: type → template, then instances.
     marker_graphics: dict[str, UnitGraphicsTemplate] = field(default_factory=dict)
     markers: list[MarkerRow] = field(default_factory=list)
 

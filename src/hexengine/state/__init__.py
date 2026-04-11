@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .action_manager import ActionManager
-from .actions import AddUnit, DeleteUnit, MoveUnit, NextPhase, SpendAction
+from .actions import AddUnit, DeleteUnit, MoveMarker, MoveUnit, NextPhase, SpendAction
 from .game_state import BoardState, GameState, LocationState, TurnState, UnitState
 from .logic import compute_reachable_hexes, compute_valid_moves, is_valid_move
 from .snapshot import (
@@ -21,6 +21,7 @@ __all__ = [
     "TurnState",
     "ActionManager",
     "MoveUnit",
+    "MoveMarker",
     "DeleteUnit",
     "AddUnit",
     "SpendAction",

@@ -28,23 +28,25 @@ class MouseHandler:
     def _get_event_target(self, event) -> tuple:
         """
         Extract target information from a DOM event.
-        Returns a tuple of (target_element, unit_id) where:
-        - target_element: the DOM element that was clicked
-        - unit_id: the data-unit attribute value if present, None otherwise
-
-        This walks up the DOM tree to find an element with a data-unit attribute.
+        Returns ``(leaf_target, unit_id, marker_id)`` after walking ancestors for
+        ``data-unit`` / ``data-marker`` (markers set ``data-marker`` on the root ``<g>``).
         """
 
-        target = event.target
+        leaf = event.target
         unit_id = None
-
-        # Walk up the DOM tree to find an element with data-unit attribute
+        marker_id = None
+        target = leaf
         depth = 0
-        while target and not unit_id and depth < 10:
+        while target and depth < 10:
             try:
-                unit_id = target.getAttribute("data-unit")
-                if unit_id and unit_id != jsnull:
-                    break
+                if marker_id is None:
+                    m = target.getAttribute("data-marker")
+                    if m and m != jsnull:
+                        marker_id = str(m)
+                if unit_id is None:
+                    u = target.getAttribute("data-unit")
+                    if u and u != jsnull:
+                        unit_id = str(u)
             except Exception as e:
                 HANDLER_LOGGER.error(f"[Handler] Error at depth {depth}: {e}")
 
@@ -53,7 +55,9 @@ class MouseHandler:
 
         if unit_id == jsnull:
             unit_id = None
-        return target, unit_id
+        if marker_id == jsnull:
+            marker_id = None
+        return leaf, unit_id, marker_id
 
     def _handle_event(self, event) -> None:
         # Lazy import: importing hexengine.game at module load pulls Game → map.Map
@@ -103,7 +107,7 @@ class MouseHandler:
             )
 
         modifiers = Modifiers.from_event(event)
-        target, unit_id = self._get_event_target(event)
+        target, unit_id, marker_id = self._get_event_target(event)
 
         # Position for SVG (map space)
         position = (x, y)
@@ -124,6 +128,7 @@ class MouseHandler:
             modifiers=modifiers,
             target=target,
             unit_id=unit_id,
+            marker_id=marker_id,
             hex=hex_value,
         )
 

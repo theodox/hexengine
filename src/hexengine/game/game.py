@@ -282,6 +282,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             preview = self.ui_state.end_drag()
             self._restore_drag_preview_to_committed(preview)
         self.ui_state.select_unit(None)
+        self.ui_state.select_marker(None)
         self.display_mgr.clear_highlights()
 
     def _restore_drag_preview_to_committed(self, preview) -> None:
@@ -289,6 +290,10 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         if preview is None or self.action_mgr is None:
             return
         uid = str(preview.unit_id)
+        mg = getattr(self, "marker_mgr", None)
+        if mg is not None and mg.get_display(uid) and self.display_mgr.get_display(uid) is None:
+            mg.clear_preview(uid, preview.original_position)
+            return
         # Prefer live state; fall back to drag start (preview always has original_position).
         committed_hex = preview.original_position
         st = self.action_mgr.current_state
@@ -329,6 +334,33 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.display_mgr.clear_highlights()
         self.display_mgr.highlight_hexes(valid_moves)
 
+    def start_drag_preview_marker(self, marker_id: str) -> None:
+        """Begin marker drag: highlights valid destination hexes (board keys by default)."""
+        mgr = getattr(self, "marker_mgr", None)
+        if mgr is None or not mgr.has_display(marker_id):
+            return
+        state = self.action_mgr.current_state
+        if state is None:
+            return
+        display = mgr.get_display(marker_id)
+        if display is None:
+            return
+        pos_hex = display.position
+        self.ui_state.select_unit(None)
+        self.ui_state.select_marker(marker_id)
+        pixel_pos = self.canvas.hex_layout.hex_to_pixel(pos_hex)
+        self.ui_state.start_drag(marker_id, pos_hex, pixel_pos[0], pixel_pos[1])
+        valid = set(state.board.locations.keys())
+        self.ui_state.set_constraints(valid)
+        self.display_mgr.clear_highlights()
+        self.display_mgr.highlight_hexes(valid)
+
+    def update_drag_preview_marker(
+        self, pixel_x: float, pixel_y: float, target_hex
+    ) -> None:
+        """Same as :meth:`update_drag_preview` for an active marker drag."""
+        self.update_drag_preview(pixel_x, pixel_y, target_hex)
+
     def update_drag_preview(self, pixel_x: float, pixel_y: float, target_hex):
         """Update drag preview position."""
         self.ui_state.update_drag(pixel_x, pixel_y, target_hex)
@@ -340,12 +372,23 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 f"zoom={self.canvas._zoom_level:.2f}, pan=({self.canvas._pan_x:.1f},{self.canvas._pan_y:.1f})"
             )
 
-            self.display_mgr.show_preview(
-                unit_id=self.ui_state.drag_preview.unit_id,
-                pixel_x=pixel_x,
-                pixel_y=pixel_y,
-                is_valid=self.ui_state.drag_preview.is_valid,
-            )
+            uid = self.ui_state.drag_preview.unit_id
+            if self.display_mgr.get_display(uid):
+                self.display_mgr.show_preview(
+                    unit_id=uid,
+                    pixel_x=pixel_x,
+                    pixel_y=pixel_y,
+                    is_valid=self.ui_state.drag_preview.is_valid,
+                )
+            else:
+                mgr = getattr(self, "marker_mgr", None)
+                if mgr and mgr.get_display(uid):
+                    mgr.show_preview(
+                        uid,
+                        pixel_x,
+                        pixel_y,
+                        self.ui_state.drag_preview.is_valid,
+                    )
 
     def end_drag_preview(self) -> bool:
         """
@@ -356,6 +399,14 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
         if not preview:
             return False
+
+        uid = str(preview.unit_id)
+        mgr = getattr(self, "marker_mgr", None)
+        is_marker = (
+            mgr is not None
+            and mgr.get_display(uid) is not None
+            and self.display_mgr.get_display(uid) is None
+        )
 
         # Current hex is in movement_constraints (cost 0), so same-hex drags look
         # "valid" but must not commit: state would not change and _update_unit_display
@@ -372,16 +423,29 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.display_mgr.clear_highlights()
 
         if will_commit:
-            from ..state.actions import MoveUnit
+            if is_marker:
+                from ..state.actions import MoveMarker
 
-            action = MoveUnit(
-                unit_id=preview.unit_id,
-                from_hex=preview.original_position,
-                to_hex=preview.potential_target,
-            )
-            self.execute_action(action)
+                self.execute_action(
+                    MoveMarker(
+                        marker_id=uid,
+                        from_hex=preview.original_position,
+                        to_hex=preview.potential_target,
+                    )
+                )
+            else:
+                from ..state.actions import MoveUnit
+
+                action = MoveUnit(
+                    unit_id=preview.unit_id,
+                    from_hex=preview.original_position,
+                    to_hex=preview.potential_target,
+                )
+                self.execute_action(action)
+            self.ui_state.select_marker(None)
             return True
 
+        self.ui_state.select_marker(None)
         return False
 
     def advance_turn(self, _) -> None:

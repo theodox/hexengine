@@ -55,6 +55,8 @@ class DisplayManager:
 
         When the payload changes, existing unit SVGs are removed so the next
         ``sync_from_state`` rebuilds them with new display creator callables.
+
+        Marker templates use the same wire shape via :meth:`MarkerManager.apply_marker_graphics`.
         """
         raw: Any = wire.to_py() if hasattr(wire, "to_py") else wire
         if not isinstance(raw, dict):

@@ -37,6 +37,7 @@ class WebSocketGameServer:
         unit_graphics: dict[str, Any] | None = None,
         marker_graphics: dict[str, Any] | None = None,
         markers: list[dict[str, Any]] | None = None,
+        marker_placement_rule=None,
     ):
         """
         Initialize WebSocket server.
@@ -58,6 +59,7 @@ class WebSocketGameServer:
             unit_graphics=unit_graphics,
             marker_graphics=marker_graphics,
             markers=markers,
+            marker_placement_rule=marker_placement_rule,
         )
 
         # Map connection to player_id

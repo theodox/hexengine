@@ -114,7 +114,7 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
       # optional: health = 100, active = true
 
       # Or group repeated type/faction (members can override health/active):
-      [[squads]]
+      [[unit_placements]]
       type = "canuck"
       faction = "Red"
       members = [
@@ -128,7 +128,7 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
       movement_cost = 1.5
       # optional: assault_modifier, ranged_modifier, block_los, hex_color (e.g. "#338833")
 
-      # Or group many hexes that share terrain / costs (like squads for units):
+      # Or group many hexes that share terrain / costs (like unit_placements for units):
       [[terrain_groups]]
       terrain = "forest"
       movement_cost = 1.5
@@ -175,13 +175,13 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
       svg = '''<svg xmlns="http://www.w3.org/2000/svg">...</svg>'''
       css = ".x { fill: red; }"
 
-      # Markers: flat rows or grouped type (like squads; members can override active):
+      # Markers: flat rows or grouped type (like marker_placements; members can override active):
       [[markers]]
       id = "obj-1"
       type = "objective"
       position = [10, 12]
 
-      [[marker_squads]]
+      [[marker_placements]]
       type = "objective"
       # optional: active = true
       members = [
@@ -204,8 +204,8 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
     global_styles = _parse_styles_table(data.get("styles"), path, root)
     unit_graphics = _parse_unit_graphics_table(data.get("unit_graphics"), path, root)
     marker_graphics = _parse_unit_graphics_table(data.get("marker_graphics"), path, root)
-    markers = _parse_markers_table(data.get("markers")) + _parse_marker_squads_table(
-        data.get("marker_squads")
+    markers = _parse_markers_table(data.get("markers")) + _parse_marker_placements_table(
+        data.get("marker_placements")
     )
 
     units: list[UnitRow] = []
@@ -213,17 +213,19 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
         row = ensure_dict_table(u, f"units[{ui}]")
         units.append(parse_scenario_row(UnitRow, row, path=f"units[{ui}]"))
 
-    for si, squad in enumerate(data.get("squads", [])):
-        g = ensure_dict_table(squad, f"squads[{si}]")
+    for si, squad in enumerate(data.get("unit_placements", [])):
+        g = ensure_dict_table(squad, f"unit_placements[{si}]")
         unit_type = _optional_nonempty_str(g, "type")
         faction = _optional_nonempty_str(g, "faction")
         if not unit_type:
-            raise ValueError(f"squads[{si}] requires non-empty type")
+            raise ValueError(f"unit_placements[{si}] requires non-empty type")
         if not faction:
-            raise ValueError(f"squads[{si}] requires non-empty faction")
+            raise ValueError(f"unit_placements[{si}] requires non-empty faction")
         squad_health = int(g.get("health", 100))
         squad_active = bool(g.get("active", True))
-        members = parse_members_list(g.get("members", []), f"squads[{si}].members")
+        members = parse_members_list(
+            g.get("members", []), f"unit_placements[{si}].members"
+        )
         base = {
             "type": unit_type,
             "faction": faction,
@@ -235,7 +237,7 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
                 parse_scenario_row(
                     UnitRow,
                     m,
-                    path=f"squads[{si}].members[{mi}]",
+                    path=f"unit_placements[{si}].members[{mi}]",
                     base=base,
                 )
             )
@@ -320,29 +322,31 @@ def _parse_markers_table(rows: list | None) -> list[MarkerRow]:
     return out
 
 
-def _parse_marker_squads_table(groups: list | None) -> list[MarkerRow]:
-    """Parse ``[[marker_squads]]`` rows: shared type, optional default active, members with id/position."""
+def _parse_marker_placements_table(groups: list | None) -> list[MarkerRow]:
+    """Parse ``[[marker_placements]]`` rows: shared type, optional default active, members with id/position."""
     if not groups:
         return []
     out: list[MarkerRow] = []
     for gi, grp in enumerate(groups):
-        g = ensure_dict_table(grp, f"marker_squads[{gi}]")
+        g = ensure_dict_table(grp, f"marker_placements[{gi}]")
         mtype = _optional_nonempty_str(g, "type")
         if not mtype:
-            raise ValueError(f"marker_squads[{gi}] requires non-empty type")
+            raise ValueError(f"marker_placements[{gi}] requires non-empty type")
         squad_active = bool(g.get("active", True))
-        members = parse_members_list(g.get("members", []), f"marker_squads[{gi}].members")
+        members = parse_members_list(
+            g.get("members", []), f"marker_placements[{gi}].members"
+        )
         base = {"type": mtype, "active": squad_active}
         for mi, m in enumerate(members):
             if "position" not in m:
                 raise ValueError(
-                    f"marker_squads[{gi}].members[{mi}] missing required key 'position'"
+                    f"marker_placements[{gi}].members[{mi}] missing required key 'position'"
                 )
             out.append(
                 parse_scenario_row(
                     MarkerRow,
                     m,
-                    path=f"marker_squads[{gi}].members[{mi}]",
+                    path=f"marker_placements[{gi}].members[{mi}]",
                     base=base,
                 )
             )

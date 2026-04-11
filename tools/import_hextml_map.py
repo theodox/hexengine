@@ -17,7 +17,7 @@ Run from repo root::
     python tools/import_hextml_map.py path/to/export.tar.gz -o out/scenario.toml
 
 To refresh map + ``[[terrain_groups]]`` on an existing scenario while keeping
-``name``/``description``, ``[[unit_graphics]]``, ``[[squads]]``, ``[[units]]``, etc.::
+``name``/``description``, ``[[unit_graphics]]``, ``[[unit_placements]]``, ``[[units]]``, etc.::
 
     python tools/import_hextml_map.py map.gz -o src/.../scenario.toml \\
         --merge-into src/.../scenario.toml
@@ -176,7 +176,7 @@ def _merged_terrain_stats(
     return base
 
 
-_UNIT_TABLE_MARKERS = ("[[unit_graphics]]", "[[squads]]", "[[units]]")
+_UNIT_TABLE_MARKERS = ("[[unit_graphics]]", "[[unit_placements]]", "[[units]]")
 
 
 def _strip_terrain_groups_from_tail(tail: str) -> str:
@@ -184,8 +184,8 @@ def _strip_terrain_groups_from_tail(tail: str) -> str:
     Remove ``[[terrain_groups]]`` blocks from the preserved tail.
 
     If unit tables appear before all terrain (unusual) or old ``[[terrain_groups]]``
-    were left *after* ``[[squads]]``, those stray map tables would survive merge and
-    duplicate hexes with stale positions. Only ``[[unit_graphics]]``, ``[[squads]]``,
+    were left *after* ``[[unit_placements]]``, those stray map tables would survive merge and
+    duplicate hexes with stale positions. Only ``[[unit_graphics]]``, ``[[unit_placements]]``,
     and ``[[units]]`` belong in the tail.
     """
     lines = tail.splitlines(keepends=True)

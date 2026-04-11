@@ -4,7 +4,7 @@
 # All ``position`` values are odd-q [col, row] (HexColRow), not cube (i, j, k).
 
 name = "Test Scenario"
-description = "Test scenario; lowlands Hextml map (32×18 odd-q grid), squads unchanged."
+description = "Test scenario; lowlands Hextml map (32×18 odd-q grid), unit_placements unchanged."
 
 [map]
 hex_size = 24
@@ -814,14 +814,14 @@ counter_fill = "rgb(175, 77, 173)"
 counter_fill_hover = "rgba(16, 16, 16, 0.45)"
 counter_fill_hilite = "rgba(255, 215, 0, 0.75)"
 
-[[marker_squads]]
+[[marker_placements]]
 type = "objective"
 members = [
   { id = "obj-1", position = [10, 12] },
 ]
 
 
-[[squads]]
+[[unit_placements]]
 type = "canuck"
 faction = "Red"
 members = [
@@ -833,7 +833,7 @@ members = [
 ]
 
 
-[[squads]]
+[[unit_placements]]
 type = "soldier"
 faction = "Blue"
 members = [

@@ -1,7 +1,12 @@
 """
-MarkerManager - renders non-interactive markers on a dedicated SVG layer.
+MarkerManager — map markers on a dedicated SVG layer below units.
 
-Phase 1: markers are informational only (no pointer events).
+Marker appearance is driven by ``marker_graphics`` templates (same wire shape as
+``unit_graphics``) resolved through ``creator_for_template`` — parallel to how
+``unit_graphics`` + unit ``type`` define unit visuals.
+
+``DisplayUnit`` supports ``set_glyph`` / ``set_caption`` / ``set_text`` for live
+updates; markers do not use that path yet (labels come from the template only).
 """
 
 from __future__ import annotations
@@ -25,6 +30,28 @@ class MarkerManager:
         self._marker_displays: dict[str, DisplayUnit] = {}
         self._marker_graphics_wire: dict[str, dict[str, Any]] = {}
         self.logger = logging.getLogger("marker_manager")
+
+    def has_display(self, marker_id: str) -> bool:
+        return marker_id in self._marker_displays
+
+    def get_display(self, marker_id: str) -> DisplayUnit | None:
+        return self._marker_displays.get(marker_id)
+
+    def show_preview(
+        self, marker_id: str, pixel_x: float, pixel_y: float, is_valid: bool
+    ) -> None:
+        display = self._marker_displays.get(marker_id)
+        if not display:
+            return
+        display.display_at(pixel_x, pixel_y)
+        display.enabled = is_valid
+
+    def clear_preview(self, marker_id: str, committed_position: Hex) -> None:
+        display = self._marker_displays.get(marker_id)
+        if not display:
+            return
+        display.position = committed_position
+        display.enabled = True
 
     def apply_marker_graphics(self, wire: dict[str, Any]) -> None:
         raw: Any = wire.to_py() if hasattr(wire, "to_py") else wire
@@ -97,8 +124,8 @@ class MarkerManager:
             layout=self._canvas.hex_layout,
         )
         creator(display)
-        # Markers are non-interactive in phase 1
-        display.proxy.style.pointerEvents = "none"
+        display.proxy.setAttribute("data-marker", marker_id)
+        display.proxy.style.pointerEvents = "all"
 
         col, row = int(pos[0]), int(pos[1])
         h = Hex.from_hex_col_row(HexColRow(col=col, row=row))
@@ -126,4 +153,3 @@ class MarkerManager:
         except Exception:
             pass
         del self._marker_displays[marker_id]
-
