@@ -13,6 +13,7 @@ from typing import Any
 
 from .. import dev_console
 from ..client import LocalServerManager
+from ..client.marker_manager import MarkerManager
 from ..client.websocket_client import BrowserWebSocketClient, ConnectionState
 from ..state import GameState
 from ..state.snapshot import SNAPSHOT_FORMAT_VERSION, game_state_to_wire_dict
@@ -67,6 +68,7 @@ class NetworkGame(Game):
         self.my_faction: str | None = None
 
         self.logger = logging.getLogger("network_game")
+        self.marker_mgr = MarkerManager(self.canvas)
 
     def connect(self) -> bool:
         """
@@ -85,17 +87,25 @@ class NetworkGame(Game):
                 self.client.disconnect()
                 self.client = None
 
+            preloaded_unit_graphics: dict[str, Any] | None = None
+            preloaded_marker_graphics: dict[str, Any] | None = None
+            preloaded_markers: list[dict[str, Any]] | None = None
+
             # Start local server if requested
             if self.use_local_server and not self.local_server:
                 self.logger.info("Starting local server...")
+                from ..scenarios import load_scenario, resolve_scenario_path_for_server
                 from ..scenarios.loader import scenario_to_initial_state
-                from ..scenarios.parse import (
-                    load_scenario,
-                    resolve_scenario_path_for_server,
-                )
 
                 scenario_path = resolve_scenario_path_for_server()
                 scenario_data = load_scenario(scenario_path)
+                preloaded_unit_graphics = scenario_data.unit_graphics_to_wire_dict()
+                preloaded_marker_graphics = getattr(
+                    scenario_data, "marker_graphics_to_wire_dict", lambda: {}
+                )()
+                preloaded_markers = getattr(
+                    scenario_data, "markers_to_wire_list", lambda: []
+                )()
                 initial_state = scenario_to_initial_state(
                     scenario_data,
                     initial_faction="Red",
@@ -106,7 +116,9 @@ class NetworkGame(Game):
                     initial_state=initial_state,
                     map_display=scenario_data.map_display.to_wire_dict(),
                     global_styles=scenario_data.global_styles.to_wire_dict(),
-                    unit_graphics=scenario_data.unit_graphics_to_wire_dict(),
+                    unit_graphics=preloaded_unit_graphics,
+                    marker_graphics=preloaded_marker_graphics,
+                    markers=preloaded_markers,
                 )
                 if not self.local_server.start():
                     self.logger.error("Failed to start local server")
@@ -122,9 +134,27 @@ class NetworkGame(Game):
             self.client.on_map_display = self._on_map_display
             self.client.on_global_styles = self._on_global_styles
             self.client.on_unit_graphics = self._on_unit_graphics
+            self.client.on_marker_graphics = self._on_marker_graphics
+            self.client.on_markers = self._on_markers
             self.client.on_connection_change = self._handle_connection_change
             self.client.on_error = self._handle_error
             self.client.on_action_result = self._handle_action_result
+
+            # Apply the same unit_graphics the server uses before the first StateUpdate
+            # so the initial sync_from_state picks up scenario templates (not builtins only).
+            if preloaded_unit_graphics is not None:
+                self.display_mgr.apply_unit_graphics(preloaded_unit_graphics)
+                self.client._applied_unit_graphics_json = json.dumps(
+                    preloaded_unit_graphics, sort_keys=True, ensure_ascii=True
+                )
+
+            if preloaded_marker_graphics is not None:
+                self.marker_mgr.apply_marker_graphics(preloaded_marker_graphics)
+                self.client._applied_marker_graphics_json = json.dumps(
+                    preloaded_marker_graphics, sort_keys=True, ensure_ascii=True
+                )
+            if preloaded_markers is not None:
+                self.marker_mgr.sync_markers(preloaded_markers)
 
             # Connect to server (synchronous in browser)
             self.client.connect(
@@ -198,14 +228,36 @@ class NetworkGame(Game):
         Returns:
             Dictionary of action parameters
         """
+        from ..hexes.types import HexColRow
         from ..state.actions import (
+            AddMarker,
             AddUnit,
             DeleteUnit,
+            MoveMarker,
             MoveUnit,
             NextPhase,
+            RemoveMarker,
             SpendAction,
         )
 
+        if isinstance(action, AddMarker):
+            cr = HexColRow.from_hex(action.position)
+            return {
+                "marker_id": action.marker_id,
+                "marker_type": action.marker_type,
+                "position": [cr.col, cr.row],
+                "active": action.active,
+            }
+        if isinstance(action, RemoveMarker):
+            return {"marker_id": action.marker_id}
+        if isinstance(action, MoveMarker):
+            fc = HexColRow.from_hex(action.from_hex)
+            tc = HexColRow.from_hex(action.to_hex)
+            return {
+                "marker_id": action.marker_id,
+                "from_position": [fc.col, fc.row],
+                "to_position": [tc.col, tc.row],
+            }
         if isinstance(action, MoveUnit):
             return {
                 "unit_id": action.unit_id,
@@ -261,6 +313,14 @@ class NetworkGame(Game):
         """Apply scenario unit graphics templates before state sync."""
         self.display_mgr.apply_unit_graphics(wire)
 
+    def _on_marker_graphics(self, wire: dict[str, Any]) -> None:
+        """Apply scenario marker graphics templates before state sync."""
+        self.marker_mgr.apply_marker_graphics(wire)
+
+    def _on_markers(self, wire: list[dict[str, Any]]) -> None:
+        """Sync markers list from server (authoritative positions)."""
+        self.marker_mgr.sync_markers(wire)
+
     def _handle_state_update(self, new_state: GameState) -> None:
         """
         Callback when server sends a state update.
@@ -272,9 +332,19 @@ class NetworkGame(Game):
             f"Received state update with {len(new_state.board.units)} units"
         )
 
+        old_state = self.action_mgr.current_state
+
         # Drop any in-progress local drag/highlights — server state is authoritative
         # and stale selection caused inactive clients to run _unit_drag / clear churn.
         self._clear_drag_and_highlights()
+
+        if old_state is not None:
+            ot, nt = old_state.turn, new_state.turn
+            if (
+                ot.current_faction != nt.current_faction
+                or ot.current_phase != nt.current_phase
+            ):
+                self.selection = None
 
         # Update local state (don't use ActionManager.execute - server is source of truth)
         self.action_mgr._current_state = new_state
@@ -325,6 +395,8 @@ class NetworkGame(Game):
         """
         self.logger.error(f"Server error: {error}")
         dev_console.set_status(f"Server: {error}")
+        # Invalid move uses MessageType.ERROR, not action_result(success=False).
+        self.display_mgr.refresh_unit_positions()
 
     def _handle_action_result(self, success: bool, error_msg: str | None) -> None:
         """
@@ -340,6 +412,8 @@ class NetworkGame(Game):
             self.logger.warning(f"Action rejected: {error_msg}")
             if error_msg:
                 dev_console.set_status(f"Server: {error_msg}")
+            # Move (etc.) did not apply; preview may still follow the cursor transform.
+            self.display_mgr.refresh_unit_positions()
 
     def is_my_turn(self) -> bool:
         """Check if it's currently this player's turn."""

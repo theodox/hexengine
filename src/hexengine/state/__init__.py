@@ -1,9 +1,23 @@
 from __future__ import annotations
 
 from .action_manager import ActionManager
-from .actions import AddUnit, DeleteUnit, MoveUnit, NextPhase, SpendAction
+from .actions import (
+    AddMarker,
+    AddUnit,
+    DeleteUnit,
+    MoveMarker,
+    MoveUnit,
+    NextPhase,
+    RemoveMarker,
+    SpendAction,
+)
 from .game_state import BoardState, GameState, LocationState, TurnState, UnitState
 from .logic import compute_reachable_hexes, compute_valid_moves, is_valid_move
+from .marker_placement import (
+    MarkerPlacementRule,
+    default_marker_destination_allowed,
+    marker_destination_hexes_for_preview,
+)
 from .snapshot import (
     SNAPSHOT_FORMAT_VERSION,
     game_state_from_wire_dict,
@@ -21,6 +35,9 @@ __all__ = [
     "TurnState",
     "ActionManager",
     "MoveUnit",
+    "MoveMarker",
+    "AddMarker",
+    "RemoveMarker",
     "DeleteUnit",
     "AddUnit",
     "SpendAction",
@@ -28,4 +45,7 @@ __all__ = [
     "compute_reachable_hexes",
     "compute_valid_moves",
     "is_valid_move",
+    "MarkerPlacementRule",
+    "default_marker_destination_allowed",
+    "marker_destination_hexes_for_preview",
 ]

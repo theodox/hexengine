@@ -5,12 +5,13 @@ State-based actions for the immutable state system.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from ..hexes.types import Hex
 from .action_manager import StateAction
 
 if TYPE_CHECKING:
-    from ..hexes.types import Hex
     from ..state.game_state import GameState
 
 LOGGER = logging.getLogger("actions")
@@ -270,3 +271,40 @@ class NextPhase(StateAction):
 
     def __repr__(self) -> str:
         return f"<NextPhase {self.new_faction}-{self.new_phase}>"
+
+
+@dataclass(frozen=True)
+class MoveMarker:
+    """Move a map marker by id (server-side list update; not a :class:`StateAction`)."""
+
+    marker_id: str
+    from_hex: Hex
+    to_hex: Hex
+
+    def __repr__(self) -> str:
+        return f"<MoveMarker {self.marker_id!r} {self.from_hex} -> {self.to_hex}>"
+
+
+@dataclass(frozen=True)
+class AddMarker:
+    """Add a marker row (server-side list update; not a :class:`StateAction`)."""
+
+    marker_id: str
+    marker_type: str
+    position: Hex
+    active: bool = True
+
+    def __repr__(self) -> str:
+        return (
+            f"<AddMarker {self.marker_id!r} type={self.marker_type!r} {self.position}>"
+        )
+
+
+@dataclass(frozen=True)
+class RemoveMarker:
+    """Remove a marker by id from the server marker list."""
+
+    marker_id: str
+
+    def __repr__(self) -> str:
+        return f"<RemoveMarker {self.marker_id!r}>"

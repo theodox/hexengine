@@ -24,14 +24,14 @@ def test_split_scenario_for_map_replace() -> None:
         'terrain = "plain"\n'
         "movement_cost = 1.0\n"
         "members = []\n\n"
-        "[[squads]]\n"
+        "[[unit_placements]]\n"
         "type = x\n"
         "members = []\n"
     )
     head, tail = _im._split_scenario_for_map_replace(text)
     assert 'name = "N"' in head
     assert "[map]" not in head
-    assert tail.startswith("[[squads]]")
+    assert tail.startswith("[[unit_placements]]")
     assert "[[terrain_groups]]" not in tail
 
 
@@ -54,11 +54,11 @@ def test_merged_terrain_stats_new_terrain_default_block_los_false() -> None:
     assert s["block_los"] is False
 
 
-def test_strip_terrain_groups_from_tail_removes_stray_after_squads() -> None:
+def test_strip_terrain_groups_from_tail_removes_stray_after_unit_placements() -> None:
     tail = (
         "[[unit_graphics]]\n"
         "type = x\n\n"
-        "[[squads]]\n"
+        "[[unit_placements]]\n"
         "members = []\n\n"
         "[[terrain_groups]]\n"
         'terrain = "plain"\n'
@@ -70,4 +70,4 @@ def test_strip_terrain_groups_from_tail_removes_stray_after_squads() -> None:
     cleaned = _im._strip_terrain_groups_from_tail(tail)
     assert "[[terrain_groups]]" not in cleaned
     assert "[[unit_graphics]]" in cleaned
-    assert "[[squads]]" in cleaned
+    assert "[[unit_placements]]" in cleaned

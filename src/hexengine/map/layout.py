@@ -51,7 +51,10 @@ class HexLayout:
         x = (x - self.origin_x) / self.size
         y = (y - self.origin_y) / self.size
         q = FLAT_TOP_PLANE_TO_AXIAL_Q_SCALE * x
-        r = FLAT_TOP_PLANE_TO_AXIAL_R_COEFF_X * x + FLAT_TOP_PLANE_TO_AXIAL_R_COEFF_Y * y
+        r = (
+            FLAT_TOP_PLANE_TO_AXIAL_R_COEFF_X * x
+            + FLAT_TOP_PLANE_TO_AXIAL_R_COEFF_Y * y
+        )
         return Hex(round(q), round(r), round(-q - r))
 
     def hex_corners(self, hex: Hex) -> list[tuple[float, float]]:

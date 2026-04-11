@@ -35,6 +35,9 @@ class WebSocketGameServer:
         map_display: dict[str, Any] | None = None,
         global_styles: dict[str, Any] | None = None,
         unit_graphics: dict[str, Any] | None = None,
+        marker_graphics: dict[str, Any] | None = None,
+        markers: list[dict[str, Any]] | None = None,
+        marker_placement_rule=None,
     ):
         """
         Initialize WebSocket server.
@@ -54,6 +57,9 @@ class WebSocketGameServer:
             map_display=map_display,
             global_styles=global_styles,
             unit_graphics=unit_graphics,
+            marker_graphics=marker_graphics,
+            markers=markers,
+            marker_placement_rule=marker_placement_rule,
         )
 
         # Map connection to player_id
@@ -170,8 +176,8 @@ async def main():
     )
 
     # Load scenario from TOML (prefer ./scenarios/ at cwd, else packaged default)
+    from ..scenarios import load_scenario, resolve_scenario_path_for_server
     from ..scenarios.loader import scenario_to_initial_state
-    from ..scenarios.parse import load_scenario, resolve_scenario_path_for_server
 
     scenario_path = resolve_scenario_path_for_server()
     scenario_data = load_scenario(scenario_path)
@@ -190,6 +196,8 @@ async def main():
         map_display=scenario_data.map_display.to_wire_dict(),
         global_styles=scenario_data.global_styles.to_wire_dict(),
         unit_graphics=scenario_data.unit_graphics_to_wire_dict(),
+        marker_graphics=scenario_data.marker_graphics_to_wire_dict(),
+        markers=scenario_data.markers_to_wire_list(),
     )
     await server.start()
 

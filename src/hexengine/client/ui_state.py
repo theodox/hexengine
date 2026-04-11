@@ -62,6 +62,7 @@ class UIState:
 
     # Selection
     selected_unit_id: str | None = None
+    selected_marker_id: str | None = None
 
     # Hover/cursor state
     hover_hex: Hex | None = None
@@ -75,7 +76,17 @@ class UIState:
     def select_unit(self, unit_id: str | None) -> None:
         """Select a unit (or clear selection if None)."""
         self.selected_unit_id = unit_id
+        if unit_id is not None:
+            self.selected_marker_id = None
         if unit_id is None:
+            self.movement_constraints.clear()
+
+    def select_marker(self, marker_id: str | None) -> None:
+        """Select a map marker (or clear). Clears unit selection when a marker is chosen."""
+        self.selected_marker_id = marker_id
+        if marker_id is not None:
+            self.selected_unit_id = None
+        if marker_id is None:
             self.movement_constraints.clear()
 
     def start_drag(

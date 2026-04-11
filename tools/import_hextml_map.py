@@ -17,7 +17,7 @@ Run from repo root::
     python tools/import_hextml_map.py path/to/export.tar.gz -o out/scenario.toml
 
 To refresh map + ``[[terrain_groups]]`` on an existing scenario while keeping
-``name``/``description``, ``[[unit_graphics]]``, ``[[squads]]``, ``[[units]]``, etc.::
+``name``/``description``, ``[[unit_graphics]]``, ``[[unit_placements]]``, ``[[units]]``, etc.::
 
     python tools/import_hextml_map.py map.gz -o src/.../scenario.toml \\
         --merge-into src/.../scenario.toml
@@ -50,7 +50,6 @@ if _SRC.is_dir() and str(_SRC) not in sys.path:
 
 from hexengine.hexes.math import shift_axial_ij_cube_coords_to_origin  # noqa: E402
 from hexengine.hexes.types import Hex, HexColRow  # noqa: E402
-
 
 # Stub stats for Hextml CSS terrain classes → scenario ``terrain`` string is the
 # class slug unless remapped here. Authors should tune in generated TOML.
@@ -127,7 +126,7 @@ def _normalize_oddq_col_row_cells(
     min_c = min(t[4] for t in rows)
     min_r = min(t[5] for t in rows)
     out: list[tuple[int, int, int, str]] = []
-    for i, j, k, raw, c, r in rows:
+    for _i, _j, _k, raw, c, r in rows:
         ncr = HexColRow(col=c - min_c, row=r - min_r)
         h2 = ncr.to_hex()
         out.append((h2.i, h2.j, h2.k, raw))
@@ -139,7 +138,9 @@ def _terrain_stats(terrain: str) -> dict[str, object]:
     return dict(base)
 
 
-def _terrain_overlay_from_parsed_toml(data: dict[str, object]) -> dict[str, dict[str, object]]:
+def _terrain_overlay_from_parsed_toml(
+    data: dict[str, object],
+) -> dict[str, dict[str, object]]:
     """``terrain`` string -> stat fields from existing ``[[terrain_groups]]`` (no ``members``)."""
     out: dict[str, dict[str, object]] = {}
     raw = data.get("terrain_groups")
@@ -176,7 +177,7 @@ def _merged_terrain_stats(
     return base
 
 
-_UNIT_TABLE_MARKERS = ("[[unit_graphics]]", "[[squads]]", "[[units]]")
+_UNIT_TABLE_MARKERS = ("[[unit_graphics]]", "[[unit_placements]]", "[[units]]")
 
 
 def _strip_terrain_groups_from_tail(tail: str) -> str:
@@ -184,8 +185,8 @@ def _strip_terrain_groups_from_tail(tail: str) -> str:
     Remove ``[[terrain_groups]]`` blocks from the preserved tail.
 
     If unit tables appear before all terrain (unusual) or old ``[[terrain_groups]]``
-    were left *after* ``[[squads]]``, those stray map tables would survive merge and
-    duplicate hexes with stale positions. Only ``[[unit_graphics]]``, ``[[squads]]``,
+    were left *after* ``[[unit_placements]]``, those stray map tables would survive merge and
+    duplicate hexes with stale positions. Only ``[[unit_graphics]]``, ``[[unit_placements]]``,
     and ``[[units]]`` belong in the tail.
     """
     lines = tail.splitlines(keepends=True)
@@ -299,8 +300,12 @@ def build_map_and_terrain_toml(
         lines.append("[[terrain_groups]]")
         lines.append(f'terrain = "{_escape_toml_basic(terrain)}"')
         lines.append(f"movement_cost = {_toml_float_or_str(stats['movement_cost'])}")
-        lines.append(f"assault_modifier = {_toml_float_or_str(stats['assault_modifier'])}")
-        lines.append(f"ranged_modifier = {_toml_float_or_str(stats['ranged_modifier'])}")
+        lines.append(
+            f"assault_modifier = {_toml_float_or_str(stats['assault_modifier'])}"
+        )
+        lines.append(
+            f"ranged_modifier = {_toml_float_or_str(stats['ranged_modifier'])}"
+        )
         lines.append(
             "block_los = "
             + ("true" if bool(stats.get("block_los", False)) else "false")
@@ -472,7 +477,7 @@ def parse_hextml_html(
     p.close()
     sec = p.best_section()
     if sec is None:
-        raise ValueError("No <section class=\"map\"> found in HTML")
+        raise ValueError('No <section class="map"> found in HTML')
     cells = sec["cells"]
     assert isinstance(cells, list)
     axial = _normalize_axial_cells(list(cells))
@@ -565,9 +570,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        if (
-            path.suffix.lower() in (".gz", ".tgz")
-            or path.name.lower().endswith(".tar.gz")
+        if path.suffix.lower() in (".gz", ".tgz") or path.name.lower().endswith(
+            ".tar.gz"
         ):
             html = _load_html_from_gzip_or_tar(path, args.html)
         else:

@@ -1,0 +1,57 @@
+.unit-counter-root {
+  overflow: visible;
+  pointer-events: all;
+}
+
+.unit.unit-counter .unit-counter-base {
+  fill: var(--unit-counter-fill, rgb(74, 85, 104));
+  stroke: rgba(0, 0, 0, 0.28);
+  stroke-width: 0.8;
+  /* Override global `.unit rect { x/y/width/height: var(--unit-*) }` which would
+     shrink/offset this viewBox-based counter frame. */
+  x: 0;
+  y: 0;
+  width: 100;
+  height: 100;
+  rx: 14;
+  ry: 14;
+  pointer-events: all;
+}
+
+.unit-counter-glyph {
+  fill: rgba(16,16,16, 1.0  );
+  font-family: system-ui, "Segoe UI", sans-serif;
+  font-size: 48;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: mathematical;
+  pointer-events: none;
+  user-select: none;
+}
+
+.unit-counter-caption {
+  fill: rgba(16,16,16, 1.0);
+  font-family: system-ui, "Segoe UI", sans-serif;
+  font-style: bold;
+  font-size: 28;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+.unit.unit-counter:hover .unit-counter-base {
+  fill: var(--unit-counter-fill-hover, rgba(157, 145, 113, 0.808));
+  filter: brightness(1.06);
+}
+
+.unit.unit-counter.hilited .unit-counter-base {
+  fill: var(--unit-counter-fill-hilite, rgba(231, 198, 108, 0.808));
+  stroke: rgba(0, 0, 0, 0.35);
+}
+
+.unit.unit-counter.disabled .unit-counter-base {
+  opacity: 0.45;
+}
+

@@ -62,9 +62,7 @@ def shift_axial_ij_cube_coords_to_origin(
         return []
     min_i = min(t[0] for t in lst)
     min_j = min(t[1] for t in lst)
-    return [
-        (i - min_i, j - min_j, -(i - min_i) - (j - min_j)) for i, j, _k in lst
-    ]
+    return [(i - min_i, j - min_j, -(i - min_i) - (j - min_j)) for i, j, _k in lst]
 
 
 def normalize(hex: Hex) -> Hex:

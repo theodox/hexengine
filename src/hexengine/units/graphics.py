@@ -65,6 +65,8 @@ class DisplayUnit:
         self._hex = Hex(-2, -2, 4)  # Default off-map
         self._hex_layout = layout
         self.text_element = None
+        self.glyph_element = None
+        self.caption_element = None
 
     def push_classes(self, *classes: Iterable[str]) -> None:
         for cl in classes:
@@ -73,9 +75,26 @@ class DisplayUnit:
     def set_text_element(self, element: js.Element) -> None:
         self.text_element = element
 
+    def set_glyph_element(self, element: js.Element) -> None:
+        self.glyph_element = element
+
+    def set_caption_element(self, element: js.Element) -> None:
+        self.caption_element = element
+
     def set_text(self, text: str) -> None:
-        if self.text_element:
+        """Update caption if present (e.g. counter health); else legacy single text node."""
+        if self.caption_element is not None:
+            self.caption_element.textContent = text
+        elif self.text_element:
             self.text_element.textContent = text
+
+    def set_glyph(self, text: str) -> None:
+        if self.glyph_element is not None:
+            self.glyph_element.textContent = text
+
+    def set_caption(self, text: str) -> None:
+        if self.caption_element is not None:
+            self.caption_element.textContent = text
 
     def display_at(self, x: float, y: float) -> None:
         """

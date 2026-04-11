@@ -76,6 +76,7 @@ class BrowserWebSocketClient:
         self._applied_map_display_json: str | None = None
         self._applied_global_styles_json: str | None = None
         self._applied_unit_graphics_json: str | None = None
+        self._applied_marker_graphics_json: str | None = None
         self._warned_stale_client = False
 
         # Callbacks
@@ -83,6 +84,8 @@ class BrowserWebSocketClient:
         self.on_map_display: Callable[[dict[str, Any]], None] | None = None
         self.on_global_styles: Callable[[dict[str, Any]], None] | None = None
         self.on_unit_graphics: Callable[[dict[str, Any]], None] | None = None
+        self.on_marker_graphics: Callable[[dict[str, Any]], None] | None = None
+        self.on_markers: Callable[[list[dict[str, Any]]], None] | None = None
         self.on_connection_change: Callable[[ConnectionState], None] | None = None
         self.on_error: Callable[[str], None] | None = None
         self.on_action_result: Callable[[bool, str | None], None] | None = None
@@ -292,7 +295,7 @@ class BrowserWebSocketClient:
         self.sequence_number = update.sequence_number
 
         if update.global_styles is not None and self.on_global_styles:
-            sig = json.dumps(update.global_styles, sort_keys=True)
+            sig = json.dumps(update.global_styles, sort_keys=True, ensure_ascii=True)
             if sig != self._applied_global_styles_json:
                 self._applied_global_styles_json = sig
                 try:
@@ -301,7 +304,7 @@ class BrowserWebSocketClient:
                     self.logger.error("on_global_styles failed: %s", e)
 
         if update.map_display is not None and self.on_map_display:
-            sig = json.dumps(update.map_display, sort_keys=True)
+            sig = json.dumps(update.map_display, sort_keys=True, ensure_ascii=True)
             if sig != self._applied_map_display_json:
                 self._applied_map_display_json = sig
                 try:
@@ -310,13 +313,28 @@ class BrowserWebSocketClient:
                     self.logger.error("on_map_display failed: %s", e)
 
         if update.unit_graphics is not None and self.on_unit_graphics:
-            sig = json.dumps(update.unit_graphics, sort_keys=True)
+            sig = json.dumps(update.unit_graphics, sort_keys=True, ensure_ascii=True)
             if sig != self._applied_unit_graphics_json:
                 self._applied_unit_graphics_json = sig
                 try:
                     self.on_unit_graphics(update.unit_graphics)
                 except Exception as e:
                     self.logger.error("on_unit_graphics failed: %s", e)
+
+        if update.marker_graphics is not None and self.on_marker_graphics:
+            sig = json.dumps(update.marker_graphics, sort_keys=True, ensure_ascii=True)
+            if sig != self._applied_marker_graphics_json:
+                self._applied_marker_graphics_json = sig
+                try:
+                    self.on_marker_graphics(update.marker_graphics)
+                except Exception as e:
+                    self.logger.error("on_marker_graphics failed: %s", e)
+
+        if update.markers is not None and self.on_markers:
+            try:
+                self.on_markers(update.markers)
+            except Exception as e:
+                self.logger.error("on_markers failed: %s", e)
 
         self._maybe_warn_server_newer(update.server_package_version)
 

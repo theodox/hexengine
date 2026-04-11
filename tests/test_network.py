@@ -62,10 +62,12 @@ class TestGameServer(unittest.TestCase):
             self.assertNotIn("Red", server.faction_to_player)
 
             await server.handle_message(
-                "conn-b", JoinGameRequest(player_name="Bob", faction="Blue").to_message()
+                "conn-b",
+                JoinGameRequest(player_name="Bob", faction="Blue").to_message(),
             )
             await server.handle_message(
-                "conn-c", JoinGameRequest(player_name="Carol", faction="Red").to_message()
+                "conn-c",
+                JoinGameRequest(player_name="Carol", faction="Red").to_message(),
             )
             self.assertEqual(len(server.players), 2)
             self.assertEqual(server.faction_to_player["Red"], "conn-c")

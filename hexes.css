@@ -79,6 +79,16 @@
     z-index: 10;
 }
 
+#map-markers {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0px;
+    left: 0px;
+    pointer-events: none; /* phase 1: informational only */
+    z-index: 20;
+}
+
 #map-units {
     position: absolute;
     width: 100%;
@@ -86,7 +96,7 @@
     top: 0px;
     left: 0px;
     pointer-events: auto;
-    z-index: 20;
+    z-index: 15;
 }
 
 #console-bg {

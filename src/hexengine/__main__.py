@@ -8,7 +8,7 @@ from .document import element, js
 from .excepthook import install_exception_hook
 from .game import NetworkGame
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 
 GAME = None
@@ -82,8 +82,8 @@ def async_main() -> None:
         _g = globals()
         _g["save_snapshot_json"] = lambda: GAME.save_snapshot_json()
         _g["load_snapshot_json"] = lambda s: GAME.load_snapshot_json(s)
-        _g["set_terrain_overlay"] = lambda visible: GAME.canvas.set_terrain_overlay_visible(
-            bool(visible)
+        _g["set_terrain_overlay"] = (
+            lambda visible: GAME.canvas.set_terrain_overlay_visible(bool(visible))
         )
         _g["terrain_overlay_visible"] = lambda: GAME.canvas.terrain_overlay_visible
 

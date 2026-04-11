@@ -145,6 +145,8 @@ class StateUpdate:
     map_display: dict[str, Any] | None = None  # From scenario MapDisplayConfig
     global_styles: dict[str, Any] | None = None  # GlobalStylesConfig.to_wire_dict()
     unit_graphics: dict[str, Any] | None = None  # unit type -> template wire dict
+    marker_graphics: dict[str, Any] | None = None  # marker type -> template wire dict
+    markers: list[dict[str, Any]] | None = None  # marker instances
     server_package_version: str | None = None  # hexes wheel version on server
 
     def to_message(self) -> Message:
@@ -159,6 +161,10 @@ class StateUpdate:
             payload["global_styles"] = self.global_styles
         if self.unit_graphics is not None:
             payload["unit_graphics"] = self.unit_graphics
+        if self.marker_graphics is not None:
+            payload["marker_graphics"] = self.marker_graphics
+        if self.markers is not None:
+            payload["markers"] = self.markers
         if self.server_package_version is not None:
             payload["server_package_version"] = self.server_package_version
         return Message(type=MessageType.STATE_UPDATE, payload=payload)
@@ -173,6 +179,8 @@ class StateUpdate:
             map_display=p.get("map_display"),
             global_styles=p.get("global_styles"),
             unit_graphics=p.get("unit_graphics"),
+            marker_graphics=p.get("marker_graphics"),
+            markers=p.get("markers"),
             server_package_version=p.get("server_package_version"),
         )
 

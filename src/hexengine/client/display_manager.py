@@ -8,7 +8,9 @@ preview visuals during drag operations.
 
 from __future__ import annotations
 
+import json
 import logging
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from ..hexes.types import Hex
@@ -48,8 +50,31 @@ class DisplayManager:
         self.logger = logging.getLogger("display_manager")
 
     def apply_unit_graphics(self, wire: dict[str, Any]) -> None:
-        """Replace scenario-driven unit graphics templates (unit type → wire dict)."""
-        self._unit_graphics_wire = {str(k): dict(v) for k, v in wire.items()}
+        """
+        Replace scenario-driven unit graphics templates (unit type → wire dict).
+
+        When the payload changes, existing unit SVGs are removed so the next
+        ``sync_from_state`` rebuilds them with new display creator callables.
+
+        Marker templates use the same wire shape via :meth:`MarkerManager.apply_marker_graphics`.
+        """
+        raw: Any = wire.to_py() if hasattr(wire, "to_py") else wire
+        if not isinstance(raw, dict):
+            raw = dict(raw)
+        normalized: dict[str, dict[str, Any]] = {}
+        for k, v in raw.items():
+            if hasattr(v, "to_py"):
+                v = v.to_py()
+            normalized[str(k)] = dict(v) if v is not None else {}
+        prev_sig = json.dumps(
+            self._unit_graphics_wire, sort_keys=True, ensure_ascii=True
+        )
+        new_sig = json.dumps(normalized, sort_keys=True, ensure_ascii=True)
+        if new_sig == prev_sig:
+            return
+        self._unit_graphics_wire = normalized
+        for uid in list(self._unit_displays.keys()):
+            self._remove_unit_display(uid)
 
     def sync_from_state(self, game_state: GameState) -> None:
         """
@@ -90,15 +115,19 @@ class DisplayManager:
         graphics_creators = self._get_graphics_creators()
 
         # Get the appropriate creator for this unit type
-        creator_class = graphics_creators.get(unit_state.unit_type)
-        if not creator_class:
+        creator = graphics_creators.get(unit_state.unit_type)
+        if creator is None:
             self.logger.error(
                 f"No graphics creator for unit type {unit_state.unit_type}"
             )
             return
 
-        # Register the creator's CSS if not already done
-        creator_class.register()
+        self.logger.debug(
+            "Creating display for %s type=%s creator=%s",
+            unit_state.unit_id,
+            unit_state.unit_type,
+            getattr(creator, "name", repr(creator)),
+        )
 
         # Create display unit
         display = DisplayUnit(
@@ -108,8 +137,7 @@ class DisplayManager:
         )
 
         # Use the graphics creator to build the SVG elements
-        creator = creator_class()
-        creator.create(display)
+        creator(display)
 
         # Position it
         display.position = unit_state.position
@@ -164,20 +192,25 @@ class DisplayManager:
         # Track the display
         self._unit_displays[unit_state.unit_id] = display
 
-    def _get_graphics_creators(self):
-        """Get map of unit type to graphics creator class."""
-        from ..scenarios.canuck import CanuckGraphicsCreator
-        from ..scenarios.generic import GenericGraphicsCreator
-        from .scenario_unit_graphics import graphics_creator_class_for_template
+    def _get_graphics_creators(self) -> dict[str, Callable[[DisplayUnit], None]]:
+        """Get map of unit type to display-creator callable."""
+        from ..scenarios.counters import FallbackCounterGraphicsCreator
+        from .scenario_unit_graphics import (
+            graphics_creator_for_template,
+            unit_display_creator_from_class,
+        )
 
-        out: dict[str, type] = {
-            "canuck": CanuckGraphicsCreator,
-            "soldier": GenericGraphicsCreator,
-        }
+        out: dict[str, Callable[[DisplayUnit], None]] = {}
         for utype, tmpl in self._unit_graphics_wire.items():
-            cls = graphics_creator_class_for_template(tmpl)
-            if cls is not None:
-                out[utype] = cls
+            fn = graphics_creator_for_template(tmpl)
+            if fn is not None:
+                out[utype] = fn
+        out.setdefault(
+            "soldier",
+            unit_display_creator_from_class(
+                FallbackCounterGraphicsCreator, name="builtin(soldier_counter)"
+            ),
+        )
         return out
 
     def _update_unit_display(self, unit_id: str, unit_state) -> None:
@@ -191,8 +224,9 @@ class DisplayManager:
         # Update visibility
         display.visible = unit_state.active
 
-        # Update health display if text element exists
-        if display.text_element:
+        # Update health display (only when a text sink is explicitly registered).
+        # Scenario counters may use caption as static label; don't overwrite it.
+        if display.text_element is not None:
             display.set_text(str(unit_state.health))
 
     def _remove_unit_display(self, unit_id: str) -> None:
@@ -241,13 +275,10 @@ class DisplayManager:
             committed_position: The position from committed GameState
         """
         display = self._unit_displays.get(unit_id)
-        if display:
-            # Restore committed position
-            x, y = self._canvas.hex_layout.hex_to_pixel(committed_position)
-            display.position = committed_position
-
-            # Restore enabled state
-            display.enabled = True
+        if not display:
+            return
+        display.position = committed_position
+        display.enabled = True
 
     def get_display(self, unit_id: str) -> DisplayUnit | None:
         """Get display unit by ID."""
