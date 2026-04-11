@@ -14,18 +14,18 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..hexes.types import Hex, HexColRow
 from ..units.graphics import DisplayUnit
 from .svg_templates import creator_for_template
 
-if False:  # TYPE_CHECKING without import cycle at runtime
+if TYPE_CHECKING:
     from ..map import Map
 
 
 class MarkerManager:
-    def __init__(self, map_canvas: "Map") -> None:
+    def __init__(self, map_canvas: Map) -> None:
         self._canvas = map_canvas
         self._marker_displays: dict[str, DisplayUnit] = {}
         self._marker_graphics_wire: dict[str, dict[str, Any]] = {}
@@ -67,7 +67,9 @@ class MarkerManager:
             if hasattr(v, "to_py"):
                 v = v.to_py()
             normalized[str(k)] = dict(v) if v is not None else {}
-        prev_sig = json.dumps(self._marker_graphics_wire, sort_keys=True, ensure_ascii=True)
+        prev_sig = json.dumps(
+            self._marker_graphics_wire, sort_keys=True, ensure_ascii=True
+        )
         new_sig = json.dumps(normalized, sort_keys=True, ensure_ascii=True)
         if new_sig == prev_sig:
             return
@@ -116,7 +118,12 @@ class MarkerManager:
         marker_id = str(marker.get("id"))
         marker_type = str(marker.get("type", ""))
         pos = marker.get("position")
-        if not marker_id or not marker_type or not isinstance(pos, (list, tuple)) or len(pos) != 2:
+        if (
+            not marker_id
+            or not marker_type
+            or not isinstance(pos, list | tuple)
+            or len(pos) != 2
+        ):
             return
         creator = self._get_creator(marker_type)
         if creator is None:
@@ -143,7 +150,7 @@ class MarkerManager:
     def _update_marker_display(self, marker_id: str, marker: dict[str, Any]) -> None:
         display = self._marker_displays[marker_id]
         pos = marker.get("position")
-        if isinstance(pos, (list, tuple)) and len(pos) == 2:
+        if isinstance(pos, list | tuple) and len(pos) == 2:
             col, row = int(pos[0]), int(pos[1])
             h = Hex.from_hex_col_row(HexColRow(col=col, row=row))
             if display.position != h:

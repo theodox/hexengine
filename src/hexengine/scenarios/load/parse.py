@@ -14,12 +14,6 @@ try:
 except ImportError:
     import tomli as tomllib  # fallback for older Python
 
-from .coercion import coerce_movement_cost, position_to_cube_tuple
-from .rows import (
-    ensure_dict_table,
-    parse_members_list,
-    parse_scenario_row,
-)
 from ..schema import (
     DEFAULT_GLOBAL_BASE_CSS_FILE,
     GlobalStylesConfig,
@@ -29,6 +23,12 @@ from ..schema import (
     ScenarioData,
     UnitGraphicsTemplate,
     UnitRow,
+)
+from .coercion import coerce_movement_cost, position_to_cube_tuple
+from .rows import (
+    ensure_dict_table,
+    parse_members_list,
+    parse_scenario_row,
 )
 
 # Packaged default: ``scenarios/data/test_scenario/scenario.toml`` (sibling of ``load/``).
@@ -203,10 +203,12 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
     map_display = _parse_map_table(data.get("map"), path, root)
     global_styles = _parse_styles_table(data.get("styles"), path, root)
     unit_graphics = _parse_unit_graphics_table(data.get("unit_graphics"), path, root)
-    marker_graphics = _parse_unit_graphics_table(data.get("marker_graphics"), path, root)
-    markers = _parse_markers_table(data.get("markers")) + _parse_marker_placements_table(
-        data.get("marker_placements")
+    marker_graphics = _parse_unit_graphics_table(
+        data.get("marker_graphics"), path, root
     )
+    markers = _parse_markers_table(
+        data.get("markers")
+    ) + _parse_marker_placements_table(data.get("marker_placements"))
 
     units: list[UnitRow] = []
     for ui, u in enumerate(data.get("units", [])):
@@ -255,7 +257,9 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
         ranged_modifier = float(g.get("ranged_modifier", 0.0))
         block_los = bool(g.get("block_los", True))
         group_hex_color = _optional_nonempty_str(g, "hex_color")
-        members = parse_members_list(g.get("members", []), f"terrain_groups[{gi}].members")
+        members = parse_members_list(
+            g.get("members", []), f"terrain_groups[{gi}].members"
+        )
         base = {
             "terrain": terrain_type,
             "movement_cost": movement_cost,

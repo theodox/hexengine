@@ -203,7 +203,11 @@ class Map:
         c = self._canvas_layer.canvas
         w, h = int(c.width), int(c.height)
         self._terrain_layer.sync_size(w, h)
-        for svg in (self._svg_layer._svg, self._marker_layer._svg, self._unit_layer._svg):
+        for svg in (
+            self._svg_layer._svg,
+            self._marker_layer._svg,
+            self._unit_layer._svg,
+        ):
             svg.setAttribute("width", str(w))
             svg.setAttribute("height", str(h))
             svg.style.width = f"{w}px"

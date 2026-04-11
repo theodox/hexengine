@@ -86,9 +86,7 @@ def game_state_from_wire_dict(state_dict: dict[str, Any]) -> GameState:
         pos = Hex(**pos_data)
         raw_hc = loc.get("hex_color")
         hex_color = (
-            None
-            if raw_hc is None
-            else (s if (s := str(raw_hc).strip()) else None)
+            None if raw_hc is None else (s if (s := str(raw_hc).strip()) else None)
         )
         locations[pos] = LocationState(
             position=pos,

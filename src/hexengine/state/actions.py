@@ -295,7 +295,9 @@ class AddMarker:
     active: bool = True
 
     def __repr__(self) -> str:
-        return f"<AddMarker {self.marker_id!r} type={self.marker_type!r} {self.position}>"
+        return (
+            f"<AddMarker {self.marker_id!r} type={self.marker_type!r} {self.position}>"
+        )
 
 
 @dataclass(frozen=True)

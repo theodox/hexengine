@@ -12,12 +12,12 @@ from .actions import (
     SpendAction,
 )
 from .game_state import BoardState, GameState, LocationState, TurnState, UnitState
+from .logic import compute_reachable_hexes, compute_valid_moves, is_valid_move
 from .marker_placement import (
     MarkerPlacementRule,
     default_marker_destination_allowed,
     marker_destination_hexes_for_preview,
 )
-from .logic import compute_reachable_hexes, compute_valid_moves, is_valid_move
 from .snapshot import (
     SNAPSHOT_FORMAT_VERSION,
     game_state_from_wire_dict,

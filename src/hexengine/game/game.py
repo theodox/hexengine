@@ -254,9 +254,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     @Hotkey("t", Modifiers.NONE)
     def toggle_terrain_overlay(self) -> None:
         """Toggle terrain tint layer (console: ``set_terrain_overlay`` / ``terrain_overlay_visible()``)."""
-        self.canvas.set_terrain_overlay_visible(
-            not self.canvas.terrain_overlay_visible
-        )
+        self.canvas.set_terrain_overlay_visible(not self.canvas.terrain_overlay_visible)
 
     # ===== STATE SYSTEM HELPERS =====
 
@@ -294,7 +292,11 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             return
         uid = str(preview.unit_id)
         mg = getattr(self, "marker_mgr", None)
-        if mg is not None and mg.get_display(uid) and self.display_mgr.get_display(uid) is None:
+        if (
+            mg is not None
+            and mg.get_display(uid)
+            and self.display_mgr.get_display(uid) is None
+        ):
             mg.clear_preview(uid, preview.original_position)
             return
         # Prefer live state; fall back to drag start (preview always has original_position).

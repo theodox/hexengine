@@ -12,6 +12,7 @@ from ..state import GameState
 from ..state.game_state import BoardState, LocationState, UnitState
 from .schema import ScenarioData
 
+
 def _hex(pos: tuple[int, int]) -> Hex:
     """Scenario ``Position`` is odd-q ``(col, row)``."""
     return Hex.from_hex_col_row(HexColRow(col=pos[0], row=pos[1]))

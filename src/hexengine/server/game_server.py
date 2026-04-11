@@ -20,7 +20,10 @@ from ..hexes.types import Hex, HexColRow
 from ..package_version import hexes_package_version
 from ..state import ActionManager, GameState
 from ..state.actions import AddUnit, DeleteUnit, MoveUnit, NextPhase, SpendAction
-from ..state.marker_placement import MarkerPlacementRule, default_marker_destination_allowed
+from ..state.marker_placement import (
+    MarkerPlacementRule,
+    default_marker_destination_allowed,
+)
 from ..state.snapshot import game_state_from_wire_dict, game_state_to_wire_dict
 from .protocol import (
     ActionRequest,
@@ -206,9 +209,7 @@ class GameServer:
             )
             return
         elif requested in self.faction_to_player:
-            await self._send_error(
-                player_id, f"Faction {requested} already taken"
-            )
+            await self._send_error(player_id, f"Faction {requested} already taken")
             return
         else:
             faction = requested
@@ -483,9 +484,9 @@ class GameServer:
         fp = params["from_position"]
         tp = params["to_position"]
         if (
-            not isinstance(fp, (list, tuple))
+            not isinstance(fp, list | tuple)
             or len(fp) != 2
-            or not isinstance(tp, (list, tuple))
+            or not isinstance(tp, list | tuple)
             or len(tp) != 2
         ):
             raise ValueError("from_position and to_position must be [col, row]")
@@ -504,7 +505,7 @@ class GameServer:
         if cur is None or idx is None:
             raise ValueError(f"Unknown marker {mid!r}")
         pos = cur.get("position")
-        if not isinstance(pos, (list, tuple)) or len(pos) != 2:
+        if not isinstance(pos, list | tuple) or len(pos) != 2:
             raise ValueError("marker has invalid position")
         if int(pos[0]) != int(fp[0]) or int(pos[1]) != int(fp[1]):
             raise ValueError("from_position does not match server marker position")
@@ -524,13 +525,15 @@ class GameServer:
         active = bool(params.get("active", True))
         if not mid or not mtype:
             raise ValueError("marker_id and marker_type are required")
-        if not isinstance(pos, (list, tuple)) or len(pos) != 2:
+        if not isinstance(pos, list | tuple) or len(pos) != 2:
             raise ValueError("position must be [col, row]")
         if any(str(m.get("id")) == mid for m in self.markers):
             raise ValueError(f"duplicate marker id {mid!r}")
         mg = self.marker_graphics
         if mg is not None and mtype not in mg:
-            raise ValueError(f"unknown marker type {mtype!r} (no marker_graphics entry)")
+            raise ValueError(
+                f"unknown marker type {mtype!r} (no marker_graphics entry)"
+            )
         to_hex = Hex.from_hex_col_row(HexColRow(col=int(pos[0]), row=int(pos[1])))
         state = self.action_manager.current_state
         row = {

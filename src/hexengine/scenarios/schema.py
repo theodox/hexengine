@@ -147,9 +147,7 @@ class LocationRow:
     assault_modifier: float = field(
         default=0.0, metadata=toml_field("assault_modifier")
     )
-    ranged_modifier: float = field(
-        default=0.0, metadata=toml_field("ranged_modifier")
-    )
+    ranged_modifier: float = field(default=0.0, metadata=toml_field("ranged_modifier"))
     block_los: bool = field(default=True, metadata=toml_field("block_los"))
     #: Optional CSS-style hex for terrain overlay (e.g. ``#RRGGBB`` or ``#RRGGBBAA``).
     hex_color: str | None = field(
@@ -190,7 +188,9 @@ class MapDisplayConfig:
             self,
             omit_none=True,
             value_transforms={
-                "grid_hexes": lambda gh: [list(t) for t in gh] if gh is not None else None,
+                "grid_hexes": lambda gh: [list(t) for t in gh]
+                if gh is not None
+                else None,
             },
         )
 

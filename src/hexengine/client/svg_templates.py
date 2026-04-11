@@ -29,11 +29,13 @@ def display_creator_from_class(cls: type, *, name: str) -> DisplayCreator:
         cls.register()
         cls().create(display_unit)
 
-    setattr(fn, "name", name)
+    fn.name = name
     return fn
 
 
-def _register_template_styles_once(key: str, css: str | None, css_href: str | None) -> None:
+def _register_template_styles_once(
+    key: str, css: str | None, css_href: str | None
+) -> None:
     if key in _REGISTERED_STYLE_KEYS:
         return
     if css_href:
@@ -176,7 +178,7 @@ def creator_for_template(tmpl: dict[str, Any]) -> DisplayCreator | None:
             counter_fill_hilite=_wire_color("counter_fill_hilite"),
         )
         return display_creator_from_class(
-            cls, name=f"counter({tmpl.get('type','?')},{glyph!r},{caption!r})"
+            cls, name=f"counter({tmpl.get('type', '?')},{glyph!r},{caption!r})"
         )
 
     svg_file = tmpl.get("svg_file")
@@ -210,4 +212,3 @@ def creator_for_template(tmpl: dict[str, Any]) -> DisplayCreator | None:
         return display_creator_from_class(cls, name="svg_inline(markup)")
 
     return None
-
