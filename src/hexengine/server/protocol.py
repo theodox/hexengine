@@ -148,6 +148,9 @@ class StateUpdate:
     marker_graphics: dict[str, Any] | None = None  # marker type -> template wire dict
     markers: list[dict[str, Any]] | None = None  # marker instances
     server_package_version: str | None = None  # hexes wheel version on server
+    #: Schedule + factions (+ movement budget) so thin clients can build a matching
+    #: `hexengine.gamedef.protocol.GameDefinition` without resolving game packs on disk.
+    turn_rules: dict[str, Any] | None = None
 
     def to_message(self) -> Message:
         """Convert to Message."""
@@ -167,6 +170,8 @@ class StateUpdate:
             payload["markers"] = self.markers
         if self.server_package_version is not None:
             payload["server_package_version"] = self.server_package_version
+        if self.turn_rules is not None:
+            payload["turn_rules"] = self.turn_rules
         return Message(type=MessageType.STATE_UPDATE, payload=payload)
 
     @classmethod
@@ -182,6 +187,7 @@ class StateUpdate:
             marker_graphics=p.get("marker_graphics"),
             markers=p.get("markers"),
             server_package_version=p.get("server_package_version"),
+            turn_rules=p.get("turn_rules"),
         )
 
 

@@ -1,9 +1,9 @@
 """
 Hooks for where markers may be placed or moved.
 
-Game code can replace the rule on :class:`~hexengine.server.game_server.GameServer`
-via ``marker_placement_rule``. When that is ``None``, the engine uses
-:func:`default_marker_destination_allowed` (any board hex with no active unit).
+Game code can replace the rule on `hexengine.server.game_server.GameServer`
+via `marker_placement_rule`. When that is `None`, the engine uses
+`default_marker_destination_allowed` (any board hex with no active unit).
 """
 
 from __future__ import annotations
@@ -21,9 +21,9 @@ def default_marker_destination_allowed(
     state: GameState, marker_wire: dict[str, Any], to_hex: Hex
 ) -> bool:
     """
-    Return True if ``to_hex`` is on the board and has no active unit.
+    Return True if `to_hex` is on the board and has no active unit.
 
-    ``marker_wire`` is the marker row dict (``id``, ``type``, ``position``, …);
+    `marker_wire` is the marker row dict (`id`, `type`, `position`, …);
     reserved for future rules (e.g. type-specific ranges).
     """
     _ = marker_wire
@@ -40,7 +40,7 @@ def marker_destination_hexes_for_preview(
     """
     Hexes to highlight when dragging a marker (client preview).
 
-    If ``rule`` is ``None``, uses :func:`default_marker_destination_allowed`.
+    If `rule` is `None`, uses `default_marker_destination_allowed`.
     Custom server rules should eventually be mirrored client-side or pushed
     over the wire; until then previews match the default when rule is None.
     """

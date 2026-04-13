@@ -11,7 +11,7 @@ import logging
 import threading
 from typing import Any
 
-from ..server.game_server import GameServer
+from ..gamedef.protocol import GameDefinition
 from ..state import GameState
 
 
@@ -32,6 +32,8 @@ class LocalServerManager:
         unit_graphics: dict[str, Any] | None = None,
         marker_graphics: dict[str, Any] | None = None,
         markers: list[dict[str, Any]] | None = None,
+        *,
+        game_definition: GameDefinition,
     ):
         """
         Initialize the local server manager.
@@ -48,7 +50,7 @@ class LocalServerManager:
         self.unit_graphics = unit_graphics
         self.marker_graphics = marker_graphics
         self.markers = markers
-        self.server: GameServer | None = None
+        self.game_definition = game_definition
         self.server_thread: threading.Thread | None = None
         self.logger = logging.getLogger("local_server")
         self._running = False
@@ -80,6 +82,7 @@ class LocalServerManager:
                 unit_graphics=self.unit_graphics,
                 marker_graphics=self.marker_graphics,
                 markers=self.markers,
+                game_definition=self.game_definition,
             )
 
             # Start in background thread

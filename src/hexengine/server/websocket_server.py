@@ -7,14 +7,18 @@ Clients connect via WebSocket and send/receive JSON messages.
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import json
 import logging
+import sys
+from pathlib import Path
 from typing import Any
 
 import websockets
 from websockets.server import WebSocketServerProtocol
 
+from ..gamedef.protocol import GameDefinition
 from ..state import GameState
 from .game_server import GameServer
 from .protocol import Message
@@ -38,7 +42,9 @@ class WebSocketGameServer:
         marker_graphics: dict[str, Any] | None = None,
         markers: list[dict[str, Any]] | None = None,
         marker_placement_rule=None,
-    ):
+        *,
+        game_definition: GameDefinition,
+    ) -> None:
         """
         Initialize WebSocket server.
 
@@ -60,6 +66,7 @@ class WebSocketGameServer:
             marker_graphics=marker_graphics,
             markers=markers,
             marker_placement_rule=marker_placement_rule,
+            game_definition=game_definition,
         )
 
         # Map connection to player_id
@@ -168,25 +175,51 @@ class WebSocketGameServer:
         return str(uuid.uuid4())
 
 
-async def main():
-    """Example: Run a standalone WebSocket game server."""
+def build_websocket_arg_parser() -> argparse.ArgumentParser:
+    from ..gameroot import add_game_launch_arguments
+
+    p = argparse.ArgumentParser(description="Hexes WebSocket game server")
+    add_game_launch_arguments(p)
+    return p
+
+
+async def main(
+    *,
+    scenario_file: Path | str | None = None,
+    game_root: Path | str | None = None,
+    scenario_id: str | None = None,
+    schedule: str = "interleaved",
+):
+    """Run a standalone WebSocket game server."""
     logging.basicConfig(
         level=logging.DEBUG,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    # Load scenario from TOML (prefer ./scenarios/ at cwd, else packaged default)
-    from ..scenarios import load_scenario, resolve_scenario_path_for_server
+    from ..gameroot import (
+        initial_turn_slot_for_game_definition,
+        load_game_definition_for_scenario,
+        resolve_scenario_path_with_game_root,
+        try_hexdemo_loaded_banner,
+    )
+    from ..scenarios import load_scenario
     from ..scenarios.loader import scenario_to_initial_state
 
-    scenario_path = resolve_scenario_path_for_server()
+    scenario_path = resolve_scenario_path_with_game_root(
+        scenario_file=scenario_file,
+        game_root=game_root,
+        scenario_id=scenario_id,
+    )
     scenario_data = load_scenario(scenario_path)
+    game_def = load_game_definition_for_scenario(scenario_path, schedule=schedule)
+    first = initial_turn_slot_for_game_definition(game_def)
 
     initial_state = scenario_to_initial_state(
         scenario_data,
-        initial_faction="Red",
-        initial_phase="Movement",
-        phase_actions_remaining=2,
+        initial_faction=first["faction"],
+        initial_phase=first["phase"],
+        phase_actions_remaining=int(first["max_actions"]),
+        schedule_index=0,
     )
 
     server = WebSocketGameServer(
@@ -198,13 +231,25 @@ async def main():
         unit_graphics=scenario_data.unit_graphics_to_wire_dict(),
         marker_graphics=scenario_data.marker_graphics_to_wire_dict(),
         markers=scenario_data.markers_to_wire_list(),
+        game_definition=game_def,
     )
+    try_hexdemo_loaded_banner(scenario_path)
     await server.start()
 
 
-def run():
+def run(argv: list[str] | None = None) -> None:
     """Synchronous entry point for console script."""
-    asyncio.run(main())
+    args = build_websocket_arg_parser().parse_args(
+        argv if argv is not None else sys.argv[1:]
+    )
+    asyncio.run(
+        main(
+            scenario_file=args.scenario_file,
+            game_root=args.game_root,
+            scenario_id=args.scenario_id,
+            schedule=args.schedule,
+        )
+    )
 
 
 if __name__ == "__main__":

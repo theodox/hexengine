@@ -1,0 +1,118 @@
+# Second hexdemo scenario (e.g. hexserver --game-root ... --scenario-id skirmish)
+name = "Hexdemo Skirmish"
+description = "Alternate minimal layout; assets under games/hexdemo/resources/"
+schema_version = 1
+
+[[colors]]
+name = "grid_hex"
+value = "rgb(172, 172, 172)"
+
+[[colors]]
+name = "grid_overlay_line"
+value = "rgb(32, 32, 32)"
+
+[[colors]]
+name = "plain_fill"
+value = "rgba(211, 211, 179, 0.5)"
+
+[[colors]]
+name = "woods_fill"
+value = "rgba(88, 196, 93, 0.75)"
+
+[[colors]]
+name = "stream_fill"
+value = "rgba(23, 83, 188, 0.9)"
+
+[[colors]]
+name = "strongpoint_fill"
+value = "rgba(70, 73, 79, 0.97)"
+
+[map]
+hex_size = 24
+hex_margin = 0
+hex_stroke = 1
+hex_color = "@grid_hex"
+terrain_overlay_line_color = "@grid_overlay_line"
+terrain_overlay_line_width = 2
+background = "map_backgound.png"
+background_crop_to_map = true
+unit_size_multiplier = 1.5
+hex_columns = 10
+hex_rows = 10
+
+[[terrain_types]]
+terrain = "plain"
+movement_cost = 1.0
+default = true
+hex_color = "@plain_fill"
+
+[[terrain_types]]
+terrain = "light woods"
+movement_cost = 2.0
+assault_modifier = 0.5
+ranged_modifier = 0.5
+block_los = true
+hex_color = "@woods_fill"
+
+[[terrain_types]]
+terrain = "deep woods"
+movement_cost = 4.0
+assault_modifier = 0.25
+ranged_modifier = 0.25
+block_los = true
+hex_color = "@woods_fill"
+
+[[terrain_types]]
+terrain = "stream"
+movement_cost = 3.0
+assault_modifier = -0.5
+block_los = false
+hex_color = "@stream_fill"
+
+
+[[terrain_types]]
+terrain = "strongpoint"
+movement_cost = 1.5
+assault_modifier = 0.25
+block_los = false
+hex_color = "@strongpoint_fill"
+
+[[terrain_groups]]
+terrain = "deep woods"
+positions = [
+  [0,0],[1,0],[2,0],[3,0],[4,0],[5,0]
+]
+
+[[terrain_groups]]
+terrain = "light woods"
+positions = [
+  [0,1],[1,1],[2,1],[3,1],[4,1],[5,1]
+]
+
+[[terrain_groups]]
+terrain = "stream"
+positions = [
+  [3,0],[3,1],[3,2],[3,3],[4,3],[5,3]
+]
+
+[[terrain_groups]]
+terrain = "strongpoint"
+positions = [[4,4], [2,4]]
+
+[[unit_graphics]]
+type = "infantry"
+svg_file = "mod/unit_template.svg"
+render = "image"
+css_file = "unit_counter.css"
+
+[[unit_archetype]]
+name = "confederate_infantry"
+type = "infantry"
+faction = "confederate"
+id_prefix = "c_inf"
+
+
+
+[[unit_placements]]
+archetype = "confederate_infantry"
+positions = [[3,3], [4,4]]

@@ -52,10 +52,10 @@ def shift_axial_ij_cube_coords_to_origin(
     coords: Iterable[tuple[int, int, int]],
 ) -> list[tuple[int, int, int]]:
     """
-    Shift ``(i, j)`` so the set's minimum ``i`` and ``j`` are 0.
+    Shift `(i, j)` so the set's minimum `i` and `j` are 0.
 
-    ``k`` is recomputed as ``-i - j`` after the shift (scenario-style bounding box),
-    ignoring any previous ``k`` in the input.
+    `k` is recomputed as `-i - j` after the shift (scenario-style bounding box),
+    ignoring any previous `k` in the input.
     """
     lst = list(coords)
     if not lst:

@@ -1,7 +1,7 @@
 """
 Shared numeric constants for hex grid math.
 
-Kept free of imports from other ``hexes`` modules so ``types`` and ``math``
+Kept free of imports from other `hexes` modules so `types` and `math`
 can both use these without circular dependencies.
 """
 

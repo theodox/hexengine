@@ -53,9 +53,17 @@ class GraphicsCreator(Protocol):
 class DisplayUnit:
     """The display component of a game unit."""
 
-    def __init__(self, unit_id: str, unit_type: str, layout: HexLayout = None) -> None:
+    def __init__(
+        self,
+        unit_id: str,
+        unit_type: str,
+        layout: HexLayout | None = None,
+        *,
+        unit_size_multiplier: float = 1.5,
+    ) -> None:
         self.unit_id = unit_id
         self.unit_type = unit_type
+        self.unit_size_multiplier = float(unit_size_multiplier)
         self.proxy = js.document.createElementNS("http://www.w3.org/2000/svg", "g")
         self.proxy.setAttribute("id", unit_id)
         self.proxy.setAttribute("data-unit", unit_id)  # For event handling

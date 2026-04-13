@@ -232,14 +232,23 @@ class SpendAction(StateAction):
 class NextPhase(StateAction):
     """Action to advance to the next phase/turn."""
 
-    def __init__(self, new_faction: str, new_phase: str, max_actions: int):
+    def __init__(
+        self,
+        new_faction: str,
+        new_phase: str,
+        max_actions: int,
+        *,
+        new_schedule_index: int,
+    ):
         self.new_faction = new_faction
         self.new_phase = new_phase
         self.max_actions = max_actions
+        self.new_schedule_index = int(new_schedule_index)
         # Store previous values for undo
         self.prev_faction = None
         self.prev_phase = None
         self.prev_actions = None
+        self.prev_schedule_index = None
 
     def apply(self, state: GameState) -> GameState:
         """Advance to next phase, returning a new game state."""
@@ -247,10 +256,14 @@ class NextPhase(StateAction):
         self.prev_faction = state.turn.current_faction
         self.prev_phase = state.turn.current_phase
         self.prev_actions = state.turn.phase_actions_remaining
+        self.prev_schedule_index = state.turn.schedule_index
 
         # Create new turn state for next phase
         new_turn = state.turn.with_next_phase(
-            self.new_faction, self.new_phase, self.max_actions
+            self.new_faction,
+            self.new_phase,
+            self.max_actions,
+            schedule_index=self.new_schedule_index,
         )
 
         # Create new game state with updated turn
@@ -260,7 +273,10 @@ class NextPhase(StateAction):
         """Restore previous phase, returning a new game state."""
         # Restore previous phase
         new_turn = state.turn.with_next_phase(
-            self.prev_faction, self.prev_phase, self.prev_actions
+            self.prev_faction,
+            self.prev_phase,
+            self.prev_actions,
+            schedule_index=int(self.prev_schedule_index),
         )
 
         # Create new game state with updated turn
@@ -270,12 +286,14 @@ class NextPhase(StateAction):
         return False
 
     def __repr__(self) -> str:
-        return f"<NextPhase {self.new_faction}-{self.new_phase}>"
+        return (
+            f"<NextPhase {self.new_faction}-{self.new_phase}@{self.new_schedule_index}>"
+        )
 
 
 @dataclass(frozen=True)
 class MoveMarker:
-    """Move a map marker by id (server-side list update; not a :class:`StateAction`)."""
+    """Move a map marker by id (server-side list update; not a `StateAction`)."""
 
     marker_id: str
     from_hex: Hex
@@ -287,7 +305,7 @@ class MoveMarker:
 
 @dataclass(frozen=True)
 class AddMarker:
-    """Add a marker row (server-side list update; not a :class:`StateAction`)."""
+    """Add a marker row (server-side list update; not a `StateAction`)."""
 
     marker_id: str
     marker_type: str

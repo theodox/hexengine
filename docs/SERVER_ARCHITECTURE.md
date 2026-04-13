@@ -20,11 +20,13 @@ This architecture works identically for single-player (client connects to local 
 - Validates action requests (turn order, legality)
 - Executes actions and broadcasts state
 - Manages player connections and faction assignments
+- Requires a **`game_definition`** (`GameDefinition` keyword argument): turn schedule, phases, and `available_factions()` come from the title (or from a built-in demo definition in tests), not from implicit engine defaults.
 
 **`WebSocketGameServer`** - WebSocket transport layer
 - Wraps `GameServer` with WebSocket handling
 - Routes messages between clients and `GameServer`
 - Manages WebSocket connections
+- Passes **`game_definition=`** through to `GameServer` (required).
 
 **`protocol.py`** - Communication protocol
 - Defines message types (ACTION_REQUEST, STATE_UPDATE, etc.)
@@ -148,46 +150,91 @@ Invalid actions are rejected with an error message.
 
 ## Single Player Setup
 
-For single-player, the client starts a local server:
+For single-player, [`NetworkGame`](../src/hexengine/game/network_game.py) with `use_local_server=True` resolves a game pack scenario, builds a `GameDefinition` from that pack, constructs initial state and presentation dicts, and starts [`LocalServerManager`](../src/hexengine/client/local_server.py) with **`game_definition=`** set. The client then connects to `localhost` over the same WebSocket protocol as multiplayer.
 
-```python
-# Start local server in background thread
-server = GameServer()
+Each [`StateUpdate`](../src/hexengine/server/protocol.py) includes **`turn_rules`** (schedule, factions, movement budget) so the client can build a matching builtin `GameDefinition` for UI such as manual phase advance without resolving game files on disk. Switching to another title is assumed to be a rare, prepared event (full reload or new session).
 
-# Client connects to localhost
-# All interactions go through same protocol
-# Only difference: server is local instead of remote
-```
+If no supported game pack / scenario can be resolved (for example no `games/hexdemo` on disk when using defaults), startup fails rather than falling back to engine-packaged demo scenarios.
 
 ## Running the Server
 
 ### Standalone WebSocket Server
 
-```python
+```bash
 python -m hexengine.server.websocket_server
 ```
 
-Server runs on `ws://localhost:8765` by default.
+Listens on **`ws://0.0.0.0:8765`** (all interfaces). The module resolves a scenario via [`resolve_scenario_path_with_game_root`](../src/hexengine/gameroot.py) (optional CLI: `--scenario-file`, `--game-root`, `--scenario-id`, `--schedule`), loads title rules with [`load_game_definition_for_scenario`](../src/hexengine/gameroot.py), then starts `WebSocketGameServer` with that definition. If resolution or title loading fails, the process exits with an error.
 
 ### Custom Setup
 
+**Typical (title pack + scenario on disk)** — mirror of [`websocket_server.main`](../src/hexengine/server/websocket_server.py):
+
 ```python
+import asyncio
+
+from hexengine.gameroot import (
+    initial_faction_for_game_definition,
+    load_game_definition_for_scenario,
+    resolve_scenario_path_with_game_root,
+)
+from hexengine.scenarios import load_scenario
+from hexengine.scenarios.loader import scenario_to_initial_state
 from hexengine.server import GameServer, WebSocketGameServer
-from hexengine.state import GameState
 
-# Create initial state
-initial_state = GameState.create_empty()
+scenario_path = resolve_scenario_path_with_game_root()
+scenario_data = load_scenario(scenario_path)
+game_def = load_game_definition_for_scenario(scenario_path, schedule="interleaved")
+first_faction = initial_faction_for_game_definition(game_def)
+initial_state = scenario_to_initial_state(
+    scenario_data,
+    initial_faction=first_faction,
+    initial_phase="Movement",
+    phase_actions_remaining=2,
+)
 
-# Option 1: Transport-agnostic server
-game_server = GameServer(initial_state)
+map_d = scenario_data.map_display.to_wire_dict()
+styles_d = scenario_data.global_styles.to_wire_dict()
+units_d = scenario_data.unit_graphics_to_wire_dict()
+markers_d = scenario_data.marker_graphics_to_wire_dict()
+markers_list = scenario_data.markers_to_wire_list()
 
-# Option 2: WebSocket server
+# Transport-agnostic headless server
+game_server = GameServer(
+    initial_state,
+    map_display=map_d,
+    global_styles=styles_d,
+    unit_graphics=units_d,
+    marker_graphics=markers_d,
+    markers=markers_list,
+    game_definition=game_def,
+)
+
+# WebSocket server (same state + presentation + definition)
 ws_server = WebSocketGameServer(
     host="0.0.0.0",
     port=8765,
-    initial_state=initial_state
+    initial_state=initial_state,
+    map_display=map_d,
+    global_styles=styles_d,
+    unit_graphics=units_d,
+    marker_graphics=markers_d,
+    markers=markers_list,
+    game_definition=game_def,
 )
-await ws_server.start()
+asyncio.run(ws_server.start())
+```
+
+**Minimal (engine tests / Red–Blue schedule only)** — no title pack; use [`InterleavedTwoFactionGameDefinition`](../src/hexengine/gamedef/builtin.py) and an empty or hand-built `GameState`:
+
+```python
+from hexengine.gamedef.builtin import InterleavedTwoFactionGameDefinition
+from hexengine.server import GameServer
+from hexengine.state import GameState
+
+game_def = InterleavedTwoFactionGameDefinition()
+initial_state = GameState.create_empty()
+game_server = GameServer(initial_state, game_definition=game_def)
 ```
 
 ## Client Integration
@@ -229,14 +276,7 @@ Current implementation is basic. For production:
 
 ## Dependencies
 
-```bash
-# For WebSocket server
-pip install websockets
-
-# Or add to pyproject.toml
-[project.optional-dependencies]
-server = ["websockets>=12.0"]
-```
+The `hexes` package declares **`websockets>=12.0`** as a core dependency in `pyproject.toml`. Optional **`dev`** extras include `pytest` and `ruff` for working on the repo.
 
 ## Next Steps
 

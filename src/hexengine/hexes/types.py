@@ -14,14 +14,14 @@ class Cartesian:
     """
     Integer point on the **flat-top hex embedding plane** (skewed 2D lattice).
 
-    Each :class:`Hex` maps to a canonical ``(x, y)`` via :meth:`from_hex` using the
-    same scale factors as continuous hex layout (see ``hexengine.hexes.constants``).
-    The reverse map :meth:`Hex.from_cartesian` rounds to the nearest hex, so **several**
-    distinct ``Cartesian`` values can yield the **same** :class:`Hex`—unlike
-    :class:`HexColRow` (odd-q), which is 1:1 with hexes.
+    Each `Hex` maps to a canonical `(x, y)` via `from_hex` using the
+    same scale factors as continuous hex layout (see `hexengine.hexes.constants`).
+    The reverse map `Hex.from_cartesian` rounds to the nearest hex, so **several**
+    distinct `Cartesian` values can yield the **same** `Hex`—unlike
+    `HexColRow` (odd-q), which is 1:1 with hexes.
 
-    Useful for axis-aligned ranges and plane geometry (e.g. :mod:`hexengine.hexes.shapes`);
-    it is **not** the same as odd-q ``[col, row]`` editor coordinates.
+    Useful for axis-aligned ranges and plane geometry (e.g. `hexengine.hexes.shapes`);
+    it is **not** the same as odd-q `[col, row]` editor coordinates.
     """
 
     x: int
@@ -68,16 +68,16 @@ class HexColRow:
     """
     **Odd-q offset** coordinates for a flat-top hex grid (human-friendly 2-number layout).
 
-    - ``col`` — column index; matches axial ``i`` and typical editor ``data-x`` / Hextml.
-    - ``row`` — **offset row**, not axial ``j``. Neighboring hexes do not simply increment
-      ``row``; stagger follows the odd-q rule (Red Blob Games: offset coordinates).
+    - `col` — column index; matches axial `i` and typical editor `data-x` / Hextml.
+    - `row` — **offset row**, not axial `j`. Neighboring hexes do not simply increment
+      `row`; stagger follows the odd-q rule (Red Blob Games: offset coordinates).
 
-    Use :meth:`axial_from_offset` and :meth:`offset_from_axial` for the odd-q ↔ axial
+    Use `axial_from_offset` and `offset_from_axial` for the odd-q ↔ axial
     formulas (Red Blob Games: offset coordinates → axial). Scenario TOML
-    ``position = [col, row]`` uses the same two numbers.
+    `position = [col, row]` uses the same two numbers.
 
-    Bijective with :class:`Hex` (cube / axial) for integer grids; use :meth:`to_hex` /
-    :meth:`from_hex` to convert. This is **not** the same as integer :class:`Cartesian`
+    Bijective with `Hex` (cube / axial) for integer grids; use `to_hex` /
+    `from_hex` to convert. This is **not** the same as integer `Cartesian`
     plane coordinates.
     """
 
@@ -87,10 +87,10 @@ class HexColRow:
     @classmethod
     def axial_from_offset(cls, col: int, row: int) -> tuple[int, int]:
         """
-        Odd-q offset ``(col, row)`` → axial ``(i, j)``.
+        Odd-q offset `(col, row)` → axial `(i, j)`.
 
-        ``col`` equals axial ``i`` (e.g. Hextml ``data-x``); ``row`` is the staggered
-        offset index (e.g. ``data-y``), not axial ``j``.
+        `col` equals axial `i` (e.g. Hextml `data-x`); `row` is the staggered
+        offset index (e.g. `data-y`), not axial `j`.
         """
         i = int(col)
         j = int(row) - (i - (i & 1)) // 2
@@ -99,10 +99,10 @@ class HexColRow:
     @classmethod
     def offset_from_axial(cls, i: int, j: int) -> HexColRow:
         """
-        Axial ``(i, j)`` → odd-q coordinates with ``col = i``.
+        Axial `(i, j)` → odd-q coordinates with `col = i`.
 
-        ``row`` is the offset-row index: ``j + (i - (i & 1)) // 2`` (inverse of
-        :meth:`axial_from_offset` for the row component).
+        `row` is the offset-row index: `j + (i - (i & 1)) // 2` (inverse of
+        `axial_from_offset` for the row component).
         """
         ii = int(i)
         row = int(j) + (ii - (ii & 1)) // 2
@@ -125,11 +125,11 @@ class HexColRow:
 
     @classmethod
     def from_hex(cls, hex_coord: Hex) -> HexColRow:
-        """Axial/cube hex → odd-q ``(col, row)`` with ``col = i``."""
+        """Axial/cube hex → odd-q `(col, row)` with `col = i`."""
         return cls.offset_from_axial(hex_coord.i, hex_coord.j)
 
     def to_hex(self) -> Hex:
-        """Odd-q ``(col, row)`` → cube hex (``k = -i - j``)."""
+        """Odd-q `(col, row)` → cube hex (`k = -i - j`)."""
         i, j = self.__class__.axial_from_offset(self.col, self.row)
         return Hex(i, j, -i - j)
 
@@ -215,5 +215,5 @@ class Hex:
 
     @classmethod
     def from_hex_col_row(cls, col_row: HexColRow) -> Hex:
-        """Odd-q :class:`HexColRow` → cube hex (inverse of :meth:`HexColRow.from_hex`)."""
+        """Odd-q `HexColRow` → cube hex (inverse of `HexColRow.from_hex`)."""
         return col_row.to_hex()

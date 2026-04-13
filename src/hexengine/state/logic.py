@@ -13,6 +13,10 @@ from ..hexes.math import neighbors
 from ..hexes.types import Hex
 from ..state.game_state import GameState
 
+# Default path-cost budget when `hexengine.gamedef.protocol.GameDefinition`
+# does not implement `movement_budget_for_unit`.
+DEFAULT_MOVEMENT_BUDGET = 4.0
+
 
 def compute_reachable_hexes(
     state: GameState, start_hex: Hex, max_cost: float

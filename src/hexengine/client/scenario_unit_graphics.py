@@ -1,7 +1,7 @@
 """
-GraphicsCreator subclasses built from scenario ``unit_graphics`` wire payloads.
+GraphicsCreator subclasses built from scenario `unit_graphics` wire payloads.
 
-Re-exported from :mod:`hexengine.client.svg_templates` so ``marker_graphics`` can
+Re-exported from `hexengine.client.svg_templates` so `marker_graphics` can
 use the same template parsing / caching as units (type → template → instances).
 """
 

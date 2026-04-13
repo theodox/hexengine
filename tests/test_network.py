@@ -9,11 +9,24 @@ from __future__ import annotations
 import asyncio
 import unittest
 
-from hexengine.hexes.types import Hex
+from hexengine.gamedef.builtin import InterleavedTwoFactionGameDefinition
+from hexengine.hexes.math import neighbors
+from hexengine.hexes.types import Hex, HexColRow
 from hexengine.server import ActionRequest, GameServer, Message, MessageType
-from hexengine.server.protocol import JoinGameRequest
+from hexengine.server.protocol import JoinGameRequest, StateUpdate
 from hexengine.state import GameState
 from hexengine.state.actions import MoveUnit
+from hexengine.state.game_state import BoardState, TurnState, UnitState
+from hexengine.state.snapshot import game_state_to_wire_dict
+
+
+def _hex_wire(h: Hex) -> dict[str, int]:
+    return {"i": h.i, "j": h.j, "k": h.k}
+
+
+def _test_game_definition() -> InterleavedTwoFactionGameDefinition:
+    """Red/Blue engine demo schedule for headless server tests."""
+    return InterleavedTwoFactionGameDefinition()
 
 
 class TestGameServer(unittest.TestCase):
@@ -22,7 +35,9 @@ class TestGameServer(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.initial_state = GameState.create_empty()
-        self.server = GameServer(self.initial_state)
+        self.server = GameServer(
+            self.initial_state, game_definition=_test_game_definition()
+        )
 
     def test_server_initialization(self):
         """Test server initializes correctly."""
@@ -33,7 +48,7 @@ class TestGameServer(unittest.TestCase):
     async def test_player_join(self):
         """Test player can join the game."""
         player_id = "test-player-1"
-        join_request = JoinGameRequest(player_name="Alice", faction="Blue")
+        join_request = JoinGameRequest(player_name="Alice", faction="Red")
 
         await self.server.handle_message(player_id, join_request.to_message())
 
@@ -43,13 +58,15 @@ class TestGameServer(unittest.TestCase):
 
         player = self.server.players[player_id]
         self.assertEqual(player.player_name, "Alice")
-        self.assertEqual(player.faction, "Blue")
+        self.assertEqual(player.faction, "Red")
 
     def test_leave_frees_faction_for_reconnect(self):
         """Disconnect removes player so a new WebSocket id can take the same faction."""
 
         async def run():
-            server = GameServer(self.initial_state)
+            server = GameServer(
+                self.initial_state, game_definition=_test_game_definition()
+            )
             join_red = JoinGameRequest(player_name="Alice", faction="Red").to_message()
             leave = Message(type=MessageType.LEAVE_GAME, payload={})
 
@@ -79,7 +96,9 @@ class TestGameServer(unittest.TestCase):
         """If client names a faction that is already taken, do not auto-assign another."""
 
         async def run():
-            server = GameServer(self.initial_state)
+            server = GameServer(
+                self.initial_state, game_definition=_test_game_definition()
+            )
             errors: list[tuple[str, str]] = []
 
             def capture(pid: str, m: Message) -> None:
@@ -119,12 +138,336 @@ class TestGameServer(unittest.TestCase):
             current_faction="Red",  # Not Blue
             current_phase="Movement",
             phase_actions_remaining=2,
+            schedule_index=0,
         )
         self.server.action_manager.replace_state(state.with_turn(new_turn))
 
         player = self.server.players[player_id]
         current_faction = self.server.action_manager.current_state.turn.current_faction
         self.assertNotEqual(player.faction, current_faction)
+
+    def test_move_unit_rejected_out_of_budget(self) -> None:
+        """Server rejects MoveUnit when path cost exceeds movement budget."""
+
+        async def run() -> None:
+            start = Hex.from_hex_col_row(HexColRow(0, 0))
+            far = Hex.from_hex_col_row(HexColRow(20, 0))
+            board = BoardState(
+                units={
+                    "u1": UnitState(
+                        unit_id="u1",
+                        unit_type="t",
+                        faction="Blue",
+                        position=start,
+                    )
+                }
+            )
+            turn = TurnState(
+                current_faction="Blue",
+                current_phase="Movement",
+                phase_actions_remaining=2,
+                schedule_index=1,
+            )
+            state = GameState(board=board, turn=turn)
+            server = GameServer(state, game_definition=_test_game_definition())
+            errors: list[str] = []
+
+            def capture(_pid: str, m: Message) -> None:
+                if m.type == MessageType.ERROR:
+                    errors.append(str(m.payload.get("error", "")))
+
+            server.add_message_handler(capture)
+            await server.handle_message(
+                "p1",
+                JoinGameRequest(player_name="Alice", faction="Blue").to_message(),
+            )
+            req = ActionRequest(
+                action_type="MoveUnit",
+                params={
+                    "unit_id": "u1",
+                    "from_hex": _hex_wire(start),
+                    "to_hex": _hex_wire(far),
+                },
+                player_id="p1",
+            )
+            await server.handle_message("p1", req.to_message())
+            self.assertTrue(errors)
+            self.assertIn("Illegal move", errors[-1])
+            self.assertEqual(
+                server.action_manager.current_state.board.units["u1"].position, start
+            )
+
+        asyncio.run(run())
+
+    def test_move_unit_rejected_wrong_from_hex(self) -> None:
+        async def run() -> None:
+            start = Hex.from_hex_col_row(HexColRow(0, 0))
+            nlist = list(neighbors(start))
+            wrong_from, dest = nlist[0], nlist[1]
+            board = BoardState(
+                units={
+                    "u1": UnitState(
+                        unit_id="u1",
+                        unit_type="t",
+                        faction="Blue",
+                        position=start,
+                    )
+                }
+            )
+            turn = TurnState(
+                current_faction="Blue",
+                current_phase="Movement",
+                phase_actions_remaining=2,
+                schedule_index=1,
+            )
+            state = GameState(board=board, turn=turn)
+            server = GameServer(state, game_definition=_test_game_definition())
+            errors: list[str] = []
+
+            def capture(_pid: str, m: Message) -> None:
+                if m.type == MessageType.ERROR:
+                    errors.append(str(m.payload.get("error", "")))
+
+            server.add_message_handler(capture)
+            await server.handle_message(
+                "p1",
+                JoinGameRequest(player_name="Alice", faction="Blue").to_message(),
+            )
+            req = ActionRequest(
+                action_type="MoveUnit",
+                params={
+                    "unit_id": "u1",
+                    "from_hex": _hex_wire(wrong_from),
+                    "to_hex": _hex_wire(dest),
+                },
+                player_id="p1",
+            )
+            await server.handle_message("p1", req.to_message())
+            self.assertTrue(any("from_hex" in e for e in errors))
+
+        asyncio.run(run())
+
+    def test_move_unit_rejected_outside_movement_phase(self) -> None:
+        async def run() -> None:
+            start = Hex.from_hex_col_row(HexColRow(0, 0))
+            nbr = list(neighbors(start))[0]
+            board = BoardState(
+                units={
+                    "u1": UnitState(
+                        unit_id="u1",
+                        unit_type="t",
+                        faction="Blue",
+                        position=start,
+                    )
+                }
+            )
+            turn = TurnState(
+                current_faction="Blue",
+                current_phase="Attack",
+                phase_actions_remaining=2,
+            )
+            state = GameState(board=board, turn=turn)
+            server = GameServer(state, game_definition=_test_game_definition())
+            errors: list[str] = []
+
+            def capture(_pid: str, m: Message) -> None:
+                if m.type == MessageType.ERROR:
+                    errors.append(str(m.payload.get("error", "")))
+
+            server.add_message_handler(capture)
+            await server.handle_message(
+                "p1",
+                JoinGameRequest(player_name="Alice", faction="Blue").to_message(),
+            )
+            req = ActionRequest(
+                action_type="MoveUnit",
+                params={
+                    "unit_id": "u1",
+                    "from_hex": _hex_wire(start),
+                    "to_hex": _hex_wire(nbr),
+                },
+                player_id="p1",
+            )
+            await server.handle_message("p1", req.to_message())
+            self.assertTrue(errors)
+            self.assertIn("movement", errors[-1].lower())
+
+        asyncio.run(run())
+
+    def test_move_unit_rejected_onto_occupied_hex(self) -> None:
+        async def run() -> None:
+            start = Hex.from_hex_col_row(HexColRow(0, 0))
+            nlist = list(neighbors(start))
+            occupied = nlist[0]
+            board = BoardState(
+                units={
+                    "u1": UnitState(
+                        unit_id="u1",
+                        unit_type="t",
+                        faction="Blue",
+                        position=start,
+                    ),
+                    "u2": UnitState(
+                        unit_id="u2",
+                        unit_type="t",
+                        faction="Blue",
+                        position=occupied,
+                    ),
+                }
+            )
+            turn = TurnState(
+                current_faction="Blue",
+                current_phase="Movement",
+                phase_actions_remaining=2,
+                schedule_index=1,
+            )
+            state = GameState(board=board, turn=turn)
+            server = GameServer(state, game_definition=_test_game_definition())
+            errors: list[str] = []
+
+            def capture(_pid: str, m: Message) -> None:
+                if m.type == MessageType.ERROR:
+                    errors.append(str(m.payload.get("error", "")))
+
+            server.add_message_handler(capture)
+            await server.handle_message(
+                "p1",
+                JoinGameRequest(player_name="Alice", faction="Blue").to_message(),
+            )
+            req = ActionRequest(
+                action_type="MoveUnit",
+                params={
+                    "unit_id": "u1",
+                    "from_hex": _hex_wire(start),
+                    "to_hex": _hex_wire(occupied),
+                },
+                player_id="p1",
+            )
+            await server.handle_message("p1", req.to_message())
+            self.assertTrue(errors)
+            self.assertIn("Illegal move", errors[-1])
+
+        asyncio.run(run())
+
+    def test_move_unit_accepted_adjacent(self) -> None:
+        async def run() -> None:
+            start = Hex.from_hex_col_row(HexColRow(0, 0))
+            nbr = list(neighbors(start))[0]
+            board = BoardState(
+                units={
+                    "u1": UnitState(
+                        unit_id="u1",
+                        unit_type="t",
+                        faction="Blue",
+                        position=start,
+                    )
+                }
+            )
+            turn = TurnState(
+                current_faction="Blue",
+                current_phase="Movement",
+                phase_actions_remaining=2,
+                schedule_index=1,
+            )
+            state = GameState(board=board, turn=turn)
+            server = GameServer(state, game_definition=_test_game_definition())
+            errors: list[str] = []
+
+            def capture(_pid: str, m: Message) -> None:
+                if m.type == MessageType.ERROR:
+                    errors.append(str(m.payload.get("error", "")))
+
+            server.add_message_handler(capture)
+            await server.handle_message(
+                "p1",
+                JoinGameRequest(player_name="Alice", faction="Blue").to_message(),
+            )
+            req = ActionRequest(
+                action_type="MoveUnit",
+                params={
+                    "unit_id": "u1",
+                    "from_hex": _hex_wire(start),
+                    "to_hex": _hex_wire(nbr),
+                },
+                player_id="p1",
+            )
+            await server.handle_message("p1", req.to_message())
+            self.assertFalse(errors)
+            self.assertEqual(
+                server.action_manager.current_state.board.units["u1"].position, nbr
+            )
+
+        asyncio.run(run())
+
+    def test_next_phase_uses_server_schedule_not_client_payload(self) -> None:
+        """Manual advance: server must ignore client-supplied faction/phase (authoritative)."""
+
+        async def run() -> None:
+            from hexengine.gamedef.builtin import InterleavedTwoFactionGameDefinition
+            from hexengine.server.protocol import ActionRequest, JoinGameRequest
+
+            gd = InterleavedTwoFactionGameDefinition(factions=("confederate", "union"))
+            st = GameState(
+                board=BoardState(),
+                turn=TurnState(
+                    current_faction="confederate",
+                    current_phase="Movement",
+                    phase_actions_remaining=2,
+                    schedule_index=0,
+                ),
+            )
+            server = GameServer(st, game_definition=gd)
+            await server.handle_message(
+                "p1",
+                JoinGameRequest(
+                    player_name="Alice", faction="confederate"
+                ).to_message(),
+            )
+            req = ActionRequest(
+                action_type="NextPhase",
+                params={
+                    "new_faction": "Red",
+                    "new_phase": "Attack",
+                    "max_actions": 99,
+                },
+                player_id="p1",
+            )
+            await server.handle_message("p1", req.to_message())
+            t = server.action_manager.current_state.turn
+            self.assertEqual(t.current_faction, "union")
+            self.assertEqual(t.current_phase, "Movement")
+            self.assertEqual(t.phase_actions_remaining, 2)
+
+        asyncio.run(run())
+
+
+class TestStateUpdateTurnRules(unittest.TestCase):
+    def test_state_update_turn_rules_roundtrip(self) -> None:
+        st = GameState.create_empty(
+            initial_faction="confederate",
+            initial_phase="Attack",
+            schedule_index=2,
+        )
+        wire = game_state_to_wire_dict(st)
+        rules = {
+            "turn_rules_schema": 1,
+            "entries": [
+                {"faction": "confederate", "phase": "Movement", "max_actions": 2},
+                {"faction": "union", "phase": "Movement", "max_actions": 2},
+                {"faction": "confederate", "phase": "Attack", "max_actions": 2},
+                {"faction": "union", "phase": "Attack", "max_actions": 2},
+            ],
+            "movement_budget": 4.0,
+            "rota_id": "deadbeef00000000",
+        }
+        u = StateUpdate(
+            game_state=wire,
+            sequence_number=3,
+            turn_rules=rules,
+        )
+        m = u.to_message()
+        u2 = StateUpdate.from_message(m)
+        self.assertEqual(u2.turn_rules, rules)
 
 
 class TestActionSerialization(unittest.TestCase):

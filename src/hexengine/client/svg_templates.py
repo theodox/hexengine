@@ -11,9 +11,9 @@ from collections.abc import Callable
 from typing import Any
 
 from ..document import js
+from ..map.layout import unit_display_pixel_size
 from ..units.graphics import DisplayUnit, GraphicsCreator
 
-_UNIT_SIZE_DIVISOR = 1.5
 _SVG_NS = "http://www.w3.org/2000/svg"
 
 _REGISTERED_STYLE_KEYS: set[str] = set()
@@ -101,7 +101,11 @@ def _svg_image_file_class(href: str, css: str | None, css_href: str | None) -> t
         def create(self, display_unit: DisplayUnit) -> DisplayUnit:
             display_unit.push_classes(*self.BASE_CLASSES)
             layout = display_unit._hex_layout
-            unit_size = int(layout.size * _UNIT_SIZE_DIVISOR) if layout else 30
+            unit_size = (
+                unit_display_pixel_size(layout.size, display_unit.unit_size_multiplier)
+                if layout
+                else 30
+            )
             half = unit_size / 2
             img = js.document.createElementNS(_SVG_NS, "image")
             with self._attach(display_unit, img, "unit-svg-template-img"):

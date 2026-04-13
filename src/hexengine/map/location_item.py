@@ -1,4 +1,4 @@
-"""Plain data for building a :class:`~hexengine.map.location.Location` (no display / :class:`~hexengine.game.game.Game` in the ctor)."""
+"""Plain data for building a `hexengine.map.location.Location` (no display / `hexengine.game.game.Game` in the ctor)."""
 
 from __future__ import annotations
 

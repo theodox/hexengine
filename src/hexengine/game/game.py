@@ -12,6 +12,11 @@ from .board import GameBoard
 from .events import Hotkey, HotkeyHandlerMixin, Modifiers, MouseEventHandlerMixin
 from .history import GameHistoryMixin
 from .turn import Faction, Phase, TurnManager, TurnOrdering
+from .turn_strip import (
+    apply_turn_strip_faction,
+    display_faction_name,
+    display_phase_name,
+)
 
 # Screen-space pan per arrow key when zoomed in; Shift multiplies step.
 _PAN_KEY_STEP = 48
@@ -43,7 +48,10 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.board = GameBoard(self.canvas)
 
         initial_state = GameState.create_empty(
-            initial_faction="Blue", initial_phase="Movement"
+            initial_faction="union",
+            initial_phase="Move",
+            phase_actions_remaining=2,
+            schedule_index=0,
         )
         self.action_mgr = ActionManager(initial_state)
         self.logger = logging.getLogger("game")
@@ -83,12 +91,12 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self._register_hotkeys()
 
         self.turn_manager = TurnManager(
-            factions=[Faction("Red"), Faction("Blue")],
+            factions=[Faction("union"), Faction("confederate")],
             phases=[
-                Phase("Movement", max_actions=2),
-                Phase("Attack", max_actions=2),
+                Phase("Move", max_actions=2),
+                Phase("Combat", max_actions=2),
             ],
-            order=TurnOrdering.INTERLEAVED,
+            order=TurnOrdering.SEQUENTIAL,
         )
 
         self.turn_manager.handlers.append(self.update_turn_display)
@@ -111,10 +119,12 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def update_turn_display(self, faction, phase) -> None:
         faction, phase = self.turn_manager.current
         actions = self.turn_manager.actions
-        turn_info = f"{faction.name}-{phase.name} # {actions}"
+        turn_info = (
+            f"{display_faction_name(faction.name)} - "
+            f"{display_phase_name(phase.name)} # {actions}"
+        )
         turn_bg = element("turn-display")
-        turn_bg.classList.remove("red", "blue")
-        turn_bg.classList.add(faction.name.lower())
+        apply_turn_strip_faction(turn_bg, faction.name)
         turn_info_element = element("turn-info")
         if turn_info_element:
             turn_info_element.innerText = turn_info
@@ -253,7 +263,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     @Hotkey("t", Modifiers.NONE)
     def toggle_terrain_overlay(self) -> None:
-        """Toggle terrain tint layer (console: ``set_terrain_overlay`` / ``terrain_overlay_visible()``)."""
+        """Toggle terrain tint layer (console: `set_terrain_overlay` / `terrain_overlay_visible()`)."""
         self.canvas.set_terrain_overlay_visible(not self.canvas.terrain_overlay_visible)
 
     # ===== STATE SYSTEM HELPERS =====
@@ -330,9 +340,11 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         )
 
         # Compute valid moves from committed state
-        from ..state.logic import compute_valid_moves
+        from ..state.logic import DEFAULT_MOVEMENT_BUDGET, compute_valid_moves
 
-        valid_moves = compute_valid_moves(state, unit_id, movement_budget=4.0)
+        valid_moves = compute_valid_moves(
+            state, unit_id, movement_budget=DEFAULT_MOVEMENT_BUDGET
+        )
         self.ui_state.set_constraints(valid_moves)
 
         # Clear old highlights and show new ones
@@ -369,7 +381,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def update_drag_preview_marker(
         self, pixel_x: float, pixel_y: float, target_hex
     ) -> None:
-        """Same as :meth:`update_drag_preview` for an active marker drag."""
+        """Same as `update_drag_preview` for an active marker drag."""
         self.update_drag_preview(pixel_x, pixel_y, target_hex)
 
     def update_drag_preview(self, pixel_x: float, pixel_y: float, target_hex):
@@ -485,6 +497,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                     new_faction=next_faction.name,
                     new_phase=next_phase.name,
                     max_actions=next_phase.max_actions,
+                    new_schedule_index=next_index,
                 )
                 self.logger.info(f"Executing NextPhase action: {np}")
                 self._clear_drag_and_highlights()

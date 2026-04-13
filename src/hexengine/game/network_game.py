@@ -15,9 +15,48 @@ from .. import dev_console
 from ..client import LocalServerManager
 from ..client.marker_manager import MarkerManager
 from ..client.websocket_client import BrowserWebSocketClient, ConnectionState
+from ..gamedef.builtin import (
+    InterleavedTwoFactionGameDefinition,
+    SequentialTwoFactionGameDefinition,
+    StaticScheduleGameDefinition,
+)
+from ..gamedef.protocol import GameDefinition
 from ..state import GameState
 from ..state.snapshot import SNAPSHOT_FORMAT_VERSION, game_state_to_wire_dict
 from .game import Game
+
+
+def _game_definition_from_turn_rules_wire(wire: dict[str, Any]) -> GameDefinition:
+    """Rebuild engine `GameDefinition` from `StateUpdate.turn_rules` (no title import)."""
+    raw_entries = wire.get("entries")
+    if isinstance(raw_entries, list) and raw_entries:
+        budget = float(wire.get("movement_budget", 4.0))
+        entries: list[dict[str, Any]] = []
+        for row in raw_entries:
+            if not isinstance(row, dict):
+                continue
+            entries.append(
+                {
+                    "faction": str(row["faction"]),
+                    "phase": str(row["phase"]),
+                    "max_actions": int(row["max_actions"]),
+                }
+            )
+        if entries:
+            return StaticScheduleGameDefinition(entries, movement_budget=budget)
+    raw = wire.get("factions")
+    if not isinstance(raw, list) or not raw:
+        raise ValueError("turn_rules must include entries or legacy factions list")
+    factions = tuple(str(f) for f in raw)
+    sched = (wire.get("schedule") or "interleaved").strip().lower()
+    budget = float(wire.get("movement_budget", 4.0))
+    if sched == "sequential":
+        return SequentialTwoFactionGameDefinition(
+            factions=factions, movement_budget=budget
+        )
+    return InterleavedTwoFactionGameDefinition(
+        factions=factions, movement_budget=budget
+    )
 
 
 class NetworkGame(Game):
@@ -37,6 +76,8 @@ class NetworkGame(Game):
         player_name: str = "Player",
         preferred_faction: str | None = None,
         use_local_server: bool = True,
+        *,
+        game_schedule: str = "interleaved",
     ):
         """
         Initialize network-enabled game.
@@ -46,8 +87,11 @@ class NetworkGame(Game):
             player_name: This player's display name
             preferred_faction: Preferred faction (or None for auto-assign)
             use_local_server: If True, start a local server for single-player
+            game_schedule: `interleaved` or `sequential`; must match `hexserver --schedule`.
         """
         super().__init__()
+
+        self._game_schedule = game_schedule.strip().lower()
 
         self.logger = logging.getLogger("network_game")
         self.logger.info(
@@ -62,6 +106,8 @@ class NetworkGame(Game):
         # Client connection
         self.client: BrowserWebSocketClient | None = None
         self.local_server: LocalServerManager | None = None
+        #: Title rules for `advance_turn`, filled from `StateUpdate.turn_rules`.
+        self._title_game_definition: GameDefinition | None = None
 
         # Connection state
         self.connected = False
@@ -69,14 +115,15 @@ class NetworkGame(Game):
 
         self.logger = logging.getLogger("network_game")
         self.marker_mgr = MarkerManager(self.canvas)
+        # Do not drive UI from local TurnManager; server state is authoritative.
+        self.turn_manager.handlers.clear()
 
     def connect(self) -> bool:
         """
         Connect to the game server.
 
-        Safe to call again after disconnect or a dropped connection (e.g. refresh
-        in single-player still restarts the page; remote server + freed slots allows
-        reconnect without restarting the server process).
+        Reconnecting the same client to the same match is supported; switching to a
+        different title/scenario is assumed rare (full reload / prepared restart).
 
         Returns:
             True if connected successfully
@@ -86,6 +133,8 @@ class NetworkGame(Game):
             if self.client is not None:
                 self.client.disconnect()
                 self.client = None
+            # Re-learn schedule from the next StateUpdate.turn_rules (game switches are rare).
+            self._title_game_definition = None
 
             preloaded_unit_graphics: dict[str, Any] | None = None
             preloaded_marker_graphics: dict[str, Any] | None = None
@@ -94,11 +143,21 @@ class NetworkGame(Game):
             # Start local server if requested
             if self.use_local_server and not self.local_server:
                 self.logger.info("Starting local server...")
-                from ..scenarios import load_scenario, resolve_scenario_path_for_server
+                from ..gameroot import (
+                    initial_turn_slot_for_game_definition,
+                    load_game_definition_for_scenario,
+                    resolve_scenario_path_with_game_root,
+                    try_hexdemo_loaded_banner,
+                )
+                from ..scenarios import load_scenario
                 from ..scenarios.loader import scenario_to_initial_state
 
-                scenario_path = resolve_scenario_path_for_server()
+                scenario_path = resolve_scenario_path_with_game_root()
                 scenario_data = load_scenario(scenario_path)
+                game_def = load_game_definition_for_scenario(
+                    scenario_path, schedule=self._game_schedule
+                )
+                first = initial_turn_slot_for_game_definition(game_def)
                 preloaded_unit_graphics = scenario_data.unit_graphics_to_wire_dict()
                 preloaded_marker_graphics = getattr(
                     scenario_data, "marker_graphics_to_wire_dict", lambda: {}
@@ -108,10 +167,12 @@ class NetworkGame(Game):
                 )()
                 initial_state = scenario_to_initial_state(
                     scenario_data,
-                    initial_faction="Red",
-                    initial_phase="Movement",
-                    phase_actions_remaining=2,
+                    initial_faction=first["faction"],
+                    initial_phase=first["phase"],
+                    phase_actions_remaining=int(first["max_actions"]),
+                    schedule_index=0,
                 )
+                try_hexdemo_loaded_banner(scenario_path)
                 self.local_server = LocalServerManager(
                     initial_state=initial_state,
                     map_display=scenario_data.map_display.to_wire_dict(),
@@ -119,6 +180,7 @@ class NetworkGame(Game):
                     unit_graphics=preloaded_unit_graphics,
                     marker_graphics=preloaded_marker_graphics,
                     markers=preloaded_markers,
+                    game_definition=game_def,
                 )
                 if not self.local_server.start():
                     self.logger.error("Failed to start local server")
@@ -126,6 +188,10 @@ class NetworkGame(Game):
 
                 # Give server time to start (using setTimeout instead of asyncio.sleep)
                 # Note: In browser, connection will be async via callbacks anyway
+
+            # Title rules for advance_turn come from server StateUpdate.turn_rules (see
+            # _handle_state_update). No per-connect filesystem preload: remote/Pyodide
+            # clients often have no game pack on disk; switching games is out of scope.
 
             # Create client and set up callbacks
             self.client = BrowserWebSocketClient(self.server_url)
@@ -179,6 +245,7 @@ class NetworkGame(Game):
             self.local_server.stop()
             self.local_server = None
 
+        self._title_game_definition = None
         self.connected = False
         self.logger.info("Disconnected")
 
@@ -328,6 +395,20 @@ class NetworkGame(Game):
         Args:
             new_state: New game state from server
         """
+        if (
+            self.client is not None
+            and self.client.turn_rules is not None
+            and self._title_game_definition is None
+        ):
+            try:
+                self._title_game_definition = _game_definition_from_turn_rules_wire(
+                    self.client.turn_rules
+                )
+            except Exception as e:
+                self.logger.warning(
+                    "Could not cache GameDefinition from server turn_rules: %s", e
+                )
+
         self.logger.info(
             f"Received state update with {len(new_state.board.units)} units"
         )
@@ -352,27 +433,7 @@ class NetworkGame(Game):
         # Sync display to match new state
         self.display_mgr.sync_from_state(new_state)
 
-        # Update turn display
-        faction = new_state.turn.current_faction
-        phase = new_state.turn.current_phase
-        actions = new_state.turn.phase_actions_remaining
-
-        from ..document import element
-
-        turn_bg = element("turn-display")
-        if turn_bg:
-            turn_bg.classList.remove("red", "blue")
-            turn_bg.classList.add(faction.lower())
-
-        turn_info = element("turn-info")
-        if turn_info:
-            turn_info.innerText = f"{faction}-{phase} (Actions: {actions})"
-
-        advance_btn = element("advance-button")
-        advance_btn.disabled = not self.is_my_turn()
-        self.logger.warning(f"Advance button enabled: {self.is_my_turn()}")
-
-        self.logger.debug(f"UI updated for {faction}-{phase}")
+        self._sync_turn_ui(new_state)
 
     def _handle_connection_change(self, state: ConnectionState) -> None:
         """
@@ -420,6 +481,67 @@ class NetworkGame(Game):
         if not self.client:
             return False
         return self.client.is_my_turn()
+
+    def _sync_turn_ui(self, state) -> None:
+        """Turn display from replicated server state (not local TurnManager)."""
+        from .turn_strip import (
+            apply_turn_strip_faction,
+            display_faction_name,
+            display_phase_name,
+        )
+
+        faction = state.turn.current_faction
+        phase = state.turn.current_phase
+        actions = state.turn.phase_actions_remaining
+
+        from ..document import element
+
+        turn_bg = element("turn-display")
+        if turn_bg:
+            apply_turn_strip_faction(turn_bg, faction)
+
+        turn_info = element("turn-info")
+        if turn_info:
+            turn_info.innerText = (
+                f"{display_faction_name(faction)} - "
+                f"{display_phase_name(phase)} (actions: {actions})"
+            )
+
+        advance_btn = element("advance-button")
+        advance_btn.disabled = not self.is_my_turn()
+        self.logger.warning(f"Advance button enabled: {self.is_my_turn()}")
+
+        self.logger.debug(f"UI updated for {faction}-{phase}")
+
+    def update_turn_display(self, faction=None, phase=None) -> None:
+        """Use server-backed state instead of local TurnManager phases."""
+        st = self.action_mgr.current_state
+        if st is not None:
+            self._sync_turn_ui(st)
+
+    def advance_turn(self, _) -> None:
+        """Send NextPhase derived from the same schedule as the server (not local TurnManager)."""
+        from ..gamedef.builtin import advance_turn_action_for_state
+
+        current_state = self.action_mgr.current_state
+        if current_state is None:
+            self.logger.warning("Cannot advance turn: no current state")
+            return
+
+        gd = self._title_game_definition
+        if gd is None:
+            self.logger.error(
+                "Advance turn before turn schedule is known (missing StateUpdate.turn_rules); "
+                "reconnect after the server has sent state."
+            )
+            dev_console.set_status("Advance turn: wait for sync, then try again.")
+            return
+
+        np = advance_turn_action_for_state(current_state, gd)
+        self.logger.info(f"Advance turn (network): {np}")
+        self._clear_drag_and_highlights()
+        self.selection = None
+        self.execute_action(np)
 
     # Override undo/redo to send requests to server instead of local execution
     def undo(self) -> None:

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from hexengine.hexes.types import Hex, HexColRow
 from hexengine.map.layout import (
     fit_hex_grid_canvas,
     fit_hex_grid_canvas_for_hexes,
-    iter_map_grid_hexes,
+    iter_map_grid_hex_col_rows,
 )
 from hexengine.scenarios.schema import MapDisplayConfig
 
@@ -13,14 +14,31 @@ from hexengine.scenarios.schema import MapDisplayConfig
 def test_explicit_hex_set_canvas_shorter_than_full_rectangle() -> None:
     cols, rows, oi, oj = 5, 9, 0, 0
     hs = 24.0
-    subset = list(iter_map_grid_hexes(cols, 3, oi, oj))
+    subset = list(iter_map_grid_hex_col_rows(cols, 3, origin_col=oi, origin_row=oj))
     _, _cw_r, ch_r = fit_hex_grid_canvas(
-        hs, cols, rows, origin_i=oi, origin_j=oj, margin_pad=0.0, stroke_pad=2.0
+        hs,
+        cols,
+        rows,
+        origin_col=oi,
+        origin_row=oj,
+        margin_pad=0.0,
+        stroke_pad=2.0,
     )
     _, _cw_t, ch_t = fit_hex_grid_canvas_for_hexes(
         hs, subset, margin_pad=0.0, stroke_pad=2.0
     )
     assert ch_t < ch_r
+
+
+def test_map_grid_hex_col_rows_matches_toml_positions() -> None:
+    """Board cells are odd-q (col, row), not an axial (i, j) stepping rectangle."""
+    cells = {h for h in iter_map_grid_hex_col_rows(2, 2, origin_col=3, origin_row=2)}
+    assert cells == {
+        Hex.from_hex_col_row(HexColRow(3, 2)),
+        Hex.from_hex_col_row(HexColRow(4, 2)),
+        Hex.from_hex_col_row(HexColRow(3, 3)),
+        Hex.from_hex_col_row(HexColRow(4, 3)),
+    }
 
 
 def test_map_display_wire_round_trip_grid_hexes() -> None:

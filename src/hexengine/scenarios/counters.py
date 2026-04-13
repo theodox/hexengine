@@ -5,6 +5,7 @@ Square SVG unit counter: nested viewBox, CSS fill/glyph/caption, factory for per
 from __future__ import annotations
 
 from ..document import js
+from ..map.layout import unit_display_pixel_size
 from ..units.graphics import DisplayUnit, GraphicsCreator
 
 _SVG_NS = "http://www.w3.org/2000/svg"
@@ -44,10 +45,10 @@ def make_counter_graphics_creator(
     counter_fill_hilite: str | None = None,
 ) -> type:
     """
-    Build a :class:`GraphicsCreator` subclass with fixed glyph/caption strings.
+    Build a `GraphicsCreator` subclass with fixed glyph/caption strings.
 
     CSS is registered once in the document; each subclass only differs in initial text.
-    Optional ``extra_css`` / ``extra_css_href`` come from scenario ``[[unit_graphics]]``
+    Optional `extra_css` / `extra_css_href` come from scenario `[[unit_graphics]]`
     (e.g. faction tints) and are injected once per distinct pair.
     """
 
@@ -85,7 +86,11 @@ def make_counter_graphics_creator(
             display_unit.push_classes(*self.BASE_CLASSES)
 
             layout = display_unit._hex_layout
-            unit_size = int(layout.size * self.UNIT_SIZE_DIVISOR) if layout else 30
+            unit_size = (
+                unit_display_pixel_size(layout.size, display_unit.unit_size_multiplier)
+                if layout
+                else 30
+            )
             half = unit_size / 2.0
 
             inner = js.document.createElementNS(_SVG_NS, "svg")

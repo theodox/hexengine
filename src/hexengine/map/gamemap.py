@@ -9,7 +9,7 @@ from ..hexes.types import Hex
 from ..state.game_state import GameState
 from .canvas_layer import CanvasLayer, TerrainOverlayLayer
 from .handler import MouseHandler
-from .layout import HexLayout
+from .layout import HexLayout, unit_display_pixel_size
 from .svg_layer import SVGLayer
 from .unit_layer import UnitLayer
 
@@ -143,6 +143,10 @@ class Map:
         return self._hex_layout
 
     @property
+    def unit_size_multiplier(self) -> float:
+        return self._unit_size_multiplier
+
+    @property
     def canvas_layer(self) -> CanvasLayer:
         return self._canvas_layer
 
@@ -234,10 +238,10 @@ class Map:
 
     def _sync_map_bg_dom_size(self) -> None:
         """
-        Match ``#map-bg`` pixel box to the grid canvas (same as SVG overlays).
+        Match `#map-bg` pixel box to the grid canvas (same as SVG overlays).
 
-        When left at ``width/height: 100%``, the layer sizes to ``#map-world``, which may
-        still be the wide ``aspect-ratio`` strip—so ``background-size: cover`` scales the
+        When left at `width/height: 100%`, the layer sizes to `#map-world`, which may
+        still be the wide `aspect-ratio` strip—so `background-size: cover` scales the
         art to that large box. Explicit px ties the background to the hex map extent.
         """
         if self._bg_element is None:
@@ -272,18 +276,22 @@ class Map:
         self._clamp_pan()
         self._apply_transform()
 
-        unit_size = int(self._hex_layout.size * self._unit_size_multiplier) - 2
+        unit_size = unit_display_pixel_size(
+            self._hex_layout.size, self._unit_size_multiplier
+        )
         logging.getLogger().info(
             f"Map refreshed: hex_size={self._hex_layout.size}, unit_size={unit_size}"
         )
 
     def _set_unit_css_vars(self) -> None:
-        unit_size = max(1, int(self._hex_layout.size * self._unit_size_multiplier) - 2)
+        unit_size = unit_display_pixel_size(
+            self._hex_layout.size, self._unit_size_multiplier
+        )
         js.document.documentElement.style.setProperty("--unit-width", f"{unit_size}px")
         js.document.documentElement.style.setProperty("--unit-height", f"{unit_size}px")
 
     def _apply_map_background(self, m: Any) -> None:
-        """Set ``#map-bg`` image URL and crop vs stretch via CSS classes (see hexes.css)."""
+        """Set `#map-bg` image URL and crop vs stretch via CSS classes (see hexes.css)."""
         if self._bg_element is None:
             return
         el = self._bg_element
@@ -318,6 +326,7 @@ class Map:
         self._hex_stroke = int(m.hex_stroke)
         self._unit_size_multiplier = float(m.unit_size_multiplier)
 
+        # (n_cols, n_rows, origin_col, origin_row) odd-q, same space as scenario positions.
         grid_spec: tuple[int, int, int, int] | None = None
         if m.hex_columns is not None and m.hex_rows is not None:
             grid_spec = (
