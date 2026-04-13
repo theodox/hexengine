@@ -1,11 +1,11 @@
 """
 MarkerManager — map markers on a dedicated SVG layer below units.
 
-Marker appearance is driven by ``marker_graphics`` templates (same wire shape as
-``unit_graphics``) resolved through ``creator_for_template`` — parallel to how
-``unit_graphics`` + unit ``type`` define unit visuals.
+Marker appearance is driven by `marker_graphics` templates (same wire shape as
+`unit_graphics`) resolved through `creator_for_template` — parallel to how
+`unit_graphics` + unit `type` define unit visuals.
 
-``DisplayUnit`` supports ``set_glyph`` / ``set_caption`` / ``set_text`` for live
+`DisplayUnit` supports `set_glyph` / `set_caption` / `set_text` for live
 updates; markers do not use that path yet (labels come from the template only).
 """
 
@@ -134,6 +134,7 @@ class MarkerManager:
             unit_id=marker_id,
             unit_type=marker_type,
             layout=self._canvas.hex_layout,
+            unit_size_multiplier=self._canvas.unit_size_multiplier,
         )
         creator(display)
         display.proxy.setAttribute("data-marker", marker_id)

@@ -12,7 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field, fields
 from typing import Any, TypeVar
 
-# Odd-q offset ``(col, row)`` as in TOML ``position = [col, row]`` (see ``HexColRow``).
+# Odd-q offset `(col, row)` as in TOML `position = [col, row]` (see `HexColRow`).
 Position = tuple[int, int]
 
 ST = TypeVar("ST")
@@ -26,11 +26,11 @@ def toml_field(
     optional_str: bool = False,
 ) -> dict[str, Any]:
     """
-    Metadata for :func:`~hexengine.scenarios.load.rows.parse_scenario_row`.
+    Metadata for `hexengine.scenarios.load.rows.parse_scenario_row`.
 
-    - ``nonempty``: strip string; reject blank (required TOML string fields).
-    - ``coerce``: registered name (e.g. ``\"position\"``, ``\"movement_cost\"``).
-    - ``optional_str``: strip; empty or missing uses field default (often ``None``).
+    - `nonempty`: strip string; reject blank (required TOML string fields).
+    - `coerce`: registered name (e.g. `"position"`, `"movement_cost"`).
+    - `optional_str`: strip; empty or missing uses field default (often `None`).
     """
     m: dict[str, Any] = {"toml_key": toml_key}
     if nonempty:
@@ -60,12 +60,12 @@ def _dataclass_to_wire_dict(
     value_transforms: dict[str, Callable[[Any], Any]] | None = None,
 ) -> dict[str, Any]:
     """
-    Serialize a dataclass instance to a JSON-friendly dict by walking ``fields(obj)``.
+    Serialize a dataclass instance to a JSON-friendly dict by walking `fields(obj)`.
 
-    - ``rename``: Python field name → wire key (e.g. ``unit_type`` → ``type``).
-    - ``omit_none``: drop keys whose value is ``None`` after optional transforms.
-    - ``value_transforms``: per *Python* field name; run on the attribute value
-      (``None`` is passed through without calling the transform).
+    - `rename`: Python field name → wire key (e.g. `unit_type` → `type`).
+    - `omit_none`: drop keys whose value is `None` after optional transforms.
+    - `value_transforms`: per *Python* field name; run on the attribute value
+      (`None` is passed through without calling the transform).
     """
     rename = rename or {}
     value_transforms = value_transforms or {}
@@ -90,7 +90,7 @@ class GlobalStylesConfig:
     """
     App-wide CSS: a base stylesheet plus optional scenario layers.
 
-    The base sheet loads first; ``css_file`` and ``css`` follow (cascade / override).
+    The base sheet loads first; `css_file` and `css` follow (cascade / override).
     """
 
     base_css_file: str
@@ -113,7 +113,7 @@ class GlobalStylesConfig:
 
 
 def default_global_styles_unresolved() -> GlobalStylesConfig:
-    """Default before ``load_scenario`` resolution (matches packaged / repo layout)."""
+    """Default before `load_scenario` resolution (matches packaged / repo layout)."""
     return GlobalStylesConfig(base_css_file=DEFAULT_GLOBAL_BASE_CSS_FILE)
 
 
@@ -126,19 +126,34 @@ class UnitRow:
     unit_type: str = field(
         metadata=toml_field("type", nonempty=True)
     )  # e.g. "canuck", "soldier"
-    #: Odd-q ``(col, row)`` after parse (same as :class:`~hexengine.hexes.types.HexColRow`).
+    #: Odd-q `(col, row)` after parse (same as `hexengine.hexes.types.HexColRow`).
     position: Position = field(metadata=toml_field("position", coerce="position"))
     faction: str = field(metadata=toml_field("faction", nonempty=True))
     health: int = field(default=100, metadata=toml_field("health"))
     active: bool = field(default=True, metadata=toml_field("active"))
 
 
-@scenario_toml_table("locations")
+@scenario_toml_table("unit_archetypes")
+@dataclass(frozen=True)
+class UnitArchetypeRow:
+    """Named unit template for `[[unit_placements]]` with `archetype = "..."`."""
+
+    name: str = field(metadata=toml_field("name", nonempty=True))
+    unit_type: str = field(metadata=toml_field("type", nonempty=True))
+    faction: str = field(metadata=toml_field("faction", nonempty=True))
+    health: int = field(default=100, metadata=toml_field("health"))
+    active: bool = field(default=True, metadata=toml_field("active"))
+    #: Prefix for auto-generated `id` values (defaults to `name`).
+    id_prefix: str | None = field(
+        default=None, metadata=toml_field("id_prefix", optional_str=True)
+    )
+
+
 @dataclass(frozen=True)
 class LocationRow:
-    """One terrain location from a scenario file."""
+    """One terrain hex after load (from `[[terrain_groups]]` only)."""
 
-    #: Odd-q ``(col, row)`` after parse (same as :class:`~hexengine.hexes.types.HexColRow`).
+    #: Odd-q `(col, row)` after parse (same as `hexengine.hexes.types.HexColRow`).
     position: Position = field(metadata=toml_field("position", coerce="position"))
     terrain_type: str = field(default="plain", metadata=toml_field("terrain"))
     movement_cost: float = field(
@@ -149,10 +164,39 @@ class LocationRow:
     )
     ranged_modifier: float = field(default=0.0, metadata=toml_field("ranged_modifier"))
     block_los: bool = field(default=True, metadata=toml_field("block_los"))
-    #: Optional CSS-style hex for terrain overlay (e.g. ``#RRGGBB`` or ``#RRGGBBAA``).
+    #: Optional CSS-style hex for terrain overlay (e.g. `#RRGGBB` or `#RRGGBBAA`).
     hex_color: str | None = field(
         default=None, metadata=toml_field("hex_color", optional_str=True)
     )
+
+
+@scenario_toml_table("colors")
+@dataclass(frozen=True)
+class ColorRow:
+    """Named CSS color for reuse via `@name` elsewhere in the same scenario file."""
+
+    name: str = field(metadata=toml_field("name", nonempty=True))
+    value: str = field(metadata=toml_field("value", nonempty=True))
+
+
+@scenario_toml_table("terrain_types")
+@dataclass(frozen=True)
+class TerrainTypeRow:
+    """Named terrain template; exactly one row per scenario must set `default = true`."""
+
+    terrain_type: str = field(metadata=toml_field("terrain", nonempty=True))
+    movement_cost: float = field(
+        default=1.0, metadata=toml_field("movement_cost", coerce="movement_cost")
+    )
+    hex_color: str | None = field(
+        default=None, metadata=toml_field("hex_color", optional_str=True)
+    )
+    assault_modifier: float = field(
+        default=0.0, metadata=toml_field("assault_modifier")
+    )
+    ranged_modifier: float = field(default=0.0, metadata=toml_field("ranged_modifier"))
+    block_los: bool = field(default=True, metadata=toml_field("block_los"))
+    is_default: bool = field(default=False, metadata=toml_field("default"))
 
 
 @dataclass(frozen=True)
@@ -164,21 +208,25 @@ class MapDisplayConfig:
     hex_stroke: int = 1
     hex_color: str = "#33443344"
     background: str = "resources/test_map.png"
-    #: When True, ``#map-bg`` uses CSS ``background-size: cover`` (crop to map rect); when
-    #: False, ``background-size: 100% 100%`` stretches the image to the rect.
+    #: When True, `#map-bg` uses CSS `background-size: cover` (crop to map rect); when
+    #: False, `background-size: 100% 100%` stretches the image to the rect.
     background_crop_to_map: bool = True
     unit_size_multiplier: float = 1.5
-    # Fixed grid in cube coordinates: columns = i step, rows = j step (axial rectangle).
+    # Fixed board in odd-q `hexengine.hexes.types.HexColRow` space (same as TOML
+    # `position = [col, row]`): `hex_columns` × `hex_rows` starting at the origin.
     # When both are set, the client sizes the canvas/SVG to this grid; when None, legacy
     # “fill the CSS canvas box” behavior.
     hex_columns: int | None = None
     hex_rows: int | None = None
+    #: Minimum **column** (odd-q `col`, equals axial `i`) for the map grid.
     hex_origin_i: int = 0
+    #: Minimum **offset row** (odd-q `row`; not axial `j`) for the map grid.
     hex_origin_j: int = 0
-    #: When set with ``hex_columns`` / ``hex_rows``, canvas bounds and grid lines use this
-    #: occupied set instead of the full axis-aligned rectangle (sparse Hextml-style maps).
+    #: When `hex_columns` / `hex_rows` are omitted, the loader may set this to occupied
+    #: hexes so the canvas fits sparse content. When both dimensions are set, this stays
+    #: unset and the client uses the full `hex_columns` × `hex_rows` axial rectangle.
     grid_hexes: tuple[tuple[int, int, int], ...] | None = None
-    #: Terrain tint canvas stroke (CSS color, e.g. ``#RRGGBB`` / ``#RRGGBBAA``).
+    #: Terrain tint canvas stroke (CSS color, e.g. `#RRGGBB` / `#RRGGBBAA`).
     terrain_overlay_line_color: str = "#33443344"
     terrain_overlay_line_width: int = 2
 
@@ -233,8 +281,8 @@ class MapDisplayConfig:
             unit_size_multiplier=float(d.get("unit_size_multiplier", 1.5)),
             hex_columns=cols,
             hex_rows=rows,
-            hex_origin_i=int(d.get("hex_origin_i", 0)),
-            hex_origin_j=int(d.get("hex_origin_j", 0)),
+            hex_origin_i=int(d.get("hex_origin_col", d.get("hex_origin_i", 0))),
+            hex_origin_j=int(d.get("hex_origin_row", d.get("hex_origin_j", 0))),
             grid_hexes=grid_hexes,
             terrain_overlay_line_color=str(
                 d.get("terrain_overlay_line_color", "#33443344")
@@ -248,12 +296,12 @@ class UnitGraphicsTemplate:
     """
     Per-unit-type presentation from scenario (no DOM).
 
-    For SVG assets: exactly one of ``svg_file`` or ``svg`` is set after parse.
-    ``render`` is ``image`` / ``inline`` for ``svg_file``, or ``inline`` for embedded ``svg``.
+    For SVG assets: exactly one of `svg_file` or `svg` is set after parse.
+    `render` is `image` / `inline` for `svg_file`, or `inline` for embedded `svg`.
 
-    For ``render`` = ``counter``, use optional ``glyph`` / ``caption`` strings instead of SVG.
-    Optional ``counter_fill`` / ``counter_fill_hover`` / ``counter_fill_hilite`` set CSS custom
-    properties on the unit (same names as ``resources/default/unit_counter.css`` fallbacks).
+    For `render` = `counter`, use optional `glyph` / `caption` strings instead of SVG.
+    Optional `counter_fill` / `counter_fill_hover` / `counter_fill_hilite` set CSS custom
+    properties on the unit (same names as `resources/default/unit_counter.css` fallbacks).
     """
 
     unit_type: str
@@ -269,7 +317,7 @@ class UnitGraphicsTemplate:
     counter_fill_hilite: str | None = None
 
     def to_wire_dict(self) -> dict:
-        """JSON-safe keys for StateUpdate (``type`` matches TOML / unit rows)."""
+        """JSON-safe keys for StateUpdate (`type` matches TOML / unit rows)."""
         return _dataclass_to_wire_dict(
             self,
             rename={"unit_type": "type"},
@@ -288,7 +336,7 @@ class MarkerRow:
     active: bool = field(default=True, metadata=toml_field("active"))
 
     def to_wire_dict(self) -> dict[str, Any]:
-        """Marker payload for StateUpdate (odd-q ``position`` as ``[col, row]``)."""
+        """Marker payload for StateUpdate (odd-q `position` as `[col, row]`)."""
         return _dataclass_to_wire_dict(
             self,
             rename={"marker_id": "id", "marker_type": "type"},
@@ -304,8 +352,13 @@ class ScenarioData:
 
     name: str
     description: str = ""
+    #: Engine scenario DSL version (additive evolution; see docs/WIRE_COMPATIBILITY.md).
+    schema_version: int = 1
+    #: Optional `[[colors]]` rows (`@name` references are expanded at load time).
+    colors: tuple[ColorRow, ...] = ()
     units: list[UnitRow] = field(default_factory=list)
     locations: list[LocationRow] = field(default_factory=list)
+    terrain_types: tuple[TerrainTypeRow, ...] = ()
     map_display: MapDisplayConfig = field(default_factory=MapDisplayConfig)
     global_styles: GlobalStylesConfig = field(
         default_factory=default_global_styles_unresolved

@@ -1,7 +1,7 @@
 """
 Inject global CSS from the server when a scenario adds layers beyond hexes.css.
 
-Default presentation lives in ``hexes.css``; we only touch the DOM when ``[styles]``
+Default presentation lives in `hexes.css`; we only touch the DOM when `[styles]`
 (or a non-default base sheet) supplies something to load. This avoids an extra
 stylesheet fetch and keeps Pyodide/DOM edge cases from breaking state updates.
 """
@@ -28,7 +28,7 @@ def _norm_href(href: str) -> str:
 
 def _remove_by_id(doc, element_id: str) -> None:
     el = doc.getElementById(element_id)
-    # Pyodide: missing elements are JsNull, not Python None — ``el is None`` is false.
+    # Pyodide: missing elements are JsNull, not Python None — `el is None` is false.
     if el is None or el is jsnull:
         return
     parent = el.parentNode
@@ -39,10 +39,10 @@ def _remove_by_id(doc, element_id: str) -> None:
 
 def apply_global_styles(config: Mapping[str, Any]) -> None:
     """
-    Apply ``GlobalStylesConfig.to_wire_dict()`` from StateUpdate.
+    Apply `GlobalStylesConfig.to_wire_dict()` from StateUpdate.
 
     No-op (after clearing prior injections) when only the default base path is
-    present with no ``css`` / ``css_file`` — ``hexes.css`` already defines layout.
+    present with no `css` / `css_file` — `hexes.css` already defines layout.
     """
     doc = js.document
 
@@ -84,7 +84,7 @@ def apply_global_styles(config: Mapping[str, Any]) -> None:
 
 
 def apply_global_styles_safe(config: Mapping[str, Any]) -> None:
-    """Like :func:`apply_global_styles` but never raises (logs instead)."""
+    """Like `apply_global_styles` but never raises (logs instead)."""
     try:
         apply_global_styles(config)
     except Exception:

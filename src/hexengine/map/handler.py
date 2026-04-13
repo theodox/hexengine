@@ -28,8 +28,8 @@ class MouseHandler:
     def _get_event_target(self, event) -> tuple:
         """
         Extract target information from a DOM event.
-        Returns ``(leaf_target, unit_id, marker_id)`` after walking ancestors for
-        ``data-unit`` / ``data-marker`` (markers set ``data-marker`` on the root ``<g>``).
+        Returns `(leaf_target, unit_id, marker_id)` after walking ancestors for
+        `data-unit` / `data-marker` (markers set `data-marker` on the root `<g>`).
         """
 
         leaf = event.target

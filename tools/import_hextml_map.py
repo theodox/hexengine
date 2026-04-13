@@ -1,35 +1,35 @@
 #!/usr/bin/env python3
 """
-Import a Hextml-exported HTML map (from ``.tar.gz`` / ``.tgz``, a gzip-compressed
-``.html`` (``.gz``), or a plain ``.html`` file) into hexes scenario TOML with
-``[[terrain_groups]]`` (shared stats + member positions).
+Import a Hextml-exported HTML map (from `.tar.gz` / `.tgz`, a gzip-compressed
+`.html` (`.gz`), or a plain `.html` file) into hexes scenario TOML with
+`[[terrain_groups]]` (shared stats + member positions).
 
-Hextml stores **odd-q offset** coordinates on export: ``data-x`` is the column,
-``data-y`` (on ``hexline``) is the offset row, not cube ``j`` (see Red Blob Games
-“offset coordinates → axial”). We convert with ``j = row - (col - (col & 1)) // 2``,
-``i = col``, then shift so the map’s minimum axial ``(i, j)`` is ``(0, 0)``, and
-again in odd-q ``(col, row)`` so minimum column and offset-row are both ``0`` (so
-scenario ``position = [col, row]`` matches a tight top-left origin). Use ``--coords raw``
+Hextml stores **odd-q offset** coordinates on export: `data-x` is the column,
+`data-y` (on `hexline`) is the offset row, not cube `j` (see Red Blob Games
+“offset coordinates → axial”). We convert with `j = row - (col - (col & 1)) // 2`,
+`i = col`, then shift so the map’s minimum axial `(i, j)` is `(0, 0)`, and
+again in odd-q `(col, row)` so minimum column and offset-row are both `0` (so
+scenario `position = [col, row]` matches a tight top-left origin). Use `--coords raw`
 for legacy imports that were already axial.
 
 Run from repo root::
 
     python tools/import_hextml_map.py path/to/export.tar.gz -o out/scenario.toml
 
-To refresh map + ``[[terrain_groups]]`` on an existing scenario while keeping
-``name``/``description``, ``[[unit_graphics]]``, ``[[unit_placements]]``, ``[[units]]``, etc.::
+To refresh map + `[[terrain_groups]]` on an existing scenario while keeping
+`name`/`description`, `[[unit_graphics]]`, `[[unit_placements]]`, `[[units]]`, etc.::
 
     python tools/import_hextml_map.py map.gz -o src/.../scenario.toml \\
         --merge-into src/.../scenario.toml
 
-``--merge-into`` must match ``-o``. Terrain types that already exist in the file
+`--merge-into` must match `-o`. Terrain types that already exist in the file
 keep their edited stats (movement cost, LOS, colors, …); new terrain types use
-script defaults (``block_los`` defaults to ``false``). Stray ``[[terrain_groups]]``
+script defaults (`block_los` defaults to `false`). Stray `[[terrain_groups]]`
 after unit tables in the old file are stripped so they are not kept alongside the
 new map.
 
-Requires Python 3.11+. Expects the repo ``src`` layout (``hexengine`` on ``sys.path``);
-the script prepends ``<repo>/src`` when run as a file.
+Requires Python 3.11+. Expects the repo `src` layout (`hexengine` on `sys.path`);
+the script prepends `<repo>/src` when run as a file.
 """
 
 from __future__ import annotations
@@ -51,14 +51,14 @@ if _SRC.is_dir() and str(_SRC) not in sys.path:
 from hexengine.hexes.math import shift_axial_ij_cube_coords_to_origin  # noqa: E402
 from hexengine.hexes.types import Hex, HexColRow  # noqa: E402
 
-# Stub stats for Hextml CSS terrain classes → scenario ``terrain`` string is the
+# Stub stats for Hextml CSS terrain classes → scenario `terrain` string is the
 # class slug unless remapped here. Authors should tune in generated TOML.
 TERRAIN_REMAP: dict[str, str] = {
     # "evergreen-hills": "forest",
 }
 
 # Default gameplay stats per output terrain name (after remap). Unknown terrains
-# use ``_default``.
+# use `_default`.
 TERRAIN_DEFAULTS: dict[str, dict[str, object]] = {
     "_default": {
         "movement_cost": 1.0,
@@ -112,10 +112,10 @@ def _normalize_oddq_col_row_cells(
     cells: list[tuple[int, int, int, str]],
 ) -> list[tuple[int, int, int, str]]:
     """
-    Shift in odd-q ``(col, row)`` so min column and min offset-row are both 0.
+    Shift in odd-q `(col, row)` so min column and min offset-row are both 0.
 
-    Axial ``min(i), min(j)`` does not imply min odd-q row is 0; scenario TOML uses
-    ``[col, row]``, so this aligns the tight bbox with editor/visual top-left.
+    Axial `min(i), min(j)` does not imply min odd-q row is 0; scenario TOML uses
+    `[col, row]`, so this aligns the tight bbox with editor/visual top-left.
     """
     if not cells:
         return cells
@@ -141,7 +141,7 @@ def _terrain_stats(terrain: str) -> dict[str, object]:
 def _terrain_overlay_from_parsed_toml(
     data: dict[str, object],
 ) -> dict[str, dict[str, object]]:
-    """``terrain`` string -> stat fields from existing ``[[terrain_groups]]`` (no ``members``)."""
+    """`terrain` string -> stat fields from existing `[[terrain_groups]]` template rows (no `positions`)."""
     out: dict[str, dict[str, object]] = {}
     raw = data.get("terrain_groups")
     if not isinstance(raw, list):
@@ -170,7 +170,7 @@ def _merged_terrain_stats(
     terrain: str,
     overlay: dict[str, dict[str, object]] | None,
 ) -> dict[str, object]:
-    """Defaults for ``terrain``, overridden by existing TOML row when names match."""
+    """Defaults for `terrain`, overridden by existing TOML row when names match."""
     base = _terrain_stats(terrain)
     if overlay and terrain in overlay:
         base.update(overlay[terrain])
@@ -182,12 +182,12 @@ _UNIT_TABLE_MARKERS = ("[[unit_graphics]]", "[[unit_placements]]", "[[units]]")
 
 def _strip_terrain_groups_from_tail(tail: str) -> str:
     """
-    Remove ``[[terrain_groups]]`` blocks from the preserved tail.
+    Remove `[[terrain_groups]]` blocks from the preserved tail.
 
-    If unit tables appear before all terrain (unusual) or old ``[[terrain_groups]]``
-    were left *after* ``[[unit_placements]]``, those stray map tables would survive merge and
-    duplicate hexes with stale positions. Only ``[[unit_graphics]]``, ``[[unit_placements]]``,
-    and ``[[units]]`` belong in the tail.
+    If unit tables appear before all terrain (unusual) or old `[[terrain_groups]]`
+    were left *after* `[[unit_placements]]`, those stray map tables would survive merge and
+    duplicate hexes with stale positions. Only `[[unit_graphics]]`, `[[unit_placements]]`,
+    and `[[units]]` belong in the tail.
     """
     lines = tail.splitlines(keepends=True)
     out: list[str] = []
@@ -213,7 +213,7 @@ def _replace_name_description_lines(
     name: str | None,
     description: str | None,
 ) -> str:
-    """When ``--name`` / ``--description`` are set, rewrite those lines in ``head``."""
+    """When `--name` / `--description` are set, rewrite those lines in `head`."""
     if name is None and description is None:
         return head
     out: list[str] = []
@@ -231,8 +231,8 @@ def _replace_name_description_lines(
 
 def _split_scenario_for_map_replace(text: str) -> tuple[str, str]:
     """
-    ``(head, tail)`` where ``head`` is everything before ``[map]``, ``tail`` is
-    from the first unit-related ``[[...]]`` to EOF. The slice ``[map]`` … terrain
+    `(head, tail)` where `head` is everything before `[map]`, `tail` is
+    from the first unit-related `[[...]]` to EOF. The slice `[map]` … terrain
     groups is dropped and rebuilt from Hextml.
     """
     lines = text.splitlines(keepends=True)
@@ -262,7 +262,7 @@ def build_map_and_terrain_toml(
     parsed: dict[str, object],
     terrain_overlay: dict[str, dict[str, object]] | None = None,
 ) -> str:
-    """``[map]`` plus ``[[terrain_groups]]`` only (no name/description/header)."""
+    """`[map]` plus `[[terrain_groups]]` only (no name/description/header)."""
     cells: list[tuple[int, int, int, str]] = parsed["cells"]  # type: ignore[assignment]
     by_terrain: dict[str, list[tuple[int, int, int]]] = defaultdict(list)
     for i, j, k, raw in cells:
@@ -313,10 +313,10 @@ def build_map_and_terrain_toml(
         hc = stats.get("hex_color")
         if isinstance(hc, str) and hc.strip():
             lines.append(f'hex_color = "{_escape_toml_basic(hc.strip())}"')
-        lines.append("members = [")
+        lines.append("positions = [")
         for i, j, k in positions:
             rc = HexColRow.from_hex(Hex(i, j, k))
-            lines.append(f"  {{ position = [{rc.col}, {rc.row}] }},")
+            lines.append(f"  [{rc.col}, {rc.row}],")
         lines.append("]")
         lines.append("")
 
@@ -334,7 +334,7 @@ def _toml_float_or_str(v: object) -> str:
 
 
 class _HextmlMapParser(HTMLParser):
-    """Collect hex cells from ``section.map`` … ``article.hexline`` … ``hexBlock``."""
+    """Collect hex cells from `section.map` … `article.hexline` … `hexBlock`."""
 
     def __init__(self, *, coord_mode: str = "odd_q") -> None:
         super().__init__(convert_charrefs=True)
@@ -421,7 +421,7 @@ def _load_html_from_path(path: Path) -> str:
 
 def _load_html_from_gzip_or_tar(path: Path, inner: str | None) -> str:
     """
-    ``.tar.gz`` / ``.tgz`` → tar archive. A lone ``.gz`` tries tar first, then
+    `.tar.gz` / `.tgz` → tar archive. A lone `.gz` tries tar first, then
     treats the whole file as gzip-compressed HTML (some Hextml exports use this).
     """
     name = path.name.lower()

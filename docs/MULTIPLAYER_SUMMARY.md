@@ -9,13 +9,13 @@ A complete **server-authoritative multiplayer system** that treats single-player
 ```
 Client Layer (hexengine.client)
 ├── WebSocketClient        - Connects to server, sends actions, receives updates
-├── LocalServerManager     - Starts local server for single-player
+├── LocalServerManager     - Starts local server for single-player (requires `game_definition=`)
 ├── UIState                - Local UI state (selections, previews)
 └── DisplayManager         - Syncs game state to visual display
 
 Server Layer (hexengine.server)
-├── GameServer             - Game logic, action validation, state management
-├── WebSocketGameServer    - WebSocket transport layer
+├── GameServer             - Game logic, action validation, state management (requires `game_definition=`)
+├── WebSocketGameServer    - WebSocket transport layer (forwards `game_definition` to GameServer)
 └── protocol.py            - Message types and serialization
 
 Game Layer (hexengine.game)
@@ -33,14 +33,14 @@ Game Layer (hexengine.game)
 
 ### 2. Unified Single/Multiplayer
 ```python
-# Single-player (local server)
+# Single-player (local server): resolves `games/…` pack, loads title rules, then starts embedded server
 game = NetworkGame(use_local_server=True)
 
 # Multiplayer (remote server)
 game = NetworkGame(use_local_server=False, server_url="ws://server:8765")
 ```
 
-Both work identically from client perspective!
+Both use the same WebSocket protocol; local mode additionally needs a discoverable game pack on disk unless you pass explicit paths where the API supports it.
 
 ### 3. Clean Separation of Concerns
 - **GameState**: Immutable game state (what happened)
@@ -109,13 +109,13 @@ Client                     Server
 ### Documentation
 - `SERVER_ARCHITECTURE.md` - Server design and protocol
 - `MULTIPLAYER_INTEGRATION.md` - Integration guide
-- `examples/network_game_example.py` - Usage examples
+- `tests/test_network.py` - Headless `GameServer` / protocol usage examples
 
 ### Tests
 - `tests/test_network.py` - Unit tests for networking
 
 ### Dependencies
-- `pyproject.toml` - Added optional websockets dependency
+- `pyproject.toml` - `websockets` is a core dependency; `dev` extras include pytest/ruff
 
 ## Protocol Messages
 
@@ -197,21 +197,21 @@ await game.connect()
 ### Multiplayer
 
 ```python
-# Player 1
+# Player 1 (faction strings must match the server's title, e.g. hexdemo: confederate | union)
 game1 = NetworkGame(
     player_name="Alice",
-    preferred_faction="Blue",
+    preferred_faction="union",
     server_url="ws://localhost:8765",
-    use_local_server=False
+    use_local_server=False,
 )
 await game1.connect()
 
 # Player 2
 game2 = NetworkGame(
-    player_name="Bob", 
-    preferred_faction="Red",
+    player_name="Bob",
+    preferred_faction="confederate",
     server_url="ws://localhost:8765",
-    use_local_server=False
+    use_local_server=False,
 )
 await game2.connect()
 
@@ -222,14 +222,8 @@ await game2.connect()
 ## Testing
 
 ```bash
-# Install dependencies
-pip install websockets
-
-# Run tests
-python tests/test_network.py
-
-# Run example
-python examples/network_game_example.py
+# Install dev extras (pytest, ruff) if needed, then:
+pytest tests/test_network.py -q
 ```
 
 ## Next Steps

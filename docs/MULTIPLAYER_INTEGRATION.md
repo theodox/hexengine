@@ -14,8 +14,8 @@ from hexengine.game import NetworkGame
 game = NetworkGame(
     server_url="ws://localhost:8765",
     player_name="Alice",
-    preferred_faction="Blue",
-    use_local_server=True  # Auto-starts local server
+    preferred_faction="union",  # must match server title, e.g. hexdemo: confederate | union
+    use_local_server=True  # resolves game pack, builds GameDefinition, starts local server
 )
 
 await game.connect()
@@ -89,13 +89,44 @@ Handles WebSocket communication with server.
 
 ### `LocalServerManager`
 
-Starts a local server for single-player.
+Starts a local server for single-player. It constructs a [`WebSocketGameServer`](../src/hexengine/server/websocket_server.py), so you must pass a title (or test) **`GameDefinition`** as a keyword argument, same as the standalone server.
 
-**Usage:**
+**Usage (mirrors what `NetworkGame` does when `use_local_server=True`):**
+
 ```python
-manager = LocalServerManager(initial_state)
+from hexengine.client.local_server import LocalServerManager
+from hexengine.gameroot import (
+    initial_faction_for_game_definition,
+    load_game_definition_for_scenario,
+    resolve_scenario_path_with_game_root,
+)
+from hexengine.scenarios import load_scenario
+from hexengine.scenarios.loader import scenario_to_initial_state
+
+scenario_path = resolve_scenario_path_with_game_root()
+scenario_data = load_scenario(scenario_path)
+game_def = load_game_definition_for_scenario(scenario_path, schedule="interleaved")
+first = initial_faction_for_game_definition(game_def)
+initial_state = scenario_to_initial_state(
+    scenario_data,
+    initial_faction=first,
+    initial_phase="Movement",
+    phase_actions_remaining=2,
+)
+
+manager = LocalServerManager(
+    initial_state=initial_state,
+    map_display=scenario_data.map_display.to_wire_dict(),
+    global_styles=scenario_data.global_styles.to_wire_dict(),
+    unit_graphics=scenario_data.unit_graphics_to_wire_dict(),
+    marker_graphics=scenario_data.marker_graphics_to_wire_dict(),
+    markers=scenario_data.markers_to_wire_list(),
+    game_definition=game_def,
+)
 manager.start(port=8765)
 ```
+
+For headless tests with no title pack, use [`InterleavedTwoFactionGameDefinition`](../src/hexengine/gamedef/builtin.py) and `GameState.create_empty()`, then `LocalServerManager(..., game_definition=InterleavedTwoFactionGameDefinition())`.
 
 ## How Actions Work
 
@@ -214,7 +245,7 @@ await client.connect()  # Rejoins with same player_id
 ### Standalone Server
 
 ```bash
-# Terminal 1: Start server
+# Terminal 1: Start server (requires a resolvable game pack / scenario; see [SERVER_ARCHITECTURE.md](SERVER_ARCHITECTURE.md))
 python -m hexengine.server.websocket_server
 
 # Terminal 2: Start client 1
@@ -254,10 +285,7 @@ await game.connect()  # Starts server, then connects
 
 ## Example Usage
 
-See [examples/network_game_example.py](../examples/network_game_example.py) for:
-- Single-player setup
-- Multiplayer setup
-- Two-client local testing
+See [`tests/test_network.py`](../tests/test_network.py) for headless `GameServer` construction (with `game_definition=`) and protocol-level join/action tests. For end-to-end browser flow, use `NetworkGame` with `use_local_server=True` against a repo checkout that includes `games/hexdemo`.
 
 ## Dependencies
 
@@ -266,8 +294,4 @@ See [examples/network_game_example.py](../examples/network_game_example.py) for:
 pip install websockets
 ```
 
-Or add to `pyproject.toml`:
-```toml
-[project.optional-dependencies]
-multiplayer = ["websockets>=12.0"]
-```
+The `hexes` package already depends on `websockets` for the server and client; optional **`dev`** extras add `pytest` and `ruff`.

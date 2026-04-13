@@ -92,6 +92,11 @@ class GameUnit:
 
     @classmethod
     def create(cls, unit_id: str, unit_type: str, game_map: Map) -> GameUnit:
-        display_unit = DisplayUnit(unit_id, unit_type, game_map.hex_layout)
+        display_unit = DisplayUnit(
+            unit_id,
+            unit_type,
+            game_map.hex_layout,
+            unit_size_multiplier=game_map.unit_size_multiplier,
+        )
         graphics = cls.GRAPHICS_CREATOR().create(display_unit)
         return cls(unit_id, unit_type, graphics)

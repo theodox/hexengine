@@ -71,6 +71,8 @@ class BrowserWebSocketClient:
         # Current game state (last received from server)
         self.game_state: GameState | None = None
         self.sequence_number = 0
+        #: Last `turn_rules` dict from `hexengine.server.protocol.StateUpdate` (if any).
+        self.turn_rules: dict[str, Any] | None = None
 
         # Last applied scenario map_display JSON (avoid reset_view on every state tick)
         self._applied_map_display_json: str | None = None
@@ -153,6 +155,7 @@ class BrowserWebSocketClient:
             self.websocket = None
 
         self._set_connection_state(ConnectionState.DISCONNECTED)
+        self.turn_rules = None
         self.logger.info("Disconnected from server")
 
     def send_action(self, action_type: str, params: dict[str, Any]) -> None:
@@ -288,6 +291,8 @@ class BrowserWebSocketClient:
     def _handle_state_update(self, message: Message) -> None:
         """Handle a state update from the server."""
         update = StateUpdate.from_message(message)
+        if update.turn_rules is not None:
+            self.turn_rules = update.turn_rules
 
         # Update sequence number
         if update.sequence_number <= self.sequence_number:

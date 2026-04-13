@@ -11,12 +11,17 @@ def test_parse_unit_graphics_counter_row(tmp_path: Path) -> None:
     p = tmp_path / "scenario.toml"
     p.write_text(
         '\nname = "t"\n'
+        'description = ""\n'
+        "[[terrain_types]]\n"
+        'terrain = "plain"\n'
+        "movement_cost = 1.0\n"
+        "default = true\n"
         "[map]\n"
         "hex_columns = 2\n"
         "hex_rows = 2\n"
         "[[terrain_groups]]\n"
         'terrain = "plain"\n'
-        "members = [ { position = [0, 0] } ]\n"
+        "positions = [ [0, 0] ]\n"
         "[[unit_graphics]]\n"
         'type = "soldier"\n'
         'render = "counter"\n'

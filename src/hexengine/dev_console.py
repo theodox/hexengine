@@ -62,9 +62,9 @@ def update_log_display(event, textArea: js.HTMLElement) -> None:
 
 def set_status(message: str) -> None:
     """
-    Update the dev status line (``#status-line``).
+    Update the dev status line (`#status-line`).
 
-    Safe to call before :func:`initialize` or if the DOM is unavailable (no-op).
+    Safe to call before `initialize` or if the DOM is unavailable (no-op).
     """
     try:
         inst = StatusLine.INSTANCE

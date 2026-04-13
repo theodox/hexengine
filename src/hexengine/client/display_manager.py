@@ -54,9 +54,9 @@ class DisplayManager:
         Replace scenario-driven unit graphics templates (unit type → wire dict).
 
         When the payload changes, existing unit SVGs are removed so the next
-        ``sync_from_state`` rebuilds them with new display creator callables.
+        `sync_from_state` rebuilds them with new display creator callables.
 
-        Marker templates use the same wire shape via :meth:`MarkerManager.apply_marker_graphics`.
+        Marker templates use the same wire shape via `MarkerManager.apply_marker_graphics`.
         """
         raw: Any = wire.to_py() if hasattr(wire, "to_py") else wire
         if not isinstance(raw, dict):
@@ -105,7 +105,7 @@ class DisplayManager:
         self.redraw_terrain_overlay(game_state)
 
     def redraw_terrain_overlay(self, game_state: GameState) -> None:
-        """Update the terrain tint canvas from ``LocationState.hex_color`` (under units)."""
+        """Update the terrain tint canvas from `LocationState.hex_color` (under units)."""
         self._canvas.redraw_terrain_overlay(game_state)
 
     def _create_unit_display(self, unit_state) -> None:
@@ -134,6 +134,7 @@ class DisplayManager:
             unit_id=unit_state.unit_id,
             unit_type=unit_state.unit_type,
             layout=self._canvas.hex_layout,
+            unit_size_multiplier=self._canvas.unit_size_multiplier,
         )
 
         # Use the graphics creator to build the SVG elements
@@ -301,8 +302,10 @@ class DisplayManager:
     def adopt_hex_layout(self, game_state: GameState | None = None) -> None:
         """Point all unit displays at the map's current HexLayout and refresh transforms."""
         layout = self._canvas.hex_layout
+        mul = self._canvas.unit_size_multiplier
         for display in self._unit_displays.values():
             display._hex_layout = layout
+            display.unit_size_multiplier = mul
         self.refresh_unit_positions()
         if game_state is not None:
             self.redraw_terrain_overlay(game_state)

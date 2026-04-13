@@ -1,8 +1,8 @@
 """
-Build scenario row dataclasses from TOML dicts using :func:`dataclasses.field` metadata.
+Build scenario row dataclasses from TOML dicts using `dataclasses.field` metadata.
 
-Schema rows use :func:`~hexengine.scenarios.schema.toml_field` and optional
-:func:`~hexengine.scenarios.schema.scenario_toml_table` on the dataclass.
+Schema rows use `hexengine.scenarios.schema.toml_field` and optional
+`hexengine.scenarios.schema.scenario_toml_table` on the dataclass.
 """
 
 from __future__ import annotations
@@ -17,20 +17,43 @@ T = TypeVar("T")
 
 
 def ensure_dict_table(value: object, path: str) -> dict[str, Any]:
-    """Require a TOML inline table / section as ``dict``."""
+    """Require a TOML inline table / section as `dict`."""
     if not isinstance(value, dict):
         raise TypeError(f"{path} must be a table, got {type(value).__name__}")
     return value
 
 
-def parse_members_list(raw: object, path: str) -> list[dict[str, Any]]:
-    """Require ``members`` to be a list of tables."""
+def parse_positions_list(raw: object, path: str) -> list[dict[str, Any]]:
+    """
+    Parse `positions` (TOML): a list of either `[col, row]` (odd-q) or inline tables.
+
+    A length-2 array is normalized to a dict with key `position` (odd-q `[col, row]`)
+    so plain coordinate rows need not repeat that key.
+    """
     if not isinstance(raw, list):
         raise TypeError(f"{path} must be a list, got {type(raw).__name__}")
     out: list[dict[str, Any]] = []
     for mi, item in enumerate(raw):
         p = f"{path}[{mi}]"
-        out.append(ensure_dict_table(item, p))
+        if isinstance(item, dict):
+            out.append(ensure_dict_table(item, p))
+            continue
+        if isinstance(item, list | tuple):
+            if len(item) != 2:
+                raise ValueError(
+                    f"{p}: expected [col, row] with two integers, got {item!r}"
+                )
+            try:
+                col, row = int(item[0]), int(item[1])
+            except (TypeError, ValueError) as e:
+                raise ValueError(
+                    f"{p}: [col, row] entries must be integers, got {item!r}"
+                ) from e
+            out.append({"position": [col, row]})
+            continue
+        raise TypeError(
+            f"{p}: expected inline table or [col, row], got {type(item).__name__}"
+        )
     return out
 
 
@@ -48,10 +71,10 @@ def parse_scenario_row(
     base: Mapping[str, Any] | None = None,
 ) -> T:
     """
-    Instantiate a dataclass row from TOML keys declared via ``field(metadata=toml_field(...))``.
+    Instantiate a dataclass row from TOML keys declared via `field(metadata=toml_field(...))`.
 
-    ``base`` is merged under ``row`` (row wins) so unit_placement / group defaults can be applied
-    using the same TOML key names as in the file.
+    `base` is merged under `row` (row wins) so unit_placement / group defaults can be applied
+    using the same TOML key names as in the file (e.g. `positions` rows under `[[terrain_groups]]`).
     """
     merged: dict[str, Any] = {**(base or {}), **dict(row)}
     hints = get_type_hints(cls)

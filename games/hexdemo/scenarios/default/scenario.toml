@@ -1,0 +1,231 @@
+# Default hexdemo scenario (hexserver --game-root ... --scenario-id default)
+name = "Hexdemo Default"
+description = "Minimal layout; asset paths are relative to games/hexdemo/resources/"
+schema_version = 1
+
+[colors]
+grid_hex = "rgb(172, 172, 172)"
+grid_overlay_line = "rgb(32, 32, 32)"
+rebel_counter = "rgb(144, 144, 140)"
+rebel_counter_hover = "rgb(193, 186, 147)"
+rebel_counter_hilite = "rgb(215, 132, 105)"
+union_counter = "rgb(80, 92, 169)"
+union_counter_hover = "rgb(95, 129, 220)"
+union_counter_hilite = "rgb(91, 207, 246)"
+
+[map]
+hex_size = 24
+hex_margin = 0
+hex_stroke = 1
+hex_color = "@grid_hex"
+terrain_overlay_line_color = "@grid_overlay_line"
+terrain_overlay_line_width = 2
+background = "map_bg.png"
+background_crop_to_map = true
+unit_size_multiplier = 1.4
+hex_columns = 24
+hex_rows = 12
+
+# --------------- terrain types --------------
+
+[[terrain_types]]
+terrain = "plain"
+movement_cost = 1.0
+default = true
+hex_color = "rgba(211, 211, 179, 0.5)"
+
+[[terrain_types]]
+terrain = "light woods"
+movement_cost = 2.0
+assault_modifier = 0.5
+ranged_modifier = 0.5
+block_los = true
+hex_color = "rgba(137, 212, 140, 0.75)"
+
+[[terrain_types]]
+terrain = "deep woods"
+movement_cost = 4.0
+assault_modifier = 0.25
+ranged_modifier = 0.25
+block_los = true
+hex_color = "rgba(52, 108, 54, 0.75)"
+
+[[terrain_types]]
+terrain = "stream"
+movement_cost = 3.0
+assault_modifier = -0.5
+block_los = false
+hex_color = "rgba(23, 83, 188, 0.9)"
+
+
+[[terrain_types]]
+terrain = "strongpoint"
+movement_cost = 1.5
+assault_modifier = 0.25
+block_los = false
+hex_color = "rgba(70, 73, 79, 0.97)"
+
+# ----------- map ----------------
+[[terrain_groups]]
+terrain = "deep woods"
+positions = [
+  [5,5],[6,5],[7,5],[8,5],[9,5],[10,5]
+]
+
+[[terrain_groups]]
+terrain = "light woods"
+positions = [
+  [5,6],[6,6],[7,6],[8,6],[9,6],[10,6]
+]
+
+[[terrain_groups]]
+terrain = "stream"
+positions = [
+  [8,5],[8,6],[8,7],[8,8],[9,8],[10,8]
+]
+
+[[terrain_groups]]
+terrain = "strongpoint"
+positions = [[9,9], [7,9]]
+
+# -------------- graphics -----------
+
+[[unit_graphics]]
+type = "confederate_infantry"
+render = "counter"
+css_file = "unit_counter.css"
+glyph = "⚔"
+caption = "4 ➃ 6"
+counter_fill = "@rebel_counter"
+counter_fill_hover = "@rebel_counter_hover"
+counter_fill_hilite = "@rebel_counter_hilite"
+
+[[unit_graphics]]
+type = "confederate_leader"
+render = "counter"
+css_file = "unit_counter.css"
+glyph = "⚑"
+caption = ""
+counter_fill = "@rebel_counter"
+counter_fill_hover = "@rebel_counter_hover"
+counter_fill_hilite = "@rebel_counter_hilite"
+
+[[unit_graphics]]
+type = "union_infantry"
+render = "counter"
+css_file = "unit_counter.css"
+glyph = "⚔"
+caption = "4 ➃ 5"
+counter_fill = "@union_counter"
+counter_fill_hover = "@union_counter_hover"
+counter_fill_hilite = "@union_counter_hilite"
+
+[[unit_graphics]]
+type = "confederate_artillery"
+render = "counter"
+css_file = "unit_counter.css"
+glyph = "◉"
+caption = "0 ➂ 6 "
+counter_fill = "@rebel_counter"
+counter_fill_hover = "@rebel_counter_hover"
+counter_fill_hilite = "@rebel_counter_hilite"
+
+[[unit_graphics]]
+type = "union_artillery"
+render = "counter"
+css_file = "unit_counter.css"
+glyph = "◉"
+caption = "0 ➅ 6"
+counter_fill = "@union_counter"
+counter_fill_hover = "@union_counter_hover"
+counter_fill_hilite = "@union_counter_hilite"
+
+[[unit_graphics]]
+type = "union_leader"
+render = "counter"
+css_file = "unit_counter.css"
+glyph = "⚑"
+caption = ""
+counter_fill = "@union_counter"
+counter_fill_hover = "@union_counter_hover"
+counter_fill_hilite = "@union_counter_hilite"
+
+[[marker_graphics]]
+type = "union_supply"
+render = "counter"
+css_file = "unit_counter.css"
+glyph = "◑"
+caption = "4"
+counter_fill = "@union_counter"
+counter_fill_hover = "@union_counter_hover"
+counter_fill_hilite = "@union_counter_hilite"
+
+# ----------- units ----------
+
+[[unit_archetype]]
+name = "confederate_infantry"
+type = "confederate_infantry"
+faction = "confederate"
+id_prefix = "c_inf"
+
+[[unit_archetype]]
+name = "confederate_artillery"
+type = "confederate_artillery"
+faction = "confederate"
+id_prefix = "c_arty"
+
+[[unit_archetype]]
+name = "confederate_leader"
+type = "confederate_leader"
+faction = "confederate"
+id_prefix = "c_l"
+
+[[unit_archetype]]
+name = "union_artillery"
+type = "union_artillery"
+faction = "union"
+id_prefix = "u_arty"
+
+[[unit_archetype]]
+name = "union_infantry"
+type = "union_infantry"
+faction = "union"
+id_prefix = "u_inf"
+
+[[unit_archetype]]
+name = "union_leader"
+type = "union_leader"
+faction = "union"
+id_prefix = "u_ldr"
+
+
+# ------- starting counters ---------
+
+[[unit_placements]]
+archetype = "confederate_infantry"
+positions = [[8,8], [9,9]]
+
+[[unit_placements]]
+archetype = "confederate_artillery"
+positions = [[8,9]]
+
+[[unit_placements]]
+archetype = "union_infantry"
+positions = [[10,10], [10,11]]
+
+[[unit_placements]]
+archetype = "union_artillery"
+positions = [[11,10]]
+
+[[unit_placements]]
+archetype = "union_leader"
+positions = [[11,9]]
+
+# -------- markers -----------
+
+[[marker_placements]]
+type = "union_supply"
+positions = [
+  { id = "m-union-legend-4", position = [9, 10] },
+]
+

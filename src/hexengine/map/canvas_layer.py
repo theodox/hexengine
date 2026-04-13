@@ -11,7 +11,7 @@ from .layout import (
     HexLayout,
     fit_hex_grid_canvas,
     fit_hex_grid_canvas_for_hexes,
-    iter_map_grid_hexes,
+    iter_map_grid_hex_col_rows,
 )
 
 
@@ -34,7 +34,7 @@ class CanvasLayer:
         self._hex_layout = hex_layout
         self.hex_color = hex_color
         self.hex_stroke = hex_stroke
-        # (columns, rows, origin_i, origin_j) or None = size canvas from CSS box
+        # (columns, rows, origin_col, origin_row) odd-q; or None = size canvas from CSS box
         self._scenario_grid: tuple[int, int, int, int] | None = None
         #: When set, canvas size and grid lines use this list (sparse map), not full rect.
         self._grid_hex_list: list[Hex] | None = None
@@ -125,9 +125,9 @@ class CanvasLayer:
         """
         Switch between scenario-sized grid and legacy CSS-fitted grid.
 
-        ``spec`` is (columns, rows, origin_i, origin_j) or None for legacy.
-        When ``grid_hexes`` is non-empty, canvas bounds and drawn grid use that set;
-        ``spec`` is still used for logging when provided.
+        `spec` is (columns, rows, origin_col, origin_row) odd-q anchors, or None for legacy.
+        When `grid_hexes` is non-empty, canvas bounds and drawn grid use that set only
+        (sparse maps). Otherwise `spec` selects the full `columns` × `rows` grid.
         """
         self.hex_stroke = int(hex_stroke)
         gh = list(grid_hexes) if grid_hexes is not None else []
@@ -149,8 +149,8 @@ class CanvasLayer:
                 hex_size,
                 cols,
                 rows,
-                origin_i=oi,
-                origin_j=oj,
+                origin_col=oi,
+                origin_row=oj,
                 margin_pad=hex_margin,
                 stroke_pad=max(2.0, float(hex_stroke)),
             )
@@ -177,7 +177,7 @@ class CanvasLayer:
             if self._scenario_grid is not None:
                 cols, rows, oi, oj = self._scenario_grid
                 logging.getLogger().info(
-                    "Scenario grid canvas (explicit %d hexes, rect %dx%d @ i=%s j=%s): %dx%d px",
+                    "Scenario grid canvas (explicit %d hexes, rect %dx%d @ col=%s row=%s): %dx%d px",
                     len(self._grid_hex_list),
                     cols,
                     rows,
@@ -201,7 +201,7 @@ class CanvasLayer:
             self._canvas.style.height = f"{self._fixed_canvas_h}px"
             cols, rows, oi, oj = self._scenario_grid
             logging.getLogger().info(
-                "Scenario grid canvas: %dx%d hexes (origin i=%s j=%s), %dx%d px",
+                "Scenario grid canvas: %dx%d hexes (origin col=%s row=%s), %dx%d px",
                 cols,
                 rows,
                 oi,
@@ -236,7 +236,9 @@ class CanvasLayer:
                 )
         elif self._scenario_grid is not None:
             cols, rows, oi, oj = self._scenario_grid
-            for hx in iter_map_grid_hexes(cols, rows, oi, oj):
+            for hx in iter_map_grid_hex_col_rows(
+                cols, rows, origin_col=oi, origin_row=oj
+            ):
                 self.draw_hex(
                     hx,
                     fill="#FFFFFF10",
@@ -315,11 +317,11 @@ class TerrainOverlayLayer(CanvasLayer):
         self._canvas.style.height = f"{height}px"
 
     def redraw(self) -> None:
-        """Do not run the base grid pass; terrain is painted via ``redraw_terrain``."""
+        """Do not run the base grid pass; terrain is painted via `redraw_terrain`."""
         pass
 
     def redraw_terrain(self, locations: Iterable[LocationState]) -> None:
-        """Repaint tint + outline from state; use ``display`` style to hide without losing pixels."""
+        """Repaint tint + outline from state; use `display` style to hide without losing pixels."""
         ctx = self._context
         w, h = int(self._canvas.width), int(self._canvas.height)
         ctx.clearRect(0, 0, w, h)

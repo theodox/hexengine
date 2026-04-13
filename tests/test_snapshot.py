@@ -7,7 +7,13 @@ import unittest
 from hexengine.hexes.types import Hex
 from hexengine.state import ActionManager, GameState
 from hexengine.state.actions import MoveUnit
-from hexengine.state.game_state import BoardState, LocationState, TurnState, UnitState
+from hexengine.state.game_state import (
+    BoardState,
+    LocationState,
+    TurnState,
+    UnitState,
+    UnsetTerrainDefaults,
+)
 from hexengine.state.snapshot import game_state_from_wire_dict, game_state_to_wire_dict
 
 
@@ -42,12 +48,46 @@ class TestSnapshotRoundTrip(unittest.TestCase):
             phase_actions_remaining=1,
             turn_number=3,
         )
-        original = GameState(board=board, turn=turn)
+        original = GameState(
+            board=board,
+            turn=turn,
+            extension={"demo": {"x": 1}},
+            rng_log=({"kind": "d6", "value": 3, "rolls": [3]},),
+        )
 
         wire = game_state_to_wire_dict(original)
         restored = game_state_from_wire_dict(wire)
 
         self.assertEqual(restored, original)
+
+    def test_game_state_wire_round_trip_unset_defaults(self):
+        h0 = Hex(0, 0, 0)
+        board = BoardState(
+            locations={
+                h0: LocationState(
+                    position=h0,
+                    terrain_type="hill",
+                    movement_cost=3.0,
+                ),
+            },
+            unset_defaults=UnsetTerrainDefaults(
+                terrain_type="plain",
+                movement_cost=1.25,
+                hex_color="#00ff0088",
+            ),
+        )
+        turn = TurnState(
+            current_faction="Red",
+            current_phase="Movement",
+            phase_actions_remaining=2,
+            turn_number=1,
+        )
+        original = GameState(board=board, turn=turn)
+        wire = game_state_to_wire_dict(original)
+        restored = game_state_from_wire_dict(wire)
+        self.assertEqual(restored, original)
+        h1 = Hex(1, 0, -1)
+        self.assertEqual(restored.board.get_movement_cost(h1), 1.25)
 
 
 class TestReplaceStateClearsUndo(unittest.TestCase):

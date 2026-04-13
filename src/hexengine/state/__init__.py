@@ -11,8 +11,20 @@ from .actions import (
     RemoveMarker,
     SpendAction,
 )
-from .game_state import BoardState, GameState, LocationState, TurnState, UnitState
-from .logic import compute_reachable_hexes, compute_valid_moves, is_valid_move
+from .game_state import (
+    BoardState,
+    GameState,
+    LocationState,
+    TurnState,
+    UnitState,
+    UnsetTerrainDefaults,
+)
+from .logic import (
+    DEFAULT_MOVEMENT_BUDGET,
+    compute_reachable_hexes,
+    compute_valid_moves,
+    is_valid_move,
+)
 from .marker_placement import (
     MarkerPlacementRule,
     default_marker_destination_allowed,
@@ -32,6 +44,7 @@ __all__ = [
     "BoardState",
     "UnitState",
     "LocationState",
+    "UnsetTerrainDefaults",
     "TurnState",
     "ActionManager",
     "MoveUnit",
@@ -42,6 +55,7 @@ __all__ = [
     "AddUnit",
     "SpendAction",
     "NextPhase",
+    "DEFAULT_MOVEMENT_BUDGET",
     "compute_reachable_hexes",
     "compute_valid_moves",
     "is_valid_move",

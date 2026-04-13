@@ -13,7 +13,7 @@ from ..hexes.constants import (
     PI_OVER_3,
     SQRT_THREE,
 )
-from ..hexes.types import Hex
+from ..hexes.types import Hex, HexColRow
 
 
 class HexLayout:
@@ -74,7 +74,12 @@ def iter_map_grid_hexes(
     origin_i: int = 0,
     origin_j: int = 0,
 ) -> Iterable[Hex]:
-    """Cube hexes for a rectangular map in axial ``(i, j)`` space."""
+    """
+    Cube hexes for a rectangle in **axial** `(i, j)` space (not scenario TOML coords).
+
+    For maps driven by scenario `[map]` / `hexengine.hexes.types.HexColRow`
+    positions, use `iter_map_grid_hex_col_rows` instead.
+    """
     for dj in range(rows):
         for di in range(columns):
             i = origin_i + di
@@ -82,24 +87,43 @@ def iter_map_grid_hexes(
             yield Hex(i, j, -i - j)
 
 
+def iter_map_grid_hex_col_rows(
+    columns: int,
+    rows: int,
+    *,
+    origin_col: int = 0,
+    origin_row: int = 0,
+) -> Iterable[Hex]:
+    """
+    Hexes for a `columns` × `rows` board in **odd-q** `(col, row)` space.
+
+    Matches scenario TOML `position = [col, row]` and `hexengine.hexes.types.HexColRow`.
+    """
+    for r in range(origin_row, origin_row + rows):
+        for c in range(origin_col, origin_col + columns):
+            yield Hex.from_hex_col_row(HexColRow(col=c, row=r))
+
+
 def fit_hex_grid_canvas(
     hex_size: float,
     columns: int,
     rows: int,
     *,
-    origin_i: int = 0,
-    origin_j: int = 0,
+    origin_col: int = 0,
+    origin_row: int = 0,
     margin_pad: float = 0.0,
     stroke_pad: float = 2.0,
 ) -> tuple[HexLayout, int, int]:
     """
     Build a HexLayout and integer canvas size (width, height) that contain all
-    hexes in the grid. Flat-top layout formula matches :class:`HexLayout`.
+    hexes in an odd-q `columns` × `rows` board (see `iter_map_grid_hex_col_rows`).
     """
     probe = HexLayout(hex_size, 0.0, 0.0)
     min_x = min_y = math.inf
     max_x = max_y = -math.inf
-    for h in iter_map_grid_hexes(columns, rows, origin_i, origin_j):
+    for h in iter_map_grid_hex_col_rows(
+        columns, rows, origin_col=origin_col, origin_row=origin_row
+    ):
         for x, y in probe.hex_corners(h):
             min_x = min(min_x, x)
             max_x = max(max_x, x)
@@ -112,7 +136,9 @@ def fit_hex_grid_canvas(
     layout = HexLayout(hex_size, ox, oy)
 
     max_x2 = max_y2 = -math.inf
-    for h in iter_map_grid_hexes(columns, rows, origin_i, origin_j):
+    for h in iter_map_grid_hex_col_rows(
+        columns, rows, origin_col=origin_col, origin_row=origin_row
+    ):
         for x, y in layout.hex_corners(h):
             max_x2 = max(max_x2, x)
             max_y2 = max(max_y2, y)
@@ -130,7 +156,7 @@ def fit_hex_grid_canvas_for_hexes(
     stroke_pad: float = 2.0,
 ) -> tuple[HexLayout, int, int]:
     """
-    Like :func:`fit_hex_grid_canvas` but bounds the canvas to an explicit hex set
+    Like `fit_hex_grid_canvas` but bounds the canvas to an explicit hex set
     (e.g. scenario terrain cells), omitting empty slots in an axis-aligned rectangle.
     """
     hex_list = list(hexes)
@@ -160,3 +186,13 @@ def fit_hex_grid_canvas_for_hexes(
     cw = max(1, int(math.ceil(max_x2 + pad)))
     ch = max(1, int(math.ceil(max_y2 + pad)))
     return layout, cw, ch
+
+
+def unit_display_pixel_size(hex_size: float, unit_size_multiplier: float) -> int:
+    """
+    Pixel box for a unit graphic on the map.
+
+    Matches `hexengine.map.gamemap.Map._set_unit_css_vars` (`--unit-width` /
+    `--unit-height`) so SVG `<image>` units and CSS-sized counters stay aligned.
+    """
+    return max(1, int(float(hex_size) * float(unit_size_multiplier)) - 2)

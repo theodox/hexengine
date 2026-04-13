@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import subprocess
 import sys
 import threading
@@ -11,12 +12,26 @@ import webbrowser
 from pathlib import Path
 
 BASE_URL = "http://localhost:8000/hexes.html"
-PLAYER1_URL = f"{BASE_URL}?mode=multi&name=Player1&faction=Red"
-PLAYER2_URL = f"{BASE_URL}?mode=multi&name=Player2&faction=Blue"
 
 
 def main():
     """Launch HTTP server and game server concurrently."""
+    from hexengine.gameroot import add_game_launch_arguments
+
+    parser = argparse.ArgumentParser(
+        description="Start HTTP static server and WebSocket game server"
+    )
+    add_game_launch_arguments(parser)
+    args = parser.parse_args()
+
+    sched_q = (
+        f"&schedule={args.schedule}"
+        if args.schedule.strip().lower() != "interleaved"
+        else ""
+    )
+    player1_url = f"{BASE_URL}?mode=multi&name=Player1&faction=confederate{sched_q}"
+    player2_url = f"{BASE_URL}?mode=multi&name=Player2&faction=union{sched_q}"
+
     print("=" * 60)
     print("Starting Hexes Servers")
     print("=" * 60)
@@ -43,7 +58,14 @@ def main():
 
             from hexengine.server.websocket_server import main as server_main
 
-            asyncio.run(server_main())
+            asyncio.run(
+                server_main(
+                    scenario_file=args.scenario_file,
+                    game_root=args.game_root,
+                    scenario_id=args.scenario_id,
+                    schedule=args.schedule,
+                )
+            )
         except Exception as e:
             server_error = e
             traceback.print_exc()
@@ -76,8 +98,8 @@ def main():
     print()
 
     # Open two tabs: one for each player
-    webbrowser.open(PLAYER1_URL)
-    webbrowser.open(PLAYER2_URL)
+    webbrowser.open(player1_url)
+    webbrowser.open(player2_url)
 
     try:
         server_thread.join()

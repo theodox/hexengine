@@ -2,8 +2,8 @@
 Map package for hexengine.
 
 This package provides components for rendering and interacting with hexagonal maps.
-Pyodide-only modules (e.g. ``MouseHandler``, ``Map``) load on first attribute access
-so CPython servers can import :mod:`hexengine.map.layout` without ``pyodide``.
+Pyodide-only modules (e.g. `MouseHandler`, `Map`) load on first attribute access
+so CPython servers can import `hexengine.map.layout` without `pyodide`.
 """
 
 from __future__ import annotations

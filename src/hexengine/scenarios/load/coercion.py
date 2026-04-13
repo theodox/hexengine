@@ -9,7 +9,7 @@ from ...hexes.types import Hex, HexColRow
 
 def parse_position(raw: list[int] | tuple[int, ...]) -> tuple[int, int]:
     """
-    Parse TOML ``position`` as odd-q ``[col, row]`` (:class:`~hexengine.hexes.types.HexColRow`).
+    Parse TOML `position` as odd-q `[col, row]` (`hexengine.hexes.types.HexColRow`).
     """
     if len(raw) != 2:
         raise ValueError(
@@ -27,13 +27,13 @@ def float_or_inf(v: str | float | int) -> float:
 
 
 def coerce_movement_cost(raw: str | float | int) -> float:
-    """``movement_cost`` may be a float or the string ``inf``."""
+    """`movement_cost` may be a float or the string `inf`."""
     if isinstance(raw, str):
         return float_or_inf(raw)
     return float(raw)
 
 
 def position_to_cube_tuple(pos: tuple[int, int]) -> tuple[int, int, int]:
-    """Scenario ``Position`` → cube triple for :attr:`MapDisplayConfig.grid_hexes` / clients."""
+    """Scenario `Position` → cube triple for `MapDisplayConfig.grid_hexes` / clients."""
     h = Hex.from_hex_col_row(HexColRow(col=pos[0], row=pos[1]))
     return (h.i, h.j, h.k)

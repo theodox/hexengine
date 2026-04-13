@@ -1,0 +1,38 @@
+/*
+  Optional stylesheet for unit_template.svg when using render = "inline" (copy beside
+  your SVG and set css_file in [[unit_graphics]]).
+
+  These selectors target the cloned SVG nodes under the unit <g>. They do NOT style
+  shapes inside an SVG loaded with render = "image" (<image href="..."> is opaque
+  to external CSS); for image mode, edit fills in the .svg file instead.
+*/
+
+/* Base art */
+.unit .unit-template-chassis {
+  fill: #4a5568;
+  stroke: rgba(0, 0, 0, 0.28);
+}
+
+.unit .unit-template-emblem {
+  fill: rgba(255, 255, 255, 0.22);
+  stroke: rgba(0, 0, 0, 0.12);
+}
+
+.unit .unit-template-label {
+  fill: rgba(16, 16, 16, 0.92);
+  pointer-events: none;
+  user-select: none;
+}
+
+.unit:hover .unit-template-chassis {
+  fill: #5a6578;
+}
+
+.unit.hilited .unit-template-chassis {
+  fill: #e53e3e;
+  stroke: rgba(0, 0, 0, 0.35);
+}
+
+.unit.disabled .unit-template-art {
+  opacity: 0.45;
+}

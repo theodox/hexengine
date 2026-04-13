@@ -11,19 +11,24 @@ The server:
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import uuid
 from collections.abc import Callable
 from typing import Any
 
+from ..gamedef.protocol import GameDefinition
 from ..hexes.types import Hex, HexColRow
 from ..package_version import hexes_package_version
 from ..state import ActionManager, GameState
 from ..state.actions import AddUnit, DeleteUnit, MoveUnit, NextPhase, SpendAction
+from ..state.logic import DEFAULT_MOVEMENT_BUDGET, is_valid_move
 from ..state.marker_placement import (
     MarkerPlacementRule,
     default_marker_destination_allowed,
 )
+from ..state.phase_rules import phase_allows_unit_move
 from ..state.snapshot import game_state_from_wire_dict, game_state_to_wire_dict
 from .protocol import (
     ActionRequest,
@@ -35,6 +40,11 @@ from .protocol import (
     PlayerInfo,
     StateUpdate,
 )
+
+
+def _turn_rules_rota_id(entries: list[dict[str, Any]]) -> str:
+    payload = json.dumps(entries, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
 class GameServer:
@@ -55,7 +65,9 @@ class GameServer:
         marker_graphics: dict[str, Any] | None = None,
         markers: list[dict[str, Any]] | None = None,
         marker_placement_rule: MarkerPlacementRule | None = None,
-    ):
+        *,
+        game_definition: GameDefinition,
+    ) -> None:
         """
         Initialize the game server.
 
@@ -64,8 +76,9 @@ class GameServer:
             map_display: Optional scenario map presentation dict (JSON-safe)
             global_styles: Optional global CSS dict (JSON-safe)
             unit_graphics: Optional unit type -> template dict (JSON-safe)
-            marker_placement_rule: Optional ``(state, marker_wire_dict, to_hex) -> bool``
+            marker_placement_rule: Optional `(state, marker_wire_dict, to_hex) -> bool`
                 for marker moves/adds; if omitted, uses empty-hex rule (board hex, no unit).
+            game_definition: Turn schedule and factions (required).
         """
         self.game_state = initial_state or GameState.create_empty()
         self.action_manager = ActionManager(self.game_state)
@@ -76,6 +89,7 @@ class GameServer:
         self.markers = [] if markers is None else list(markers)
         self._marker_placement_rule = marker_placement_rule
         self._server_package_version = hexes_package_version()
+        self._game_definition = game_definition
 
         # Player management
         self.players: dict[str, PlayerInfo] = {}
@@ -90,28 +104,7 @@ class GameServer:
         self.logger = logging.getLogger("game_server")
         self.logger.info("Game server initialized")
 
-        # Define turn configuration
-        # Interleaved: Red-Movement, Blue-Movement, Red-Attack, Blue-Attack
-        self.factions = ["Red", "Blue"]
-        self.phases = [
-            {"name": "Movement", "max_actions": 2},
-            {"name": "Attack", "max_actions": 2},
-        ]
-        self._build_turn_order()
-
-    def _build_turn_order(self) -> None:
-        """Build interleaved turn order from factions and phases."""
-        # Interleaved: Red-Movement, Blue-Movement, Red-Attack, Blue-Attack
-        self.turn_order = []
-        for phase in self.phases:
-            for faction in self.factions:
-                self.turn_order.append(
-                    {
-                        "faction": faction,
-                        "phase": phase["name"],
-                        "max_actions": phase["max_actions"],
-                    }
-                )
+        self.turn_order = self._game_definition.turn_order()
         self.logger.info(f"Turn order: {self.turn_order}")
 
     def _serialize_state(self, state: GameState) -> dict[str, Any]:
@@ -120,22 +113,25 @@ class GameServer:
 
     def _get_next_phase(self) -> dict:
         """Get the next phase in the turn order."""
-        current_state = self.action_manager.current_state
-        current_faction = current_state.turn.current_faction
-        current_phase = current_state.turn.current_phase
+        return self._game_definition.get_next_phase(self.action_manager.current_state)
 
-        # Find current position in turn order
-        for i, turn_info in enumerate(self.turn_order):
-            if (
-                turn_info["faction"] == current_faction
-                and turn_info["phase"] == current_phase
-            ):
-                # Return next in sequence (wraps around)
-                next_idx = (i + 1) % len(self.turn_order)
-                return self.turn_order[next_idx]
+    def _turn_rules_wire(self) -> dict[str, Any]:
+        """Full turn rota + budget + fingerprint for thin clients (no game pack on disk)."""
+        entries = self._game_definition.turn_order()
+        budget = float(
+            getattr(self._game_definition, "_movement_budget", DEFAULT_MOVEMENT_BUDGET)
+        )
+        return {
+            "turn_rules_schema": 1,
+            "entries": entries,
+            "movement_budget": budget,
+            "rota_id": _turn_rules_rota_id(entries),
+        }
 
-        # Fallback: return first turn
-        return self.turn_order[0]
+    def _invoke_phase_transition_hook(self) -> None:
+        fn = getattr(self._game_definition, "after_phase_transition", None)
+        if callable(fn):
+            fn(self.action_manager.current_state)
 
     def add_message_handler(self, handler: Callable[[str, Message], None]) -> None:
         """
@@ -190,7 +186,7 @@ class GameServer:
         if isinstance(requested, str) and not requested.strip():
             requested = None
 
-        available_factions = ["Red", "Blue"]
+        available_factions = self._game_definition.available_factions()
 
         if requested is None:
             # No preference: first free faction
@@ -229,6 +225,7 @@ class GameServer:
         # Send player_joined to the joining player (so they know their faction)
         join_payload = dict(player.to_dict())
         join_payload["package_version"] = self._server_package_version
+        join_payload["protocol_version"] = "1"
         await self._send_message(
             player_id, Message(type=MessageType.PLAYER_JOINED, payload=join_payload)
         )
@@ -294,9 +291,25 @@ class GameServer:
             await self._broadcast_state_update()
             return
 
-        # Create action from request
+        if request.action_type == "MoveUnit":
+            try:
+                self._validate_move_unit_request(current_state, request.params, player)
+            except ValueError as e:
+                await self._send_error(player_id, str(e))
+                return
+
+        # Create action from request (NextPhase is always server-authoritative)
         try:
-            action = self._create_action(request)
+            if request.action_type == "NextPhase":
+                info = self._get_next_phase()
+                action = NextPhase(
+                    new_faction=info["faction"],
+                    new_phase=info["phase"],
+                    max_actions=info["max_actions"],
+                    new_schedule_index=int(info["schedule_index"]),
+                )
+            else:
+                action = self._create_action(request)
         except Exception as e:
             await self._send_error(player_id, f"Invalid action: {e}")
             return
@@ -307,6 +320,9 @@ class GameServer:
             self.logger.info(
                 f"Executed {request.action_type} from {player.player_name}"
             )
+
+            if isinstance(action, NextPhase):
+                self._invoke_phase_transition_hook()
 
             # Spend an action for moves (other action types may cost different amounts)
             if request.action_type in ["MoveUnit"]:
@@ -330,8 +346,10 @@ class GameServer:
                             new_faction=next_phase_info["faction"],
                             new_phase=next_phase_info["phase"],
                             max_actions=next_phase_info["max_actions"],
+                            new_schedule_index=int(next_phase_info["schedule_index"]),
                         )
                         self.action_manager.execute(next_phase_action)
+                        self._invoke_phase_transition_hook()
                         self.logger.info(
                             f"Advanced to {next_phase_info['faction']}-{next_phase_info['phase']}"
                         )
@@ -456,9 +474,9 @@ class GameServer:
         active: bool = True,
     ) -> None:
         """
-        Append a marker (same validation as the ``AddMarker`` wire action).
+        Append a marker (same validation as the `AddMarker` wire action).
 
-        Does not broadcast; call :meth:`_broadcast_state_update` (or equivalent)
+        Does not broadcast; call `_broadcast_state_update` (or equivalent)
         from async game code after mutating server state.
         """
         self._apply_add_marker(
@@ -472,14 +490,14 @@ class GameServer:
 
     def remove_marker_by_id(self, marker_id: str) -> None:
         """
-        Remove a marker by id (same as ``RemoveMarker``).
+        Remove a marker by id (same as `RemoveMarker`).
 
-        Does not broadcast; see :meth:`add_marker_row`.
+        Does not broadcast; see `add_marker_row`.
         """
         self._apply_remove_marker({"marker_id": marker_id})
 
     def _apply_move_marker(self, params: dict[str, Any]) -> None:
-        """Update ``self.markers`` when a client sends ``MoveMarker``."""
+        """Update `self.markers` when a client sends `MoveMarker`."""
         mid = str(params["marker_id"])
         fp = params["from_position"]
         tp = params["to_position"]
@@ -552,6 +570,54 @@ class GameServer:
             raise ValueError(f"Unknown marker {mid!r}")
         self.markers = [m for m in self.markers if str(m.get("id")) != mid]
 
+    def _movement_budget_for_unit(self, state: GameState, unit_id: str) -> float:
+        gd = self._game_definition
+        fn = getattr(gd, "movement_budget_for_unit", None)
+        if callable(fn):
+            return float(fn(state, unit_id))
+        return DEFAULT_MOVEMENT_BUDGET
+
+    def _validate_move_unit_request(
+        self, state: GameState, params: dict[str, Any], player: PlayerInfo
+    ) -> None:
+        """
+        Authoritative checks before `hexengine.state.actions.MoveUnit` is built.
+
+        Uses terrain costs, occupancy, and the title movement budget (see
+        `GameDefinition.movement_budget_for_unit` when implemented).
+        """
+        unit_id = params.get("unit_id")
+        if not isinstance(unit_id, str) or not unit_id.strip():
+            raise ValueError("MoveUnit requires non-empty unit_id")
+
+        fh, th = params.get("from_hex"), params.get("to_hex")
+        if not isinstance(fh, dict) or not isinstance(th, dict):
+            raise ValueError("MoveUnit requires from_hex and to_hex objects")
+        from_hex = Hex(**fh)
+        to_hex = Hex(**th)
+        if from_hex == to_hex:
+            raise ValueError("MoveUnit requires a destination different from from_hex")
+
+        unit = state.board.units.get(unit_id)
+        if unit is None:
+            raise ValueError(f"Unknown unit {unit_id!r}")
+        if not unit.active:
+            raise ValueError(f"Unit {unit_id!r} is not active")
+        if unit.faction != player.faction:
+            raise ValueError("That unit is not yours")
+        if unit.position != from_hex:
+            raise ValueError("from_hex does not match the unit's position")
+
+        if not phase_allows_unit_move(state.turn.current_phase):
+            raise ValueError(
+                "Moves are only allowed in a movement phase "
+                f"(current: {state.turn.current_phase!r})"
+            )
+
+        budget = self._movement_budget_for_unit(state, unit_id)
+        if not is_valid_move(state, unit_id, to_hex, budget):
+            raise ValueError("Illegal move for current terrain and movement budget")
+
     def _create_action(self, request: ActionRequest) -> Any:
         """
         Create an action instance from a request.
@@ -597,6 +663,7 @@ class GameServer:
                     new_faction=params["new_faction"],
                     new_phase=params["new_phase"],
                     max_actions=params["max_actions"],
+                    new_schedule_index=int(params.get("new_schedule_index", 0)),
                 )
             case _:
                 raise ValueError(f"Unknown action type: {action_type}")
@@ -624,6 +691,7 @@ class GameServer:
             marker_graphics=self.marker_graphics,
             markers=self.markers,
             server_package_version=self._server_package_version,
+            turn_rules=self._turn_rules_wire(),
         )
         await self._send_message(player_id, update.to_message())
 
@@ -640,6 +708,7 @@ class GameServer:
             marker_graphics=self.marker_graphics,
             markers=self.markers,
             server_package_version=self._server_package_version,
+            turn_rules=self._turn_rules_wire(),
         )
         message = update.to_message()
 
