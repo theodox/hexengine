@@ -246,7 +246,9 @@ class BrowserWebSocketClient:
         """Called when message received from server."""
         try:
             raw_message = event.data
-            message = Message.from_json(raw_message)
+            message = Message.try_from_json(raw_message)
+            if message is None:
+                return
             self._handle_message(message)
         except Exception as e:
             self.logger.error(f"Error processing message: {e}")
@@ -282,6 +284,8 @@ class BrowserWebSocketClient:
                 self._handle_player_left(message)
             elif message.type == MessageType.ERROR:
                 self._handle_server_error(message)
+            elif message.type == MessageType.SERVER_LOG:
+                self._handle_server_log(message)
             else:
                 self.logger.warning(f"Unknown message type: {message.type}")
 
@@ -421,6 +425,21 @@ class BrowserWebSocketClient:
 
         if self.on_player_left:
             self.on_player_left(player)
+
+    def _handle_server_log(self, message: Message) -> None:
+        """Append a server-originated log line to the dev console."""
+        p = message.payload
+        wire = str(p.get("level", "INFO")).upper()
+        level = getattr(logging, wire, None)
+        if not isinstance(level, int):
+            level = logging.INFO
+        name = p.get("logger")
+        body = p.get("message", "")
+        if isinstance(name, str) and name:
+            line = f"{name} | {body}"
+        else:
+            line = str(body)
+        dev_console.append_log_line(level, line)
 
     def _handle_server_error(self, message: Message) -> None:
         """Handle an error message from the server."""

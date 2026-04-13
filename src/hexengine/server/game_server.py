@@ -15,9 +15,11 @@ import hashlib
 import json
 import logging
 import uuid
+from collections import deque
 from collections.abc import Callable
 from typing import Any
 
+from ..game_log import GameLogger, game_logger_scope
 from ..gamedef.protocol import GameDefinition
 from ..hexes.types import Hex, HexColRow
 from ..package_version import hexes_package_version
@@ -107,6 +109,8 @@ class GameServer:
         self.turn_order = self._game_definition.turn_order()
         self.logger.info(f"Turn order: {self.turn_order}")
 
+        self._pending_game_log_events: deque[tuple[str, str, str]] = deque()
+
     def _serialize_state(self, state: GameState) -> dict[str, Any]:
         """Serialize GameState into JSON-safe primitives."""
         return game_state_to_wire_dict(state)
@@ -150,24 +154,52 @@ class GameServer:
             player_id: ID of the player sending the message
             message: The message to process
         """
-        try:
-            if message.type == MessageType.JOIN_GAME:
-                await self._handle_join_game(player_id, message)
-            elif message.type == MessageType.ACTION_REQUEST:
-                await self._handle_action_request(player_id, message)
-            elif message.type == MessageType.UNDO_REQUEST:
-                await self._handle_undo_request(player_id, message)
-            elif message.type == MessageType.REDO_REQUEST:
-                await self._handle_redo_request(player_id, message)
-            elif message.type == MessageType.LEAVE_GAME:
-                await self._handle_leave_game(player_id)
-            elif message.type == MessageType.LOAD_SNAPSHOT:
-                await self._handle_load_snapshot(player_id, message)
-            else:
-                self.logger.warning(f"Unknown message type: {message.type}")
-        except Exception as e:
-            self.logger.error(f"Error handling message from {player_id}: {e}")
-            await self._send_error(player_id, str(e))
+        gl = self._make_game_logger()
+        with game_logger_scope(gl):
+            try:
+                if message.type == MessageType.JOIN_GAME:
+                    await self._handle_join_game(player_id, message)
+                elif message.type == MessageType.ACTION_REQUEST:
+                    await self._handle_action_request(player_id, message)
+                elif message.type == MessageType.UNDO_REQUEST:
+                    await self._handle_undo_request(player_id, message)
+                elif message.type == MessageType.REDO_REQUEST:
+                    await self._handle_redo_request(player_id, message)
+                elif message.type == MessageType.LEAVE_GAME:
+                    await self._handle_leave_game(player_id)
+                elif message.type == MessageType.LOAD_SNAPSHOT:
+                    await self._handle_load_snapshot(player_id, message)
+                else:
+                    self.logger.warning(f"Unknown message type: {message.type}")
+            except Exception as e:
+                self.logger.error(f"Error handling message from {player_id}: {e}")
+                await self._send_error(player_id, str(e))
+            finally:
+                await self._flush_game_log_queue()
+
+    def _make_game_logger(self) -> GameLogger:
+        return GameLogger(
+            logger_name="hexengine.game",
+            enqueue_client=self._enqueue_game_client_log,
+        )
+
+    def _enqueue_game_client_log(self, level: str, logger_name: str, text: str) -> None:
+        self._pending_game_log_events.append((level, logger_name, text))
+
+    async def _flush_game_log_queue(self) -> None:
+        while self._pending_game_log_events:
+            level, logger_name, text = self._pending_game_log_events.popleft()
+            outgoing = Message(
+                type=MessageType.SERVER_LOG,
+                payload={
+                    "level": level,
+                    "logger": logger_name,
+                    "message": text,
+                },
+            )
+            for pid, player in list(self.players.items()):
+                if player.connected:
+                    await self._send_message(pid, outgoing)
 
     async def _handle_join_game(self, player_id: str, message: Message) -> None:
         """Handle a player joining the game."""

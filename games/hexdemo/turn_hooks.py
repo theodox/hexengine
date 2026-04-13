@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
+from hexengine.game_log import get_game_logger
 from hexengine.state import GameState
 
-import logging
-
-logger = logging.getLogger(__name__)
 
 def before_union_move(state: GameState) -> None:
     """
@@ -15,4 +13,4 @@ def before_union_move(state: GameState) -> None:
     Examples later: reinforcements, weather, upkeep.
     """
     _ = state
-    logger.info("before_union_move")
+    get_game_logger().info("before_union_move")

@@ -30,6 +30,7 @@ class MessageType(Enum):
     PLAYER_JOINED = "player_joined"
     PLAYER_LEFT = "player_left"
     ERROR = "error"
+    SERVER_LOG = "server_log"
 
 
 @dataclass
@@ -48,6 +49,25 @@ class Message:
         """Deserialize message from JSON."""
         obj = json.loads(data)
         return cls(type=MessageType(obj["type"]), payload=obj["payload"])
+
+    @classmethod
+    def try_from_json(cls, data: str) -> Message | None:
+        """
+        Deserialize JSON; return None if ``type`` is missing or not a known
+        :class:`MessageType` (forward-compatible with newer servers).
+        """
+        obj = json.loads(data)
+        t = obj.get("type")
+        if not isinstance(t, str):
+            return None
+        try:
+            mt = MessageType(t)
+        except ValueError:
+            return None
+        p = obj.get("payload")
+        if not isinstance(p, dict):
+            p = {}
+        return cls(type=mt, payload=p)
 
 
 @dataclass

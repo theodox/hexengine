@@ -60,6 +60,18 @@ def update_log_display(event, textArea: js.HTMLElement) -> None:
     TextAreaWriter.update(level)
 
 
+def append_log_line(level: int, text: str) -> None:
+    """
+    Append one line to the dev console (#console) if initialized.
+
+    Uses the same storage path as :class:`TextAreaWriter` / :class:`DevLogHandler`.
+    """
+    tw = TextAreaWriter.INSTANCE
+    if tw is None:
+        return
+    tw.write(level, text)
+
+
 def set_status(message: str) -> None:
     """
     Update the dev status line (`#status-line`).
