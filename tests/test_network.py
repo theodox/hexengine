@@ -12,7 +12,11 @@ import unittest
 from hexengine.gamedef.builtin import InterleavedTwoFactionGameDefinition
 from hexengine.hexes.math import neighbors
 from hexengine.hexes.types import Hex, HexColRow
-from hexengine.server import ActionRequest, GameServer, Message, MessageType
+from hexengine.server import (
+    ActionRequest,
+    GameServer,
+    Message,
+)
 from hexengine.server.protocol import JoinGameRequest, StateUpdate
 from hexengine.state import GameState
 from hexengine.state.actions import MoveUnit
@@ -68,7 +72,7 @@ class TestGameServer(unittest.TestCase):
                 self.initial_state, game_definition=_test_game_definition()
             )
             join_red = JoinGameRequest(player_name="Alice", faction="Red").to_message()
-            leave = Message(type=MessageType.LEAVE_GAME, payload={})
+            leave = Message(type="leave_game", payload={})
 
             await server.handle_message("conn-a", join_red)
             self.assertIn("conn-a", server.players)
@@ -102,7 +106,7 @@ class TestGameServer(unittest.TestCase):
             errors: list[tuple[str, str]] = []
 
             def capture(pid: str, m: Message) -> None:
-                if m.type == MessageType.ERROR:
+                if m.type == "error":
                     errors.append((pid, str(m.payload.get("error", ""))))
 
             server.add_message_handler(capture)
@@ -173,7 +177,7 @@ class TestGameServer(unittest.TestCase):
             errors: list[str] = []
 
             def capture(_pid: str, m: Message) -> None:
-                if m.type == MessageType.ERROR:
+                if m.type == "error":
                     errors.append(str(m.payload.get("error", "")))
 
             server.add_message_handler(capture)
@@ -225,7 +229,7 @@ class TestGameServer(unittest.TestCase):
             errors: list[str] = []
 
             def capture(_pid: str, m: Message) -> None:
-                if m.type == MessageType.ERROR:
+                if m.type == "error":
                     errors.append(str(m.payload.get("error", "")))
 
             server.add_message_handler(capture)
@@ -271,7 +275,7 @@ class TestGameServer(unittest.TestCase):
             errors: list[str] = []
 
             def capture(_pid: str, m: Message) -> None:
-                if m.type == MessageType.ERROR:
+                if m.type == "error":
                     errors.append(str(m.payload.get("error", "")))
 
             server.add_message_handler(capture)
@@ -326,7 +330,7 @@ class TestGameServer(unittest.TestCase):
             errors: list[str] = []
 
             def capture(_pid: str, m: Message) -> None:
-                if m.type == MessageType.ERROR:
+                if m.type == "error":
                     errors.append(str(m.payload.get("error", "")))
 
             server.add_message_handler(capture)
@@ -374,7 +378,7 @@ class TestGameServer(unittest.TestCase):
             errors: list[str] = []
 
             def capture(_pid: str, m: Message) -> None:
-                if m.type == MessageType.ERROR:
+                if m.type == "error":
                     errors.append(str(m.payload.get("error", "")))
 
             server.add_message_handler(capture)
@@ -505,13 +509,16 @@ class TestActionSerialization(unittest.TestCase):
 
         message = request.to_message()
 
-        self.assertEqual(message.type, MessageType.ACTION_REQUEST)
+        self.assertEqual(message.type, "action_request")
         self.assertEqual(message.payload["action_type"], "MoveUnit")
         self.assertEqual(message.payload["player_id"], "player-1")
 
     def test_message_json_serialization(self):
         """Test Message can be serialized to/from JSON."""
-        original = Message(type=MessageType.ACTION_REQUEST, payload={"test": "data"})
+        original = Message(
+            type="action_request",
+            payload={"test": "data"},
+        )
 
         # Serialize to JSON
         json_str = original.to_json()
@@ -521,6 +528,30 @@ class TestActionSerialization(unittest.TestCase):
 
         self.assertEqual(restored.type, original.type)
         self.assertEqual(restored.payload, original.payload)
+
+
+def test_wire_message_registry_covers_all_message_types() -> None:
+    """Every wire message type must have a @wire_message payload class."""
+    from hexengine.server.protocol import registered_message_types
+
+    assert registered_message_types() == frozenset(
+        {
+            # client -> server
+            "action_request",
+            "join_game",
+            "leave_game",
+            "undo_request",
+            "redo_request",
+            "load_snapshot",
+            # server -> client
+            "state_update",
+            "action_result",
+            "player_joined",
+            "player_left",
+            "error",
+            "server_log",
+        }
+    )
 
 
 def run_async_test(coro):

@@ -456,7 +456,7 @@ class NetworkGame(Game):
         """
         self.logger.error(f"Server error: {error}")
         dev_console.set_status(f"Server: {error}")
-        # Invalid move uses MessageType.ERROR, not action_result(success=False).
+        # Invalid move uses "error", not action_result(success=False).
         self.display_mgr.refresh_unit_positions()
 
     def _handle_action_result(self, success: bool, error_msg: str | None) -> None:

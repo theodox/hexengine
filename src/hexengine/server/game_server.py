@@ -16,7 +16,7 @@ import json
 import logging
 import uuid
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from ..game_log import GameLogger, game_logger_scope
@@ -36,11 +36,17 @@ from .protocol import (
     ActionRequest,
     ActionResult,
     JoinGameRequest,
+    LeaveGameRequest,
     LoadSnapshotRequest,
     Message,
-    MessageType,
     PlayerInfo,
+    PlayerJoinedWire,
+    PlayerLeftWire,
+    RedoRequest,
+    ServerError,
+    ServerLogEvent,
     StateUpdate,
+    UndoRequest,
 )
 
 
@@ -157,20 +163,11 @@ class GameServer:
         gl = self._make_game_logger()
         with game_logger_scope(gl):
             try:
-                if message.type == MessageType.JOIN_GAME:
-                    await self._handle_join_game(player_id, message)
-                elif message.type == MessageType.ACTION_REQUEST:
-                    await self._handle_action_request(player_id, message)
-                elif message.type == MessageType.UNDO_REQUEST:
-                    await self._handle_undo_request(player_id, message)
-                elif message.type == MessageType.REDO_REQUEST:
-                    await self._handle_redo_request(player_id, message)
-                elif message.type == MessageType.LEAVE_GAME:
-                    await self._handle_leave_game(player_id)
-                elif message.type == MessageType.LOAD_SNAPSHOT:
-                    await self._handle_load_snapshot(player_id, message)
-                else:
+                handler = _CLIENT_INBOUND_HANDLERS.get(message.type)
+                if handler is None:
                     self.logger.warning(f"Unknown message type: {message.type}")
+                else:
+                    await handler(self, player_id, message)
             except Exception as e:
                 self.logger.error(f"Error handling message from {player_id}: {e}")
                 await self._send_error(player_id, str(e))
@@ -189,14 +186,9 @@ class GameServer:
     async def _flush_game_log_queue(self) -> None:
         while self._pending_game_log_events:
             level, logger_name, text = self._pending_game_log_events.popleft()
-            outgoing = Message(
-                type=MessageType.SERVER_LOG,
-                payload={
-                    "level": level,
-                    "logger": logger_name,
-                    "message": text,
-                },
-            )
+            outgoing = ServerLogEvent(
+                level=level, logger=logger_name, message=text
+            ).to_message()
             for pid, player in list(self.players.items()):
                 if player.connected:
                     await self._send_message(pid, outgoing)
@@ -255,11 +247,13 @@ class GameServer:
         self.logger.info(f"Player {request.player_name} joined as {faction}")
 
         # Send player_joined to the joining player (so they know their faction)
-        join_payload = dict(player.to_dict())
-        join_payload["package_version"] = self._server_package_version
-        join_payload["protocol_version"] = "1"
         await self._send_message(
-            player_id, Message(type=MessageType.PLAYER_JOINED, payload=join_payload)
+            player_id,
+            PlayerJoinedWire.from_player_info(
+                player,
+                package_version=self._server_package_version,
+                protocol_version="1",
+            ).to_message(),
         )
 
         # Send full state to joining player
@@ -750,22 +744,21 @@ class GameServer:
 
     async def _broadcast_player_joined(self, player: PlayerInfo) -> None:
         """Notify all players that someone joined."""
-        message = Message(type=MessageType.PLAYER_JOINED, payload=player.to_dict())
+        message = PlayerJoinedWire.from_player_info(player).to_message()
         for player_id, p in self.players.items():
             if p.connected and player_id != player.player_id:
                 await self._send_message(player_id, message)
 
     async def _broadcast_player_left(self, player: PlayerInfo) -> None:
         """Notify all players that someone left."""
-        message = Message(type=MessageType.PLAYER_LEFT, payload=player.to_dict())
+        message = PlayerLeftWire.from_player_info(player).to_message()
         for player_id, p in self.players.items():
             if p.connected and player_id != player.player_id:
                 await self._send_message(player_id, message)
 
     async def _send_error(self, player_id: str, error_message: str) -> None:
         """Send an error message to a player."""
-        message = Message(type=MessageType.ERROR, payload={"error": error_message})
-        await self._send_message(player_id, message)
+        await self._send_message(player_id, ServerError(error=error_message).to_message())
 
     async def _send_message(self, player_id: str, message: Message) -> None:
         """Send a message to a specific player via registered handlers."""
@@ -786,3 +779,19 @@ class GameServer:
     def get_connected_players(self) -> list[PlayerInfo]:
         """Get list of connected players."""
         return [p for p in self.players.values() if p.connected]
+
+
+async def _dispatch_leave_game(server: GameServer, player_id: str, _message: Message) -> None:
+    await server._handle_leave_game(player_id)
+
+
+_ClientInboundHandler = Callable[[GameServer, str, Message], Awaitable[None]]
+
+_CLIENT_INBOUND_HANDLERS: dict[str, _ClientInboundHandler] = {
+    JoinGameRequest.wire_type: GameServer._handle_join_game,
+    ActionRequest.wire_type: GameServer._handle_action_request,
+    UndoRequest.wire_type: GameServer._handle_undo_request,
+    RedoRequest.wire_type: GameServer._handle_redo_request,
+    LeaveGameRequest.wire_type: _dispatch_leave_game,
+    LoadSnapshotRequest.wire_type: GameServer._handle_load_snapshot,
+}

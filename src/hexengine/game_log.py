@@ -3,7 +3,7 @@ Per-request game logger: stdlib logging plus optional fan-out to WebSocket clien
 
 Install a :class:`GameLogger` for the duration of :meth:`hexengine.server.game_server.GameServer.handle_message`
 via :func:`game_logger_scope`; game code calls :func:`get_game_logger` to log once to server stdout and
-(inside that scope) enqueue the same line for ``MessageType.SERVER_LOG`` broadcasts.
+(inside that scope) enqueue the same line for ``\"server_log\"`` broadcasts.
 """
 
 from __future__ import annotations

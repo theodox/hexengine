@@ -9,12 +9,15 @@ state updates to all connected clients.
 from __future__ import annotations
 
 from .game_server import GameServer
-from .protocol import ActionRequest, Message, MessageType, StateUpdate
+from .protocol import (
+    ActionRequest,
+    Message,
+    StateUpdate,
+)
 
 __all__ = [
     "GameServer",
     "Message",
-    "MessageType",
     "ActionRequest",
     "StateUpdate",
 ]

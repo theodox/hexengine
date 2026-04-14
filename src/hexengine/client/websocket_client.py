@@ -16,11 +16,16 @@ from .. import dev_console
 from ..document import create_proxy, js
 from ..server.protocol import (
     ActionRequest,
+    ActionResult,
     JoinGameRequest,
+    LeaveGameRequest,
     LoadSnapshotRequest,
     Message,
-    MessageType,
     PlayerInfo,
+    PlayerJoinedWire,
+    PlayerLeftWire,
+    ServerError,
+    ServerLogEvent,
     StateUpdate,
 )
 from ..state import GameState
@@ -145,7 +150,7 @@ class BrowserWebSocketClient:
         if self.websocket:
             # Send leave message
             try:
-                message = Message(type=MessageType.LEAVE_GAME, payload={})
+                message = LeaveGameRequest().to_message()
                 self._send_message(message)
             except Exception:
                 pass  # Best effort
@@ -274,20 +279,11 @@ class BrowserWebSocketClient:
     def _handle_message(self, message: Message) -> None:
         """Process a message received from the server."""
         try:
-            if message.type == MessageType.STATE_UPDATE:
-                self._handle_state_update(message)
-            elif message.type == MessageType.ACTION_RESULT:
-                self._handle_action_result(message)
-            elif message.type == MessageType.PLAYER_JOINED:
-                self._handle_player_joined(message)
-            elif message.type == MessageType.PLAYER_LEFT:
-                self._handle_player_left(message)
-            elif message.type == MessageType.ERROR:
-                self._handle_server_error(message)
-            elif message.type == MessageType.SERVER_LOG:
-                self._handle_server_log(message)
-            else:
+            handler = _SERVER_INBOUND_HANDLERS.get(message.type)
+            if handler is None:
                 self.logger.warning(f"Unknown message type: {message.type}")
+            else:
+                handler(self, message)
 
         except Exception as e:
             self.logger.error(f"Error handling message: {e}")
@@ -362,9 +358,9 @@ class BrowserWebSocketClient:
 
     def _handle_action_result(self, message: Message) -> None:
         """Handle result of an action we sent."""
-        payload = message.payload
-        success = payload.get("success", False)
-        error_msg = payload.get("error_message")
+        result = ActionResult.from_message(message)
+        success = result.success
+        error_msg = result.error_message
 
         if not success:
             self.logger.warning(f"Action failed: {error_msg}")
@@ -390,14 +386,7 @@ class BrowserWebSocketClient:
 
     def _handle_player_joined(self, message: Message) -> None:
         """Handle notification of another player joining."""
-        raw = message.payload
-        player = PlayerInfo(
-            player_id=raw["player_id"],
-            player_name=raw["player_name"],
-            faction=raw["faction"],
-            connected=raw.get("connected", True),
-            package_version=raw.get("package_version"),
-        )
+        player = PlayerJoinedWire.from_message(message).to_player_info()
 
         # Check if this is us
         if player.player_name == self.player_name and not self.faction:
@@ -413,14 +402,7 @@ class BrowserWebSocketClient:
 
     def _handle_player_left(self, message: Message) -> None:
         """Handle notification of a player leaving."""
-        raw = message.payload
-        player = PlayerInfo(
-            player_id=raw["player_id"],
-            player_name=raw["player_name"],
-            faction=raw["faction"],
-            connected=raw.get("connected", True),
-            package_version=raw.get("package_version"),
-        )
+        player = PlayerLeftWire.from_message(message).to_player_info()
         self.logger.info(f"Player left: {player.player_name}")
 
         if self.on_player_left:
@@ -428,13 +410,13 @@ class BrowserWebSocketClient:
 
     def _handle_server_log(self, message: Message) -> None:
         """Append a server-originated log line to the dev console."""
-        p = message.payload
-        wire = str(p.get("level", "INFO")).upper()
+        evt = ServerLogEvent.from_message(message)
+        wire = str(evt.level).upper()
         level = getattr(logging, wire, None)
         if not isinstance(level, int):
             level = logging.INFO
-        name = p.get("logger")
-        body = p.get("message", "")
+        name = evt.logger
+        body = evt.message
         if isinstance(name, str) and name:
             line = f"{name} | {body}"
         else:
@@ -443,7 +425,7 @@ class BrowserWebSocketClient:
 
     def _handle_server_error(self, message: Message) -> None:
         """Handle an error message from the server."""
-        error = message.payload.get("error", "Unknown error")
+        error = ServerError.from_message(message).error
         self.logger.error(f"Server error: {error}")
         self._handle_error(error)
 
@@ -534,3 +516,15 @@ class BrowserWebSocketClient:
         self.websocket = None
         self._set_connection_state(ConnectionState.DISCONNECTED)
         self._stop_connection_health_check()
+
+
+_ServerInboundHandler = Callable[[BrowserWebSocketClient, Message], None]
+
+_SERVER_INBOUND_HANDLERS: dict[str, _ServerInboundHandler] = {
+    StateUpdate.wire_type: BrowserWebSocketClient._handle_state_update,
+    ActionResult.wire_type: BrowserWebSocketClient._handle_action_result,
+    PlayerJoinedWire.wire_type: BrowserWebSocketClient._handle_player_joined,
+    PlayerLeftWire.wire_type: BrowserWebSocketClient._handle_player_left,
+    ServerError.wire_type: BrowserWebSocketClient._handle_server_error,
+    ServerLogEvent.wire_type: BrowserWebSocketClient._handle_server_log,
+}

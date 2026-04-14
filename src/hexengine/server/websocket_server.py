@@ -21,7 +21,7 @@ from websockets.server import WebSocketServerProtocol
 from ..gamedef.protocol import GameDefinition
 from ..state import GameState
 from .game_server import GameServer
-from .protocol import Message
+from .protocol import Message, ServerError
 
 
 class WebSocketGameServer:
@@ -163,10 +163,7 @@ class WebSocketGameServer:
             websocket: Target connection
             error: Error message
         """
-        from .protocol import MessageType
-
-        message = Message(type=MessageType.ERROR, payload={"error": error})
-        await self._send_message(websocket, message)
+        await self._send_message(websocket, ServerError(error=error).to_message())
 
     def _generate_player_id(self) -> str:
         """Generate a unique player ID."""

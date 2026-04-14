@@ -8,7 +8,7 @@ import unittest
 
 from hexengine.game_log import GameLogger, game_logger_scope, get_game_logger
 from hexengine.gamedef.builtin import InterleavedTwoFactionGameDefinition
-from hexengine.server import GameServer, Message, MessageType
+from hexengine.server import GameServer, Message
 from hexengine.server.protocol import JoinGameRequest
 from hexengine.state import GameState
 
@@ -19,11 +19,11 @@ class TestMessageTryFromJson(unittest.TestCase):
         self.assertIsNone(Message.try_from_json(raw))
 
     def test_known_type_round_trip(self) -> None:
-        m = Message(type=MessageType.ERROR, payload={"error": "x"})
+        m = Message(type="error", payload={"error": "x"})
         got = Message.try_from_json(m.to_json())
         self.assertIsNotNone(got)
         assert got is not None
-        self.assertEqual(got.type, MessageType.ERROR)
+        self.assertEqual(got.type, "error")
         self.assertEqual(got.payload, {"error": "x"})
 
     def test_non_object_payload_becomes_empty_dict(self) -> None:
@@ -71,7 +71,7 @@ class TestGameServerGameLog(unittest.TestCase):
             gs._pending_game_log_events.append(("INFO", "x.y", "hello"))
             await gs._flush_game_log_queue()
 
-            logs = [m for m in received if m.type == MessageType.SERVER_LOG]
+            logs = [m for m in received if m.type == "server_log"]
             self.assertEqual(len(logs), 1)
             self.assertEqual(
                 logs[0].payload,
@@ -99,7 +99,7 @@ class TestGameServerGameLog(unittest.TestCase):
                 get_game_logger().info("during")
             await gs._flush_game_log_queue()
 
-            logs = [m for m in received if m.type == MessageType.SERVER_LOG]
+            logs = [m for m in received if m.type == "server_log"]
             self.assertEqual(len(logs), 1)
             self.assertEqual(logs[0].payload["message"], "during")
 
