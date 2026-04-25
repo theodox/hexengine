@@ -9,9 +9,9 @@ The multiplayer system treats all games identically - whether single-player or m
 ### Single Player (Local Server)
 
 ```python
-from hexengine.game import NetworkGame
+from hexengine.game import Game
 
-game = NetworkGame(
+game = Game(
     server_url="ws://localhost:8765",
     player_name="Alice",
     preferred_faction="union",  # must match server title, e.g. hexdemo: confederate | union
@@ -24,7 +24,7 @@ await game.connect()
 ### Multiplayer (Remote Server)
 
 ```python
-game = NetworkGame(
+game = Game(
     server_url="ws://game-server.com:8765",
     player_name="Bob",
     use_local_server=False  # Connect to remote
@@ -61,14 +61,14 @@ Multiplayer:
 
 ## Key Classes
 
-### `NetworkGame` (Client)
+### `Game` (browser client)
 
-Extends the base `Game` class to send actions to server instead of executing locally.
+Sends actions to the server over WebSocket; state is replicated from `StateUpdate` messages.
 
 **Key Methods:**
 - `connect()` - Connect to server and join game
 - `disconnect()` - Disconnect from server
-- `execute_action(action)` - Override that sends action to server
+- `execute_action(action)` - Sends action to server
 - `is_my_turn()` - Check if it's your turn
 
 **Key Callbacks:**
@@ -76,6 +76,17 @@ Extends the base `Game` class to send actions to server instead of executing loc
 - `on_connection_change` - Called when connection status changes
 - `on_error` - Called on errors
 - `on_action_result` - Called when server responds to your action
+
+## Title contracts (avoiding client-side fallbacks)
+
+The browser client should not infer title rules by inspecting `GameState.extension` (that creates accidental coupling to one pack’s extension layout). Instead, titles should expose policies on the **server** (`GameDefinition` hooks), and the server should replicate any UI-relevant results explicitly on `StateUpdate`.
+
+**Recommended checklist for title authors:**
+
+- **Turn schedule / budgets**: ensure the server includes `StateUpdate.turn_rules` (engine always sends it) and set `movement_budget_attribute_key` if the title uses per-unit budgets.
+- **Focus/selection UX**: implement `focus_unit_id_after_state_sync(...)` on the server `GameDefinition`; the server will publish `StateUpdate.suggested_focus_unit_id` per viewer.
+- **Mandatory retreat UX**: implement `retreat_obligation_hexes_remaining(...)` on the server `GameDefinition`; the server will publish `StateUpdate.retreat_obligations` per viewer (unit id → hexes remaining). The browser `Game` uses this for drag gating and previews.
+- **Capabilities**: `turn_rules.client_contract` is a lightweight manifest (schema + features) to help detect missing wire fields during development. You can enable a warning on the client with `HEXENGINE_STRICT_TITLE_SYNC=1`.
 
 ### `WebSocketClient`
 
@@ -91,7 +102,7 @@ Handles WebSocket communication with server.
 
 Starts a local server for single-player. It constructs a [`WebSocketGameServer`](../src/hexengine/server/websocket_server.py), so you must pass a title (or test) **`GameDefinition`** as a keyword argument, same as the standalone server.
 
-**Usage (mirrors what `NetworkGame` does when `use_local_server=True`):**
+**Usage (mirrors what `Game` does when `use_local_server=True`):**
 
 ```python
 from hexengine.client.local_server import LocalServerManager
@@ -259,7 +270,7 @@ python main.py  # Also connect to localhost:8765
 
 ```python
 # Server starts automatically
-game = NetworkGame(use_local_server=True)
+game = Game(use_local_server=True)
 await game.connect()  # Starts server, then connects
 ```
 
@@ -267,9 +278,9 @@ await game.connect()  # Starts server, then connects
 
 - [x] Create server infrastructure (GameServer, WebSocketServer)
 - [x] Create client infrastructure (WebSocketClient)
-- [x] Create NetworkGame class
+- [x] Create server-backed `Game` client
 - [x] LocalServerManager for single-player
-- [ ] Update main entry point to use NetworkGame
+- [x] Main entry point uses `Game`
 - [ ] Add UI for connection status
 - [ ] Add UI for "not your turn" feedback
 - [ ] Add reconnection logic
@@ -277,7 +288,7 @@ await game.connect()  # Starts server, then connects
 
 ## Next Steps
 
-1. **Update `__main__.py`** to instantiate `NetworkGame` instead of `Game`
+1. **`__main__.py`** instantiates `Game`
 2. **Add connection UI** showing connected players
 3. **Add turn indicator** showing whose turn it is
 4. **Test with two clients** connecting to same server
@@ -285,7 +296,7 @@ await game.connect()  # Starts server, then connects
 
 ## Example Usage
 
-See [`tests/test_network.py`](../tests/test_network.py) for headless `GameServer` construction (with `game_definition=`) and protocol-level join/action tests. For end-to-end browser flow, use `NetworkGame` with `use_local_server=True` against a repo checkout that includes `games/hexdemo`.
+See [`tests/test_network.py`](../tests/test_network.py) for headless `GameServer` construction (with `game_definition=`) and protocol-level join/action tests. For end-to-end browser flow, use `Game` with `use_local_server=True` against a repo checkout that includes `games/hexdemo`.
 
 ## Dependencies
 

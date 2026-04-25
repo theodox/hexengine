@@ -68,19 +68,34 @@ class StaticScheduleGameDefinition:
     `schedule_index` by one (wrapping). Immutable rota for the match.
     """
 
-    __slots__ = ("_entries", "_movement_budget")
+    __slots__ = ("_entries", "_movement_budget", "_per_unit_movement_attribute")
 
     def __init__(
         self,
         entries: tuple[dict[str, Any], ...] | list[dict[str, Any]],
         movement_budget: float = 4.0,
+        *,
+        per_unit_movement_attribute: str | None = None,
     ) -> None:
         self._entries = _normalize_entries(entries)
         if not self._entries:
             raise ValueError("turn schedule entries must be non-empty")
         self._movement_budget = float(movement_budget)
+        if isinstance(per_unit_movement_attribute, str):
+            s = per_unit_movement_attribute.strip()
+            self._per_unit_movement_attribute = s or None
+        else:
+            self._per_unit_movement_attribute = None
 
     def movement_budget_for_unit(self, state: GameState, unit_id: str) -> float:
+        key = self._per_unit_movement_attribute
+        if key:
+            u = state.board.units.get(unit_id)
+            if u is None:
+                raise ValueError(f"Unknown unit {unit_id!r}")
+            raw = u.attributes.get(key)
+            if raw is not None:
+                return float(raw)
         _ = state, unit_id
         return self._movement_budget
 
@@ -107,6 +122,25 @@ class StaticScheduleGameDefinition:
             "schedule_index": next_idx,
         }
 
+    def default_attributes_for_unit_type(self, unit_type: str) -> dict[str, Any]:
+        _ = unit_type
+        return {}
+
+    def merge_spawn_attributes(
+        self,
+        unit_type: str,
+        instance_attrs: dict[str, Any],
+        state: GameState | None = None,
+    ) -> dict[str, Any]:
+        _ = state
+        base = self.default_attributes_for_unit_type(unit_type)
+        return {**base, **instance_attrs}
+
+    def validate_unit_attributes_patch(
+        self, state: GameState, unit_id: str, patch: dict[str, Any]
+    ) -> None:
+        _ = state, unit_id, patch
+
 
 class InterleavedTwoFactionGameDefinition(StaticScheduleGameDefinition):
     """
@@ -123,10 +157,13 @@ class InterleavedTwoFactionGameDefinition(StaticScheduleGameDefinition):
             ("Attack", 2),
         ),
         movement_budget: float = 4.0,
+        *,
+        per_unit_movement_attribute: str | None = None,
     ) -> None:
         super().__init__(
             expand_interleaved_two_faction(factions, phases),
             movement_budget=movement_budget,
+            per_unit_movement_attribute=per_unit_movement_attribute,
         )
 
 
@@ -143,10 +180,13 @@ class SequentialTwoFactionGameDefinition(StaticScheduleGameDefinition):
             ("Attack", 2),
         ),
         movement_budget: float = 4.0,
+        *,
+        per_unit_movement_attribute: str | None = None,
     ) -> None:
         super().__init__(
             expand_sequential_two_faction(factions, phases),
             movement_budget=movement_budget,
+            per_unit_movement_attribute=per_unit_movement_attribute,
         )
 
 

@@ -27,6 +27,7 @@ from .client import (
 )
 from .server import (
     ActionResult,
+    CombatEventWire,
     PlayerInfo,
     PlayerJoinedWire,
     PlayerLeftWire,
@@ -59,5 +60,6 @@ __all__ = [
     "PlayerLeftWire",
     "ServerError",
     "ServerLogEvent",
+    "CombatEventWire",
 ]
 

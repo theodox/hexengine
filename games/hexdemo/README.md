@@ -25,7 +25,7 @@ When you run `hexserver` (or start the local WebSocket server) with a scenario u
 - `hexdemo.game_config.game_definition_from_config` — builds the engine
   `GameDefinition` from that config.
 
-The CLI still selects schedule via `hexserver --schedule` / `NetworkGame(..., game_schedule=...)`,
+The CLI still selects schedule via `hexserver --schedule` / `Game(..., game_schedule=...)`,
 which maps to registry keys; defaults for each key are produced by
 `HexdemoMatchConfig.from_registry_key`.
 
@@ -34,7 +34,7 @@ which maps to registry keys; defaults for each key are produced by
 
 Faction ids are **`confederate`** and **`union`** (see `hexdemo.constants.HEXDEMO_FACTIONS`); scenario `faction =` on units must use these strings.
 
-When you run `hexserver` (or `start_servers`) with a scenario under `games/hexdemo/scenarios/`, the engine loads definitions via `load_game_definition_for_scenario` so join/turn order matches the title. Pass the same schedule to `NetworkGame(..., game_schedule=...)` as to `hexserver --schedule` when using sequential mode with an embedded local server.
+When you run `hexserver` (or `start_servers`) with a scenario under `games/hexdemo/scenarios/`, the engine loads definitions via `load_game_definition_for_scenario` so join/turn order matches the title. Pass the same schedule to `Game(..., game_schedule=...)` as to `hexserver --schedule` when using sequential mode with an embedded local server.
 
 ## Layout (model package)
 

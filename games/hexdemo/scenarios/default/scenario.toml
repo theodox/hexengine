@@ -164,50 +164,88 @@ counter_fill_hilite = "@union_counter_hilite"
 
 [[unit_archetype]]
 name = "confederate_infantry"
-type = "confederate_infantry"
+graphics = "confederate_infantry"
+type = "infantry"
 faction = "confederate"
-id_prefix = "c_inf"
+id_prefix = "CI_"
+combat = 6
+morale = 5
+movement = 6
 
 [[unit_archetype]]
 name = "confederate_artillery"
-type = "confederate_artillery"
+graphics = "confederate_artillery"
+type = "artillery"
 faction = "confederate"
-id_prefix = "c_arty"
+id_prefix = "CA_"
+attack = 3
+defense = 4
+morale = 6
+movement = 6
+
 
 [[unit_archetype]]
 name = "confederate_leader"
-type = "confederate_leader"
+graphics = "confederate_leader"
+type = "leader"
 faction = "confederate"
-id_prefix = "c_l"
+id_prefix = "CL_"
+combat = 3
+morale = 2
+movement = 12
+
 
 [[unit_archetype]]
 name = "union_artillery"
-type = "union_artillery"
+graphics = "union_artillery"
 faction = "union"
-id_prefix = "u_arty"
+type = "artillery"
+id_prefix = "UA_"
+attack = 3
+defense = 5
+morale = 6
+movement = 6
+
+
 
 [[unit_archetype]]
 name = "union_infantry"
-type = "union_infantry"
+graphics = "union_infantry"
+type = "infantry"
 faction = "union"
-id_prefix = "u_inf"
+id_prefix = "UI_"
+combat = 5
+morale = 4
+movement = 5
+
 
 [[unit_archetype]]
 name = "union_leader"
-type = "union_leader"
+graphics = "union_leader"
+type = "leader"
 faction = "union"
-id_prefix = "u_ldr"
+id_prefix = "UL_"
+combat = 1
+morale = 1
+movement = 12
+
 
 
 # ------- starting counters ---------
 
 [[unit_placements]]
 archetype = "confederate_infantry"
-positions = [[8,8], [9,9]]
+positions = [[8,8], [9,9],[10,8]]
+
+[[unit_placements]]
+archetype = "confederate_infantry"
+positions = [[11,9]]
+attributes = {  combat = 5, morale = 4, movement = 6 }
+
 
 [[unit_placements]]
 archetype = "confederate_artillery"
-positions = [[8,9]]
+positions = [[8,8],[8,9]]
 
 [[unit_placements]]
 archetype = "union_infantry"

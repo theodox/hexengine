@@ -1,17 +1,27 @@
 from __future__ import annotations
 
+import json
 import logging
+from typing import Any
 
-from ..client import DisplayManager, UIState
+from .. import dev_console
+from ..client import DisplayManager, LocalServerManager, UIState
+from ..client.marker_manager import MarkerManager
+from ..client.websocket_client import BrowserWebSocketClient, ConnectionState
 from ..document import create_proxy, element, js
+from ..gamedef.builtin import (
+    InterleavedTwoFactionGameDefinition,
+    SequentialTwoFactionGameDefinition,
+    StaticScheduleGameDefinition,
+)
+from ..gamedef.protocol import GameDefinition
 from ..map import Map
 from ..state import ActionManager, GameState
-from ..state.actions import NextPhase
+from ..state.snapshot import SNAPSHOT_FORMAT_VERSION, game_state_to_wire_dict
 from ..ui.popups import PopupManager
 from .board import GameBoard
 from .events import Hotkey, HotkeyHandlerMixin, Modifiers, MouseEventHandlerMixin
 from .history import GameHistoryMixin
-from .turn import Faction, Phase, TurnManager, TurnOrdering
 from .turn_strip import (
     apply_turn_strip_faction,
     display_faction_name,
@@ -23,14 +33,63 @@ _PAN_KEY_STEP = 48
 _PAN_KEY_SHIFT_MULT = 3
 
 
+def _game_definition_from_turn_rules_wire(wire: dict[str, Any]) -> GameDefinition:
+    """Rebuild engine `GameDefinition` from `StateUpdate.turn_rules` (no title import)."""
+    raw_attr = wire.get("movement_budget_attribute")
+    per_kw: dict[str, Any] = {}
+    if isinstance(raw_attr, str) and raw_attr.strip():
+        per_kw["per_unit_movement_attribute"] = raw_attr.strip()
+
+    raw_entries = wire.get("entries")
+    if isinstance(raw_entries, list) and raw_entries:
+        budget = float(wire.get("movement_budget", 4.0))
+        entries: list[dict[str, Any]] = []
+        for row in raw_entries:
+            if not isinstance(row, dict):
+                continue
+            entries.append(
+                {
+                    "faction": str(row["faction"]),
+                    "phase": str(row["phase"]),
+                    "max_actions": int(row["max_actions"]),
+                }
+            )
+        if entries:
+            return StaticScheduleGameDefinition(
+                entries, movement_budget=budget, **per_kw
+            )
+    raw = wire.get("factions")
+    if not isinstance(raw, list) or not raw:
+        raise ValueError("turn_rules must include entries or legacy factions list")
+    factions = tuple(str(f) for f in raw)
+    sched = (wire.get("schedule") or "interleaved").strip().lower()
+    budget = float(wire.get("movement_budget", 4.0))
+    if sched == "sequential":
+        return SequentialTwoFactionGameDefinition(
+            factions=factions, movement_budget=budget, **per_kw
+        )
+    return InterleavedTwoFactionGameDefinition(
+        factions=factions, movement_budget=budget, **per_kw
+    )
+
+
 class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     """
-    This is the main game class that ties together the board, turn manager, action manager, and display manager.
+    Browser session: map, units, UI, and a WebSocket client to an authoritative server.
 
-    The mixins are used to split the file into multiple files, not for reuses
+    Match state and turn order always come from the server (embedded local server for
+    solo play, or a remote URL for multiplayer).
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        server_url: str = "ws://localhost:8765",
+        player_name: str = "Player",
+        preferred_faction: str | None = None,
+        use_local_server: bool = True,
+        *,
+        game_schedule: str = "interleaved",
+    ) -> None:
         self.running = True
         container = element("map-container")
         map = element("map-canvas")
@@ -70,6 +129,8 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.last_click_time = 0
         self.drag_start = (0, 0)
         self.drag_end = (0, 0)
+        #: Own unit id selected for adjacent attack (network / combat phase UX).
+        self.pending_attack_attacker_id: str | None = None
 
         self.logger = logging.getLogger("game")
         self.logger.info("Game initialized")
@@ -90,16 +151,16 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
         self._register_hotkeys()
 
-        self.turn_manager = TurnManager(
-            factions=[Faction("union"), Faction("confederate")],
-            phases=[
-                Phase("Move", max_actions=2),
-                Phase("Combat", max_actions=2),
-            ],
-            order=TurnOrdering.SEQUENTIAL,
-        )
-
-        self.turn_manager.handlers.append(self.update_turn_display)
+        self._game_schedule = game_schedule.strip().lower()
+        self.server_url = server_url
+        self.player_name = player_name
+        self.preferred_faction = preferred_faction
+        self.use_local_server = use_local_server
+        self.client: BrowserWebSocketClient | None = None
+        self.local_server: LocalServerManager | None = None
+        self._title_game_definition: GameDefinition | None = None
+        self.connected = False
+        self.marker_mgr = MarkerManager(self.canvas)
 
         # Register resize handler to refresh map on window resize/zoom
         js.window.addEventListener("resize", create_proxy(self._handle_resize))
@@ -115,19 +176,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         js.window.addEventListener("keydown", create_proxy(self._handle_keydown))
         js.window.addEventListener("keyup", create_proxy(self._handle_keyup))
         self.logger.info("Registered zoom and pan handlers")
-
-    def update_turn_display(self, faction, phase) -> None:
-        faction, phase = self.turn_manager.current
-        actions = self.turn_manager.actions
-        turn_info = (
-            f"{display_faction_name(faction.name)} - "
-            f"{display_phase_name(phase.name)} # {actions}"
-        )
-        turn_bg = element("turn-display")
-        apply_turn_strip_faction(turn_bg, faction.name)
-        turn_info_element = element("turn-info")
-        if turn_info_element:
-            turn_info_element.innerText = turn_info
 
     def _handle_resize(self, event) -> None:
         """
@@ -266,23 +314,496 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         """Toggle terrain tint layer (console: `set_terrain_overlay` / `terrain_overlay_visible()`)."""
         self.canvas.set_terrain_overlay_visible(not self.canvas.terrain_overlay_visible)
 
-    # ===== STATE SYSTEM HELPERS =====
+    # ===== SERVER SESSION (WebSocket) =====
 
-    def execute_action(self, action):
+    def connect(self) -> bool:
         """
-        Execute an action using the ActionManager.
-        This automatically triggers display sync via observer pattern.
-        """
-        self.action_mgr.execute(action)
-        # Display automatically syncs, no manual update needed!
+        Connect to the game server.
 
-    def get_current_state(self):
-        """Get current committed game state (immutable)."""
+        Reconnecting the same client to the same match is supported; switching to a
+        different title/scenario is assumed rare (full reload / prepared restart).
+        """
+        try:
+            if self.client is not None:
+                self.client.disconnect()
+                self.client = None
+            self._title_game_definition = None
+
+            preloaded_unit_graphics: dict[str, Any] | None = None
+            preloaded_marker_graphics: dict[str, Any] | None = None
+            preloaded_markers: list[dict[str, Any]] | None = None
+
+            if self.use_local_server and not self.local_server:
+                self.logger.info("Starting local server...")
+                from ..gameroot import (
+                    initial_turn_slot_for_game_definition,
+                    load_game_definition_for_scenario,
+                    resolve_scenario_path_with_game_root,
+                )
+                from ..scenarios import load_scenario
+                from ..scenarios.loader import scenario_to_initial_state
+
+                scenario_path = resolve_scenario_path_with_game_root()
+                scenario_data = load_scenario(scenario_path)
+                game_def = load_game_definition_for_scenario(
+                    scenario_path, schedule=self._game_schedule
+                )
+                first = initial_turn_slot_for_game_definition(game_def)
+                preloaded_unit_graphics = scenario_data.unit_graphics_to_wire_dict()
+                preloaded_marker_graphics = getattr(
+                    scenario_data, "marker_graphics_to_wire_dict", lambda: {}
+                )()
+                preloaded_markers = getattr(
+                    scenario_data, "markers_to_wire_list", lambda: []
+                )()
+                initial_state = scenario_to_initial_state(
+                    scenario_data,
+                    initial_faction=first["faction"],
+                    initial_phase=first["phase"],
+                    phase_actions_remaining=int(first["max_actions"]),
+                    schedule_index=0,
+                    game_definition=game_def,
+                )
+                self.local_server = LocalServerManager(
+                    initial_state=initial_state,
+                    map_display=scenario_data.map_display.to_wire_dict(),
+                    global_styles=scenario_data.global_styles.to_wire_dict(),
+                    unit_graphics=preloaded_unit_graphics,
+                    marker_graphics=preloaded_marker_graphics,
+                    markers=preloaded_markers,
+                    game_definition=game_def,
+                )
+                if not self.local_server.start():
+                    self.logger.error("Failed to start local server")
+                    return False
+
+            self.client = BrowserWebSocketClient(self.server_url)
+
+            self.client.on_state_update = self._handle_state_update
+            self.client.on_map_display = self._on_map_display
+            self.client.on_global_styles = self._on_global_styles
+            self.client.on_unit_graphics = self._on_unit_graphics
+            self.client.on_marker_graphics = self._on_marker_graphics
+            self.client.on_markers = self._on_markers
+            self.client.on_connection_change = self._handle_connection_change
+            self.client.on_error = self._handle_error
+            self.client.on_action_result = self._handle_action_result
+
+            if preloaded_unit_graphics is not None:
+                self.display_mgr.apply_unit_graphics(preloaded_unit_graphics)
+                self.client._applied_unit_graphics_json = json.dumps(
+                    preloaded_unit_graphics, sort_keys=True, ensure_ascii=True
+                )
+
+            if preloaded_marker_graphics is not None:
+                self.marker_mgr.apply_marker_graphics(preloaded_marker_graphics)
+                self.client._applied_marker_graphics_json = json.dumps(
+                    preloaded_marker_graphics, sort_keys=True, ensure_ascii=True
+                )
+            if preloaded_markers is not None:
+                self.marker_mgr.sync_markers(preloaded_markers)
+
+            self.client.connect(
+                player_name=self.player_name, preferred_faction=self.preferred_faction
+            )
+
+            self.logger.info("Connection initiated...")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Connection failed: {e}")
+            return False
+
+    def disconnect(self) -> None:
+        """Disconnect from the server."""
+        if self.client:
+            self.client.disconnect()
+            self.client = None
+
+        if self.local_server:
+            self.local_server.stop()
+            self.local_server = None
+
+        self._title_game_definition = None
+        self.connected = False
+        self.logger.info("Disconnected")
+
+    def execute_action(self, action) -> None:
+        """Send an action to the server (state updates come back asynchronously)."""
+        if not self.client or not self.connected:
+            self.logger.warning("Cannot execute action: not connected to server")
+            return
+
+        from ..state.actions import MoveUnit
+
+        allow = self.client.is_my_turn()
+        if not allow and isinstance(action, MoveUnit) and self.client.game_state:
+            rem = self.retreat_obligation_hexes_remaining(
+                self.client.game_state, action.unit_id
+            )
+            if rem is not None:
+                allow = True
+        if not allow:
+            current_faction = (
+                self.client.game_state.turn.current_faction
+                if self.client.game_state
+                else "unknown"
+            )
+            my_faction = self.client.faction if self.client.faction else "unknown"
+            self.logger.warning(
+                f"Cannot execute action: not your turn (current: {current_faction}, you: {my_faction})"
+            )
+            return
+
+        action_type = action.__class__.__name__
+        params = self._serialize_action_params(action)
+
+        try:
+            self.client.send_action(action_type, params)
+            self.logger.info(f"Sent {action_type} to server")
+        except Exception as e:
+            self.logger.error(f"Failed to send action: {e}")
+
+    def _serialize_action_params(self, action) -> dict[str, Any]:
+        """Convert action to dict for network transmission."""
+        from ..hexes.types import HexColRow
+        from ..state.actions import (
+            AddMarker,
+            AddUnit,
+            Attack,
+            DeleteUnit,
+            MoveMarker,
+            MoveUnit,
+            NextPhase,
+            PatchUnitAttributes,
+            RemoveMarker,
+            SpendAction,
+        )
+
+        if isinstance(action, AddMarker):
+            cr = HexColRow.from_hex(action.position)
+            return {
+                "marker_id": action.marker_id,
+                "marker_type": action.marker_type,
+                "position": [cr.col, cr.row],
+                "active": action.active,
+            }
+        if isinstance(action, RemoveMarker):
+            return {"marker_id": action.marker_id}
+        if isinstance(action, MoveMarker):
+            fc = HexColRow.from_hex(action.from_hex)
+            tc = HexColRow.from_hex(action.to_hex)
+            return {
+                "marker_id": action.marker_id,
+                "from_position": [fc.col, fc.row],
+                "to_position": [tc.col, tc.row],
+            }
+        if isinstance(action, MoveUnit):
+            return {
+                "unit_id": action.unit_id,
+                "from_hex": {
+                    "i": action.from_hex.i,
+                    "j": action.from_hex.j,
+                    "k": action.from_hex.k,
+                },
+                "to_hex": {
+                    "i": action.to_hex.i,
+                    "j": action.to_hex.j,
+                    "k": action.to_hex.k,
+                },
+            }
+        if isinstance(action, Attack):
+            return {
+                "attack_kind": action.attack_kind,
+                "attacker_id": action.attacker_id,
+                "defender_id": action.defender_id,
+            }
+        if isinstance(action, DeleteUnit):
+            return {"unit_id": action.unit_id}
+        if isinstance(action, AddUnit):
+            out: dict[str, Any] = {
+                "unit_id": action.unit_id,
+                "unit_type": action.unit_type,
+                "faction": action.faction,
+                "position": {
+                    "i": action.position.i,
+                    "j": action.position.j,
+                    "k": action.position.k,
+                },
+                "health": action.health,
+            }
+            if action.stack_index is not None:
+                out["stack_index"] = action.stack_index
+            if action.graphics is not None:
+                out["graphics"] = action.graphics
+            if action.attributes:
+                out["attributes"] = dict(action.attributes)
+            return out
+        if isinstance(action, PatchUnitAttributes):
+            return {
+                "unit_id": action.unit_id,
+                "patch": dict(action.patch),
+                "remove_keys": list(action.remove_keys),
+            }
+        if isinstance(action, SpendAction):
+            return {"amount": action.amount}
+        if isinstance(action, NextPhase):
+            return {
+                "new_faction": action.new_faction,
+                "new_phase": action.new_phase,
+                "max_actions": action.max_actions,
+                "new_schedule_index": action.new_schedule_index,
+            }
+        self.logger.error(f"Unknown action type: {type(action)}")
+        return {}
+
+    def _on_global_styles(self, wire: dict[str, Any]) -> None:
+        from ..client.global_styles import apply_global_styles_safe
+
+        apply_global_styles_safe(wire)
+
+    def _on_map_display(self, config: dict[str, Any]) -> None:
+        self.canvas.apply_map_display(config)
+        self.display_mgr.adopt_hex_layout(self.action_mgr.current_state)
+
+    def _on_unit_graphics(self, wire: dict[str, Any]) -> None:
+        self.display_mgr.apply_unit_graphics(wire)
+
+    def _on_marker_graphics(self, wire: dict[str, Any]) -> None:
+        self.marker_mgr.apply_marker_graphics(wire)
+
+    def _on_markers(self, wire: list[dict[str, Any]]) -> None:
+        self.marker_mgr.sync_markers(wire)
+
+    def _handle_state_update(self, new_state: GameState) -> None:
+        if (
+            self.client is not None
+            and self.client.turn_rules is not None
+            and self._title_game_definition is None
+        ):
+            try:
+                self._title_game_definition = _game_definition_from_turn_rules_wire(
+                    self.client.turn_rules
+                )
+            except Exception as e:
+                self.logger.warning(
+                    "Could not cache GameDefinition from server turn_rules: %s", e
+                )
+        self._maybe_warn_missing_title_sync()
+
+        self.logger.info(
+            f"Received state update with {len(new_state.board.units)} units"
+        )
+
+        old_state = self.action_mgr.current_state
+
+        self._clear_drag_and_highlights()
+
+        if old_state is not None:
+            ot, nt = old_state.turn, new_state.turn
+            if (
+                ot.current_faction != nt.current_faction
+                or ot.current_phase != nt.current_phase
+            ):
+                self.selection = None
+
+        self.action_mgr._current_state = new_state
+
+        self.display_mgr.sync_from_state(new_state)
+
+        self._sync_turn_ui(new_state)
+        self._apply_focus_unit_after_state_sync(new_state)
+
+    def _maybe_warn_missing_title_sync(self) -> None:
+        """
+        Dev guardrail: warn when the server advertises a contract feature but the
+        corresponding per-update field is missing.
+        """
+        import os
+
+        if os.getenv("HEXENGINE_STRICT_TITLE_SYNC", "").strip() not in ("1", "true", "yes"):
+            return
+        c = self.client
+        if c is None or not isinstance(c.turn_rules, dict):
+            return
+        cc = c.turn_rules.get("client_contract")
+        if not isinstance(cc, dict):
+            return
+        feats = cc.get("features")
+        if not isinstance(feats, list):
+            return
+        if "retreat_obligations" in feats and c.retreat_obligations is None:
+            if not getattr(self, "_warned_missing_retreat_obligations_wire", False):
+                self._warned_missing_retreat_obligations_wire = True
+                self.logger.warning(
+                    "Server turn_rules.client_contract includes 'retreat_obligations' "
+                    "but StateUpdate.retreat_obligations is missing for this viewer."
+                )
+
+    def _apply_focus_unit_after_state_sync(self, state: GameState) -> None:
+        """Apply per-viewer ``StateUpdate.suggested_focus_unit_id`` when valid."""
+        client = self.client
+        if client is None:
+            return
+        s = client.suggested_focus_unit_id
+        if not isinstance(s, str) or not s.strip():
+            return
+        uid = s.strip()
+        u = state.board.units.get(uid)
+        if u is None or not u.active or (client.faction and u.faction != client.faction):
+            return
+        self.ui_state.select_unit(uid)
+        gu = self.board.get_unit(uid)
+        if gu is not None:
+            self.selection = gu
+
+    def _handle_connection_change(self, state: ConnectionState) -> None:
+        self.logger.info(f"Connection state: {state.value}")
+        self.connected = state == ConnectionState.CONNECTED
+
+    def _handle_error(self, error: str) -> None:
+        self.logger.error(f"Server error: {error}")
+        dev_console.set_status(f"Server: {error}")
+        self.display_mgr.refresh_unit_positions()
+
+    def _handle_action_result(self, success: bool, error_msg: str | None) -> None:
+        if success:
+            self.logger.debug("Action accepted by server")
+        else:
+            self.logger.warning(f"Action rejected: {error_msg}")
+            if error_msg:
+                dev_console.set_status(f"Server: {error_msg}")
+            self.display_mgr.refresh_unit_positions()
+
+    def get_current_state(self) -> GameState:
+        """Last replicated game state (authoritative copy mirrors server)."""
         return self.action_mgr.current_state
 
     def is_my_turn(self) -> bool:
-        """Local / hotseat: always True. NetworkGame overrides."""
-        return True
+        if not self.client:
+            return False
+        return self.client.is_my_turn()
+
+    def can_interact_with_unit(self, unit_id: str) -> bool:
+        if self.is_my_turn():
+            return True
+        if not self.client or not self.client.game_state or not self.client.faction:
+            return False
+        st = self.client.game_state
+        u = st.board.units.get(unit_id)
+        if u is None or u.faction != self.client.faction:
+            return False
+        return self.retreat_obligation_hexes_remaining(st, unit_id) is not None
+
+    def retreat_obligation_hexes_remaining(
+        self, state: GameState, unit_id: str
+    ) -> int | None:
+        c = self.client
+        if c is not None and isinstance(c.retreat_obligations, dict):
+            raw = c.retreat_obligations.get(unit_id)
+            if raw is not None:
+                try:
+                    n = int(raw)
+                except (TypeError, ValueError):
+                    n = 0
+                return n if n > 0 else None
+        return None
+
+    def _sync_turn_ui(self, state: GameState) -> None:
+        faction = state.turn.current_faction
+        phase = state.turn.current_phase
+        actions = state.turn.phase_actions_remaining
+
+        turn_bg = element("turn-display")
+        if turn_bg:
+            apply_turn_strip_faction(turn_bg, faction)
+
+        turn_info = element("turn-info")
+        if turn_info:
+            turn_info.innerText = (
+                f"{display_faction_name(faction)} - "
+                f"{display_phase_name(phase)} (actions: {actions})"
+            )
+
+        advance_btn = element("advance-button")
+        advance_btn.disabled = not self.is_my_turn()
+        self.logger.warning(f"Advance button enabled: {self.is_my_turn()}")
+
+        self.logger.debug(f"UI updated for {faction}-{phase}")
+
+    def advance_turn(self, _) -> None:
+        """Send NextPhase derived from replicated schedule (same as server)."""
+        from ..gamedef.builtin import advance_turn_action_for_state
+
+        current_state = self.action_mgr.current_state
+        if current_state is None:
+            self.logger.warning("Cannot advance turn: no current state")
+            return
+
+        gd = self._title_game_definition
+        if gd is None:
+            self.logger.error(
+                "Advance turn before turn schedule is known (missing StateUpdate.turn_rules); "
+                "reconnect after the server has sent state."
+            )
+            dev_console.set_status("Advance turn: wait for sync, then try again.")
+            return
+
+        np = advance_turn_action_for_state(current_state, gd)
+        self.logger.info(f"Advance turn: {np}")
+        self._clear_drag_and_highlights()
+        self.selection = None
+        self.execute_action(np)
+
+    def undo(self) -> None:
+        if not self.client or not self.connected:
+            self.logger.warning("Cannot undo: not connected to server")
+            return
+
+        try:
+            self.client.send_undo()
+            self.logger.info("Sent undo request to server")
+        except Exception as e:
+            self.logger.error(f"Failed to send undo request: {e}")
+
+    def redo(self) -> None:
+        if not self.client or not self.connected:
+            self.logger.warning("Cannot redo: not connected to server")
+            return
+
+        try:
+            self.client.send_redo()
+            self.logger.info("Sent redo request to server")
+        except Exception as e:
+            self.logger.error(f"Failed to send redo request: {e}")
+
+    def save_snapshot_dict(self) -> dict[str, Any]:
+        if not self.client or self.client.game_state is None:
+            raise RuntimeError("No game state to save (not connected or no state yet)")
+        return {
+            "format_version": SNAPSHOT_FORMAT_VERSION,
+            "game_state": game_state_to_wire_dict(self.client.game_state),
+        }
+
+    def save_snapshot_json(self) -> str:
+        return json.dumps(self.save_snapshot_dict(), indent=2)
+
+    def load_snapshot_dict(self, d: dict[str, Any]) -> None:
+        if not self.client or not self.connected:
+            raise RuntimeError("Cannot load snapshot: not connected")
+
+        fv = d.get("format_version", SNAPSHOT_FORMAT_VERSION)
+        if fv != SNAPSHOT_FORMAT_VERSION:
+            raise ValueError(f"Unsupported snapshot format_version: {fv}")
+        gs = d.get("game_state")
+        if not isinstance(gs, dict):
+            raise ValueError("snapshot missing game_state dict")
+
+        self.client.send_load_snapshot(gs)
+        self.logger.info("Sent load_snapshot to server")
+
+    def load_snapshot_json(self, text: str) -> None:
+        self.load_snapshot_dict(json.loads(text))
 
     def _clear_drag_and_highlights(self) -> None:
         """Clear local drag preview, selection, and hex highlights (no server action)."""
@@ -340,11 +861,51 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         )
 
         # Compute valid moves from committed state
-        from ..state.logic import DEFAULT_MOVEMENT_BUDGET, compute_valid_moves
-
-        valid_moves = compute_valid_moves(
-            state, unit_id, movement_budget=DEFAULT_MOVEMENT_BUDGET
+        from ..state.logic import (
+            DEFAULT_MOVEMENT_BUDGET,
+            compute_retreat_destination_hexes,
+            compute_valid_moves,
+            retreat_impassable_enemy_zoc_hexes,
         )
+
+        gd = getattr(self, "_title_game_definition", None)
+        zoc = None
+        if gd is not None:
+            zfn = getattr(gd, "zoc_hexes_for_unit", None)
+            if callable(zfn):
+                zoc = zfn(state, unit_id)
+                if zoc is not None and not isinstance(zoc, frozenset):
+                    zoc = frozenset(zoc)
+
+        rem = self.retreat_obligation_hexes_remaining(state, unit_id)
+        if rem is not None:
+            title_zoc = None
+            if gd is not None:
+                zfn = getattr(gd, "zoc_hexes_for_unit", None)
+                if callable(zfn):
+                    title_zoc = zfn(state, unit_id)
+                    if title_zoc is not None and not isinstance(title_zoc, frozenset):
+                        title_zoc = frozenset(title_zoc)
+            enemy_only = retreat_impassable_enemy_zoc_hexes(
+                state, unit_id, enemy_zoc_ring=title_zoc
+            )
+            valid_moves = compute_retreat_destination_hexes(
+                state,
+                unit_id,
+                rem,
+                float(rem),
+                zoc_hexes=None,
+                blocked_hexes=enemy_only,
+            )
+        else:
+            move_budget = DEFAULT_MOVEMENT_BUDGET
+            if gd is not None:
+                fn = getattr(gd, "movement_budget_for_unit", None)
+                if callable(fn):
+                    move_budget = float(fn(state, unit_id))
+            valid_moves = compute_valid_moves(
+                state, unit_id, movement_budget=move_budget, zoc_hexes=zoc
+            )
         self.ui_state.set_constraints(valid_moves)
 
         # Clear old highlights and show new ones
@@ -474,36 +1035,3 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         if mgr is not None:
             mgr.set_marker_hilite(None)
         return False
-
-    def advance_turn(self, _) -> None:
-        """Advance to the next turn phase."""
-
-        # Get the current state to determine what the next phase should be
-        current_state = self.action_mgr.current_state
-        current_faction = current_state.turn.current_faction
-        current_phase = current_state.turn.current_phase
-
-        # Find current position in the phase sequence
-        for i, (faction, phase) in enumerate(self.turn_manager.phases):
-            if faction.name == current_faction and phase.name == current_phase:
-                # Get the next phase in sequence
-                next_index = (i + 1) % len(self.turn_manager.phases)
-                next_faction, next_phase = self.turn_manager.phases[next_index]
-
-                self.logger.info(
-                    f"Advancing from {current_faction}-{current_phase} to {next_faction.name}-{next_phase.name}"
-                )
-                np = NextPhase(
-                    new_faction=next_faction.name,
-                    new_phase=next_phase.name,
-                    max_actions=next_phase.max_actions,
-                    new_schedule_index=next_index,
-                )
-                self.logger.info(f"Executing NextPhase action: {np}")
-                self._clear_drag_and_highlights()
-                self.selection = None
-                self.execute_action(np)
-                return
-
-        # this should not happen
-        raise RuntimeError("Current phase not found in turn manager phases")

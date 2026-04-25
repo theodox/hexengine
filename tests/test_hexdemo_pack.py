@@ -128,3 +128,51 @@ def test_hexdemo_game_config_matches_registry() -> None:
     inter_gd = build_game_definition("interleaved")
     assert type(default_gd) is type(inter_gd)
     assert default_gd.turn_order() == inter_gd.turn_order()
+
+
+def _ensure_games_on_path() -> None:
+    import sys
+
+    games = str(REPO_ROOT / "games")
+    if games not in sys.path:
+        sys.path.insert(0, games)
+
+
+def test_hexdemo_focus_unit_after_sync() -> None:
+    _ensure_games_on_path()
+    from hexdemo.focus import focus_unit_id_after_state_sync
+    from hexengine.hexes.types import Hex
+    from hexengine.state import GameState
+    from hexengine.state.game_state import BoardState, TurnState, UnitState
+
+    h0 = Hex(0, 0, 0)
+    board = BoardState(
+        units={
+            "only": UnitState(
+                unit_id="only",
+                unit_type="inf",
+                faction="union",
+                position=h0,
+                health=100,
+                active=True,
+            ),
+        }
+    )
+    turn = TurnState(
+        current_faction="union",
+        current_phase="Move",
+        phase_actions_remaining=2,
+        turn_number=1,
+        schedule_index=0,
+    )
+    st = GameState(
+        board=board,
+        turn=turn,
+        extension={"hexdemo": {"retreat_obligations": {"only": 1}}},
+        rng_log=(),
+    )
+    assert focus_unit_id_after_state_sync(st, "union") == "only"
+    assert focus_unit_id_after_state_sync(st, "confederate") is None
+    assert focus_unit_id_after_state_sync(st, None) is None
+
+

@@ -39,6 +39,12 @@ class MouseEventHandlerMixin:
         dy = abs(self.drag_start[1] - self.drag_end[1])
         return (dx**2 + dy**2) ** 0.5
 
+    def _can_drag_selected_unit(self) -> bool:
+        uid = self.ui_state.selected_unit_id
+        if not uid:
+            return False
+        return self.can_interact_with_unit(str(uid))
+
     # core event handling -- these delegate to background/unit handlers
     def on_mouse_down(self, eventInfo: EventInfo) -> None:
         # Prevent default to stop text selection and default drag behavior
@@ -95,7 +101,7 @@ class MouseEventHandlerMixin:
             self._marker_drag(eventInfo)
         elif not self.ui_state.selected_unit_id:
             self._bg_drag(eventInfo)
-        elif not self.is_my_turn():
+        elif not self._can_drag_selected_unit():
             return
         else:
             self._unit_drag(eventInfo)
@@ -258,6 +264,7 @@ class MouseEventHandlerMixin:
         self.logger.debug(f"Dragging background by {distance} pixels")
 
     def _bg_mousedown(self, eventInfo: EventInfo) -> None:
+        self.pending_attack_attacker_id = None
         self.selection = None
         self.ui_state.select_marker(None)
         mgr = getattr(self, "marker_mgr", None)
@@ -342,15 +349,23 @@ class MouseEventHandlerMixin:
         if not self.ui_state.selected_unit_id:
             return
 
-        if not self.is_my_turn():
+        if not self._can_drag_selected_unit():
             return
 
         state = self.action_mgr.current_state
         if state is None:
             return
         su = state.board.units.get(self.ui_state.selected_unit_id)
-        if su is None or su.faction != state.turn.current_faction:
+        if su is None:
             return
+        if (
+            self.retreat_obligation_hexes_remaining(
+                state, str(self.ui_state.selected_unit_id)
+            )
+            is None
+        ):
+            if su.faction != state.turn.current_faction:
+                return
 
         # Get current zoom/pan values
         zoom = self.canvas._zoom_level
@@ -421,14 +436,22 @@ class MouseEventHandlerMixin:
         if not unit_state:
             return
 
-        if not self.is_my_turn():
+        pending = getattr(self, "pending_attack_attacker_id", None)
+        phase_ok = str(state.turn.current_phase) in ("Combat", "Attack")
+        current_faction = state.turn.current_faction
+        retreating = (
+            self.retreat_obligation_hexes_remaining(state, unit_id) is not None
+        )
+
+        if phase_ok and pending and unit_state.faction != current_faction and self.is_my_turn():
+            return
+
+        if not self.is_my_turn() and not retreating:
             self._clear_drag_and_highlights()
             self.logger.debug("Ignoring unit mousedown: not this client's turn")
             return
 
-        # Check if it's the right faction's turn (use server state, not local TurnManager)
-        current_faction = state.turn.current_faction
-        if unit_state.faction != current_faction:
+        if unit_state.faction != current_faction and not retreating:
             self._clear_drag_and_highlights()
             self.logger.warning(
                 f"Cannot select unit {unit_id} of faction {unit_state.faction} during {current_faction}'s turn"
@@ -475,7 +498,39 @@ class MouseEventHandlerMixin:
                     self.display_mgr.clear_highlights()
                 return
 
-            if not self.is_my_turn():
+            state = self.action_mgr.current_state
+            pending = getattr(self, "pending_attack_attacker_id", None)
+            if (
+                maybe_click
+                and pending
+                and eventInfo.unit_id
+                and state
+                and str(state.turn.current_phase) in ("Combat", "Attack")
+                and self.is_my_turn()
+            ):
+                from ...hexes.math import distance
+                from ...state.actions import Attack
+
+                target_id = str(eventInfo.unit_id)
+                defender = state.board.units.get(target_id)
+                attacker = state.board.units.get(pending)
+                if defender and attacker and defender.faction != attacker.faction:
+                    if distance(attacker.position, defender.position) == 1:
+                        self.execute_action(
+                            Attack("adjacent", pending, target_id)
+                        )
+                        self.pending_attack_attacker_id = None
+                        self._clear_drag_and_highlights()
+                        self.last_click_time = current_time
+                        return
+
+            uid_sel = self.ui_state.selected_unit_id
+            if uid_sel is not None:
+                moving_allowed = self.can_interact_with_unit(str(uid_sel))
+            else:
+                moving_allowed = self.is_my_turn()
+
+            if not moving_allowed:
                 self._clear_drag_and_highlights()
                 if not self.ui_state.selected_unit_id and maybe_click:
                     self.last_click_time = current_time
@@ -497,6 +552,19 @@ class MouseEventHandlerMixin:
                 unit = self._event_unit(eventInfo)
                 if unit:
                     self.selection = unit
+                    us = (
+                        state.board.units.get(str(unit.unit_id))
+                        if state and unit.unit_id
+                        else None
+                    )
+                    if (
+                        us
+                        and state
+                        and str(state.turn.current_phase) in ("Combat", "Attack")
+                        and self.is_my_turn()
+                        and us.faction == state.turn.current_faction
+                    ):
+                        self.pending_attack_attacker_id = str(unit.unit_id)
                 self.pending_click_timeout = js.setTimeout(
                     create_proxy(lambda: self._unit_click(eventInfo)),
                     self.DBL_CLICK_THRESHOLD,

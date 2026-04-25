@@ -32,6 +32,7 @@ from ..schema import (
 from .coercion import coerce_movement_cost, position_to_cube_tuple
 from .color_palette import apply_scenario_color_constants
 from .rows import (
+    coerce_unit_attributes,
     ensure_dict_table,
     parse_positions_list,
     parse_scenario_row,
@@ -185,6 +186,7 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
       position = [16, 12]   # odd-q [col, row] (HexColRow)
       faction = "Red"
       # optional: health = 100, active = true
+      # optional: graphics = "soldier"   # [[unit_graphics]] key; defaults to type
 
       # Or group repeated type/faction (position rows can override health/active).
       # Omit `id` on a row to auto-assign a unique id (prefix `type-faction`):
@@ -202,7 +204,7 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
       name = "red_line"
       type = "soldier"
       faction = "Red"
-      # optional: health, active, id_prefix = "red_line"   # default id prefix is name
+      # optional: health, active, id_prefix, graphics (override via unit_placements too)
 
       [[unit_placements]]
       archetype = "red_line"
@@ -358,6 +360,10 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
             squad_health = int(g.get("health", ar.health))
             squad_active = bool(g.get("active", ar.active))
             id_prefix = (ar.id_prefix or ar.name).strip()
+            squad_graphics = _optional_nonempty_str(g, "graphics")
+            graphics = (
+                squad_graphics if squad_graphics is not None else ar.graphics
+            )
         else:
             if not explicit_type:
                 raise ValueError(
@@ -372,6 +378,7 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
             squad_health = int(g.get("health", 100))
             squad_active = bool(g.get("active", True))
             id_prefix = f"{unit_type}-{faction}"
+            graphics = _optional_nonempty_str(g, "graphics")
         if "positions" not in g:
             raise ValueError(
                 f"unit_placements[{si}] requires key 'positions' (list of placement tables)"
@@ -379,14 +386,26 @@ def load_scenario(path: Path | str, *, static_root: Path | None = None) -> Scena
         pos_rows = parse_positions_list(
             g["positions"], f"unit_placements[{si}].positions"
         )
-        base = {
+        base: dict[str, Any] = {
             "type": unit_type,
             "faction": faction,
             "health": squad_health,
             "active": squad_active,
         }
+        if graphics is not None:
+            base["graphics"] = graphics
+        archetype_attr_defaults: dict[str, Any] = (
+            dict(ar.attributes) if arch else {}
+        )
+        squad_level_attrs = coerce_unit_attributes(g.get("attributes"))
         for pi, m in enumerate(pos_rows):
             row = dict(m)
+            merged_attrs = {**archetype_attr_defaults, **squad_level_attrs}
+            pos_attrs = row.get("attributes")
+            if isinstance(pos_attrs, dict):
+                merged_attrs = {**merged_attrs, **pos_attrs}
+            if merged_attrs:
+                row["attributes"] = merged_attrs
             raw_id = row.get("id")
             has_id = raw_id is not None and str(raw_id).strip() != ""
             if not has_id:
@@ -676,6 +695,42 @@ def _allocate_auto_unit_id(
             return cand
 
 
+_UNIT_ARCHETYPE_RESERVED_TOML_KEYS: frozenset[str] = frozenset(
+    {
+        "name",
+        "type",
+        "graphics",
+        "faction",
+        "health",
+        "active",
+        "id_prefix",
+        "attributes",
+    }
+)
+
+
+def _normalize_unit_archetype_row_mapping(raw: Mapping[str, Any]) -> dict[str, Any]:
+    """
+    Allow flat keys on ``[[unit_archetype]]`` / ``[[unit_archetypes]]`` rows
+    (e.g. ``combat = 6``) as shorthand for ``attributes``.
+
+    An explicit ``attributes = { ... }`` table is merged first; duplicate keys from
+    flat entries override the table (flat wins).
+    """
+    d = dict(raw)
+    explicit_attrs = coerce_unit_attributes(d.pop("attributes", None))
+    flat_attrs: dict[str, Any] = {}
+    for key in list(d.keys()):
+        if key in _UNIT_ARCHETYPE_RESERVED_TOML_KEYS:
+            continue
+        flat_attrs[str(key)] = d.pop(key)
+    merged = {**explicit_attrs, **flat_attrs}
+    out = dict(d)
+    if merged:
+        out["attributes"] = merged
+    return out
+
+
 def _parse_unit_archetype_index(raw: object) -> dict[str, UnitArchetypeRow]:
     if raw is None or raw == []:
         return {}
@@ -684,7 +739,11 @@ def _parse_unit_archetype_index(raw: object) -> dict[str, UnitArchetypeRow]:
     out: dict[str, UnitArchetypeRow] = {}
     for i, item in enumerate(raw):
         d = ensure_dict_table(item, f"unit_archetypes[{i}]")
-        row = parse_scenario_row(UnitArchetypeRow, d, path=f"unit_archetypes[{i}]")
+        row = parse_scenario_row(
+            UnitArchetypeRow,
+            _normalize_unit_archetype_row_mapping(d),
+            path=f"unit_archetypes[{i}]",
+        )
         if row.name in out:
             raise ValueError(f"duplicate unit_archetypes name {row.name!r}")
         out[row.name] = row

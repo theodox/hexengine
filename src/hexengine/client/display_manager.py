@@ -102,7 +102,33 @@ class DisplayManager:
             if unit_state is None or not unit_state.active:
                 self._remove_unit_display(unit_id)
 
+        self._reorder_unit_layer_by_stack(game_state)
         self.redraw_terrain_overlay(game_state)
+
+    def _reorder_unit_layer_by_stack(self, game_state: GameState) -> None:
+        """
+        Ensure stacked units draw in stack order.
+
+        SVG paints later siblings above earlier ones, so to draw lower `stack_index`
+        above higher ones we append in descending `stack_index` order per hex.
+        """
+        unit_layer = self._canvas._unit_layer
+        svg = unit_layer._svg
+
+        def key(uid: str) -> tuple[int, int, int, int, str]:
+            u = game_state.board.units.get(uid)
+            if u is None:
+                return (0, 0, 0, 0, uid)
+            h = u.position
+            # Per-hex ordering is handled by stack_index; hex coordinate tie-breakers
+            # only provide deterministic global ordering.
+            return (int(h.i), int(h.j), int(h.k), -int(u.stack_index), str(uid))
+
+        ordered_ids = sorted(self._unit_displays.keys(), key=key)
+        for uid in ordered_ids:
+            disp = self._unit_displays.get(uid)
+            if disp is not None:
+                svg.appendChild(disp.proxy)
 
     def redraw_terrain_overlay(self, game_state: GameState) -> None:
         """Update the terrain tint canvas from `LocationState.hex_color` (under units)."""
@@ -114,25 +140,27 @@ class DisplayManager:
         # Map unit types to their graphics creators
         graphics_creators = self._get_graphics_creators()
 
-        # Get the appropriate creator for this unit type
-        creator = graphics_creators.get(unit_state.unit_type)
+        gkey = getattr(unit_state, "graphics", None) or unit_state.unit_type
+        creator = graphics_creators.get(gkey)
         if creator is None:
             self.logger.error(
-                f"No graphics creator for unit type {unit_state.unit_type}"
+                f"No graphics creator for unit graphics key {gkey!r} "
+                f"(unit_type={unit_state.unit_type!r})"
             )
             return
 
         self.logger.debug(
-            "Creating display for %s type=%s creator=%s",
+            "Creating display for %s type=%s graphics=%s creator=%s",
             unit_state.unit_id,
             unit_state.unit_type,
+            gkey,
             getattr(creator, "name", repr(creator)),
         )
 
-        # Create display unit
+        # Create display unit (template key matches scenario [[unit_graphics]] type)
         display = DisplayUnit(
             unit_id=unit_state.unit_id,
-            unit_type=unit_state.unit_type,
+            unit_type=gkey,
             layout=self._canvas.hex_layout,
             unit_size_multiplier=self._canvas.unit_size_multiplier,
         )
@@ -141,6 +169,7 @@ class DisplayManager:
         creator(display)
 
         # Position it
+        display.stack_index = int(getattr(unit_state, "stack_index", 0))
         display.position = unit_state.position
         display.visible = unit_state.active
 
@@ -176,18 +205,15 @@ class DisplayManager:
 
         # Add to board if available
         if self._board:
-            # Check if position is occupied (from old state)
-            if unit_state.position in self._board._board:
-                # Remove old unit at this position first
-                old_unit = self._board._board[unit_state.position]
-                if old_unit.unit_id != unit_state.unit_id:
-                    self.logger.warning(f"Replacing unit at {unit_state.position}")
-                    del self._board._board[unit_state.position]
-                    if old_unit.unit_id in self._board._units:
-                        del self._board._units[old_unit.unit_id]
-
-            # Add to board
-            self._board._board[unit_state.position] = game_unit
+            # Legacy GameBoard uses a single-occupancy `hex -> unit` map.
+            # For stacking, keep the top-of-stack representative only.
+            existing = self._board._board.get(unit_state.position)
+            if existing is None:
+                self._board._board[unit_state.position] = game_unit
+            else:
+                ex_si = getattr(getattr(existing, "display", None), "stack_index", 0)
+                if int(unit_state.stack_index) >= int(ex_si):
+                    self._board._board[unit_state.position] = game_unit
             self._board._units[unit_state.unit_id] = game_unit
 
         # Track the display
@@ -218,6 +244,7 @@ class DisplayManager:
         """Update an existing display to match state."""
         display = self._unit_displays[unit_id]
 
+        display.stack_index = int(getattr(unit_state, "stack_index", 0))
         # Update position if changed
         if display.position != unit_state.position:
             display.position = unit_state.position
@@ -318,9 +345,7 @@ class DisplayManager:
         coordinates stay in map space. Call when hex layout parameters change.
         """
         for _unit_id, display in self._unit_displays.items():
-            # Re-apply the position to force recalculation with current layout
-            hex_pos = display._hex
-            x, y = self._canvas.hex_layout.hex_to_pixel(hex_pos)
-            display.proxy.setAttribute("transform", f"translate({x},{y})")
+            # Re-apply the position to force recalculation with current layout (and stacking offset)
+            display.position = display._hex
 
         self.logger.debug("Refreshed %s unit positions", len(self._unit_displays))

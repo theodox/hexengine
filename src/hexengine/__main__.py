@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, urlparse
 from . import dev_console
 from .document import element, js
 from .excepthook import install_exception_hook
-from .game import NetworkGame
+from .game import Game
 
 __version__ = "0.1.4"
 
@@ -66,9 +66,8 @@ def async_main() -> None:
 
         global GAME, MAP, BOARD
 
-        # Create network-enabled game
-        logger.info("Creating NetworkGame...")
-        GAME = NetworkGame(
+        logger.info("Creating Game...")
+        GAME = Game(
             server_url=config["server_url"],
             player_name=config["player_name"],
             preferred_faction=config["faction"],

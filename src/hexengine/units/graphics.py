@@ -53,6 +53,8 @@ class GraphicsCreator(Protocol):
 class DisplayUnit:
     """The display component of a game unit."""
 
+    STACK_OFFSET = 0.08
+
     def __init__(
         self,
         unit_id: str,
@@ -64,6 +66,8 @@ class DisplayUnit:
         self.unit_id = unit_id
         self.unit_type = unit_type
         self.unit_size_multiplier = float(unit_size_multiplier)
+        # Stacking support (visual): lower index is logically "earlier" in the stack.
+        self.stack_index: int = 0
         self.proxy = js.document.createElementNS("http://www.w3.org/2000/svg", "g")
         self.proxy.setAttribute("id", unit_id)
         self.proxy.setAttribute("data-unit", unit_id)  # For event handling
@@ -145,6 +149,12 @@ class DisplayUnit:
     def _set_position(self, hex: Hex) -> None:
         self._hex = hex
         x, y = self._hex_layout.hex_to_pixel(self._hex)
+        # Offset stacked units up/left by 5% of hex size per layer.
+        # Hex size is `HexLayout.size` (radius-like scalar used by hex_to_pixel).
+
+        d = float(self._hex_layout.size) * self.STACK_OFFSET * float(self.stack_index)
+        x -= d
+        y -= d
         self.proxy.setAttribute("transform", f"translate({x},{y})")
 
     def _get_position(self) -> Hex:

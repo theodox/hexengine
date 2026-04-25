@@ -16,6 +16,8 @@ _STATE_UPDATE_OMIT_IF_NONE = frozenset(
         "markers",
         "server_package_version",
         "turn_rules",
+        "suggested_focus_unit_id",
+        "retreat_obligations",
     }
 )
 
@@ -36,6 +38,12 @@ class StateUpdate:
     #: Schedule + factions (+ movement budget) so thin clients can build a matching
     #: `hexengine.gamedef.protocol.GameDefinition` without resolving game packs on disk.
     turn_rules: dict[str, Any] | None = None
+    #: Per-recipient UI hint: select this unit after applying ``game_state`` (e.g. sole
+    #: mandatory retreat for this viewer). Omitted when ``None``.
+    suggested_focus_unit_id: str | None = None
+    #: Per-recipient mandatory retreat obligations for this viewer's faction.
+    #: Keys are unit ids; values are positive hex counts remaining.
+    retreat_obligations: dict[str, int] | None = None
 
 
 @server_message("action_result")
@@ -140,4 +148,25 @@ class ServerLogEvent:
     level: str = "INFO"
     logger: str = ""
     message: str = ""
+
+
+_COMBAT_EVENT_OMIT = frozenset(
+    {"retreat_unit_id", "retreat_hexes_remaining", "retreat_distance"}
+)
+
+
+@server_message("combat_event", omit_if_none=_COMBAT_EVENT_OMIT)
+@dataclass
+class CombatEventWire:
+    """Per-player combat resolution notice (attack_kind extensible for future rules)."""
+
+    attack_kind: str
+    outcome: str
+    attacker_id: str
+    defender_id: str
+    instruction: str
+    message: str
+    retreat_unit_id: str | None = None
+    retreat_hexes_remaining: int | None = None
+    retreat_distance: int | None = None
 

@@ -29,7 +29,7 @@ def game_state_to_wire_dict(state: GameState) -> dict[str, Any]:
     """
     units: dict[str, dict[str, Any]] = {}
     for unit_id, unit in state.board.units.items():
-        units[unit_id] = {
+        uo: dict[str, Any] = {
             "unit_id": unit.unit_id,
             "unit_type": unit.unit_type,
             "faction": unit.faction,
@@ -40,7 +40,13 @@ def game_state_to_wire_dict(state: GameState) -> dict[str, Any]:
             },
             "health": unit.health,
             "active": unit.active,
+            "stack_index": unit.stack_index,
         }
+        if unit.graphics is not None:
+            uo["graphics"] = unit.graphics
+        if unit.attributes:
+            uo["attributes"] = dict(unit.attributes)
+        units[unit_id] = uo
 
     locations: list[dict[str, Any]] = []
     for pos, loc in state.board.locations.items():
@@ -81,6 +87,7 @@ def game_state_to_wire_dict(state: GameState) -> dict[str, Any]:
             "phase_actions_remaining": state.turn.phase_actions_remaining,
             "turn_number": state.turn.turn_number,
             "schedule_index": state.turn.schedule_index,
+            "global_tick": state.turn.global_tick,
         },
     }
     if state.extension:
@@ -95,13 +102,24 @@ def game_state_from_wire_dict(state_dict: dict[str, Any]) -> GameState:
     units: dict[str, UnitState] = {}
     for unit_id, unit_data in state_dict.get("board", {}).get("units", {}).items():
         pos_data = unit_data["position"]
+        raw_attrs = unit_data.get("attributes")
+        attrs: dict[str, Any] = dict(raw_attrs) if isinstance(raw_attrs, dict) else {}
+        raw_g = unit_data.get("graphics")
+        if raw_g is None:
+            graphics = None
+        else:
+            gs = str(raw_g).strip()
+            graphics = gs if gs else None
         units[unit_id] = UnitState(
             unit_id=unit_data["unit_id"],
             unit_type=unit_data["unit_type"],
             faction=unit_data["faction"],
             position=Hex(**pos_data),
-            health=unit_data["health"],
+            health=int(unit_data.get("health", 100)),
             active=unit_data.get("active", True),
+            stack_index=int(unit_data.get("stack_index", 0)),
+            graphics=graphics,
+            attributes=attrs,
         )
 
     locations: dict[Hex, LocationState] = {}
@@ -161,6 +179,7 @@ def game_state_from_wire_dict(state_dict: dict[str, Any]) -> GameState:
         current_phase=str(turn_data["current_phase"]),
         phase_actions_remaining=int(turn_data["phase_actions_remaining"]),
         schedule_index=int(turn_data.get("schedule_index", 0)),
+        global_tick=int(turn_data.get("global_tick", 0)),
     )
 
     ext = state_dict.get("extension")

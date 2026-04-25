@@ -59,18 +59,15 @@ def load_game_definition_for_scenario(
     """
     Return the `hexengine.gamedef.protocol.GameDefinition` for the resolved scenario.
 
-    When the scenario lives under `hexdemo/scenarios/`, loads definitions via
-    `hexdemo.registry.build_game_definition` (see `hexdemo.game_config` for turn
-    order and factions). Other paths raise `ValueError`.
+    Dispatches to title code under ``games/<pack>/`` via :mod:`hexengine.game_packs`
+    (see ``hexdemo_bridge``). Path checks and ``sys.path`` fixes live here; concrete
+    imports of ``hexdemo`` stay in the bridge modules.
     """
     if scenario_path_indicates_hexdemo_pack(scenario_path):
         ensure_hexdemo_package_import_path(scenario_path)
-        from hexdemo.registry import build_game_definition
+        from hexengine.game_packs import hexdemo_bridge
 
-        key = (
-            "sequential" if schedule.strip().lower() == "sequential" else "interleaved"
-        )
-        return build_game_definition(key)
+        return hexdemo_bridge.load_game_definition(schedule=schedule)
     raise ValueError(
         "No title rules are registered for this scenario path "
         f"({scenario_path!r}). Place the scenario under a supported game pack "

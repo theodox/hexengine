@@ -1,7 +1,7 @@
 """
 Test the multiplayer networking infrastructure.
 
-Tests WebSocketClient, GameServer, and NetworkGame integration.
+Tests WebSocketClient, GameServer, and client/server integration.
 """
 
 from __future__ import annotations
@@ -463,11 +463,14 @@ class TestStateUpdateTurnRules(unittest.TestCase):
             ],
             "movement_budget": 4.0,
             "rota_id": "deadbeef00000000",
+            "client_contract": {"schema": 1, "features": ["retreat_obligations"]},
         }
         u = StateUpdate(
             game_state=wire,
             sequence_number=3,
             turn_rules=rules,
+            suggested_focus_unit_id="u-1",
+            retreat_obligations={"u-1": 2},
         )
         m = u.to_message()
         u2 = StateUpdate.from_message(m)
@@ -550,6 +553,7 @@ def test_wire_message_registry_covers_all_message_types() -> None:
             "player_left",
             "error",
             "server_log",
+            "combat_event",
         }
     )
 

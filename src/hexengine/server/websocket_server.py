@@ -217,6 +217,7 @@ async def main(
         initial_phase=first["phase"],
         phase_actions_remaining=int(first["max_actions"]),
         schedule_index=0,
+        game_definition=game_def,
     )
 
     server = WebSocketGameServer(

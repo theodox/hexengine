@@ -19,8 +19,7 @@ Server Layer (hexengine.server)
 └── protocol.py            - Message types and serialization
 
 Game Layer (hexengine.game)
-├── Game                   - Base game class (local execution)
-└── NetworkGame            - Network-enabled game (sends to server)
+└── Game                   - Browser client; actions go to server over WebSocket (embedded or remote)
 ```
 
 ## Key Features
@@ -34,10 +33,10 @@ Game Layer (hexengine.game)
 ### 2. Unified Single/Multiplayer
 ```python
 # Single-player (local server): resolves `games/…` pack, loads title rules, then starts embedded server
-game = NetworkGame(use_local_server=True)
+game = Game(use_local_server=True)
 
 # Multiplayer (remote server)
-game = NetworkGame(use_local_server=False, server_url="ws://server:8765")
+game = Game(use_local_server=False, server_url="ws://server:8765")
 ```
 
 Both use the same WebSocket protocol; local mode additionally needs a discoverable game pack on disk unless you pass explicit paths where the API supports it.
@@ -103,8 +102,8 @@ Client                     Server
 - `src/hexengine/client/__init__.py` - Updated exports
 
 ### Game Integration
-- `src/hexengine/game/network_game.py` - Network-enabled Game class
-- `src/hexengine/game/__init__.py` - Export NetworkGame
+- `src/hexengine/game/game.py` - Browser `Game` client (WebSocket session)
+- `src/hexengine/game/__init__.py` - Export `Game`
 
 ### Documentation
 - `SERVER_ARCHITECTURE.md` - Server design and protocol
@@ -144,7 +143,7 @@ def _unit_mouseup(self, eventInfo):
 ```
 
 - `Game.execute_action()` → Executes locally via ActionManager
-- `NetworkGame.execute_action()` → Sends to server via WebSocket
+- `Game.execute_action()` → Sends to server via WebSocket
 
 **Mouse handlers don't know the difference!**
 
@@ -183,9 +182,9 @@ python -m hexengine.server.websocket_server
 ### Single Player
 
 ```python
-from hexengine.game import NetworkGame
+from hexengine.game import Game
 
-game = NetworkGame(
+game = Game(
     player_name="Alice",
     use_local_server=True  # Auto-starts server
 )
@@ -198,7 +197,7 @@ await game.connect()
 
 ```python
 # Player 1 (faction strings must match the server's title, e.g. hexdemo: confederate | union)
-game1 = NetworkGame(
+game1 = Game(
     player_name="Alice",
     preferred_faction="union",
     server_url="ws://localhost:8765",
@@ -207,7 +206,7 @@ game1 = NetworkGame(
 await game1.connect()
 
 # Player 2
-game2 = NetworkGame(
+game2 = Game(
     player_name="Bob",
     preferred_faction="confederate",
     server_url="ws://localhost:8765",
@@ -228,7 +227,7 @@ pytest tests/test_network.py -q
 
 ## Next Steps
 
-1. **Update `__main__.py`** to use NetworkGame
+1. **`__main__.py`** uses `Game` (browser entry)
 2. **Add connection UI** showing:
    - Connected players
    - Current turn
@@ -254,11 +253,11 @@ pytest tests/test_network.py -q
 
 - [x] Server infrastructure complete
 - [x] Client infrastructure complete
-- [x] NetworkGame class implemented
+- [x] `Game` client (server-backed) implemented
 - [x] Protocol defined and tested
 - [x] Local server mode working
 - [x] Documentation complete
-- [ ] Main entry point updated
+- [x] Main entry point uses `Game`
 - [ ] Connection UI added
 - [ ] Full integration testing
 - [ ] Deployment configuration

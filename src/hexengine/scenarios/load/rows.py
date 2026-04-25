@@ -16,6 +16,21 @@ from .coercion import coerce_movement_cost, parse_position
 T = TypeVar("T")
 
 
+def coerce_unit_attributes(raw: object) -> dict[str, Any]:
+    """
+    Parse ``[[units]]`` / placement ``attributes`` as a shallow string-keyed map.
+
+    Accepts ``null`` / missing coercer path as ``{}`` via caller; TOML tables only here.
+    """
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise TypeError(
+            f"attributes must be a TOML table, got {type(raw).__name__}"
+        )
+    return {str(k): v for k, v in raw.items()}
+
+
 def ensure_dict_table(value: object, path: str) -> dict[str, Any]:
     """Require a TOML inline table / section as `dict`."""
     if not isinstance(value, dict):
@@ -60,6 +75,7 @@ def parse_positions_list(raw: object, path: str) -> list[dict[str, Any]]:
 _COERCERS: dict[str, Any] = {
     "position": parse_position,
     "movement_cost": coerce_movement_cost,
+    "unit_attributes": coerce_unit_attributes,
 }
 
 

@@ -150,7 +150,7 @@ Invalid actions are rejected with an error message.
 
 ## Single Player Setup
 
-For single-player, [`NetworkGame`](../src/hexengine/game/network_game.py) with `use_local_server=True` resolves a game pack scenario, builds a `GameDefinition` from that pack, constructs initial state and presentation dicts, and starts [`LocalServerManager`](../src/hexengine/client/local_server.py) with **`game_definition=`** set. The client then connects to `localhost` over the same WebSocket protocol as multiplayer.
+For single-player, [`Game`](../src/hexengine/game/game.py) with `use_local_server=True` resolves a game pack scenario, builds a `GameDefinition` from that pack, constructs initial state and presentation dicts, and starts [`LocalServerManager`](../src/hexengine/client/local_server.py) with **`game_definition=`** set. The client then connects to `localhost` over the same WebSocket protocol as multiplayer.
 
 Each [`StateUpdate`](../src/hexengine/server/protocol.py) includes **`turn_rules`** (schedule, factions, movement budget) so the client can build a matching builtin `GameDefinition` for UI such as manual phase advance without resolving game files on disk. Switching to another title is assumed to be a rare, prepared event (full reload or new session).
 

@@ -7,6 +7,8 @@ update `scenario_to_initial_state` here.
 
 from __future__ import annotations
 
+from ..gamedef.protocol import GameDefinition
+from ..gamedef.unit_attributes import merge_spawn_attributes
 from ..hexes.types import Hex, HexColRow
 from ..state import GameState
 from ..state.game_state import (
@@ -44,6 +46,7 @@ def scenario_to_initial_state(
     initial_phase: str = "Movement",
     phase_actions_remaining: int = 2,
     schedule_index: int = 0,
+    game_definition: GameDefinition | None = None,
 ) -> GameState:
     """
     Build an initial GameState from scenario data (server path).
@@ -53,6 +56,10 @@ def scenario_to_initial_state(
 
     `initial_faction` / `initial_phase` / `phase_actions_remaining` / `schedule_index`
     should match the first rota slot (see `hexengine.gameroot.initial_turn_slot_for_game_definition`).
+
+    When ``game_definition`` is set, initial ``UnitState.attributes`` are filled via
+    ``merge_spawn_attributes`` (type defaults + each row's ``UnitRow.attributes``).
+    With no definition, scenario ``attributes`` tables are copied as-is.
     """
     from ..state.game_state import TurnState
 
@@ -65,6 +72,7 @@ def scenario_to_initial_state(
         phase_actions_remaining=phase_actions_remaining,
         turn_number=1,
         schedule_index=schedule_index,
+        global_tick=0,
     )
 
     for loc in data.locations:
@@ -81,14 +89,27 @@ def scenario_to_initial_state(
         )
 
     for u in data.units:
+        pos = _hex(u.position)
+        instance_attrs = dict(u.attributes)
+        merged_attrs = (
+            merge_spawn_attributes(
+                game_definition, u.unit_type, instance_attrs, state=None
+            )
+            if game_definition is not None
+            else instance_attrs
+        )
+        si = board.next_stack_index_at_hex(pos)
         board = board.with_unit(
             UnitState(
                 unit_id=u.unit_id,
                 unit_type=u.unit_type,
                 faction=u.faction,
-                position=_hex(u.position),
+                position=pos,
                 health=u.health,
                 active=u.active,
+                stack_index=si,
+                graphics=u.graphics,
+                attributes=dict(merged_attrs),
             )
         )
 

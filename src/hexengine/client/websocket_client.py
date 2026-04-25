@@ -17,6 +17,7 @@ from ..document import create_proxy, js
 from ..server.protocol import (
     ActionRequest,
     ActionResult,
+    CombatEventWire,
     JoinGameRequest,
     LeaveGameRequest,
     LoadSnapshotRequest,
@@ -78,6 +79,10 @@ class BrowserWebSocketClient:
         self.sequence_number = 0
         #: Last `turn_rules` dict from `hexengine.server.protocol.StateUpdate` (if any).
         self.turn_rules: dict[str, Any] | None = None
+        #: Last ``StateUpdate.suggested_focus_unit_id`` (per-viewer hint from server).
+        self.suggested_focus_unit_id: str | None = None
+        #: Last ``StateUpdate.retreat_obligations`` (per-viewer obligations from server).
+        self.retreat_obligations: dict[str, int] | None = None
 
         # Last applied scenario map_display JSON (avoid reset_view on every state tick)
         self._applied_map_display_json: str | None = None
@@ -161,6 +166,8 @@ class BrowserWebSocketClient:
 
         self._set_connection_state(ConnectionState.DISCONNECTED)
         self.turn_rules = None
+        self.suggested_focus_unit_id = None
+        self.retreat_obligations = None
         self.logger.info("Disconnected from server")
 
     def send_action(self, action_type: str, params: dict[str, Any]) -> None:
@@ -293,6 +300,12 @@ class BrowserWebSocketClient:
         update = StateUpdate.from_message(message)
         if update.turn_rules is not None:
             self.turn_rules = update.turn_rules
+        self.suggested_focus_unit_id = update.suggested_focus_unit_id
+        self.retreat_obligations = (
+            dict(update.retreat_obligations)
+            if isinstance(update.retreat_obligations, dict)
+            else None
+        )
 
         # Update sequence number
         if update.sequence_number <= self.sequence_number:
@@ -407,6 +420,24 @@ class BrowserWebSocketClient:
 
         if self.on_player_left:
             self.on_player_left(player)
+
+    def _handle_combat_event(self, message: Message) -> None:
+        """Combat resolution / retreat obligation (per-player instruction)."""
+        evt = CombatEventWire.from_message(message)
+        line = (
+            f"combat [{evt.instruction}] {evt.attack_kind} → {evt.outcome}: {evt.message}"
+        )
+        if evt.retreat_unit_id and evt.retreat_hexes_remaining is not None:
+            line += (
+                f" (unit {evt.retreat_unit_id}, {evt.retreat_hexes_remaining} hexes)"
+            )
+        dev_console.append_log_line(logging.INFO, line)
+        if evt.instruction == "retreat_required":
+            dev_console.set_status(evt.message)
+        elif evt.instruction == "wait":
+            dev_console.set_status(evt.message)
+        else:
+            dev_console.set_status("")
 
     def _handle_server_log(self, message: Message) -> None:
         """Append a server-originated log line to the dev console."""
@@ -527,4 +558,5 @@ _SERVER_INBOUND_HANDLERS: dict[str, _ServerInboundHandler] = {
     PlayerLeftWire.wire_type: BrowserWebSocketClient._handle_player_left,
     ServerError.wire_type: BrowserWebSocketClient._handle_server_error,
     ServerLogEvent.wire_type: BrowserWebSocketClient._handle_server_log,
+    CombatEventWire.wire_type: BrowserWebSocketClient._handle_combat_event,
 }
