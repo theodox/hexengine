@@ -9,13 +9,36 @@ from __future__ import annotations
 
 import heapq
 
-from ..hexes.math import distance, neighbors
+from ..hexes.math import distance, line, neighbors
 from ..hexes.types import Hex
 from ..state.game_state import GameState
 
 # Default path-cost budget when `hexengine.gamedef.protocol.GameDefinition`
 # does not implement `movement_budget_for_unit`.
 DEFAULT_MOVEMENT_BUDGET = 4.0
+
+
+def los_blocking_hexes(state: GameState, a: Hex, b: Hex) -> tuple[Hex, ...]:
+    """
+    Hexes which block line of sight between `a` and `b`.
+
+    Current rule: terrain blocks LOS when `LocationState.block_los` is True.
+    Only *intermediate* hexes are considered blocking; endpoints never block LOS.
+    """
+    path = list(line(a, b))
+    if len(path) <= 2:
+        return ()
+    out: list[Hex] = []
+    for h in path[1:-1]:
+        loc = state.board.effective_location(h)
+        if loc is not None and bool(getattr(loc, "block_los", True)):
+            out.append(h)
+    return tuple(out)
+
+
+def has_line_of_sight(state: GameState, a: Hex, b: Hex) -> bool:
+    """True when there are no LOS-blocking intermediate hexes between `a` and `b`."""
+    return not los_blocking_hexes(state, a, b)
 
 
 def adjacent_enemy_zoc_hexes(state: GameState, unit_id: str) -> frozenset[Hex]:

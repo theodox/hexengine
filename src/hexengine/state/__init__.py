@@ -31,7 +31,9 @@ from .logic import (
     compute_reachable_hexes,
     compute_retreat_destination_hexes,
     compute_valid_moves,
+    has_line_of_sight,
     is_valid_move,
+    los_blocking_hexes,
     retreat_impassable_enemy_zoc_hexes,
 )
 from .marker_placement import (
@@ -74,8 +76,10 @@ __all__ = [
     "adjacent_friendly_zoc_hexes",
     "compute_reachable_hexes",
     "compute_valid_moves",
+    "has_line_of_sight",
     "is_valid_move",
     "compute_retreat_destination_hexes",
+    "los_blocking_hexes",
     "retreat_impassable_enemy_zoc_hexes",
     "MarkerPlacementRule",
     "default_marker_destination_allowed",
