@@ -9,6 +9,7 @@ from .layout import HexLayout
 
 class SVGLayer:
     SVG = "http://www.w3.org/2000/svg"
+    HIGHLIGHT_BASE_CLASS = "hexengine-hex-highlight"
 
     def __init__(
         self,
@@ -33,7 +34,9 @@ class SVGLayer:
     def clear(self) -> None:
         # Snapshot nodes — childNodes is live; lambdas must capture each node, not loop var.
         for child in list(self._svg.childNodes):
-            if child.classList.contains("highlight"):
+            if child.classList.contains(self.HIGHLIGHT_BASE_CLASS) or child.classList.contains(
+                "highlight"
+            ):
                 logging.info("Removing hex layer")
                 child.classList.add("fade-out")
                 js.setTimeout(
@@ -51,7 +54,9 @@ class SVGLayer:
 
     def draw_hexes(self, hexes: list[Hex], cls: str = "highlight") -> None:
         root = js.document.createElementNS(self.SVG, "g")
-        root.classList.add(cls)
+        root.classList.add(self.HIGHLIGHT_BASE_CLASS)
+        if cls and cls != self.HIGHLIGHT_BASE_CLASS:
+            root.classList.add(cls)
         for hex in hexes:
             self._draw_hex(hex, root)
         self._svg.appendChild(root)

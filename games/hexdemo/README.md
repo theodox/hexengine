@@ -20,21 +20,16 @@ When you run `hexserver` (or start the local WebSocket server) with a scenario u
 
 **Configure the match** in `hexdemo.game_config`:
 
-- `hexdemo.game_config.HexdemoMatchConfig` — factions, `schedule` (`interleaved` or
-  `sequential`), `movement_budget`.
-- `hexdemo.game_config.game_definition_from_config` — builds the engine
-  `GameDefinition` from that config.
+- `hexdemo.game_config.HexdemoMatchConfig` — factions and `movement_budget`.
+- `hexdemo.game_config.hexdemo_four_phase_entries` / `game_definition_from_config` — define the single static rota (Union/Confederate Move/Combat) wrapped by `HexdemoGameDefinition`.
 
-The CLI still selects schedule via `hexserver --schedule` / `Game(..., game_schedule=...)`,
-which maps to registry keys; defaults for each key are produced by
-`HexdemoMatchConfig.from_registry_key`.
+The manifest entry `hexdemo.engine_entry.load_game_definition()` returns that definition; the engine does not pass a schedule from the CLI.
 
-- `hexdemo.registry.build_game_definition("interleaved")` — default demo schedule
-- `hexdemo.registry.build_game_definition("sequential")` — matches `--schedule sequential`
+- `hexdemo.registry.build_game_definition()` — same as the manifest entry (convenience for tests).
 
 Faction ids are **`confederate`** and **`union`** (see `hexdemo.constants.HEXDEMO_FACTIONS`); scenario `faction =` on units must use these strings.
 
-When you run `hexserver` (or `start_servers`) with a scenario under `games/hexdemo/scenarios/`, the engine loads definitions via `load_game_definition_for_scenario` so join/turn order matches the title. Pass the same schedule to `Game(..., game_schedule=...)` as to `hexserver --schedule` when using sequential mode with an embedded local server.
+When you run `hexserver` (or `start_servers`) with a scenario under `games/hexdemo/scenarios/`, the engine loads definitions via `load_game_definition_for_scenario(scenario_path)` so join/turn order matches the title. The browser uses `StateUpdate.turn_rules` from the server for manual advance and previews.
 
 ## Layout (model package)
 
@@ -42,7 +37,7 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 |--------|---------|
 | `boot.py` | Console banner after authoritative load |
 | `game_config.py` | **Match config** (`HexdemoMatchConfig`) and `GameDefinition` construction |
-| `registry.py` | Named ids → `build_game_definition` (uses `game_config`) |
+| `registry.py` | `build_game_definition()` (uses `game_config`) |
 | `movement_rules.py` | Stubs for future `MovementRules` |
 | `marker_rules.py` | Optional `MarkerPlacementRule` hook |
 

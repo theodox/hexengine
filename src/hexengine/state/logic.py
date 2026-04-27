@@ -84,8 +84,10 @@ def compute_reachable_hexes(
     start_hex: Hex,
     max_cost: float,
     *,
+    moving_faction: str | None = None,
     zoc_hexes: frozenset[Hex] | None = None,
     blocked_hexes: frozenset[Hex] | None = None,
+    max_active_units_per_hex: int | None = None,
 ) -> dict[Hex, float]:
     """Calculate all hexes reachable from start_hex within max_cost.
 
@@ -96,11 +98,17 @@ def compute_reachable_hexes(
         state: Current game state
         start_hex: Starting hex position
         max_cost: Maximum movement cost budget
+        moving_faction: When set, occupied hexes are treated as passable only when every
+            active unit on that hex belongs to `moving_faction`.
         zoc_hexes: If set, stop-on-ZOC-entry: do not expand from any hex in this set
             except ``start_hex`` (first ZOC entered ends the move).
         blocked_hexes: If set, treat these hexes as impassable for purposes of reachability,
             except ``start_hex`` (allows retreating out of contact even if the unit starts
             in a blocked hex).
+        max_active_units_per_hex: When set, allows ending a move on a hex with fewer than
+            this many *active* units. A unit may still traverse through friendly-occupied
+            hexes (paying normal terrain cost) regardless of stacking, as long as
+            `moving_faction` is set and the hex is friendly-occupied.
 
     Returns:
         Dictionary mapping reachable hexes to their minimum cost from start_hex
@@ -154,13 +162,22 @@ def compute_reachable_hexes(
 
             new_cost = current_cost + neighbor_terrain_cost
 
-            # Only process if within budget and not occupied
-            if new_cost <= max_cost and not state.board.is_occupied(neighbor):
-                # If this is a better path to the neighbor, update it
-                if new_cost < costs.get(neighbor, float("inf")):
-                    costs[neighbor] = new_cost
-                    counter += 1
-                    heapq.heappush(heap, (new_cost, counter, neighbor))
+            if new_cost > max_cost:
+                continue
+
+            occ = state.board.active_units_at_hex(neighbor)
+            if occ:
+                # No stacking configured: occupied hexes are impassable.
+                if max_active_units_per_hex is None:
+                    continue
+                if moving_faction is None:
+                    continue
+                if any(u.faction != moving_faction for u in occ):
+                    continue
+            if new_cost < costs.get(neighbor, float("inf")):
+                costs[neighbor] = new_cost
+                counter += 1
+                heapq.heappush(heap, (new_cost, counter, neighbor))
 
     return costs
 
@@ -172,6 +189,7 @@ def compute_valid_moves(
     *,
     zoc_hexes: frozenset[Hex] | None = None,
     blocked_hexes: frozenset[Hex] | None = None,
+    max_active_units_per_hex: int | None = None,
 ) -> set[Hex]:
     """Compute valid movement hexes for a unit.
 
@@ -194,12 +212,26 @@ def compute_valid_moves(
         state,
         unit.position,
         movement_budget,
+        moving_faction=unit.faction,
         zoc_hexes=zoc_hexes,
         blocked_hexes=blocked_hexes,
+        max_active_units_per_hex=max_active_units_per_hex,
     )
 
     # Return just the hexes (not the costs)
-    return set(reachable.keys())
+    out = set(reachable.keys())
+    if max_active_units_per_hex is not None:
+        try:
+            lim = int(max_active_units_per_hex)
+        except (TypeError, ValueError):
+            lim = 0
+        if lim > 0:
+            out = {
+                h
+                for h in out
+                if h == unit.position or len(state.board.active_units_at_hex(h)) < lim
+            }
+    return out
 
 
 def is_valid_move(
@@ -210,6 +242,7 @@ def is_valid_move(
     *,
     zoc_hexes: frozenset[Hex] | None = None,
     blocked_hexes: frozenset[Hex] | None = None,
+    max_active_units_per_hex: int | None = None,
 ) -> bool:
     """Check if a specific move is valid.
 
@@ -230,6 +263,7 @@ def is_valid_move(
         movement_budget,
         zoc_hexes=zoc_hexes,
         blocked_hexes=blocked_hexes,
+        max_active_units_per_hex=max_active_units_per_hex,
     )
 
 
@@ -241,6 +275,7 @@ def compute_retreat_destination_hexes(
     *,
     zoc_hexes: frozenset[Hex] | None = None,
     blocked_hexes: frozenset[Hex] | None = None,
+    max_active_units_per_hex: int | None = None,
 ) -> set[Hex]:
     """
     Hexes reachable as a retreat fulfillment: graph reachability within budget and
@@ -258,8 +293,10 @@ def compute_retreat_destination_hexes(
         state,
         start,
         movement_budget,
+        moving_faction=unit.faction,
         zoc_hexes=zoc_hexes,
         blocked_hexes=blocked_hexes,
+        max_active_units_per_hex=max_active_units_per_hex,
     )
     out: set[Hex] = set()
     for h in reachable:
@@ -270,6 +307,7 @@ def compute_retreat_destination_hexes(
             movement_budget,
             zoc_hexes=zoc_hexes,
             blocked_hexes=blocked_hexes,
+            max_active_units_per_hex=max_active_units_per_hex,
         ):
             out.add(h)
     return out

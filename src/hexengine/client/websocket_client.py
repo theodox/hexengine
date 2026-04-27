@@ -18,6 +18,9 @@ from ..server.protocol import (
     ActionRequest,
     ActionResult,
     CombatEventWire,
+    InspectRequest,
+    MarkerPreviewWire,
+    UnitPreviewWire,
     JoinGameRequest,
     LeaveGameRequest,
     LoadSnapshotRequest,
@@ -28,6 +31,7 @@ from ..server.protocol import (
     ServerError,
     ServerLogEvent,
     StateUpdate,
+    UIPopupWire,
 )
 from ..state import GameState
 
@@ -83,6 +87,10 @@ class BrowserWebSocketClient:
         self.suggested_focus_unit_id: str | None = None
         #: Last ``StateUpdate.retreat_obligations`` (per-viewer obligations from server).
         self.retreat_obligations: dict[str, int] | None = None
+        #: Last ``StateUpdate.interaction_messages`` (per-viewer transient UI messages).
+        self.interaction_messages: list[dict[str, Any]] | None = None
+        #: Last ``StateUpdate.map_overlays`` (per-viewer map-space overlay specs).
+        self.map_overlays: list[dict[str, Any]] = []
 
         # Last applied scenario map_display JSON (avoid reset_view on every state tick)
         self._applied_map_display_json: str | None = None
@@ -103,6 +111,9 @@ class BrowserWebSocketClient:
         self.on_action_result: Callable[[bool, str | None], None] | None = None
         self.on_player_joined: Callable[[PlayerInfo], None] | None = None
         self.on_player_left: Callable[[PlayerInfo], None] | None = None
+        self.on_ui_popup: Callable[[dict[str, Any]], None] | None = None
+        self.on_marker_preview: Callable[[dict[str, Any]], None] | None = None
+        self.on_unit_preview: Callable[[dict[str, Any]], None] | None = None
 
         self.logger = logging.getLogger("websocket_client")
         self._health_check_interval_id: Any = None
@@ -168,6 +179,7 @@ class BrowserWebSocketClient:
         self.turn_rules = None
         self.suggested_focus_unit_id = None
         self.retreat_obligations = None
+        self.interaction_messages = None
         self.logger.info("Disconnected from server")
 
     def send_action(self, action_type: str, params: dict[str, Any]) -> None:
@@ -229,6 +241,37 @@ class BrowserWebSocketClient:
         )
         self._send_message(request.to_message())
         self.logger.debug("Sent load_snapshot request to server")
+
+    def send_inspect(self, target_kind: str, target_id: str) -> None:
+        if not self.is_connected():
+            return
+        request = InspectRequest(target_kind=str(target_kind), target_id=str(target_id))
+        self._send_message(request.to_message())
+
+    def send_marker_preview_request(self, marker_id: str, marker_type: str) -> None:
+        if not self.is_connected():
+            return
+        from ..server.protocol import MarkerPreviewRequest
+
+        req = MarkerPreviewRequest(
+            marker_id=str(marker_id),
+            marker_type=str(marker_type),
+            request_id=str(getattr(self, "_preview_req_counter", 0) + 1),
+        )
+        self._preview_req_counter = int(req.request_id)
+        self._send_message(req.to_message())
+
+    def send_unit_preview_request(self, unit_id: str) -> None:
+        if not self.is_connected():
+            return
+        from ..server.protocol import UnitPreviewRequest
+
+        req = UnitPreviewRequest(
+            unit_id=str(unit_id),
+            request_id=str(getattr(self, "_preview_req_counter", 0) + 1),
+        )
+        self._preview_req_counter = int(req.request_id)
+        self._send_message(req.to_message())
 
     def is_connected(self) -> bool:
         """Check if currently connected to server."""
@@ -306,6 +349,23 @@ class BrowserWebSocketClient:
             if isinstance(update.retreat_obligations, dict)
             else None
         )
+        self.interaction_messages = (
+            [dict(m) for m in update.interaction_messages]
+            if isinstance(update.interaction_messages, list)
+            else None
+        )
+        if isinstance(self.interaction_messages, list):
+            now_ms = int(js.Date.now())
+            for m in self.interaction_messages:
+                if isinstance(m, dict):
+                    m.setdefault("_received_at_ms", now_ms)
+
+        if update.map_overlays is None:
+            self.map_overlays = []
+        else:
+            self.map_overlays = [
+                dict(m) for m in update.map_overlays if isinstance(m, dict)
+            ]
 
         # Update sequence number
         if update.sequence_number <= self.sequence_number:
@@ -454,6 +514,52 @@ class BrowserWebSocketClient:
             line = str(body)
         dev_console.append_log_line(level, line)
 
+    def _handle_ui_popup(self, message: Message) -> None:
+        evt = UIPopupWire.from_message(message)
+        payload = {
+            "text": evt.text,
+            "html": evt.html,
+            "hex": evt.hex,
+            "kind": evt.kind,
+            "ttl_ms": evt.ttl_ms,
+            "css_class": evt.css_class,
+        }
+        if self.on_ui_popup:
+            self.on_ui_popup(payload)
+
+    def _handle_marker_preview(self, message: Message) -> None:
+        from ..server.protocol import MarkerPreviewWire
+
+        wire = MarkerPreviewWire.from_message(message)
+        payload = {
+            "marker_id": str(wire.marker_id),
+            "hexes": list(wire.hexes) if isinstance(wire.hexes, list) else [],
+            "css_class": wire.css_class,
+            "request_id": str(getattr(wire, "request_id", "") or ""),
+        }
+        if self.on_marker_preview:
+            self.on_marker_preview(payload)
+
+    def _handle_unit_preview(self, message: Message) -> None:
+        from ..server.protocol import UnitPreviewWire
+
+        wire = UnitPreviewWire.from_message(message)
+        payload = {
+            "unit_id": str(wire.unit_id),
+            "kind": str(wire.kind),
+            "hexes": list(wire.hexes) if isinstance(wire.hexes, list) else [],
+            "css_class": wire.css_class,
+            "request_id": str(getattr(wire, "request_id", "") or ""),
+            "through_hexes": (
+                list(wire.through_hexes)
+                if isinstance(getattr(wire, "through_hexes", None), list)
+                else None
+            ),
+            "through_css_class": getattr(wire, "through_css_class", None),
+        }
+        if self.on_unit_preview:
+            self.on_unit_preview(payload)
+
     def _handle_server_error(self, message: Message) -> None:
         """Handle an error message from the server."""
         error = ServerError.from_message(message).error
@@ -559,4 +665,7 @@ _SERVER_INBOUND_HANDLERS: dict[str, _ServerInboundHandler] = {
     ServerError.wire_type: BrowserWebSocketClient._handle_server_error,
     ServerLogEvent.wire_type: BrowserWebSocketClient._handle_server_log,
     CombatEventWire.wire_type: BrowserWebSocketClient._handle_combat_event,
+    UIPopupWire.wire_type: BrowserWebSocketClient._handle_ui_popup,
+    MarkerPreviewWire.wire_type: BrowserWebSocketClient._handle_marker_preview,
+    UnitPreviewWire.wire_type: BrowserWebSocketClient._handle_unit_preview,
 }

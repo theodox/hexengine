@@ -1,27 +1,22 @@
-"""Turn banner (#turn-display) faction CSS classes (browser DOM)."""
+"""Turn banner (#turn-display) faction CSS class management (browser DOM)."""
 
 from __future__ import annotations
 
 from ..gamedef.faction_display import display_faction_name, display_phase_name
 
-# All faction class names ever applied to the strip; remove before adding the active one.
-TURN_STRIP_FACTION_CLASSES: tuple[str, ...] = (
-    "red",
-    "blue",
-    "confederate",
-    "union",
-)
 
-
-def apply_turn_strip_faction(turn_bg, faction: str) -> None:
-    """Clear known faction styling classes, then add `faction.lower()`."""
-    for c in TURN_STRIP_FACTION_CLASSES:
-        turn_bg.classList.remove(c)
-    turn_bg.classList.add(faction.lower())
+def apply_turn_strip_faction(turn_bg, faction: str, *, css_class: str | None = None) -> None:
+    """Remove the previously applied faction class (if any), then add `css_class`."""
+    prev = getattr(getattr(turn_bg, "dataset", None), "factionClass", None)
+    if prev:
+        turn_bg.classList.remove(prev)
+    nxt = (css_class or faction).lower()
+    turn_bg.classList.add(nxt)
+    if getattr(turn_bg, "dataset", None) is not None:
+        turn_bg.dataset.factionClass = nxt
 
 
 __all__ = [
-    "TURN_STRIP_FACTION_CLASSES",
     "apply_turn_strip_faction",
     "display_faction_name",
     "display_phase_name",

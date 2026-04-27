@@ -39,24 +39,54 @@ class PopupManager:
         popup.display(self.canvas)
         return popup
 
+    def create_popup_html(self, html: str, position: tuple[float, float]) -> Popup:
+        self.clear()
+        popup = Popup(html, position, is_html=True)
+        self.add_popup(popup)
+        popup.display(self.canvas)
+        return popup
+
 
 class Popup:
-    def __init__(self, message: str, position: tuple[float, float]) -> None:
+    def __init__(self, message: str, position: tuple[float, float], *, is_html: bool = False) -> None:
         self.message = message
         self.position = position
+        self.is_html = bool(is_html)
         self.element = None
         self.canvas = None
         self.faded = False
         self.timeout = 0
 
     def display(self, canvas, timeout: int = 500) -> None:
-        div = js.document.createElement("div")
-        div.className = "popup"
-        div.innerHTML = "<p><b>" + str(self.message) + "</b></p>"
-        div.style.left = f"{self.position[0]}px"
-        div.style.top = f"{self.position[1]}px"
-        canvas.appendChild(div)
-        self.element = div
+        # Root is the callout anchor: (left, top) is the map pixel under the tail tip
+        # (e.g. unit center). Bubble sits above; tail points down to that point.
+        # @TODO: position popups as close to screen center as possible,
+        # including below the mouse cursor if position would clip the screen
+        root = js.document.createElement("div")
+        root.className = "popup popup--callout"
+
+        bubble = js.document.createElement("div")
+        bubble.className = "popup-bubble"
+        if self.is_html:
+            bubble.innerHTML = str(self.message)
+        else:
+            p = js.document.createElement("p")
+            b = js.document.createElement("b")
+            b.textContent = str(self.message)
+            p.appendChild(b)
+            bubble.appendChild(p)
+
+        tail = js.document.createElement("div")
+        tail.className = "popup-tail"
+        tail.setAttribute("aria-hidden", "true")
+
+        root.appendChild(bubble)
+        root.appendChild(tail)
+
+        root.style.left = f"{self.position[0]}px"
+        root.style.top = f"{self.position[1]}px"
+        canvas.appendChild(root)
+        self.element = root
         self.canvas = canvas
         self.timeout = timeout
 

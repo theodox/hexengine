@@ -126,7 +126,7 @@ class MouseEventHandlerMixin:
             self._unit_mouseup(eventInfo)
 
     def _marker_dbl_click(self, eventInfo: EventInfo) -> None:
-        """Inspect marker (type, id, odd-q position) in a small popup."""
+        """Inspect marker (title-formatted) in a small popup."""
         mid = eventInfo.marker_id or self.ui_state.selected_marker_id
         mgr = getattr(self, "marker_mgr", None)
         if not mgr or not mid:
@@ -136,13 +136,8 @@ class MouseEventHandlerMixin:
         if not disp:
             self.last_click_time = 0
             return
-        offset_pos = eventInfo.raw_position[0] + 10, eventInfo.raw_position[1] + 20
-        h = disp.position
-        cr = HexColRow.from_hex(h)
-        pos_s = f"[{cr.col}, {cr.row}]"
-        self.popup_manager.create_popup(
-            f"marker {mid} ({disp.unit_type}) @ {pos_s}", offset_pos
-        )
+        if self.client:
+            self.client.send_inspect("marker", str(mid))
         self.last_click_time = 0
 
     def _marker_mousedown(self, eventInfo: EventInfo) -> None:
@@ -322,19 +317,11 @@ class MouseEventHandlerMixin:
             else "Double click with no unit under cursor"
         )
 
-        offset_pos = eventInfo.raw_position[0] + 10, eventInfo.raw_position[1] + 20
         if not unit or not eventInfo.unit_id:
             self.last_click_time = 0
             return
-
-        # Use server/board state for faction; GameUnit.faction may be a class default.
-        faction = unit.faction
-        if self.action_mgr and self.action_mgr.current_state:
-            us = self.action_mgr.current_state.board.units.get(eventInfo.unit_id)
-            if us is not None:
-                faction = us.faction
-
-        self.popup_manager.create_popup(f"{unit.unit_id} @ {faction}", offset_pos)
+        if self.client:
+            self.client.send_inspect("unit", str(eventInfo.unit_id))
         self.last_click_time = 0
 
     def _unit_drag(self, eventInfo: EventInfo) -> None:
@@ -509,15 +496,29 @@ class MouseEventHandlerMixin:
                 and self.is_my_turn()
             ):
                 from ...hexes.math import distance
-                from ...state.actions import Attack
 
                 target_id = str(eventInfo.unit_id)
                 defender = state.board.units.get(target_id)
                 attacker = state.board.units.get(pending)
                 if defender and attacker and defender.faction != attacker.faction:
                     if distance(attacker.position, defender.position) == 1:
-                        self.execute_action(
-                            Attack("adjacent", pending, target_id)
+                        ext_key = self._title_state_extension_key()
+                        if not ext_key:
+                            self.logger.warning(
+                                "Skipping local Attack: missing title_state_extension_key "
+                                "from server turn_rules"
+                            )
+                            self.pending_attack_attacker_id = None
+                            self._clear_drag_and_highlights()
+                            self.last_click_time = current_time
+                            return
+                        self.execute_action_request(
+                            "Attack",
+                            {
+                                "attack_kind": "adjacent",
+                                "attacker_id": pending,
+                                "defender_id": target_id,
+                            },
                         )
                         self.pending_attack_attacker_id = None
                         self._clear_drag_and_highlights()

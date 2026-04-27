@@ -96,17 +96,185 @@ def _hexdemo_two_union_vs_one_def() -> GameState:
     return GameState(board=board, turn=turn, extension={"hexdemo": {}}, rng_log=())
 
 
+def test_pack_extension_retreat_reads_custom_key() -> None:
+    from hexengine.state.pack_extension_retreat import retreat_hexes_remaining
+
+    st = GameState.create_empty()
+    st = st.with_extension({"other": {"retreat_obligations": {"u": 3}}})
+    assert retreat_hexes_remaining(st, "u", extension_key="other") == 3
+
+
 def test_hexdemo_retreat_reads_extension() -> None:
     """Mandatory retreat steps live in extension; engine helper has no UI imports."""
-    from hexengine.state.hexdemo_retreat import retreat_hexes_remaining
+    from hexengine.state.pack_extension_retreat import retreat_hexes_remaining
 
     st = _hexdemo_combat_state()
     ext = dict(st.extension)
     hx = dict(ext.get("hexdemo", {}))
     hx["retreat_obligations"] = {"u_def": 2}
     st2 = st.with_extension({**ext, "hexdemo": hx})
-    assert retreat_hexes_remaining(st2, "u_def") == 2
-    assert retreat_hexes_remaining(st2, "u_att") is None
+    assert retreat_hexes_remaining(st2, "u_def", extension_key="hexdemo") == 2
+    assert retreat_hexes_remaining(st2, "u_att", extension_key="hexdemo") is None
+
+
+def test_hexdemo_stacking_limit_rejects_move() -> None:
+    """Server rejects MoveUnit into a hex already holding 3 active units."""
+    from hexengine.server.protocol import ActionRequest, JoinGameRequest
+    from hexengine.state.game_state import BoardState, TurnState, UnitState
+
+    h0 = Hex(0, 0, 0)
+    h1 = next(neighbors(h0))
+    board = BoardState(
+        units={
+            "mover": UnitState(
+                unit_id="mover",
+                unit_type="inf",
+                faction="union",
+                position=h0,
+                health=100,
+                active=True,
+            ),
+            "s1": UnitState(
+                unit_id="s1",
+                unit_type="inf",
+                faction="union",
+                position=h1,
+                health=100,
+                active=True,
+                stack_index=0,
+            ),
+            "s2": UnitState(
+                unit_id="s2",
+                unit_type="inf",
+                faction="union",
+                position=h1,
+                health=100,
+                active=True,
+                stack_index=1,
+            ),
+            "s3": UnitState(
+                unit_id="s3",
+                unit_type="inf",
+                faction="union",
+                position=h1,
+                health=100,
+                active=True,
+                stack_index=2,
+            ),
+        }
+    )
+    turn = TurnState(
+        current_faction="union",
+        current_phase="Move",
+        phase_actions_remaining=2,
+        schedule_index=0,
+    )
+    st = GameState(board=board, turn=turn, extension={"hexdemo": {}}, rng_log=())
+    gd = game_definition_from_config(default_match_config())
+    server = GameServer(initial_state=st, game_definition=gd)
+
+    async def run() -> None:
+        out: list[dict] = []
+        server.add_message_handler(lambda _pid, msg: out.append(msg.payload))
+        await server.handle_message(
+            "p1", JoinGameRequest(player_name="Alice", faction="union").to_message()
+        )
+        req = ActionRequest(
+            action_type="MoveUnit",
+            params={
+                "unit_id": "mover",
+                "from_hex": {"i": h0.i, "j": h0.j, "k": h0.k},
+                "to_hex": {"i": h1.i, "j": h1.j, "k": h1.k},
+            },
+            player_id="p1",
+        )
+        # Capture outgoing messages to observe the error.
+        out: list[dict] = []
+        server.add_message_handler(lambda _pid, msg: out.append(msg.payload))
+        await server.handle_message("p1", req.to_message())
+        errors = [p.get("error") for p in out if isinstance(p, dict)]
+        assert any(
+            isinstance(e, str) and ("stacking" in e.lower() or "active units" in e.lower())
+            for e in errors
+        ), f"Expected stacking error, got: {errors!r}"
+
+    asyncio.run(run())
+
+
+def test_hexdemo_move_can_pass_through_friendly_stack() -> None:
+    """A unit may traverse through a friendly stack, but cannot end over the limit."""
+    from hexengine.state.logic import compute_valid_moves
+
+    h0 = Hex(0, 0, 0)
+    h1 = next(neighbors(h0))
+    h2 = next(h for h in neighbors(h1) if h != h0)
+    board = BoardState(
+        units={
+            "m": UnitState("m", "inf", "union", h0, active=True),
+            # Friendly-occupied intermediate hex
+            "s": UnitState("s", "inf", "union", h1, active=True, stack_index=0),
+        }
+    )
+    st = GameState(
+        board=board,
+        turn=TurnState(current_faction="union", current_phase="Move", phase_actions_remaining=2),
+        extension={"hexdemo": {}},
+        rng_log=(),
+    )
+    moves = compute_valid_moves(st, "m", 2.0, max_active_units_per_hex=3)
+    assert h2 in moves
+
+
+def test_hexdemo_retreat_moves_entire_stack() -> None:
+    """When a stack has retreat obligations, moving one retreats all units in the stack."""
+    from hexengine.server.protocol import ActionRequest, JoinGameRequest
+
+    h0 = Hex(0, 0, 0)
+    h1 = next(neighbors(h0))
+    # Retreat obligation is 1, so destination must be adjacent to h0 (but not enemy-occupied).
+    h2 = next(h for h in neighbors(h0) if h != h1)
+    board = BoardState(
+        units={
+            "u1": UnitState("u1", "inf", "union", h0, active=True, stack_index=0),
+            "u2": UnitState("u2", "inf", "union", h0, active=True, stack_index=1),
+        }
+    )
+    turn = TurnState(current_faction="union", current_phase="Combat", phase_actions_remaining=2)
+    st = GameState(
+        board=board,
+        turn=turn,
+        extension={"hexdemo": {"retreat_obligations": {"u1": 1, "u2": 1}}},
+        rng_log=(),
+    )
+    gd = game_definition_from_config(default_match_config())
+    server = GameServer(initial_state=st, game_definition=gd)
+
+    async def run() -> None:
+        out: list[dict] = []
+        server.add_message_handler(lambda _pid, msg: out.append(msg.payload))
+        await server.handle_message(
+            "p1", JoinGameRequest(player_name="Alice", faction="union").to_message()
+        )
+        req = ActionRequest(
+            action_type="MoveUnit",
+            params={
+                "unit_id": "u1",
+                "from_hex": {"i": h0.i, "j": h0.j, "k": h0.k},
+                "to_hex": {"i": h2.i, "j": h2.j, "k": h2.k},
+            },
+            player_id="p1",
+        )
+        await server.handle_message("p1", req.to_message())
+        errs = [p.get("error") for p in out if isinstance(p, dict) and "error" in p]
+        assert not errs, f"Unexpected server error(s): {errs!r}"
+        after = server.action_manager.current_state
+        assert after.board.units["u1"].position == h2
+        assert after.board.units["u2"].position == h2
+        hx = after.extension.get("hexdemo", {})
+        ro = hx.get("retreat_obligations", {})
+        assert "u1" not in ro and "u2" not in ro
+
+    asyncio.run(run())
 
 
 def test_server_suggested_focus_unit_id_for_player(hexdemo_server: GameServer) -> None:
@@ -151,54 +319,92 @@ def hexdemo_server() -> GameServer:
 
 
 def test_hexdemo_validate_attack_adjacent_and_once_per_unit(hexdemo_server: GameServer) -> None:
-    gd = hexdemo_server._game_definition
     st = hexdemo_server.action_manager.current_state
-    gd.validate_attack_request(
-        st,
+    from hexengine.hooks import AttackContext
+
+    ctx = AttackContext(
+        state=st,
+        attacker_unit_id="u_att",
+        defender_unit_id="u_def",
+        attacker_hex=st.board.units["u_att"].position,
+        defender_hex=st.board.units["u_def"].position,
         player_faction="union",
         attack_kind="adjacent",
-        params={"attacker_id": "u_att", "defender_id": "u_def"},
+        params={"attacker_id": "u_att", "defender_id": "u_def", "attack_kind": "adjacent"},
     )
+    assert hexdemo_server.hooks.attack.validate(ctx) is None
     far = Hex(4, -4, 0)
     du = st.board.units["u_def"].with_position(far)
     st_bad = st.with_board(st.board.with_unit(du))
     with pytest.raises(ValueError, match="adjacent"):
-        gd.validate_attack_request(
-            st_bad,
-            player_faction="union",
-            attack_kind="adjacent",
-            params={"attacker_id": "u_att", "defender_id": "u_def"},
+        hexdemo_server.hooks.attack.validate(
+            AttackContext(
+                state=st_bad,
+                attacker_unit_id="u_att",
+                defender_unit_id="u_def",
+                attacker_hex=st_bad.board.units["u_att"].position,
+                defender_hex=st_bad.board.units["u_def"].position,
+                player_faction="union",
+                attack_kind="adjacent",
+                params={
+                    "attacker_id": "u_att",
+                    "defender_id": "u_def",
+                    "attack_kind": "adjacent",
+                },
+            )
         )
 
-    with (
-        patch("hexengine.state.actions.random.choice", return_value="none"),
-        patch("hexengine.state.actions.random.randint", return_value=1),
-    ):
-        hexdemo_server.action_manager.execute(
-            Attack("adjacent", "u_att", "u_def"),
+    hexdemo_server.action_manager.execute(
+        Attack(
+            "adjacent",
+            "u_att",
+            "u_def",
+            extension_key="hexdemo",
+            outcome="none",
+            retreat_distance=None,
+            rng_entry={"op": "adjacent_attack", "outcome": "none"},
         )
+    )
     st2 = hexdemo_server.action_manager.current_state
     with pytest.raises(ValueError, match="already attacked"):
-        gd.validate_attack_request(
-            st2,
-            player_faction="union",
-            attack_kind="adjacent",
-            params={"attacker_id": "u_att", "defender_id": "u_def"},
+        hexdemo_server.hooks.attack.validate(
+            AttackContext(
+                state=st2,
+                attacker_unit_id="u_att",
+                defender_unit_id="u_def",
+                attacker_hex=st2.board.units["u_att"].position,
+                defender_hex=st2.board.units["u_def"].position,
+                player_faction="union",
+                attack_kind="adjacent",
+                params={
+                    "attacker_id": "u_att",
+                    "defender_id": "u_def",
+                    "attack_kind": "adjacent",
+                },
+            )
         )
 
 
 def test_attack_updates_extension_and_rng() -> None:
     st = _hexdemo_combat_state()
-    with (
-        patch("hexengine.state.actions.random.choice", return_value="none"),
-        patch("hexengine.state.actions.random.randint", return_value=1),
-    ):
-        nxt = Attack("adjacent", "u_att", "u_def").apply(st)
+    def_hex = st.board.units["u_def"].position
+    nxt = Attack(
+        "adjacent",
+        "u_att",
+        "u_def",
+        extension_key="hexdemo",
+        outcome="none",
+        retreat_distance=None,
+        rng_entry={"op": "adjacent_attack", "outcome": "none"},
+    ).apply(st)
     hx = nxt.extension.get("hexdemo")
     assert isinstance(hx, dict)
     assert hx.get("attacks_this_phase") == ["u_att"]
     assert nxt.rng_log[-1]["op"] == "adjacent_attack"
     assert nxt.rng_log[-1]["outcome"] == "none"
+    lc = hx.get("last_combat")
+    assert isinstance(lc, dict)
+    assert lc.get("defender_hex") == {"i": def_hex.i, "j": def_hex.j, "k": def_hex.k}
 
 
 def test_combat_event_fanout_retreat_vs_wait(hexdemo_server: GameServer) -> None:
@@ -222,10 +428,10 @@ def test_combat_event_fanout_retreat_vs_wait(hexdemo_server: GameServer) -> None
     async def run() -> None:
         with (
             patch(
-                "hexengine.state.actions.random.choice",
+                    "games.hexdemo.hooks.attack.random.choice",
                 return_value="defender_retreat",
             ),
-            patch("hexengine.state.actions.random.randint", return_value=2),
+                patch("games.hexdemo.hooks.attack.random.randint", return_value=2),
         ):
             req = ActionRequest(
                 action_type="Attack",
@@ -247,6 +453,14 @@ def test_combat_event_fanout_retreat_vs_wait(hexdemo_server: GameServer) -> None
     assert by_pid["p_c"]["retreat_unit_id"] == "u_def"
     assert by_pid["p_c"]["retreat_hexes_remaining"] == 2
     assert by_pid["p_u"]["instruction"] == "wait"
+
+    state_msgs = [c for c in captured if c[1] == "state_update"]
+    assert state_msgs
+    su_by_pid = {pid: payload for pid, _, payload in state_msgs}
+    assert su_by_pid["p_u"]["interaction_messages"][-1]["kind"] == "wait"
+    assert "Waiting" in su_by_pid["p_u"]["interaction_messages"][-1]["text"]
+    assert su_by_pid["p_c"]["interaction_messages"][-1]["kind"] == "retreat"
+    assert "retreat" in su_by_pid["p_c"]["interaction_messages"][-1]["text"].lower()
 
 
 def test_builtin_game_rejects_attack() -> None:
@@ -325,11 +539,17 @@ def test_retreat_move_no_spend_action(hexdemo_server: GameServer) -> None:
 
 def test_clear_hexdemo_combat_on_next_phase(hexdemo_server: GameServer) -> None:
     server = hexdemo_server
-    with (
-        patch("hexengine.state.actions.random.choice", return_value="none"),
-        patch("hexengine.state.actions.random.randint", return_value=1),
-    ):
-        server.action_manager.execute(Attack("adjacent", "u_att", "u_def"))
+    server.action_manager.execute(
+        Attack(
+            "adjacent",
+            "u_att",
+            "u_def",
+            extension_key="hexdemo",
+            outcome="none",
+            retreat_distance=None,
+            rng_entry={"op": "adjacent_attack", "outcome": "none"},
+        )
+    )
     assert server.action_manager.current_state.extension["hexdemo"].get(
         "attacks_this_phase"
     )
@@ -357,8 +577,8 @@ def test_auto_advance_when_sole_attacker_has_attacked(hexdemo_server: GameServer
 
     async def run() -> None:
         with (
-            patch("hexengine.state.actions.random.choice", return_value="none"),
-            patch("hexengine.state.actions.random.randint", return_value=1),
+            patch("games.hexdemo.hooks.attack.random.choice", return_value="none"),
+            patch("games.hexdemo.hooks.attack.random.randint", return_value=1),
         ):
             req = ActionRequest(
                 action_type="Attack",
@@ -392,10 +612,10 @@ def test_no_auto_advance_while_retreat_pending(hexdemo_server: GameServer) -> No
     async def run() -> None:
         with (
             patch(
-                "hexengine.state.actions.random.choice",
+                    "games.hexdemo.hooks.attack.random.choice",
                 return_value="defender_retreat",
             ),
-            patch("hexengine.state.actions.random.randint", return_value=1),
+                patch("games.hexdemo.hooks.attack.random.randint", return_value=1),
         ):
             req = ActionRequest(
                 action_type="Attack",
@@ -424,8 +644,8 @@ def test_two_union_units_require_two_attacks_before_advance() -> None:
 
     async def attack(attacker: str) -> None:
         with (
-            patch("hexengine.state.actions.random.choice", return_value="none"),
-            patch("hexengine.state.actions.random.randint", return_value=1),
+            patch("games.hexdemo.hooks.attack.random.choice", return_value="none"),
+            patch("games.hexdemo.hooks.attack.random.randint", return_value=1),
         ):
             req = ActionRequest(
                 action_type="Attack",

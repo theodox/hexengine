@@ -164,7 +164,7 @@ If no supported game pack / scenario can be resolved (for example no `games/hexd
 python -m hexengine.server.websocket_server
 ```
 
-Listens on **`ws://0.0.0.0:8765`** (all interfaces). The module resolves a scenario via [`resolve_scenario_path_with_game_root`](../src/hexengine/gameroot.py) (optional CLI: `--scenario-file`, `--game-root`, `--scenario-id`, `--schedule`), loads title rules with [`load_game_definition_for_scenario`](../src/hexengine/gameroot.py), then starts `WebSocketGameServer` with that definition. If resolution or title loading fails, the process exits with an error.
+Listens on **`ws://0.0.0.0:8765`** (all interfaces). The module resolves a scenario via [`resolve_scenario_path_with_game_root`](../src/hexengine/gameroot.py) (optional CLI: `--scenario-file`, `--game-root`, `--scenario-id`), loads title rules with [`load_game_definition_for_scenario`](../src/hexengine/gameroot.py), then starts `WebSocketGameServer` with that definition. If resolution or title loading fails, the process exits with an error.
 
 ### Custom Setup
 
@@ -184,7 +184,7 @@ from hexengine.server import GameServer, WebSocketGameServer
 
 scenario_path = resolve_scenario_path_with_game_root()
 scenario_data = load_scenario(scenario_path)
-game_def = load_game_definition_for_scenario(scenario_path, schedule="interleaved")
+game_def = load_game_definition_for_scenario(scenario_path)
 first_faction = initial_faction_for_game_definition(game_def)
 initial_state = scenario_to_initial_state(
     scenario_data,

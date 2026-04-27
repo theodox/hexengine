@@ -1,0 +1,16 @@
+manifest_version = 1
+
+[pack]
+id = "hexdemo"
+title = "Hexdemo"
+
+[python]
+# Pack root is `games/hexdemo`; importable top-level `hexdemo` package lives there.
+# Prepend the `games` parent so `import hexdemo` resolves.
+path_add = ".."
+entry_module = "hexdemo.engine_entry"
+entry_callable = "load_game_definition"
+
+[hooks]
+loaded_banner_module = "hexdemo.boot"
+loaded_banner_callable = "print_loaded_banner"

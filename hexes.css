@@ -221,7 +221,7 @@
     pointer-events: none;
 }
 
-#turn-display {
+#interaction-banner {
     position: absolute;
     width: 100%;
     height: auto;
@@ -233,10 +233,31 @@
 
     border-radius: 3px;
     color: rgb(240, 240, 233);
-    font-size: 18px;
+    font-size: 14px;
     font-family: sans-serif;
-    padding: 8px;    
-}   
+    padding: 6px;
+    background-color: rgba(40, 40, 40, 0.72);
+}
+
+#interaction-banner.interaction-msg--wait {
+    background-color: rgba(60, 60, 60, 0.72);
+}
+
+#interaction-banner.interaction-msg--retreat {
+    background-color: rgba(120, 68, 20, 0.78);
+}
+
+#interaction-banner.interaction-msg--phase {
+    background-color: rgba(40, 40, 40, 0.72);
+}
+
+#interaction-banner.interaction-msg--error {
+    background-color: rgba(120, 24, 24, 0.82);
+}
+
+#interaction-banner.interaction-msg--info {
+    background-color: rgba(40, 40, 40, 0.72);
+}
 
 #advance {
     position: absolute;
@@ -271,43 +292,58 @@
     animation: pulse 1.5s ease-in-out infinite;
 }
 
-.red {
-    background-color: rgba(141, 33, 33, 0.75);
-}   
-
-.blue {
-    background-color: rgba(33, 33, 141, 0.75);
-}
-
-.confederate {
-    background-color: rgba(88, 66, 40, 0.82);
-}
-
-.union {
-    background-color: rgba(33, 52, 120, 0.82);
-}
-
-
-
 /*
-Popup styles
+Popup styles — callout: root anchors tail tip; bubble is the main rect; tail is a triangle.
 */
-.popup {
+.popup.popup--callout {
     position: absolute;
-    width: 450px;
-    height: 64px;
-    background-color: rgba(205, 214, 216, 0.9);
     z-index: 300;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform: translate(-50%, -100%);
+    --popup-bubble-bg: rgba(205, 214, 216, 0.9);
+    --popup-tail-w: 12px;
+    --popup-tail-h: 11px;
+    pointer-events: auto;
+}
+
+.popup-bubble {
+    position: relative;
+    width: min(450px, calc(100vw - 32px));
+    min-height: 48px;
+    box-sizing: border-box;
+    padding: 6px 10px;
+    background-color: var(--popup-bubble-bg);
+    border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
 }
 
-.popup p {
+.popup-tail {
+    width: 0;
+    height: 0;
+    border-left: var(--popup-tail-w) solid transparent;
+    border-right: var(--popup-tail-w) solid transparent;
+    border-top: var(--popup-tail-h) solid var(--popup-bubble-bg);
+    margin-top: -1px;
+    filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.15));
+}
+
+.popup--callout .popup-bubble p {
     font-family: sans-serif;
     font-size: 12pt;
     color: rgb(0, 0, 0);
     text-align: center;
-    align-content: top center;
-    border: 2 em
+    margin: 0;
+}
+
+/* Map overlays (#hexengine-map-overlays inside #map-world; map-space coords). */
+.hexengine-map-overlay.hexengine-map-overlay--glyph {
+    font-size: 22px;
+    line-height: 1;
+    color: rgb(40, 40, 40);
+    text-shadow: 0 0 2px rgb(255, 255, 255);
+    user-select: none;
 }
 
 .fade-out {

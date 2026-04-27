@@ -2,4 +2,7 @@
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from .map_overlays import MapOverlayManager
+from .popups import PopupManager
+
+__all__ = ["MapOverlayManager", "PopupManager"]

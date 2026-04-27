@@ -8,21 +8,18 @@ Typical changes:
 
 - **Faction order** — `HEXDEMO_FACTIONS` in `hexdemo.constants` (first side opens
   the round; see `hexengine.gameroot.initial_turn_slot_for_game_definition`).
-- **Default vs sequential** — `schedule` (`interleaved` / `default` use the four-phase
-  Union/Confederate Move/Combat rota; `sequential` uses Movement/Attack blocks).
+- **Turn rota** — edit ``hexdemo_four_phase_entries`` (or replace the
+  ``StaticScheduleGameDefinition`` built in ``game_definition_from_config``).
 - **Movement preview budget** — set `movement_budget` to match scenario feel.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 from hexengine.gamedef import unit_attributes as unit_attr_helpers
-from hexengine.gamedef.builtin import (
-    SequentialTwoFactionGameDefinition,
-    StaticScheduleGameDefinition,
-)
+from hexengine.gamedef.builtin import StaticScheduleGameDefinition
 from hexengine.gamedef.protocol import GameDefinition
 from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
@@ -31,9 +28,7 @@ from hexengine.state.logic import adjacent_enemy_zoc_hexes
 from hexengine.state.phase_rules import phase_allows_unit_move
 
 from . import combat
-from .constants import HEXDEMO_FACTIONS
-
-Schedule = Literal["interleaved", "sequential"]
+from .constants import HEXDEMO_FACTIONS, PACK_STATE_EXTENSION_KEY
 
 
 def hexdemo_four_phase_entries(
@@ -42,12 +37,12 @@ def hexdemo_four_phase_entries(
     """Union Move, Union Combat, Confederate Move, Confederate Combat."""
     if len(factions) < 2:
         raise ValueError("hexdemo four-phase schedule requires two factions")
-    union_side, confed_side = factions[0], factions[1]
+    union, confederate = factions[0], factions[1]
     return (
-        {"faction": union_side, "phase": "Move", "max_actions": 2},
-        {"faction": union_side, "phase": "Combat", "max_actions": 2},
-        {"faction": confed_side, "phase": "Move", "max_actions": 2},
-        {"faction": confed_side, "phase": "Combat", "max_actions": 2},
+        {"faction": union, "phase": "Move", "max_actions": 2},
+        {"faction": union, "phase": "Combat", "max_actions": 2},
+        {"faction": confederate, "phase": "Move", "max_actions": 2},
+        {"faction": confederate, "phase": "Combat", "max_actions": 2},
     )
 
 
@@ -63,8 +58,43 @@ class HexdemoGameDefinition:
     #: Published in `StateUpdate.turn_rules` so thin clients match per-unit budgets.
     movement_budget_attribute_key = "movement"
 
+    #: Published in ``StateUpdate.turn_rules`` for local ``Attack`` / extension reads.
+    title_state_extension_key = PACK_STATE_EXTENSION_KEY
+
+    #: Turn-strip label and styling metadata (published in ``StateUpdate.turn_rules``).
+    faction_display_names = {
+        "union": "Union",
+        "confederate": "Confederate",
+    }
+    faction_css_classes = {
+        "union": "union",
+        "confederate": "confederate",
+    }
+    title_css_file = "ui.css"
+
+    #: Optional preview highlight class names for thin clients. These are applied to the
+    #: SVG group drawn for valid move/retreat hexes during drag preview.
+    hex_highlight_ui = {
+        "schema": 1,
+        "move_hex_class": "hexdemo-move-hex",
+        "retreat_hex_class": "hexdemo-retreat-hex",
+        "retreat_through_hex_class": "hexdemo-retreat-through-hex",
+        "marker_hex_class": "hexdemo-marker-hex",
+    }
+
+    #: Title rule: max number of *active* units allowed on a single hex.
+    #: Used by the server for authoritative MoveUnit validation and by thin clients
+    #: for drag-preview constraints.
+    max_active_units_per_hex = 3
+
     def __init__(self, base: GameDefinition) -> None:
         self._base = base
+
+    @property
+    def hooks(self):
+        from .hooks import build_hooks
+
+        return build_hooks()
 
     @property
     def _movement_budget(self) -> float:
@@ -131,44 +161,11 @@ class HexdemoGameDefinition:
             raise ValueError("Cannot attack same faction")
         if distance(attacker.position, defender.position) != 1:
             raise ValueError("Defender is not adjacent to the attacker")
-        hx = state.extension.get("hexdemo")
+        hx = state.extension.get(PACK_STATE_EXTENSION_KEY)
         if isinstance(hx, dict):
             prev = hx.get("attacks_this_phase")
             if isinstance(prev, list) and attacker_id in prev:
                 raise ValueError("That unit has already attacked this combat phase")
-
-    def should_auto_advance_phase_after_attack(self, state: GameState) -> bool:
-        """
-        Advance the schedule when every active unit of the current faction has attacked
-        this combat segment and no mandatory retreat is pending.
-        """
-        if combat.any_retreat_obligation_pending(state):
-            return False
-        phase = str(state.turn.current_phase)
-        if phase not in ("Combat", "Attack"):
-            return False
-        faction = state.turn.current_faction
-        active_ids = {
-            u.unit_id
-            for u in state.board.units.values()
-            if u.active and u.faction == faction
-        }
-        if not active_ids:
-            return True
-        hx = state.extension.get("hexdemo")
-        if not isinstance(hx, dict):
-            return False
-        raw = hx.get("attacks_this_phase")
-        if not isinstance(raw, list):
-            return False
-        attacked: set[str] = set()
-        for uid in raw:
-            if not isinstance(uid, str):
-                continue
-            u = state.board.units.get(uid)
-            if u is not None and u.active and u.faction == faction:
-                attacked.add(uid)
-        return active_ids <= attacked
 
     def retreat_obligation_hexes_remaining(
         self, state: GameState, unit_id: str
@@ -230,8 +227,8 @@ class HexdemoGameDefinition:
         """
         Called by the server after each `NextPhase` is applied.
 
-        Combat bookkeeping in ``extension['hexdemo']`` is cleared by the engine
-        (`GameServer` runs `ClearHexdemoCombatExtension` after every phase advance).
+        Combat bookkeeping in the hexdemo extension bucket is cleared by the engine
+        (``GameServer`` runs ``ClearTitleCombatExtension`` after every phase advance).
         """
         from .turn_hooks import before_union_move
 
@@ -242,47 +239,21 @@ class HexdemoGameDefinition:
 
 @dataclass(frozen=True, slots=True)
 class HexdemoMatchConfig:
-    """
-    Title-owned settings for one match (authoritative server + thin clients).
+    """Title-owned settings for one match (authoritative server + thin clients)."""
 
-    `schedule` `interleaved` (and registry `default`) use the four-phase rota.
-    `sequential` uses classic Movement/Attack per faction (IGOUGO).
-    """
-
-    schedule: Schedule
     factions: tuple[str, ...] = HEXDEMO_FACTIONS
     movement_budget: float = DEFAULT_MOVEMENT_BUDGET
 
-    @classmethod
-    def from_registry_key(cls, key: str) -> HexdemoMatchConfig:
-        """
-        Map `hexdemo.registry.build_game_definition` ids to a config.
-
-        Keys: `default` / `interleaved` → four-phase rota; `sequential` → Movement/Attack sequential.
-        """
-        k = key.strip().lower()
-        if k in ("default", "interleaved"):
-            return cls(schedule="interleaved")
-        if k == "sequential":
-            return cls(schedule="sequential")
-        raise KeyError(f"Unknown hexdemo game definition id: {key!r}")
-
 
 def game_definition_from_config(config: HexdemoMatchConfig) -> GameDefinition:
-    """Return a fresh `GameDefinition` for `config`."""
-    if config.schedule == "sequential":
-        base: GameDefinition = SequentialTwoFactionGameDefinition(
-            factions=config.factions,
-            movement_budget=config.movement_budget,
-        )
-    else:
-        base = StaticScheduleGameDefinition(
-            hexdemo_four_phase_entries(config.factions),
-            movement_budget=config.movement_budget,
-        )
+    """Return a fresh `GameDefinition` for `config` (single static four-phase rota)."""
+    base = StaticScheduleGameDefinition(
+        hexdemo_four_phase_entries(config.factions),
+        movement_budget=config.movement_budget,
+    )
     return HexdemoGameDefinition(base)
 
 
 def default_match_config() -> HexdemoMatchConfig:
-    """Default four-phase schedule with `hexdemo.constants.HEXDEMO_FACTIONS`."""
-    return HexdemoMatchConfig(schedule="interleaved")
+    """Default factions and movement budget for the shipped rota."""
+    return HexdemoMatchConfig()

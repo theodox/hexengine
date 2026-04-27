@@ -16,4 +16,4 @@
 
 ## Game rules selection
 
-- Server and browser client must agree on turn schedule when using **manual advance** or client-side previews: start the WebSocket server with the same `--schedule` value (`interleaved` or `sequential`) that the client logic assumes (today the in-browser client uses the default interleaved schedule when advancing turns locally).
+- Turn order comes from the **pack** (`hexengine_pack.toml` → `load_game_definition()`). The server sends full rota in `StateUpdate.turn_rules` (`entries`, …); the browser rebuilds a thin `GameDefinition` from that wire for manual advance and previews—no separate CLI schedule flag.

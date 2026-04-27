@@ -312,15 +312,16 @@ class DisplayManager:
         """Get display unit by ID."""
         return self._unit_displays.get(unit_id)
 
-    def highlight_hexes(self, hexes: set[Hex]) -> None:
+    def highlight_hexes(self, hexes: set[Hex], cls: str = "highlight") -> None:
         """
         Highlight a set of hexes (e.g., valid move targets).
 
         Args:
             hexes: Set of hex coordinates to highlight
+            cls: CSS class applied to the highlight SVG group
         """
         # Delegate to map's draw_hexes method
-        self._canvas.draw_hexes(hexes)
+        self._canvas.draw_hexes(hexes, cls=cls)
 
     def clear_highlights(self) -> None:
         """Clear all hex highlights."""

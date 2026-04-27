@@ -19,21 +19,27 @@ from .internals import (
 )
 from .client import (
     ActionRequest,
+    InspectRequest,
     JoinGameRequest,
     LeaveGameRequest,
     LoadSnapshotRequest,
+    MarkerPreviewRequest,
+    UnitPreviewRequest,
     RedoRequest,
     UndoRequest,
 )
 from .server import (
     ActionResult,
     CombatEventWire,
+    MarkerPreviewWire,
     PlayerInfo,
     PlayerJoinedWire,
     PlayerLeftWire,
     ServerError,
     ServerLogEvent,
     StateUpdate,
+    UnitPreviewWire,
+    UIPopupWire,
 )
 
 assert_wire_registry_covers_message_types()
@@ -49,6 +55,9 @@ __all__ = [
     "UndoRequest",
     "RedoRequest",
     "ActionRequest",
+    "InspectRequest",
+    "MarkerPreviewRequest",
+    "UnitPreviewRequest",
     "LoadSnapshotRequest",
     "JoinGameRequest",
     "LeaveGameRequest",
@@ -61,5 +70,8 @@ __all__ = [
     "ServerError",
     "ServerLogEvent",
     "CombatEventWire",
+    "MarkerPreviewWire",
+    "UnitPreviewWire",
+    "UIPopupWire",
 ]
 

@@ -11,22 +11,17 @@ from ..client.websocket_client import BrowserWebSocketClient, ConnectionState
 from ..document import create_proxy, element, js
 from ..gamedef.builtin import (
     InterleavedTwoFactionGameDefinition,
-    SequentialTwoFactionGameDefinition,
     StaticScheduleGameDefinition,
 )
 from ..gamedef.protocol import GameDefinition
 from ..map import Map
 from ..state import ActionManager, GameState
 from ..state.snapshot import SNAPSHOT_FORMAT_VERSION, game_state_to_wire_dict
-from ..ui.popups import PopupManager
+from ..ui import MapOverlayManager, PopupManager
 from .board import GameBoard
 from .events import Hotkey, HotkeyHandlerMixin, Modifiers, MouseEventHandlerMixin
 from .history import GameHistoryMixin
-from .turn_strip import (
-    apply_turn_strip_faction,
-    display_faction_name,
-    display_phase_name,
-)
+from .turn_strip import display_faction_name
 
 # Screen-space pan per arrow key when zoomed in; Shift multiplies step.
 _PAN_KEY_STEP = 48
@@ -62,12 +57,7 @@ def _game_definition_from_turn_rules_wire(wire: dict[str, Any]) -> GameDefinitio
     if not isinstance(raw, list) or not raw:
         raise ValueError("turn_rules must include entries or legacy factions list")
     factions = tuple(str(f) for f in raw)
-    sched = (wire.get("schedule") or "interleaved").strip().lower()
     budget = float(wire.get("movement_budget", 4.0))
-    if sched == "sequential":
-        return SequentialTwoFactionGameDefinition(
-            factions=factions, movement_budget=budget, **per_kw
-        )
     return InterleavedTwoFactionGameDefinition(
         factions=factions, movement_budget=budget, **per_kw
     )
@@ -87,8 +77,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         player_name: str = "Player",
         preferred_faction: str | None = None,
         use_local_server: bool = True,
-        *,
-        game_schedule: str = "interleaved",
     ) -> None:
         self.running = True
         container = element("map-container")
@@ -104,17 +92,16 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         assert map is not None, "Map canvas element not found"
         assert svg is not None, "Map SVG element not found"
         self.canvas = Map(container, map, terrain, svg, markers, units)
+        self.map_overlay_manager = MapOverlayManager(self.canvas)
         self.board = GameBoard(self.canvas)
 
-        initial_state = GameState.create_empty(
-            initial_faction="union",
-            initial_phase="Move",
-            phase_actions_remaining=2,
-            schedule_index=0,
-        )
+        # Placeholder state before the first authoritative StateUpdate arrives.
+        # Do not assume title-specific faction/phase ids here.
+        initial_state = GameState.create_empty()
         self.action_mgr = ActionManager(initial_state)
         self.logger = logging.getLogger("game")
         self.logger.info(f"action_mgr created: {self.action_mgr}")
+        self._engine_banner_message: dict[str, Any] | None = None
 
         self.ui_state = UIState()
         self.display_mgr = DisplayManager(self.canvas, self.board)
@@ -151,7 +138,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
         self._register_hotkeys()
 
-        self._game_schedule = game_schedule.strip().lower()
         self.server_url = server_url
         self.player_name = player_name
         self.preferred_faction = preferred_faction
@@ -159,6 +145,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.client: BrowserWebSocketClient | None = None
         self.local_server: LocalServerManager | None = None
         self._title_game_definition: GameDefinition | None = None
+        self._local_game_definition: GameDefinition | None = None
+        self._unit_preview_request_id: str = ""
+        self._marker_preview_request_id: str = ""
         self.connected = False
         self.marker_mgr = MarkerManager(self.canvas)
 
@@ -290,11 +279,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     @Hotkey("enter", Modifiers.NONE)
     def popup_selected_unit_info(self) -> None:
         if self.selection:
-            loc = self.layout.hex_to_pixel(self.selection.position)
-            self.popup_manager.create_popup(
-                f"{self.selection.unit_id} @ {self.selection.faction}", loc
-            )
-            self.logger.info(f"Showing info for unit {self.selection.unit_id}")
+            if self.client:
+                self.client.send_inspect("unit", str(self.selection.unit_id))
+            self.logger.info(f"Inspect unit {self.selection.unit_id}")
         else:
             self.popup_manager.clear()
             self.logger.debug("No unit selected to show info")
@@ -345,9 +332,8 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
                 scenario_path = resolve_scenario_path_with_game_root()
                 scenario_data = load_scenario(scenario_path)
-                game_def = load_game_definition_for_scenario(
-                    scenario_path, schedule=self._game_schedule
-                )
+                game_def = load_game_definition_for_scenario(scenario_path)
+                self._local_game_definition = game_def
                 first = initial_turn_slot_for_game_definition(game_def)
                 preloaded_unit_graphics = scenario_data.unit_graphics_to_wire_dict()
                 preloaded_marker_graphics = getattr(
@@ -388,6 +374,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             self.client.on_connection_change = self._handle_connection_change
             self.client.on_error = self._handle_error
             self.client.on_action_result = self._handle_action_result
+            self.client.on_ui_popup = self._handle_ui_popup
+            self.client.on_marker_preview = self._handle_marker_preview
+            self.client.on_unit_preview = self._handle_unit_preview
 
             if preloaded_unit_graphics is not None:
                 self.display_mgr.apply_unit_graphics(preloaded_unit_graphics)
@@ -425,6 +414,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             self.local_server = None
 
         self._title_game_definition = None
+        self._local_game_definition = None
         self.connected = False
         self.logger.info("Disconnected")
 
@@ -457,9 +447,15 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
         action_type = action.__class__.__name__
         params = self._serialize_action_params(action)
+        self.execute_action_request(action_type, params)
 
+    def execute_action_request(self, action_type: str, params: dict[str, Any]) -> None:
+        """Send an already-serialized action request to the server."""
+        if not self.client or not self.connected:
+            self.logger.warning("Cannot execute action: not connected to server")
+            return
         try:
-            self.client.send_action(action_type, params)
+            self.client.send_action(str(action_type), dict(params))
             self.logger.info(f"Sent {action_type} to server")
         except Exception as e:
             self.logger.error(f"Failed to send action: {e}")
@@ -575,6 +571,22 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def _on_markers(self, wire: list[dict[str, Any]]) -> None:
         self.marker_mgr.sync_markers(wire)
 
+    def _title_state_extension_key(self) -> str | None:
+        """Pack bucket in ``GameState.extension`` for combat/retreat (server ``turn_rules``)."""
+        client = getattr(self, "client", None)
+        if client is not None:
+            tr = getattr(client, "turn_rules", None)
+            if isinstance(tr, dict):
+                raw = tr.get("title_state_extension_key")
+                if isinstance(raw, str) and raw.strip():
+                    return raw.strip()
+        gd = getattr(self, "_title_game_definition", None)
+        if gd is not None:
+            k = getattr(gd, "title_state_extension_key", None)
+            if isinstance(k, str) and k.strip():
+                return k.strip()
+        return None
+
     def _handle_state_update(self, new_state: GameState) -> None:
         if (
             self.client is not None
@@ -611,8 +623,220 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
         self.display_mgr.sync_from_state(new_state)
 
-        self._sync_turn_ui(new_state)
+        self._sync_map_overlays()
+        self._sync_interaction_messages()
+        self._apply_title_faction_css()
         self._apply_focus_unit_after_state_sync(new_state)
+
+    def _sync_interaction_messages(self) -> None:
+        """Render per-recipient `StateUpdate.interaction_messages` as a small banner."""
+        from ..document import element, js, jsnull
+
+        client = self.client
+        msgs = client.interaction_messages if client is not None else None
+        rows = [m for m in msgs if isinstance(m, dict)] if isinstance(msgs, list) else []
+        if self._engine_banner_message is not None:
+            rows = [*rows, dict(self._engine_banner_message)]
+        if rows:
+            now_ms = int(js.Date.now())
+            kept: list[dict[str, Any]] = []
+            for r in rows:
+                ttl = r.get("ttl_ms")
+                recv = r.get("_received_at_ms")
+                if isinstance(ttl, int) and ttl >= 0 and isinstance(recv, int):
+                    if now_ms - recv > ttl:
+                        continue
+                kept.append(r)
+            # Dedupe by key (last one wins).
+            deduped: dict[str, dict[str, Any]] = {}
+            passthrough: list[dict[str, Any]] = []
+            for r in kept:
+                dk = r.get("dedupe_key")
+                if isinstance(dk, str) and dk:
+                    deduped[dk] = r
+                else:
+                    passthrough.append(r)
+            rows = [*passthrough, *deduped.values()]
+        if not rows:
+            # Clear if present.
+            el = js.document.getElementById("interaction-banner")
+            if el is not None and el is not jsnull:
+                el.innerText = ""
+                el.className = ""
+            return
+
+        def _prio(kind: str) -> int:
+            return {"retreat": 30, "wait": 20, "phase": 10, "info": 5, "error": 40}.get(kind, 0)
+
+        best: dict[str, Any] | None = None
+        best_p = -1
+        for r in rows:
+            t = r.get("text")
+            if not isinstance(t, str) or not t.strip():
+                continue
+            kraw = r.get("kind")
+            k = str(kraw).strip() if kraw is not None else ""
+            p = _prio(k)
+            if p >= best_p:
+                best_p = p
+                best = r
+        if best is None:
+            return
+        text = str(best.get("text", "")).strip()
+        kind = str(best.get("kind", "")).strip()
+        extra_cls = best.get("css_class")
+        extra_cls = str(extra_cls).strip() if isinstance(extra_cls, str) and extra_cls.strip() else ""
+
+        banner = js.document.getElementById("interaction-banner")
+        if banner is None or banner is jsnull:
+            ui = element("ui-panel")
+            if ui is None:
+                return
+            banner = js.document.createElement("div")
+            banner.id = "interaction-banner"
+            ui.appendChild(banner)
+
+        banner.innerText = text
+        base = (
+            "interaction-msg--retreat"
+            if kind == "retreat"
+            else "interaction-msg--wait"
+            if kind == "wait"
+            else "interaction-msg--phase"
+            if kind == "phase"
+            else ""
+        )
+        # Also apply the title's faction css class so titles can style phase banners.
+        fac = ""
+        st = self.action_mgr.current_state
+        if st is not None:
+            fac = str(st.turn.current_faction)
+        _, faction_cls = self._faction_ui_for(fac)
+        banner.className = " ".join(
+            c for c in (base, extra_cls, faction_cls or "") if c
+        ).strip()
+
+    def _set_engine_banner_message(
+        self,
+        *,
+        kind: str,
+        text: str,
+        ttl_ms: int | None,
+        css_class: str | None = None,
+    ) -> None:
+        """Local-only banner message for engine/runtime failures (not title-controlled)."""
+        from ..document import create_proxy, js
+
+        now_ms = int(js.Date.now())
+        self._engine_banner_message = {
+            "schema": 1,
+            "kind": str(kind),
+            "text": str(text),
+            "dedupe_key": "engine",
+            "ttl_ms": ttl_ms,
+            "css_class": str(css_class).strip()
+            if isinstance(css_class, str) and css_class.strip()
+            else None,
+            "_received_at_ms": now_ms,
+        }
+        # If this message has a TTL, schedule a re-sync so it can disappear without
+        # waiting for the next server StateUpdate.
+        if isinstance(ttl_ms, int) and ttl_ms >= 0:
+            js.setTimeout(create_proxy(lambda: self._sync_interaction_messages()), ttl_ms + 50)
+
+    def _faction_ui_for(self, faction_id: str) -> tuple[str, str | None]:
+        """
+        Resolve (label, css_class) for ``faction_id`` from server ``turn_rules``.
+
+        Falls back to ``display_faction_name`` and no explicit css class.
+        """
+        tr = self.client.turn_rules if self.client is not None else None
+        if isinstance(tr, dict):
+            ui = tr.get("faction_ui")
+            if isinstance(ui, dict):
+                facs = ui.get("factions")
+                if isinstance(facs, list):
+                    for row in facs:
+                        if not isinstance(row, dict):
+                            continue
+                        if str(row.get("id", "")) != str(faction_id):
+                            continue
+                        label = row.get("label")
+                        cssc = row.get("css_class")
+                        out_label = (
+                            str(label).strip()
+                            if isinstance(label, str) and label.strip()
+                            else display_faction_name(faction_id)
+                        )
+                        out_css = (
+                            str(cssc).strip()
+                            if isinstance(cssc, str) and cssc.strip()
+                            else None
+                        )
+                        return out_label, out_css
+        return display_faction_name(faction_id), None
+
+    def _apply_title_faction_css(self) -> None:
+        """Inject optional title CSS from ``turn_rules.faction_ui`` (inline + href)."""
+        from ..document import js, jsnull
+
+        client = self.client
+        tr = client.turn_rules if client is not None else None
+        css: str | None = None
+        css_href: str | None = None
+        if isinstance(tr, dict):
+            ui = tr.get("faction_ui")
+            if isinstance(ui, dict):
+                raw = ui.get("css")
+                if isinstance(raw, str) and raw.strip():
+                    css = raw
+                rh = ui.get("css_href")
+                if isinstance(rh, str) and rh.strip():
+                    css_href = rh.strip()
+        css_norm = css.strip() if isinstance(css, str) else ""
+        if (
+            getattr(self, "_applied_title_css", None) == css_norm
+            and getattr(self, "_applied_title_css_href", None) == (css_href or "")
+        ):
+            return
+        self._applied_title_css = css_norm
+        self._applied_title_css_href = css_href or ""
+
+        doc = js.document
+        parent = doc.body if doc.body else doc.head
+
+        # Link-based sheet (preferred for title resources).
+        link_id = "hexengine-styles-title-link"
+        link_el = doc.getElementById(link_id)
+        if not css_href:
+            if link_el is not None and link_el is not jsnull:
+                parent = link_el.parentNode
+                if parent is not None and parent is not jsnull:
+                    parent.removeChild(link_el)
+        else:
+            if link_el is None or link_el is jsnull:
+                link_el = doc.createElement("link")
+                link_el.id = link_id
+                link_el.rel = "stylesheet"
+                parent.appendChild(link_el)
+            link_el.href = css_href
+
+        style_id = "hexengine-styles-title-inline"
+        el = doc.getElementById(style_id)
+        if el is None or el is jsnull:
+            if not css_norm:
+                return
+            style_el = doc.createElement("style")
+            style_el.id = style_id
+            style_el.innerHTML = css_norm
+            parent.appendChild(style_el)
+            return
+        if not css_norm:
+            parent = el.parentNode
+            if parent is not None and parent is not jsnull:
+                parent.removeChild(el)
+            return
+        el.innerHTML = css_norm
 
     def _maybe_warn_missing_title_sync(self) -> None:
         """
@@ -660,10 +884,35 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def _handle_connection_change(self, state: ConnectionState) -> None:
         self.logger.info(f"Connection state: {state.value}")
         self.connected = state == ConnectionState.CONNECTED
+        if state in (ConnectionState.DISCONNECTED, ConnectionState.FAILED):
+            self._set_engine_banner_message(
+                kind="error",
+                text=f"Disconnected: {state.value}",
+                ttl_ms=None,
+                css_class="interaction-msg--error",
+            )
+            self._sync_interaction_messages()
+        elif state == ConnectionState.RECONNECTING:
+            self._set_engine_banner_message(
+                kind="info",
+                text="Reconnecting…",
+                ttl_ms=None,
+                css_class="interaction-msg--info",
+            )
+            self._sync_interaction_messages()
+        elif state == ConnectionState.CONNECTED:
+            self._engine_banner_message = None
 
     def _handle_error(self, error: str) -> None:
         self.logger.error(f"Server error: {error}")
         dev_console.set_status(f"Server: {error}")
+        self._set_engine_banner_message(
+            kind="error",
+            text=f"Server: {error}",
+            ttl_ms=6_000,
+            css_class="interaction-msg--error",
+        )
+        self._sync_interaction_messages()
         self.display_mgr.refresh_unit_positions()
 
     def _handle_action_result(self, success: bool, error_msg: str | None) -> None:
@@ -673,7 +922,53 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             self.logger.warning(f"Action rejected: {error_msg}")
             if error_msg:
                 dev_console.set_status(f"Server: {error_msg}")
+                self._set_engine_banner_message(
+                    kind="error",
+                    text=str(error_msg),
+                    ttl_ms=5_000,
+                    css_class="interaction-msg--error",
+                )
+                self._sync_interaction_messages()
             self.display_mgr.refresh_unit_positions()
+
+    def _handle_ui_popup(self, payload: dict[str, Any]) -> None:
+        """
+        Title-formatted informational popup.
+
+        This is separate from the interaction banner. It is meant for lightweight
+        inspection UX (unit/marker), and can be overridden by title hooks.
+        """
+        if not isinstance(payload, dict):
+            return
+        raw_html = payload.get("html")
+        raw_text = payload.get("text")
+        html = "" if raw_html is None else str(raw_html).strip()
+        text = "" if raw_text is None else str(raw_text).strip()
+        if not html and not text:
+            return
+        hx = payload.get("hex")
+        if not isinstance(hx, dict):
+            return
+        try:
+            i = int(hx.get("i"))
+            j = int(hx.get("j"))
+            k = int(hx.get("k"))
+        except Exception:
+            return
+        from ..hexes.types import Hex
+
+        mx, my = self.layout.hex_to_pixel(Hex(i, j, k))
+        pos = self.canvas.map_space_to_container_pixel(mx, my)
+        if html:
+            self.popup_manager.create_popup_html(html, pos)
+        else:
+            self.popup_manager.create_popup(text, pos)
+
+    def _sync_map_overlays(self) -> None:
+        """Apply ``StateUpdate.map_overlays`` via ``MapOverlayManager``."""
+        client = self.client
+        rows = client.map_overlays if client is not None else []
+        self.map_overlay_manager.sync(rows)
 
     def get_current_state(self) -> GameState:
         """Last replicated game state (authoritative copy mirrors server)."""
@@ -709,27 +1004,18 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 return n if n > 0 else None
         return None
 
-    def _sync_turn_ui(self, state: GameState) -> None:
-        faction = state.turn.current_faction
-        phase = state.turn.current_phase
-        actions = state.turn.phase_actions_remaining
-
-        turn_bg = element("turn-display")
-        if turn_bg:
-            apply_turn_strip_faction(turn_bg, faction)
-
-        turn_info = element("turn-info")
-        if turn_info:
-            turn_info.innerText = (
-                f"{display_faction_name(faction)} - "
-                f"{display_phase_name(phase)} (actions: {actions})"
-            )
-
-        advance_btn = element("advance-button")
-        advance_btn.disabled = not self.is_my_turn()
-        self.logger.warning(f"Advance button enabled: {self.is_my_turn()}")
-
-        self.logger.debug(f"UI updated for {faction}-{phase}")
+    def _max_active_units_per_hex(self) -> int | None:
+        """Optional stacking limit from server ``turn_rules`` (title-owned)."""
+        c = self.client
+        tr = c.turn_rules if c is not None else None
+        if not isinstance(tr, dict):
+            return None
+        raw = tr.get("max_active_units_per_hex")
+        try:
+            n = int(raw)
+        except (TypeError, ValueError):
+            return None
+        return n if n > 0 else None
 
     def advance_turn(self, _) -> None:
         """Send NextPhase derived from replicated schedule (same as server)."""
@@ -807,6 +1093,8 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     def _clear_drag_and_highlights(self) -> None:
         """Clear local drag preview, selection, and hex highlights (no server action)."""
+        self._unit_preview_request_id = ""
+        self._marker_preview_request_id = ""
         if self.ui_state.drag_preview:
             preview = self.ui_state.end_drag()
             self._restore_drag_preview_to_committed(preview)
@@ -859,63 +1147,85 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.ui_state.start_drag(
             unit_id, unit_state.position, pixel_pos[0], pixel_pos[1]
         )
-
-        # Compute valid moves from committed state
-        from ..state.logic import (
-            DEFAULT_MOVEMENT_BUDGET,
-            compute_retreat_destination_hexes,
-            compute_valid_moves,
-            retreat_impassable_enemy_zoc_hexes,
-        )
-
-        gd = getattr(self, "_title_game_definition", None)
-        zoc = None
-        if gd is not None:
-            zfn = getattr(gd, "zoc_hexes_for_unit", None)
-            if callable(zfn):
-                zoc = zfn(state, unit_id)
-                if zoc is not None and not isinstance(zoc, frozenset):
-                    zoc = frozenset(zoc)
-
-        rem = self.retreat_obligation_hexes_remaining(state, unit_id)
-        if rem is not None:
-            title_zoc = None
-            if gd is not None:
-                zfn = getattr(gd, "zoc_hexes_for_unit", None)
-                if callable(zfn):
-                    title_zoc = zfn(state, unit_id)
-                    if title_zoc is not None and not isinstance(title_zoc, frozenset):
-                        title_zoc = frozenset(title_zoc)
-            enemy_only = retreat_impassable_enemy_zoc_hexes(
-                state, unit_id, enemy_zoc_ring=title_zoc
-            )
-            valid_moves = compute_retreat_destination_hexes(
-                state,
-                unit_id,
-                rem,
-                float(rem),
-                zoc_hexes=None,
-                blocked_hexes=enemy_only,
-            )
-        else:
-            move_budget = DEFAULT_MOVEMENT_BUDGET
-            if gd is not None:
-                fn = getattr(gd, "movement_budget_for_unit", None)
-                if callable(fn):
-                    move_budget = float(fn(state, unit_id))
-            valid_moves = compute_valid_moves(
-                state, unit_id, movement_budget=move_budget, zoc_hexes=zoc
-            )
-        self.ui_state.set_constraints(valid_moves)
-
-        # Clear old highlights and show new ones
+        # Ask authoritative server for destination preview hexes so thin clients match.
+        if self.client is not None:
+            self.client.send_unit_preview_request(unit_id)
+            # The websocket client increments its own counter; capture the latest id.
+            self._unit_preview_request_id = str(getattr(self.client, "_preview_req_counter", ""))
+        self.ui_state.set_constraints(set())
         self.display_mgr.clear_highlights()
-        self.display_mgr.highlight_hexes(valid_moves)
+
+    def _handle_unit_preview(self, payload: dict[str, Any]) -> None:
+        if not isinstance(payload, dict):
+            return
+        uid = payload.get("unit_id")
+        if not isinstance(uid, str) or not uid.strip():
+            return
+        if self.ui_state.drag_preview is None:
+            return
+        if str(self.ui_state.drag_preview.unit_id) != uid:
+            return
+        rid = payload.get("request_id")
+        if isinstance(rid, str) and self._unit_preview_request_id and rid != self._unit_preview_request_id:
+            return
+
+        rows = payload.get("hexes")
+        if not isinstance(rows, list):
+            return
+        from ..hexes.types import Hex
+
+        valid: set[Hex] = set()
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            try:
+                valid.add(Hex(int(r["i"]), int(r["j"]), int(r["k"])))
+            except Exception:
+                continue
+        # Endpoints are the only valid drop targets.
+        self.ui_state.set_constraints(valid)
+
+        cls = "highlight"
+        raw_cc = payload.get("css_class")
+        if isinstance(raw_cc, str) and raw_cc.strip():
+            cls = raw_cc.strip()
+        else:
+            c = self.client
+            if c is not None and isinstance(c.turn_rules, dict):
+                ui = c.turn_rules.get("ui")
+                if isinstance(ui, dict):
+                    kind = str(payload.get("kind", "")).strip()
+                    key = "retreat_hex_class" if kind == "retreat" else "move_hex_class"
+                    raw = ui.get(key)
+                    if isinstance(raw, str) and raw.strip():
+                        cls = raw.strip()
+
+        self.display_mgr.clear_highlights()
+        # Retreat preview can include "through" hexes that are reachable but not endpoints.
+        kind = str(payload.get("kind", "")).strip()
+        if kind == "retreat":
+            through_rows = payload.get("through_hexes")
+            through_cls = payload.get("through_css_class")
+            through: set[Hex] = set()
+            if isinstance(through_rows, list):
+                for r in through_rows:
+                    if not isinstance(r, dict):
+                        continue
+                    try:
+                        through.add(Hex(int(r["i"]), int(r["j"]), int(r["k"])))
+                    except Exception:
+                        continue
+            if through:
+                tcls = (
+                    str(through_cls).strip()
+                    if isinstance(through_cls, str) and through_cls.strip()
+                    else cls
+                )
+                self.display_mgr.highlight_hexes(through, cls=tcls)
+        self.display_mgr.highlight_hexes(valid, cls=cls)
 
     def start_drag_preview_marker(self, marker_id: str) -> None:
         """Begin marker drag: highlights valid destination hexes (default: empty board hexes)."""
-        from ..state.marker_placement import marker_destination_hexes_for_preview
-
         mgr = getattr(self, "marker_mgr", None)
         if mgr is None or not mgr.has_display(marker_id):
             return
@@ -931,13 +1241,65 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         mgr.set_marker_hilite(marker_id)
         pixel_pos = self.canvas.hex_layout.hex_to_pixel(pos_hex)
         self.ui_state.start_drag(marker_id, pos_hex, pixel_pos[0], pixel_pos[1])
-        # Preview uses default empty-hex rule; custom server rules need a client hook later.
-        valid = marker_destination_hexes_for_preview(
-            state, {"id": marker_id, "type": display.unit_type}, None
-        )
+        # Ask authoritative server for destination preview hexes so thin clients match.
+        if self.client is not None:
+            self.client.send_marker_preview_request(marker_id, display.unit_type)
+            self._marker_preview_request_id = str(getattr(self.client, "_preview_req_counter", ""))
+        valid: set[Any] = set()
         self.ui_state.set_constraints(valid)
+        cls = "highlight"
+        c = self.client
+        if c is not None and isinstance(c.turn_rules, dict):
+            ui = c.turn_rules.get("ui")
+            if isinstance(ui, dict):
+                raw = ui.get("marker_hex_class")
+                if isinstance(raw, str) and raw.strip():
+                    cls = raw.strip()
         self.display_mgr.clear_highlights()
-        self.display_mgr.highlight_hexes(valid)
+        self.display_mgr.highlight_hexes(set(), cls=cls)
+
+    def _handle_marker_preview(self, payload: dict[str, Any]) -> None:
+        """Apply server-provided marker destination preview to the current drag."""
+        if not isinstance(payload, dict):
+            return
+        mid = payload.get("marker_id")
+        if not isinstance(mid, str) or not mid.strip():
+            return
+        if self.ui_state.drag_preview is None:
+            return
+        if str(self.ui_state.drag_preview.unit_id) != mid:
+            return
+        rid = payload.get("request_id")
+        if isinstance(rid, str) and self._marker_preview_request_id and rid != self._marker_preview_request_id:
+            return
+        rows = payload.get("hexes")
+        if not isinstance(rows, list):
+            return
+        from ..hexes.types import Hex
+
+        valid: set[Hex] = set()
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            try:
+                valid.add(Hex(int(r["i"]), int(r["j"]), int(r["k"])))
+            except Exception:
+                continue
+        self.ui_state.set_constraints(valid)
+        cls = "highlight"
+        raw_cc = payload.get("css_class")
+        if isinstance(raw_cc, str) and raw_cc.strip():
+            cls = raw_cc.strip()
+        else:
+            c = self.client
+            if c is not None and isinstance(c.turn_rules, dict):
+                ui = c.turn_rules.get("ui")
+                if isinstance(ui, dict):
+                    raw = ui.get("marker_hex_class")
+                    if isinstance(raw, str) and raw.strip():
+                        cls = raw.strip()
+        self.display_mgr.clear_highlights()
+        self.display_mgr.highlight_hexes(valid, cls=cls)
 
     def update_drag_preview_marker(
         self, pixel_x: float, pixel_y: float, target_hex
@@ -980,6 +1342,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         Returns True if move was committed, False otherwise.
         """
         preview = self.ui_state.end_drag()
+        # Invalidate any in-flight preview responses for the prior drag.
+        self._unit_preview_request_id = ""
+        self._marker_preview_request_id = ""
 
         if not preview:
             return False

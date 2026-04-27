@@ -24,13 +24,8 @@ def main():
     add_game_launch_arguments(parser)
     args = parser.parse_args()
 
-    sched_q = (
-        f"&schedule={args.schedule}"
-        if args.schedule.strip().lower() != "interleaved"
-        else ""
-    )
-    player1_url = f"{BASE_URL}?mode=multi&name=Player1&faction=confederate{sched_q}"
-    player2_url = f"{BASE_URL}?mode=multi&name=Player2&faction=union{sched_q}"
+    player1_url = f"{BASE_URL}?mode=multi&name=Player1&faction=confederate"
+    player2_url = f"{BASE_URL}?mode=multi&name=Player2&faction=union"
 
     print("=" * 60)
     print("Starting Hexes Servers")
@@ -63,7 +58,6 @@ def main():
                     scenario_file=args.scenario_file,
                     game_root=args.game_root,
                     scenario_id=args.scenario_id,
-                    schedule=args.schedule,
                 )
             )
         except Exception as e:

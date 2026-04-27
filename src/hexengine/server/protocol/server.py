@@ -18,6 +18,8 @@ _STATE_UPDATE_OMIT_IF_NONE = frozenset(
         "turn_rules",
         "suggested_focus_unit_id",
         "retreat_obligations",
+        "interaction_messages",
+        "map_overlays",
     }
 )
 
@@ -44,6 +46,26 @@ class StateUpdate:
     #: Per-recipient mandatory retreat obligations for this viewer's faction.
     #: Keys are unit ids; values are positive hex counts remaining.
     retreat_obligations: dict[str, int] | None = None
+    #: Per-recipient transient UI messages (phase transitions, retreat prompts, etc.).
+    #:
+    #: Each entry is a dict with:
+    #: - schema: 1
+    #: - kind: short semantic kind (e.g. "phase", "retreat", "wait", "info", "error")
+    #: - text: display text
+    #: - dedupe_key (optional): client replaces prior message with same key
+    #: - ttl_ms (optional): client expires message locally after this many ms
+    #: - css_class (optional): extra CSS class name for title styling
+    interaction_messages: list[dict[str, Any]] | None = None
+    #: Per-recipient map-space overlay specs (engine builds DOM on the client).
+    #:
+    #: Each entry is a dict with:
+    #: - schema: 1
+    #: - id: stable string (replace prior overlay with same id)
+    #: - kind: "glyph" (unicode text at hex center; more kinds later)
+    #: - hex: {"i","j","k"} map anchor
+    #: - text: string for glyph kind
+    #: - css_class (optional): extra classes for title CSS
+    map_overlays: list[dict[str, Any]] | None = None
 
 
 @server_message("action_result")
@@ -169,4 +191,49 @@ class CombatEventWire:
     retreat_unit_id: str | None = None
     retreat_hexes_remaining: int | None = None
     retreat_distance: int | None = None
+
+
+@server_message("ui_popup", omit_if_none=frozenset({"text", "html", "ttl_ms", "css_class"}))
+@dataclass
+class UIPopupWire:
+    """Per-recipient informational popup anchored to a board hex."""
+
+    # Use the engine standard Hex wire shape: {"i","j","k"}.
+    hex: dict[str, int]
+    kind: str = "info"
+    text: str | None = None
+    html: str | None = None
+    ttl_ms: int | None = 800
+    css_class: str | None = None
+
+
+@server_message(
+    "marker_preview",
+    omit_if_none=frozenset({"css_class"}),
+)
+@dataclass
+class MarkerPreviewWire:
+    """Per-recipient marker drag-preview response (valid destination hexes)."""
+
+    marker_id: str
+    hexes: list[dict[str, int]]
+    css_class: str | None = None
+    request_id: str = ""
+
+
+@server_message(
+    "unit_preview",
+    omit_if_none=frozenset({"css_class", "through_hexes", "through_css_class"}),
+)
+@dataclass
+class UnitPreviewWire:
+    """Per-recipient unit drag-preview response (valid destination hexes)."""
+
+    unit_id: str
+    kind: str  # "move" | "retreat"
+    hexes: list[dict[str, int]]
+    css_class: str | None = None
+    through_hexes: list[dict[str, int]] | None = None
+    through_css_class: str | None = None
+    request_id: str = ""
 

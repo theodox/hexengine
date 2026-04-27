@@ -78,6 +78,7 @@ class Map:
             logging.getLogger(__name__).error(
                 "Missing #map-world wrapper; pan/zoom will not apply. Update hexes.html."
             )
+        self._overlay_layer: Any = None
 
         self._canvas_layer = CanvasLayer(
             canvas_element, self._hex_layout, self._hex_color, self._hex_stroke
@@ -141,6 +142,37 @@ class Map:
     @property
     def hex_layout(self) -> HexLayout:
         return self._hex_layout
+
+    def map_space_to_container_pixel(self, x: float, y: float) -> tuple[float, float]:
+        """
+        Map-space pixel (e.g. from ``HexLayout.hex_to_pixel``) to coordinates in
+        ``#map-container`` space under the current ``translate(pan) scale(zoom)``
+        on ``#map-world`` (see ``_clamp_pan`` docstring: ``zoom * m + pan``).
+        """
+        z = self._zoom_level
+        return (float(x) * z + self._pan_x, float(y) * z + self._pan_y)
+
+    def ensure_overlay_layer(self) -> Any:
+        """
+        Single absolutely positioned layer inside ``#map-world`` for title-driven overlays.
+
+        Map-space ``left`` / ``top`` match ``HexLayout.hex_to_pixel``; pan/zoom apply via
+        the parent transform.
+        """
+        if self._transform_root is None:
+            return None
+        if self._overlay_layer is None:
+            div = js.document.createElement("div")
+            div.id = "hexengine-map-overlays"
+            div.style.position = "absolute"
+            div.style.left = "0"
+            div.style.top = "0"
+            div.style.width = "100%"
+            div.style.height = "100%"
+            div.style.zIndex = "400"
+            self._transform_root.appendChild(div)
+            self._overlay_layer = div
+        return self._overlay_layer
 
     @property
     def unit_size_multiplier(self) -> float:
