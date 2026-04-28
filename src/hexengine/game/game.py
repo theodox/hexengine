@@ -209,6 +209,10 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         if not phase_ok or not my_turn:
             self.cancel_attack_plan()
             return
+        tgt = self.attack_plan_target_hex
+        if tgt is not None and not self._attack_target_hex_has_enemy(st, tgt):
+            self.cancel_attack_plan()
+            return
         self._sync_attack_plan_ui()
 
     def _init_attack_controls(self, container) -> None:
@@ -288,7 +292,22 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         if self._attack_controls_confirm is not None:
             self._attack_controls_confirm.disabled = not (ok_phase and tgt is not None and n_att > 0)
 
+    def _attack_target_hex_has_enemy(self, st: GameState, h: "Hex") -> bool:
+        """True if the hex has at least one active non-current-faction unit (valid attack target)."""
+        cur = st.turn.current_faction
+        return any(u.faction != cur for u in st.board.active_units_at_hex(h))
+
     def set_attack_plan_target_hex(self, h: "Hex | None") -> None:
+        if h is not None:
+            st = self._interactive_game_state()
+            if st is not None and not self._attack_target_hex_has_enemy(st, h):
+                try:
+                    mx, my = self.canvas.hex_layout.hex_to_pixel(h)
+                    cx, cy = self.canvas.map_space_to_container_pixel(mx, my)
+                    self.popup_manager.create_popup("No enemy unit on that hex", (cx, cy))
+                except Exception:
+                    self.popup_manager.create_popup("No enemy unit on that hex", (32, 32))
+                return
         self.attack_plan_target_hex = h
         self.attack_plan_attacker_ids.clear()
 
@@ -308,6 +327,8 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     def _attack_unit_is_eligible(self, st, unit_id: str) -> bool:
         if st is None or self.attack_plan_target_hex is None:
+            return False
+        if not self._attack_target_hex_has_enemy(st, self.attack_plan_target_hex):
             return False
         u = st.board.units.get(unit_id)
         if u is None or not u.active:
