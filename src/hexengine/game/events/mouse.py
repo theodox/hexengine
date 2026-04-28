@@ -501,7 +501,8 @@ class MouseEventHandlerMixin:
                 defender = state.board.units.get(target_id)
                 attacker = state.board.units.get(pending)
                 if defender and attacker and defender.faction != attacker.faction:
-                    if distance(attacker.position, defender.position) == 1:
+                    dist = distance(attacker.position, defender.position)
+                    if dist == 1:
                         ext_key = self._title_state_extension_key()
                         if not ext_key:
                             self.logger.warning(
@@ -516,6 +517,57 @@ class MouseEventHandlerMixin:
                             "Attack",
                             {
                                 "attack_kind": "adjacent",
+                                "attacker_id": pending,
+                                "defender_id": target_id,
+                            },
+                        )
+                        self.pending_attack_attacker_id = None
+                        self._clear_drag_and_highlights()
+                        self.last_click_time = current_time
+                        return
+                    # Ranged attack (title-dependent; server remains authoritative).
+                    try:
+                        raw_range = attacker.attributes.get("range")
+                        atk_range = int(raw_range) if raw_range is not None else 0
+                    except Exception:
+                        atk_range = 0
+                    if atk_range > 1 and dist > 1 and dist <= atk_range:
+                        ext_key = self._title_state_extension_key()
+                        if not ext_key:
+                            self.logger.warning(
+                                "Skipping local Attack: missing title_state_extension_key "
+                                "from server turn_rules"
+                            )
+                            self.pending_attack_attacker_id = None
+                            self._clear_drag_and_highlights()
+                            self.last_click_time = current_time
+                            return
+                        # Optional local LOS precheck to avoid obvious rejects; server will re-validate.
+                        try:
+                            from ...hexes.los import has_line_of_sight
+
+                            def blocks(h):
+                                loc = state.board.effective_location(h)
+                                if loc is None:
+                                    return False
+                                return bool(getattr(loc, "block_los", False))
+
+                            if not has_line_of_sight(
+                                attacker.position, defender.position, blocks=blocks
+                            ):
+                                self.logger.info("Skipping local ranged attack: no LOS")
+                                self.pending_attack_attacker_id = None
+                                self._clear_drag_and_highlights()
+                                self.last_click_time = current_time
+                                return
+                        except Exception:
+                            # If local LOS fails (missing module, etc.), fall back to server validation.
+                            pass
+
+                        self.execute_action_request(
+                            "Attack",
+                            {
+                                "attack_kind": "ranged",
                                 "attacker_id": pending,
                                 "defender_id": target_id,
                             },

@@ -53,6 +53,9 @@ class AttackResolution:
     """
 
     outcome: str
+    #: Optional: if set, the attack applies to all these defender unit ids (e.g. stack-wide).
+    #: When omitted, the engine applies the resolution to `AttackContext.defender_unit_id` only.
+    defender_ids: tuple[str, ...] | None = None
     retreat_distance: int | None = None
     retreat_unit_id: str | None = None
     rng_entry: dict[str, Any] | None = None

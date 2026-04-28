@@ -3,14 +3,41 @@ from __future__ import annotations
 import random
 
 from hexengine.hexes.math import distance
+from hexengine.hexes.los import has_line_of_sight
 from hexengine.hooks import AttackContext, AttackResolution
 
 from .. import combat
 from ..constants import PACK_STATE_EXTENSION_KEY
 
 
+def _terrain_blocks_los(ctx: AttackContext):
+    board = ctx.state.board
+
+    def blocks(h):
+        loc = board.effective_location(h)
+        if loc is None:
+            return False
+        return bool(getattr(loc, "block_los", False))
+
+    return blocks
+
+
+def _enemy_defender_ids_on_hex(ctx: AttackContext) -> tuple[str, ...]:
+    """
+    Hexdemo rule: an attack applies to every active enemy unit on the defender hex.
+    """
+    attacker = ctx.state.board.units.get(ctx.attacker_unit_id)
+    if attacker is None or not attacker.active:
+        return ()
+    out: list[str] = []
+    for u in ctx.state.board.active_units_at_hex(ctx.defender_hex):
+        if u.faction != attacker.faction:
+            out.append(str(u.unit_id))
+    return tuple(out)
+
+
 def validate_attack(ctx: AttackContext) -> None:
-    if ctx.attack_kind != "adjacent":
+    if ctx.attack_kind not in ("adjacent", "ranged"):
         raise ValueError(f"Unknown attack_kind for hexdemo: {ctx.attack_kind!r}")
     phase = str(ctx.state.turn.current_phase)
     if phase not in ("Combat", "Attack"):
@@ -30,8 +57,28 @@ def validate_attack(ctx: AttackContext) -> None:
         raise ValueError("You do not control the attacker")
     if attacker.faction == defender.faction:
         raise ValueError("Cannot attack same faction")
-    if distance(attacker.position, defender.position) != 1:
-        raise ValueError("Defender is not adjacent to the attacker")
+    dist = distance(attacker.position, defender.position)
+    if ctx.attack_kind == "adjacent":
+        if dist != 1:
+            raise ValueError("Defender is not adjacent to the attacker")
+    else:
+        raw_range = attacker.attributes.get("range")
+        try:
+            atk_range = int(raw_range) if raw_range is not None else 0
+        except Exception:
+            atk_range = 0
+        if atk_range <= 1:
+            raise ValueError("Attacker has no ranged capability")
+        if not (dist > 1 and dist <= atk_range):
+            raise ValueError("Defender is out of range")
+        blocks = _terrain_blocks_los(ctx)
+        if not has_line_of_sight(attacker.position, defender.position, blocks=blocks):
+            raise ValueError("No line of sight to target")
+
+    # Hexdemo stack-wide: must have at least one enemy defender on the target hex.
+    defender_ids = _enemy_defender_ids_on_hex(ctx)
+    if not defender_ids:
+        raise ValueError("No enemy units on target hex")
 
     # Preserve existing hexdemo behavior (attack-once per combat segment).
     hx = ctx.state.extension.get(PACK_STATE_EXTENSION_KEY)
@@ -42,7 +89,7 @@ def validate_attack(ctx: AttackContext) -> None:
 
 
 def resolve_attack(ctx: AttackContext) -> AttackResolution:
-    if ctx.attack_kind != "adjacent":
+    if ctx.attack_kind not in ("adjacent", "ranged"):
         raise ValueError(f"Unknown attack_kind for hexdemo: {ctx.attack_kind!r}")
 
     outcome = random.choice(
@@ -55,15 +102,22 @@ def resolve_attack(ctx: AttackContext) -> AttackResolution:
     elif outcome == "defender_retreat":
         retreat_unit_id = ctx.defender_unit_id
 
+    defender_ids = _enemy_defender_ids_on_hex(ctx)
+    if not defender_ids:
+        # Should have been rejected by validate_attack; keep deterministic failure.
+        raise ValueError("No enemy units on target hex")
+
     rng_entry = {
-        "op": "adjacent_attack",
+        "op": "ranged_attack" if ctx.attack_kind == "ranged" else "adjacent_attack",
         "outcome": outcome,
         "attacker_id": ctx.attacker_unit_id,
         "defender_id": ctx.defender_unit_id,
+        "defender_ids": list(defender_ids),
         "retreat_distance": retreat_distance,
     }
     return AttackResolution(
         outcome=outcome,
+        defender_ids=defender_ids,
         retreat_distance=retreat_distance,
         retreat_unit_id=retreat_unit_id,
         rng_entry=rng_entry,

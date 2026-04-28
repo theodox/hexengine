@@ -134,7 +134,7 @@ class HexdemoGameDefinition:
         """
         Title rules for ``Attack`` (adjacency and combat phase); not encoded in ``phase_rules``.
         """
-        if attack_kind != "adjacent":
+        if attack_kind not in ("adjacent", "ranged"):
             raise ValueError(f"Unknown attack_kind for hexdemo: {attack_kind!r}")
         phase = str(state.turn.current_phase)
         if phase not in ("Combat", "Attack"):
@@ -159,8 +159,31 @@ class HexdemoGameDefinition:
             raise ValueError("You do not control the attacker")
         if attacker.faction == defender.faction:
             raise ValueError("Cannot attack same faction")
-        if distance(attacker.position, defender.position) != 1:
-            raise ValueError("Defender is not adjacent to the attacker")
+        dist = distance(attacker.position, defender.position)
+        if attack_kind == "adjacent":
+            if dist != 1:
+                raise ValueError("Defender is not adjacent to the attacker")
+        else:
+            # ranged
+            raw_range = attacker.attributes.get("range")
+            try:
+                atk_range = int(raw_range) if raw_range is not None else 0
+            except Exception:
+                atk_range = 0
+            if atk_range <= 1:
+                raise ValueError("Attacker has no ranged capability")
+            if not (dist > 1 and dist <= atk_range):
+                raise ValueError("Defender is out of range")
+            from hexengine.hexes.los import has_line_of_sight
+
+            def blocks(h: Hex) -> bool:
+                loc = state.board.effective_location(h)
+                if loc is None:
+                    return False
+                return bool(getattr(loc, "block_los", False))
+
+            if not has_line_of_sight(attacker.position, defender.position, blocks=blocks):
+                raise ValueError("No line of sight to target")
         hx = state.extension.get(PACK_STATE_EXTENSION_KEY)
         if isinstance(hx, dict):
             prev = hx.get("attacks_this_phase")

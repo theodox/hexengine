@@ -42,6 +42,7 @@ from .shapes import (
     wedge_fill,
 )
 from .types import Hex, HexColRow
+from .los import has_line_of_sight
 
 __version__: str
 try:
@@ -90,4 +91,6 @@ __all__ = [
     "polygon",
     "convex_polygon",
     "fill_convex_polygon",
+    # LOS
+    "has_line_of_sight",
 ]

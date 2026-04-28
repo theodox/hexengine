@@ -959,6 +959,7 @@ class GameServer:
                     deff,
                     extension_key=ek,
                     outcome=str(getattr(hr, "outcome", "")),
+                    defender_ids=getattr(hr, "defender_ids", None),
                     retreat_distance=getattr(hr, "retreat_distance", None),
                     retreat_unit_id=getattr(hr, "retreat_unit_id", None),
                     rng_entry=getattr(hr, "rng_entry", None),
