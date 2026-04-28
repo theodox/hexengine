@@ -259,7 +259,6 @@ class MouseEventHandlerMixin:
         self.logger.debug(f"Dragging background by {distance} pixels")
 
     def _bg_mousedown(self, eventInfo: EventInfo) -> None:
-        self.pending_attack_attacker_id = None
         self.selection = None
         self.ui_state.select_marker(None)
         mgr = getattr(self, "marker_mgr", None)
@@ -286,6 +285,20 @@ class MouseEventHandlerMixin:
                 self._bg_dbl_click(eventInfo)
                 self.last_click_time = 0  # Reset to prevent triple-click
             else:
+                # Attack planning: background click sets/changing target hex should be immediate
+                # (do not wait out the double-click timeout).
+                try:
+                    state = self._interactive_game_state()
+                    phase = (
+                        str(state.turn.current_phase).strip().lower()
+                        if state is not None
+                        else ""
+                    )
+                    if state and phase in ("combat", "attack") and self.is_my_turn():
+                        self.set_attack_plan_target_hex(eventInfo.hex)
+                except Exception:
+                    pass
+
                 # Delay single click to check for double-click
                 if self.pending_click_timeout is not None:
                     js.clearTimeout(self.pending_click_timeout)
@@ -409,7 +422,7 @@ class MouseEventHandlerMixin:
             return
 
         # Check faction from state
-        state = self.action_mgr.current_state
+        state = self._interactive_game_state()
         if state is None:
             self.logger.error("current_state is None - game not fully initialized")
             return
@@ -423,15 +436,28 @@ class MouseEventHandlerMixin:
         if not unit_state:
             return
 
-        pending = getattr(self, "pending_attack_attacker_id", None)
-        phase_ok = str(state.turn.current_phase) in ("Combat", "Attack")
+        phase_ok = str(state.turn.current_phase).strip().lower() in ("combat", "attack")
         current_faction = state.turn.current_faction
         retreating = (
             self.retreat_obligation_hexes_remaining(state, unit_id) is not None
         )
 
-        if phase_ok and pending and unit_state.faction != current_faction and self.is_my_turn():
-            return
+        # Attack planning: treat unit mousedown as selection/toggle (not drag) during Combat.
+        if phase_ok and self.is_my_turn() and not retreating:
+            try:
+                if unit_state.faction != current_faction:
+                    # Clicking an enemy unit sets the target hex.
+                    self.set_attack_plan_target_hex(unit_state.position)
+                    self._clear_drag_and_highlights()
+                    return
+                # Friendly unit toggles as attacker only when a target is set.
+                if self.attack_plan_target_hex is not None:
+                    self.toggle_attack_plan_attacker(str(unit_state.unit_id))
+                    self._clear_drag_and_highlights()
+                    return
+            except Exception:
+                # Fall through to normal handling.
+                pass
 
         if not self.is_my_turn() and not retreating:
             self._clear_drag_and_highlights()
@@ -485,97 +511,7 @@ class MouseEventHandlerMixin:
                     self.display_mgr.clear_highlights()
                 return
 
-            state = self.action_mgr.current_state
-            pending = getattr(self, "pending_attack_attacker_id", None)
-            if (
-                maybe_click
-                and pending
-                and eventInfo.unit_id
-                and state
-                and str(state.turn.current_phase) in ("Combat", "Attack")
-                and self.is_my_turn()
-            ):
-                from ...hexes.math import distance
-
-                target_id = str(eventInfo.unit_id)
-                defender = state.board.units.get(target_id)
-                attacker = state.board.units.get(pending)
-                if defender and attacker and defender.faction != attacker.faction:
-                    dist = distance(attacker.position, defender.position)
-                    if dist == 1:
-                        ext_key = self._title_state_extension_key()
-                        if not ext_key:
-                            self.logger.warning(
-                                "Skipping local Attack: missing title_state_extension_key "
-                                "from server turn_rules"
-                            )
-                            self.pending_attack_attacker_id = None
-                            self._clear_drag_and_highlights()
-                            self.last_click_time = current_time
-                            return
-                        self.execute_action_request(
-                            "Attack",
-                            {
-                                "attack_kind": "adjacent",
-                                "attacker_id": pending,
-                                "defender_id": target_id,
-                            },
-                        )
-                        self.pending_attack_attacker_id = None
-                        self._clear_drag_and_highlights()
-                        self.last_click_time = current_time
-                        return
-                    # Ranged attack (title-dependent; server remains authoritative).
-                    try:
-                        raw_range = attacker.attributes.get("range")
-                        atk_range = int(raw_range) if raw_range is not None else 0
-                    except Exception:
-                        atk_range = 0
-                    if atk_range > 1 and dist > 1 and dist <= atk_range:
-                        ext_key = self._title_state_extension_key()
-                        if not ext_key:
-                            self.logger.warning(
-                                "Skipping local Attack: missing title_state_extension_key "
-                                "from server turn_rules"
-                            )
-                            self.pending_attack_attacker_id = None
-                            self._clear_drag_and_highlights()
-                            self.last_click_time = current_time
-                            return
-                        # Optional local LOS precheck to avoid obvious rejects; server will re-validate.
-                        try:
-                            from ...hexes.los import has_line_of_sight
-
-                            def blocks(h):
-                                loc = state.board.effective_location(h)
-                                if loc is None:
-                                    return False
-                                return bool(getattr(loc, "block_los", False))
-
-                            if not has_line_of_sight(
-                                attacker.position, defender.position, blocks=blocks
-                            ):
-                                self.logger.info("Skipping local ranged attack: no LOS")
-                                self.pending_attack_attacker_id = None
-                                self._clear_drag_and_highlights()
-                                self.last_click_time = current_time
-                                return
-                        except Exception:
-                            # If local LOS fails (missing module, etc.), fall back to server validation.
-                            pass
-
-                        self.execute_action_request(
-                            "Attack",
-                            {
-                                "attack_kind": "ranged",
-                                "attacker_id": pending,
-                                "defender_id": target_id,
-                            },
-                        )
-                        self.pending_attack_attacker_id = None
-                        self._clear_drag_and_highlights()
-                        self.last_click_time = current_time
-                        return
+            # Attack planning runs on _unit_mousedown only (mouseup would double-toggle attackers).
 
             uid_sel = self.ui_state.selected_unit_id
             if uid_sel is not None:
@@ -605,19 +541,6 @@ class MouseEventHandlerMixin:
                 unit = self._event_unit(eventInfo)
                 if unit:
                     self.selection = unit
-                    us = (
-                        state.board.units.get(str(unit.unit_id))
-                        if state and unit.unit_id
-                        else None
-                    )
-                    if (
-                        us
-                        and state
-                        and str(state.turn.current_phase) in ("Combat", "Attack")
-                        and self.is_my_turn()
-                        and us.faction == state.turn.current_faction
-                    ):
-                        self.pending_attack_attacker_id = str(unit.unit_id)
                 self.pending_click_timeout = js.setTimeout(
                     create_proxy(lambda: self._unit_click(eventInfo)),
                     self.DBL_CLICK_THRESHOLD,

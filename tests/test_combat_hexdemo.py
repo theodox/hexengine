@@ -329,8 +329,13 @@ def test_hexdemo_validate_attack_adjacent_and_once_per_unit(hexdemo_server: Game
         attacker_hex=st.board.units["u_att"].position,
         defender_hex=st.board.units["u_def"].position,
         player_faction="union",
-        attack_kind="adjacent",
-        params={"attacker_id": "u_att", "defender_id": "u_def", "attack_kind": "adjacent"},
+        attack_kind="combined",
+        params={
+            "attacker_id": "u_att",
+            "attacker_ids": ["u_att"],
+            "defender_id": "u_def",
+            "attack_kind": "combined",
+        },
     )
     assert hexdemo_server.hooks.attack.validate(ctx) is None
     far = Hex(4, -4, 0)
@@ -345,18 +350,19 @@ def test_hexdemo_validate_attack_adjacent_and_once_per_unit(hexdemo_server: Game
                 attacker_hex=st_bad.board.units["u_att"].position,
                 defender_hex=st_bad.board.units["u_def"].position,
                 player_faction="union",
-                attack_kind="adjacent",
+                attack_kind="combined",
                 params={
                     "attacker_id": "u_att",
+                    "attacker_ids": ["u_att"],
                     "defender_id": "u_def",
-                    "attack_kind": "adjacent",
+                    "attack_kind": "combined",
                 },
             )
         )
 
     hexdemo_server.action_manager.execute(
         Attack(
-            "adjacent",
+            "combined",
             "u_att",
             "u_def",
             extension_key="hexdemo",
@@ -375,11 +381,12 @@ def test_hexdemo_validate_attack_adjacent_and_once_per_unit(hexdemo_server: Game
                 attacker_hex=st2.board.units["u_att"].position,
                 defender_hex=st2.board.units["u_def"].position,
                 player_faction="union",
-                attack_kind="adjacent",
+                attack_kind="combined",
                 params={
                     "attacker_id": "u_att",
+                    "attacker_ids": ["u_att"],
                     "defender_id": "u_def",
-                    "attack_kind": "adjacent",
+                    "attack_kind": "combined",
                 },
             )
         )
@@ -389,7 +396,7 @@ def test_attack_updates_extension_and_rng() -> None:
     st = _hexdemo_combat_state()
     def_hex = st.board.units["u_def"].position
     nxt = Attack(
-        "adjacent",
+        "combined",
         "u_att",
         "u_def",
         extension_key="hexdemo",
@@ -436,8 +443,9 @@ def test_combat_event_fanout_retreat_vs_wait(hexdemo_server: GameServer) -> None
             req = ActionRequest(
                 action_type="Attack",
                 params={
-                    "attack_kind": "adjacent",
+                    "attack_kind": "combined",
                     "attacker_id": "u_att",
+                    "attacker_ids": ["u_att"],
                     "defender_id": "u_def",
                 },
                 player_id="p_u",
@@ -483,8 +491,9 @@ def test_builtin_game_rejects_attack() -> None:
         req = ActionRequest(
             action_type="Attack",
             params={
-                "attack_kind": "adjacent",
+                "attack_kind": "combined",
                 "attacker_id": "u_att",
+                "attacker_ids": ["u_att"],
                 "defender_id": "u_def",
             },
             player_id="p1",
@@ -583,8 +592,9 @@ def test_auto_advance_when_sole_attacker_has_attacked(hexdemo_server: GameServer
             req = ActionRequest(
                 action_type="Attack",
                 params={
-                    "attack_kind": "adjacent",
+                        "attack_kind": "combined",
                     "attacker_id": "u_att",
+                        "attacker_ids": ["u_att"],
                     "defender_id": "u_def",
                 },
                 player_id="p_u",
@@ -650,8 +660,9 @@ def test_two_union_units_require_two_attacks_before_advance() -> None:
             req = ActionRequest(
                 action_type="Attack",
                 params={
-                    "attack_kind": "adjacent",
+                        "attack_kind": "combined",
                     "attacker_id": attacker,
+                        "attacker_ids": [attacker],
                     "defender_id": "u_def",
                 },
                 player_id="p_u",

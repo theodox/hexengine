@@ -37,7 +37,7 @@ def _enemy_defender_ids_on_hex(ctx: AttackContext) -> tuple[str, ...]:
 
 
 def validate_attack(ctx: AttackContext) -> None:
-    if ctx.attack_kind not in ("adjacent", "ranged"):
+    if ctx.attack_kind not in ("combined",):
         raise ValueError(f"Unknown attack_kind for hexdemo: {ctx.attack_kind!r}")
     phase = str(ctx.state.turn.current_phase)
     if phase not in ("Combat", "Attack"):
@@ -57,23 +57,44 @@ def validate_attack(ctx: AttackContext) -> None:
         raise ValueError("You do not control the attacker")
     if attacker.faction == defender.faction:
         raise ValueError("Cannot attack same faction")
-    dist = distance(attacker.position, defender.position)
-    if ctx.attack_kind == "adjacent":
-        if dist != 1:
-            raise ValueError("Defender is not adjacent to the attacker")
-    else:
-        raw_range = attacker.attributes.get("range")
-        try:
-            atk_range = int(raw_range) if raw_range is not None else 0
-        except Exception:
-            atk_range = 0
-        if atk_range <= 1:
-            raise ValueError("Attacker has no ranged capability")
-        if not (dist > 1 and dist <= atk_range):
-            raise ValueError("Defender is out of range")
-        blocks = _terrain_blocks_los(ctx)
-        if not has_line_of_sight(attacker.position, defender.position, blocks=blocks):
-            raise ValueError("No line of sight to target")
+    raw_attacker_ids = ctx.params.get("attacker_ids")
+    attacker_ids: list[str] = []
+    if isinstance(raw_attacker_ids, list) and raw_attacker_ids:
+        for uid in raw_attacker_ids:
+            if isinstance(uid, str) and uid.strip():
+                attacker_ids.append(uid.strip())
+    if not attacker_ids:
+        attacker_ids = [ctx.attacker_unit_id]
+
+    target_hex = ctx.defender_hex
+    blocks = _terrain_blocks_los(ctx)
+    for aid in attacker_ids:
+        a = ctx.state.board.units.get(aid)
+        if a is None or not a.active:
+            raise ValueError("Invalid attacker")
+        if a.faction != ctx.player_faction:
+            raise ValueError("You do not control the attacker")
+        if a.faction == defender.faction:
+            raise ValueError("Cannot attack same faction")
+        ut = str(a.unit_type).lower()
+        dist = distance(a.position, target_hex)
+        if ut in ("infantry", "inf"):
+            if dist != 1:
+                raise ValueError("Infantry attacker is not adjacent to the target")
+        elif ut in ("artillery", "art"):
+            raw_range = a.attributes.get("range")
+            try:
+                atk_range = int(raw_range) if raw_range is not None else 0
+            except Exception:
+                atk_range = 0
+            if atk_range <= 1:
+                raise ValueError("Artillery has no ranged capability")
+            if not (dist > 1 and dist <= atk_range):
+                raise ValueError("Artillery target is out of range")
+            if not has_line_of_sight(a.position, target_hex, blocks=blocks):
+                raise ValueError("No line of sight to target")
+        else:
+            raise ValueError(f"Unit type {ut!r} cannot participate in combined attacks")
 
     # Hexdemo stack-wide: must have at least one enemy defender on the target hex.
     defender_ids = _enemy_defender_ids_on_hex(ctx)
@@ -84,12 +105,14 @@ def validate_attack(ctx: AttackContext) -> None:
     hx = ctx.state.extension.get(PACK_STATE_EXTENSION_KEY)
     if isinstance(hx, dict):
         prev = hx.get("attacks_this_phase")
-        if isinstance(prev, list) and ctx.attacker_unit_id in prev:
-            raise ValueError("That unit has already attacked this combat phase")
+        if isinstance(prev, list):
+            for aid in attacker_ids:
+                if aid in prev:
+                    raise ValueError("That unit has already attacked this combat phase")
 
 
 def resolve_attack(ctx: AttackContext) -> AttackResolution:
-    if ctx.attack_kind not in ("adjacent", "ranged"):
+    if ctx.attack_kind not in ("combined",):
         raise ValueError(f"Unknown attack_kind for hexdemo: {ctx.attack_kind!r}")
 
     outcome = random.choice(
@@ -102,21 +125,32 @@ def resolve_attack(ctx: AttackContext) -> AttackResolution:
     elif outcome == "defender_retreat":
         retreat_unit_id = ctx.defender_unit_id
 
+    raw_attacker_ids = ctx.params.get("attacker_ids")
+    attacker_ids: list[str] = []
+    if isinstance(raw_attacker_ids, list) and raw_attacker_ids:
+        for uid in raw_attacker_ids:
+            if isinstance(uid, str) and uid.strip():
+                attacker_ids.append(uid.strip())
+    if not attacker_ids:
+        attacker_ids = [ctx.attacker_unit_id]
+
     defender_ids = _enemy_defender_ids_on_hex(ctx)
     if not defender_ids:
         # Should have been rejected by validate_attack; keep deterministic failure.
         raise ValueError("No enemy units on target hex")
 
     rng_entry = {
-        "op": "ranged_attack" if ctx.attack_kind == "ranged" else "adjacent_attack",
+        "op": "combined_attack",
         "outcome": outcome,
         "attacker_id": ctx.attacker_unit_id,
+        "attacker_ids": list(attacker_ids),
         "defender_id": ctx.defender_unit_id,
         "defender_ids": list(defender_ids),
         "retreat_distance": retreat_distance,
     }
     return AttackResolution(
         outcome=outcome,
+        attacker_ids=tuple(attacker_ids),
         defender_ids=defender_ids,
         retreat_distance=retreat_distance,
         retreat_unit_id=retreat_unit_id,

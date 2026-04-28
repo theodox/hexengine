@@ -53,6 +53,9 @@ class AttackResolution:
     """
 
     outcome: str
+    #: Optional: if set, indicates which attackers participated (e.g. multi-select UX).
+    #: The engine may use this for bookkeeping (e.g. attacks_this_phase) and UI summaries.
+    attacker_ids: tuple[str, ...] | None = None
     #: Optional: if set, the attack applies to all these defender unit ids (e.g. stack-wide).
     #: When omitted, the engine applies the resolution to `AttackContext.defender_unit_id` only.
     defender_ids: tuple[str, ...] | None = None

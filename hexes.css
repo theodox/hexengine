@@ -346,6 +346,60 @@ Popup styles — callout: root anchors tail tip; bubble is the main rect; tail i
     user-select: none;
 }
 
+/* Client-side attack planning controls (browser UI). */
+.hexengine-attack-controls {
+    position: absolute;
+    right: 12px;
+    bottom: 62px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    background: rgba(245, 245, 245, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.25);
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+    font-family: sans-serif;
+}
+
+.hexengine-attack-controls__row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.hexengine-attack-controls__status {
+    font-size: 12px;
+    color: rgb(30, 30, 30);
+    max-width: 320px;
+    text-align: right;
+}
+
+.hexengine-attack-controls button {
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    background: rgb(255, 255, 255);
+    cursor: pointer;
+}
+
+.hexengine-attack-controls button:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.hexengine-attack-controls button.hexengine-attack-controls__confirm {
+    background: rgba(42, 111, 155, 0.12);
+    border-color: rgba(42, 111, 155, 0.6);
+}
+
+.hexengine-attack-controls button.hexengine-attack-controls__cancel {
+    background: rgba(0, 0, 0, 0.06);
+}
+
 .fade-out {
     animation: fadeOut 0.5s forwards;
 }

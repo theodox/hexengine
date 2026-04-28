@@ -134,7 +134,7 @@ class HexdemoGameDefinition:
         """
         Title rules for ``Attack`` (adjacency and combat phase); not encoded in ``phase_rules``.
         """
-        if attack_kind not in ("adjacent", "ranged"):
+        if attack_kind not in ("combined",):
             raise ValueError(f"Unknown attack_kind for hexdemo: {attack_kind!r}")
         phase = str(state.turn.current_phase)
         if phase not in ("Combat", "Attack"):
@@ -159,36 +159,61 @@ class HexdemoGameDefinition:
             raise ValueError("You do not control the attacker")
         if attacker.faction == defender.faction:
             raise ValueError("Cannot attack same faction")
-        dist = distance(attacker.position, defender.position)
-        if attack_kind == "adjacent":
-            if dist != 1:
-                raise ValueError("Defender is not adjacent to the attacker")
-        else:
-            # ranged
-            raw_range = attacker.attributes.get("range")
-            try:
-                atk_range = int(raw_range) if raw_range is not None else 0
-            except Exception:
-                atk_range = 0
-            if atk_range <= 1:
-                raise ValueError("Attacker has no ranged capability")
-            if not (dist > 1 and dist <= atk_range):
-                raise ValueError("Defender is out of range")
-            from hexengine.hexes.los import has_line_of_sight
+        # Multi-attacker support: params may include `attacker_ids` (list[str]).
+        raw_attacker_ids = params.get("attacker_ids")
+        attacker_ids: list[str] = []
+        if isinstance(raw_attacker_ids, list) and raw_attacker_ids:
+            for uid in raw_attacker_ids:
+                if isinstance(uid, str) and uid.strip():
+                    attacker_ids.append(uid.strip())
+        if not attacker_ids:
+            attacker_ids = [str(attacker_id)]
 
-            def blocks(h: Hex) -> bool:
-                loc = state.board.effective_location(h)
-                if loc is None:
-                    return False
-                return bool(getattr(loc, "block_los", False))
+        from hexengine.hexes.los import has_line_of_sight
 
-            if not has_line_of_sight(attacker.position, defender.position, blocks=blocks):
-                raise ValueError("No line of sight to target")
+        def blocks(h: Hex) -> bool:
+            loc = state.board.effective_location(h)
+            if loc is None:
+                return False
+            return bool(getattr(loc, "block_los", False))
+
+        # Each attacker must be eligible vs the target hex (defender.position).
+        target_hex = defender.position
+        for aid in attacker_ids:
+            a = state.board.units.get(aid)
+            if a is None or not a.active:
+                raise ValueError("Invalid attacker")
+            if a.faction != player_faction:
+                raise ValueError("You do not control the attacker")
+            if a.faction == defender.faction:
+                raise ValueError("Cannot attack same faction")
+
+            dist = distance(a.position, target_hex)
+            ut = str(a.unit_type).lower()
+            if ut in ("infantry", "inf"):
+                if dist != 1:
+                    raise ValueError("Infantry attacker is not adjacent to the target")
+            elif ut in ("artillery", "art"):
+                raw_range = a.attributes.get("range")
+                try:
+                    atk_range = int(raw_range) if raw_range is not None else 0
+                except Exception:
+                    atk_range = 0
+                if atk_range <= 1:
+                    raise ValueError("Artillery has no ranged capability")
+                if not (dist > 1 and dist <= atk_range):
+                    raise ValueError("Artillery target is out of range")
+                if not has_line_of_sight(a.position, target_hex, blocks=blocks):
+                    raise ValueError("No line of sight to target")
+            else:
+                raise ValueError(f"Unit type {ut!r} cannot participate in combined attacks")
         hx = state.extension.get(PACK_STATE_EXTENSION_KEY)
         if isinstance(hx, dict):
             prev = hx.get("attacks_this_phase")
-            if isinstance(prev, list) and attacker_id in prev:
-                raise ValueError("That unit has already attacked this combat phase")
+            if isinstance(prev, list):
+                for aid in attacker_ids:
+                    if aid in prev:
+                        raise ValueError("That unit has already attacked this combat phase")
 
     def retreat_obligation_hexes_remaining(
         self, state: GameState, unit_id: str

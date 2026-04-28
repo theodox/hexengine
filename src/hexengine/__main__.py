@@ -30,6 +30,8 @@ def parse_url_params():
     mode = get_param("mode", "single")  # "single" or "multi"
     player_name = get_param("name", "Player")
     faction = get_param("faction")  # None for auto-assign
+    if isinstance(faction, str) and faction.strip():
+        faction = faction.strip().lower()
     server_url = get_param("server", "ws://localhost:8765")
     return {
         "mode": mode,

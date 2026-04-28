@@ -28,6 +28,12 @@ _PAN_KEY_STEP = 48
 _PAN_KEY_SHIFT_MULT = 3
 
 
+def _phase_allows_attack_planning(phase: str | None) -> bool:
+    """True when the committed turn phase should allow declaring attacks (client UX)."""
+    p = str(phase or "").strip().lower()
+    return p in ("combat", "attack")
+
+
 def _game_definition_from_turn_rules_wire(wire: dict[str, Any]) -> GameDefinition:
     """Rebuild engine `GameDefinition` from `StateUpdate.turn_rules` (no title import)."""
     raw_attr = wire.get("movement_budget_attribute")
@@ -116,8 +122,15 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.last_click_time = 0
         self.drag_start = (0, 0)
         self.drag_end = (0, 0)
-        #: Own unit id selected for adjacent attack (network / combat phase UX).
-        self.pending_attack_attacker_id: str | None = None
+        # --- Attack planning UX (client-side, no server sync) ---
+        self.attack_plan_target_hex: "Hex | None" = None
+        self.attack_plan_attacker_ids: set[str] = set()
+        self._attack_plan_target_overlay = None
+        self._attack_controls_root = None
+        self._attack_controls_status = None
+        self._attack_controls_confirm = None
+        self._attack_controls_cancel = None
+        self._init_attack_controls(container)
 
         self.logger = logging.getLogger("game")
         self.logger.info("Game initialized")
@@ -165,6 +178,227 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         js.window.addEventListener("keydown", create_proxy(self._handle_keydown))
         js.window.addEventListener("keyup", create_proxy(self._handle_keyup))
         self.logger.info("Registered zoom and pan handlers")
+
+    def _interactive_game_state(self) -> GameState | None:
+        """Committed state for UI/interaction: prefer live server snapshot when connected."""
+        client = getattr(self, "client", None)
+        if (
+            client is not None
+            and client.is_connected()
+            and client.game_state is not None
+        ):
+            return client.game_state
+        if self.action_mgr is not None:
+            return self.action_mgr.current_state
+        return None
+
+    def _sync_attack_plan_after_state_update(self) -> None:
+        """Keep attack planning UI in sync with server state (clears stale overlays)."""
+        if self.attack_plan_target_hex is None and not self.attack_plan_attacker_ids:
+            self._sync_attack_plan_ui()
+            return
+        st = self._interactive_game_state()
+        if st is None:
+            self.cancel_attack_plan()
+            return
+        phase_ok = _phase_allows_attack_planning(getattr(st.turn, "current_phase", None))
+        my_turn = True
+        client = getattr(self, "client", None)
+        if client is not None and client.is_connected() and client.faction:
+            my_turn = self.is_my_turn()
+        if not phase_ok or not my_turn:
+            self.cancel_attack_plan()
+            return
+        self._sync_attack_plan_ui()
+
+    def _init_attack_controls(self, container) -> None:
+        """
+        Create Confirm/Cancel UI for the attack planning flow.
+        """
+        try:
+            root = js.document.createElement("div")
+            root.className = "hexengine-attack-controls"
+
+            status = js.document.createElement("div")
+            status.className = "hexengine-attack-controls__status"
+            status.textContent = "Combat: pick a target hex."
+            root.appendChild(status)
+
+            row = js.document.createElement("div")
+            row.className = "hexengine-attack-controls__row"
+
+            btn_cancel = js.document.createElement("button")
+            btn_cancel.className = "hexengine-attack-controls__cancel"
+            btn_cancel.textContent = "Cancel"
+            btn_cancel.onclick = create_proxy(lambda _evt=None: self.cancel_attack_plan())
+
+            btn_confirm = js.document.createElement("button")
+            btn_confirm.className = "hexengine-attack-controls__confirm"
+            btn_confirm.textContent = "Confirm attack"
+            btn_confirm.disabled = True
+            btn_confirm.onclick = create_proxy(lambda _evt=None: self.confirm_attack_plan())
+
+            row.appendChild(btn_cancel)
+            row.appendChild(btn_confirm)
+            root.appendChild(row)
+
+            container.appendChild(root)
+            self._attack_controls_root = root
+            self._attack_controls_status = status
+            self._attack_controls_confirm = btn_confirm
+            self._attack_controls_cancel = btn_cancel
+        except Exception:
+            self.logger.debug("attack controls init failed", exc_info=True)
+
+    def _ensure_attack_target_overlay(self):
+        layer = self.canvas.ensure_overlay_layer()
+        if layer is None:
+            return None
+        if self._attack_plan_target_overlay is None:
+            div = js.document.createElement("div")
+            div.className = "hexengine-map-overlay hexengine-map-overlay--glyph"
+            div.style.pointerEvents = "none"
+            div.style.position = "absolute"
+            div.style.transform = "translate(-50%, -50%)"
+            div.style.zIndex = "450"
+            div.textContent = "⊕"
+            layer.appendChild(div)
+            self._attack_plan_target_overlay = div
+        return self._attack_plan_target_overlay
+
+    def _sync_attack_plan_ui(self) -> None:
+        st = self._interactive_game_state()
+        ok_phase = _phase_allows_attack_planning(
+            str(getattr(getattr(st, "turn", None), "current_phase", "")) if st else ""
+        )
+
+        tgt = self.attack_plan_target_hex
+        n_att = len(self.attack_plan_attacker_ids)
+
+        if self._attack_controls_status is not None:
+            if not ok_phase:
+                self._attack_controls_status.textContent = "Not in Combat phase."
+            elif tgt is None:
+                self._attack_controls_status.textContent = "Combat: pick a target hex."
+            else:
+                self._attack_controls_status.textContent = (
+                    f"Target set. Selected attackers: {n_att}. Click units to add/remove."
+                )
+
+        if self._attack_controls_confirm is not None:
+            self._attack_controls_confirm.disabled = not (ok_phase and tgt is not None and n_att > 0)
+
+    def set_attack_plan_target_hex(self, h: "Hex | None") -> None:
+        self.attack_plan_target_hex = h
+        self.attack_plan_attacker_ids.clear()
+
+        ov = self._ensure_attack_target_overlay()
+        if ov is not None and h is not None:
+            mx, my = self.canvas.hex_layout.hex_to_pixel(h)
+            ov.style.left = f"{mx}px"
+            ov.style.top = f"{my}px"
+            ov.style.display = "block"
+        elif ov is not None:
+            ov.style.display = "none"
+
+        self._sync_attack_plan_ui()
+
+    def cancel_attack_plan(self) -> None:
+        self.set_attack_plan_target_hex(None)
+
+    def _attack_unit_is_eligible(self, st, unit_id: str) -> bool:
+        if st is None or self.attack_plan_target_hex is None:
+            return False
+        u = st.board.units.get(unit_id)
+        if u is None or not u.active:
+            return False
+        if u.faction != st.turn.current_faction:
+            return False
+        from ..hexes.math import distance
+        from ..hexes.los import has_line_of_sight
+
+        target_hex = self.attack_plan_target_hex
+        ut = str(u.unit_type).lower()
+        d = distance(u.position, target_hex)
+        if ut in ("infantry", "inf"):
+            return d == 1
+        if ut in ("artillery", "art"):
+            try:
+                atk_range = int(u.attributes.get("range", 0))
+            except Exception:
+                atk_range = 0
+            if not (atk_range > 1 and d > 1 and d <= atk_range):
+                return False
+
+            def blocks(h):
+                loc = st.board.effective_location(h)
+                if loc is None:
+                    return False
+                return bool(getattr(loc, "block_los", False))
+
+            return has_line_of_sight(u.position, target_hex, blocks=blocks)
+        return False
+
+    def toggle_attack_plan_attacker(self, unit_id: str) -> None:
+        st = self._interactive_game_state()
+        if self.attack_plan_target_hex is None or st is None:
+            return
+        if unit_id in self.attack_plan_attacker_ids:
+            self.attack_plan_attacker_ids.remove(unit_id)
+            self._sync_attack_plan_ui()
+            return
+        if self._attack_unit_is_eligible(st, unit_id):
+            self.attack_plan_attacker_ids.add(unit_id)
+        else:
+            # Show a short callout near the unit (fall back to generic if missing display).
+            try:
+                disp = self.display_mgr.get_display(unit_id)
+                if disp is not None:
+                    mx, my = self.canvas.hex_layout.hex_to_pixel(disp.position)
+                    cx, cy = self.canvas.map_space_to_container_pixel(mx, my)
+                    self.popup_manager.create_popup("Cannot attack target", (cx, cy))
+                else:
+                    self.popup_manager.create_popup("Cannot attack target", (32, 32))
+            except Exception:
+                self.popup_manager.create_popup("Cannot attack target", (32, 32))
+        self._sync_attack_plan_ui()
+
+    def confirm_attack_plan(self) -> None:
+        st = self._interactive_game_state()
+        if st is None or self.attack_plan_target_hex is None:
+            return
+        if not self.attack_plan_attacker_ids:
+            return
+
+        # Pick one defender id on the target hex to anchor server AttackContext.
+        defenders = [
+            u
+            for u in st.board.active_units_at_hex(self.attack_plan_target_hex)
+            if u.faction != st.turn.current_faction
+        ]
+        if not defenders:
+            try:
+                mx, my = self.canvas.hex_layout.hex_to_pixel(self.attack_plan_target_hex)
+                cx, cy = self.canvas.map_space_to_container_pixel(mx, my)
+                self.popup_manager.create_popup("No enemy unit on target", (cx, cy))
+            except Exception:
+                self.popup_manager.create_popup("No enemy unit on target", (32, 32))
+            return
+        defender_id = defenders[-1].unit_id
+
+        attacker_ids = sorted(self.attack_plan_attacker_ids)
+        primary_attacker_id = attacker_ids[0]
+
+        self.execute_action_request(
+            "Attack",
+            {
+                "attack_kind": "combined",
+                "attacker_id": primary_attacker_id,
+                "attacker_ids": attacker_ids,
+                "defender_id": defender_id,
+            },
+        )
+        self.cancel_attack_plan()
 
     def _handle_resize(self, event) -> None:
         """
@@ -627,6 +861,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self._sync_interaction_messages()
         self._apply_title_faction_css()
         self._apply_focus_unit_after_state_sync(new_state)
+        self._sync_attack_plan_after_state_update()
 
     def _sync_interaction_messages(self) -> None:
         """Render per-recipient `StateUpdate.interaction_messages` as a small banner."""

@@ -17,11 +17,12 @@ def test_attack_can_destroy_multiple_defenders_on_one_hex() -> None:
     st = st.with_extension({"hexdemo": {}})
 
     atk = Attack(
-        "ranged",
+        "combined",
         "att",
         "d1",
         extension_key="hexdemo",
         outcome="defender_destroyed",
+        attacker_ids=("att",),
         defender_ids=("d1", "d2"),
         rng_entry={"op": "test"},
     )

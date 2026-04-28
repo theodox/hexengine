@@ -571,6 +571,12 @@ class GameServer:
             requested = None
 
         available_factions = self._game_definition.available_factions()
+        # Be forgiving about case for URL/querystring inputs ("Union" vs "union").
+        if isinstance(requested, str):
+            requested_norm = requested.strip().lower()
+        else:
+            requested_norm = None
+        available_by_norm = {str(f).strip().lower(): str(f) for f in available_factions}
 
         if requested is None:
             # No preference: first free faction
@@ -582,17 +588,20 @@ class GameServer:
                 )
                 return
             faction = available[0]
-        elif requested not in available_factions:
+        elif requested_norm not in available_by_norm:
             await self._send_error(
                 player_id,
                 f"Invalid faction: {requested}. Available: {available_factions}",
             )
             return
-        elif requested in self.faction_to_player:
-            await self._send_error(player_id, f"Faction {requested} already taken")
-            return
         else:
-            faction = requested
+            requested_canon = available_by_norm[requested_norm]
+            if requested_canon in self.faction_to_player:
+                await self._send_error(
+                    player_id, f"Faction {requested_canon} already taken"
+                )
+                return
+            faction = requested_canon
 
         # Create player info
         player = PlayerInfo(
@@ -959,6 +968,7 @@ class GameServer:
                     deff,
                     extension_key=ek,
                     outcome=str(getattr(hr, "outcome", "")),
+                    attacker_ids=getattr(hr, "attacker_ids", None),
                     defender_ids=getattr(hr, "defender_ids", None),
                     retreat_distance=getattr(hr, "retreat_distance", None),
                     retreat_unit_id=getattr(hr, "retreat_unit_id", None),

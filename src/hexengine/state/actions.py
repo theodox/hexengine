@@ -506,6 +506,7 @@ class Attack(StateAction):
         *,
         extension_key: str,
         outcome: str,
+        attacker_ids: tuple[str, ...] | None = None,
         defender_ids: tuple[str, ...] | None = None,
         retreat_distance: int | None = None,
         retreat_unit_id: str | None = None,
@@ -516,6 +517,20 @@ class Attack(StateAction):
         self.defender_id = defender_id
         self.extension_key = extension_key
         self.outcome = outcome
+        if attacker_ids is None:
+            self.attacker_ids: tuple[str, ...] | None = None
+        else:
+            norm_a: list[str] = []
+            seen_a: set[str] = set()
+            for uid in attacker_ids:
+                if not isinstance(uid, str):
+                    continue
+                s = uid.strip()
+                if not s or s in seen_a:
+                    continue
+                seen_a.add(s)
+                norm_a.append(s)
+            self.attacker_ids = tuple(norm_a) if norm_a else None
         if defender_ids is None:
             self.defender_ids: tuple[str, ...] | None = None
         else:
@@ -538,9 +553,14 @@ class Attack(StateAction):
         self._deleted_unit_ids: tuple[str, ...] = ()
 
     def apply(self, state: GameState) -> GameState:
-        attacker = state.board.units.get(self.attacker_id)
-        if attacker is None or not attacker.active:
-            raise ValueError(f"Attacker {self.attacker_id!r} not found or inactive")
+        attacker_ids = self.attacker_ids or (self.attacker_id,)
+        attackers = []
+        for aid in attacker_ids:
+            a = state.board.units.get(aid)
+            if a is None or not a.active:
+                raise ValueError(f"Attacker {aid!r} not found or inactive")
+            attackers.append(a)
+        attacker0 = attackers[0]
 
         defender_ids = self.defender_ids or (self.defender_id,)
         defenders = []
@@ -548,7 +568,7 @@ class Attack(StateAction):
             d = state.board.units.get(did)
             if d is None or not d.active:
                 raise ValueError(f"Defender {did!r} not found or inactive")
-            if attacker.faction == d.faction:
+            if attacker0.faction == d.faction:
                 raise ValueError("Cannot attack same faction")
             defenders.append(d)
         defender0 = defenders[0]
@@ -580,7 +600,8 @@ class Attack(StateAction):
         hx = dict(self._prev_extension_bucket)
         prev_attacks = hx.get("attacks_this_phase")
         attacks = list(prev_attacks) if isinstance(prev_attacks, list) else []
-        attacks.append(self.attacker_id)
+        for a in attackers:
+            attacks.append(a.unit_id)
         hx["attacks_this_phase"] = attacks
 
         prev_ro = hx.get("retreat_obligations")
@@ -618,6 +639,7 @@ class Attack(StateAction):
             "attack_kind": self.attack_kind,
             "outcome": outcome,
             "attacker_id": self.attacker_id,
+            "attacker_ids": [a.unit_id for a in attackers],
             "defender_id": self.defender_id,
             "defender_ids": [d.unit_id for d in defenders],
             "defender_hex": {"i": int(dpos0.i), "j": int(dpos0.j), "k": int(dpos0.k)},
