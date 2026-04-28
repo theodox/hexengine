@@ -1,8 +1,8 @@
 """
-Discover game packs from ``games/*/hexengine_pack.toml`` and load ``GameDefinition`` by manifest.
+Discover game packs from games/*/hexengine_pack.toml and load GameDefinition by manifest.
 
-The engine does not name individual titles; each pack declares ``entry_module`` /
-``entry_callable`` and a ``sys.path`` prefix via ``path_add`` (relative to the pack root).
+The engine does not name individual titles; each pack declares entry_module /
+entry_callable and a sys.path prefix via path_add (relative to the pack root).
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ class PackManifest:
 
 @dataclass(frozen=True, slots=True)
 class PackRecord:
-    """One installable pack (directory containing ``hexengine_pack.toml``)."""
+    """One installable pack (directory containing hexengine_pack.toml)."""
 
     root: Path
     manifest: PackManifest
@@ -49,7 +49,7 @@ _discovered: bool = False
 
 
 def _candidate_games_directories() -> list[Path]:
-    """``games`` directories to scan for child packs (deduped, resolved)."""
+    """games directories to scan for child packs (deduped, resolved)."""
     seen: set[Path] = set()
     out: list[Path] = []
     for d in Path(__file__).resolve().parents:
@@ -126,9 +126,9 @@ def _load_pack_record(pack_root: Path) -> PackRecord:
 
 def discover_game_packs(*, force: bool = False) -> None:
     """
-    Scan ``games/<pack_id>/hexengine_pack.toml`` under known ``games`` roots and register packs.
+    Scan games/<pack_id>/hexengine_pack.toml under known games roots and register packs.
 
-    Idempotent unless ``force=True`` (clears and re-scans).
+    Idempotent unless force=True (clears and re-scans).
     """
     global _records, _discovered
     if _discovered and not force:
@@ -153,7 +153,7 @@ def discover_game_packs(*, force: bool = False) -> None:
 
 
 def _register_ancestor_packs_for_scenario(p: Path) -> None:
-    """If an ancestor of ``p`` contains ``hexengine_pack.toml``, register that pack root."""
+    """If an ancestor of p contains hexengine_pack.toml, register that pack root."""
     discover_game_packs()
     start = p if p.is_dir() else p.parent
     known: set[Path] = {r.root for r in _records}
@@ -183,7 +183,7 @@ def registered_packs() -> tuple[PackRecord, ...]:
 
 def resolve_pack_for_scenario(scenario_path: str | Path) -> PackRecord:
     """
-    Pick the owning pack for ``scenario_path`` (longest ``pack.root`` prefix wins).
+    Pick the owning pack for scenario_path (longest pack.root prefix wins).
     """
     p = Path(scenario_path).expanduser().resolve()
     _register_ancestor_packs_for_scenario(p)
@@ -197,7 +197,7 @@ def resolve_pack_for_scenario(scenario_path: str | Path) -> PackRecord:
 
 
 def ensure_pack_import_path_for_scenario(scenario_path: str | Path) -> None:
-    """Prepend the pack's configured ``sys.path`` entry so ``entry_module`` can import."""
+    """Prepend the pack's configured sys.path entry so entry_module can import."""
     rec = resolve_pack_for_scenario(scenario_path)
     add = (rec.root / rec.manifest.python.path_add).resolve()
     if add.is_dir():
@@ -207,7 +207,7 @@ def ensure_pack_import_path_for_scenario(scenario_path: str | Path) -> None:
 
 
 def load_game_definition_for_scenario_path(scenario_path: str | Path) -> GameDefinition:
-    """Resolve pack from scenario path, adjust ``sys.path``, import entry, return definition."""
+    """Resolve pack from scenario path, adjust sys.path, import entry, return definition."""
     rec = resolve_pack_for_scenario(scenario_path)
     add = (rec.root / rec.manifest.python.path_add).resolve()
     if add.is_dir():

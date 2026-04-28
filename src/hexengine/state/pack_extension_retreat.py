@@ -1,4 +1,4 @@
-"""Read mandatory retreat steps from a title-owned ``GameState.extension`` bucket."""
+"""Read mandatory retreat steps from a title-owned GameState.extension bucket."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from .game_state import GameState
 def retreat_hexes_remaining(
     state: GameState, unit_id: str, *, extension_key: str
 ) -> int | None:
-    """Positive mandatory retreat steps left for ``unit_id``, or ``None`` if none."""
+    """Positive mandatory retreat steps left for unit_id, or None if none."""
     hx = state.extension.get(extension_key)
     if not isinstance(hx, dict):
         return None

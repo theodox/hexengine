@@ -277,7 +277,7 @@ class GameServer:
         return self._game_definition.get_next_phase(self.action_manager.current_state)
 
     def _suggested_focus_unit_id_for_player_id(self, player_id: str) -> str | None:
-        """Per-viewer selection hint from optional ``GameDefinition`` focus hook."""
+        """Per-viewer selection hint from optional GameDefinition focus hook."""
         player = self.players.get(player_id)
         if player is None:
             return None
@@ -296,7 +296,7 @@ class GameServer:
         """
         Per-viewer mandatory retreat obligations for the player's faction.
 
-        Only populated when the title exposes ``retreat_obligation_hexes_remaining``.
+        Only populated when the title exposes retreat_obligation_hexes_remaining.
         """
         player = self.players.get(player_id)
         if player is None:
@@ -773,11 +773,11 @@ class GameServer:
 
     def _map_overlays_for_player_id(self, player_id: str) -> list[dict[str, Any]]:
         """
-        Per-recipient map overlay specs for ``StateUpdate.map_overlays``.
+        Per-recipient map overlay specs for StateUpdate.map_overlays.
 
         The browser client owns DOM: it creates/updates/removes elements from this list.
-        Each dict must include ``schema`` 1, ``id``, ``kind``, ``hex`` (i/j/k), and
-        presentation fields for the kind (e.g. ``text`` for ``glyph``).
+        Each dict must include schema 1, id, kind, hex (i/j/k), and
+        presentation fields for the kind (e.g. text for glyph).
         """
         player = self.players.get(player_id)
         if player is None or not player.connected:

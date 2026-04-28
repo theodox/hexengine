@@ -1,4 +1,4 @@
-"""Manifest-driven game pack discovery (:mod:`hexengine.game_packs.registry`)."""
+"""Manifest-driven game pack discovery (hexengine.game_packs.registry)."""
 
 from __future__ import annotations
 

@@ -83,13 +83,13 @@ class BrowserWebSocketClient:
         self.sequence_number = 0
         #: Last `turn_rules` dict from `hexengine.server.protocol.StateUpdate` (if any).
         self.turn_rules: dict[str, Any] | None = None
-        #: Last ``StateUpdate.suggested_focus_unit_id`` (per-viewer hint from server).
+        #: Last StateUpdate.suggested_focus_unit_id (per-viewer hint from server).
         self.suggested_focus_unit_id: str | None = None
-        #: Last ``StateUpdate.retreat_obligations`` (per-viewer obligations from server).
+        #: Last StateUpdate.retreat_obligations (per-viewer obligations from server).
         self.retreat_obligations: dict[str, int] | None = None
-        #: Last ``StateUpdate.interaction_messages`` (per-viewer transient UI messages).
+        #: Last StateUpdate.interaction_messages (per-viewer transient UI messages).
         self.interaction_messages: list[dict[str, Any]] | None = None
-        #: Last ``StateUpdate.map_overlays`` (per-viewer map-space overlay specs).
+        #: Last StateUpdate.map_overlays (per-viewer map-space overlay specs).
         self.map_overlays: list[dict[str, Any]] = []
 
         # Last applied scenario map_display JSON (avoid reset_view on every state tick)

@@ -145,18 +145,18 @@ class Map:
 
     def map_space_to_container_pixel(self, x: float, y: float) -> tuple[float, float]:
         """
-        Map-space pixel (e.g. from ``HexLayout.hex_to_pixel``) to coordinates in
-        ``#map-container`` space under the current ``translate(pan) scale(zoom)``
-        on ``#map-world`` (see ``_clamp_pan`` docstring: ``zoom * m + pan``).
+        Map-space pixel (e.g. from HexLayout.hex_to_pixel) to coordinates in
+        #map-container space under the current translate(pan) scale(zoom)
+        on #map-world (see _clamp_pan docstring: zoom * m + pan).
         """
         z = self._zoom_level
         return (float(x) * z + self._pan_x, float(y) * z + self._pan_y)
 
     def ensure_overlay_layer(self) -> Any:
         """
-        Single absolutely positioned layer inside ``#map-world`` for title-driven overlays.
+        Single absolutely positioned layer inside #map-world for title-driven overlays.
 
-        Map-space ``left`` / ``top`` match ``HexLayout.hex_to_pixel``; pan/zoom apply via
+        Map-space left / top match HexLayout.hex_to_pixel; pan/zoom apply via
         the parent transform.
         """
         if self._transform_root is None:

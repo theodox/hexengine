@@ -64,7 +64,7 @@ def append_log_line(level: int, text: str) -> None:
     """
     Append one line to the dev console (#console) if initialized.
 
-    Uses the same storage path as :class:`TextAreaWriter` / :class:`DevLogHandler`.
+    Uses the same storage path as TextAreaWriter / DevLogHandler.
     """
     tw = TextAreaWriter.INSTANCE
     if tw is None:

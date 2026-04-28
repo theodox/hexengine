@@ -1,7 +1,7 @@
 """
-Stable entry point for :mod:`hexengine.game_packs.registry` (manifest-driven load).
+Stable entry point for hexengine.game_packs.registry (manifest-driven load).
 
-Returns the title's single static turn schedule (see ``hexdemo.game_config``).
+Returns the title's single static turn schedule (see hexdemo.game_config).
 """
 
 from __future__ import annotations

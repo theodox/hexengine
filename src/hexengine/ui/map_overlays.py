@@ -1,7 +1,7 @@
 """
-Map-space overlays: keyed DOM nodes under ``#map-world`` (pan/zoom with the board).
+Map-space overlays: keyed DOM nodes under #map-world (pan/zoom with the board).
 
-The server sends overlay rows on ``StateUpdate.map_overlays``; the client syncs
+The server sends overlay rows on StateUpdate.map_overlays; the client syncs
 them here. Presentation is title CSS; this module only creates/positions elements.
 """
 

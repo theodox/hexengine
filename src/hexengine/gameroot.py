@@ -1,9 +1,9 @@
 """
 Resolve scenario paths from launch arguments and repo layout (GameRoot: loose dir or zip).
 
-When no pack is specified, a ``games/<pack_id>/`` tree next to an ancestor of this module
+When no pack is specified, a games/<pack_id>/ tree next to an ancestor of this module
 (typical dev checkout) supplies the **default** scenario when that pack includes
-``scenarios/default/scenario.toml`` (today: the bundled hexdemo pack).
+scenarios/default/scenario.toml (today: the bundled hexdemo pack).
 
 Zip archives extract to a temporary directory for import compatibility.
 
@@ -13,12 +13,12 @@ Zip archives extract to a temporary directory for import compatibility.
   or the packaged engine `test_scenario` when no `games/<pack>` layout is found —
   `resolve_scenario_path_with_game_root` raises `FileNotFoundError` instead.
 - `load_game_definition_for_scenario` no longer returns generic Red/Blue rules for
-  arbitrary paths; only directories with ``hexengine_pack.toml`` (discovered under
-  ``games/*/`` or on an ancestor chain of the scenario path) load title Python —
+  arbitrary paths; only directories with hexengine_pack.toml (discovered under
+  games/*/ or on an ancestor chain of the scenario path) load title Python —
   otherwise `ValueError`.
 - `load_game_definition` remains for **explicit** engine test / demo Red/Blue schedules only
   (not inferred from a scenario path). Pack scenarios use the pack's own
-  ``load_game_definition()`` from ``hexengine_pack.toml`` (no engine-passed schedule).
+  load_game_definition() from hexengine_pack.toml (no engine-passed schedule).
 """
 
 from __future__ import annotations
@@ -59,11 +59,11 @@ def initial_faction_for_game_definition(game: GameDefinition) -> str:
 
 def load_game_definition_for_scenario(scenario_path: str | Path) -> GameDefinition:
     """
-    Return the `hexengine.gamedef.protocol.GameDefinition` for the resolved scenario.
+    Return the hexengine.gamedef.protocol.GameDefinition for the resolved scenario.
 
-    Dispatches via :mod:`hexengine.game_packs.registry` using each pack's
-    ``hexengine_pack.toml`` (no engine code names individual titles). The pack's
-    ``entry_callable`` returns the title's single static schedule.
+    Dispatches via hexengine.game_packs.registry using each pack's hexengine_pack.toml
+    (no engine code names individual titles). The pack's entry_callable returns the
+    title's single static schedule.
     """
     from hexengine.game_packs.registry import load_game_definition_for_scenario_path
 
@@ -74,11 +74,11 @@ def load_game_definition(*, schedule: str = "interleaved") -> GameDefinition:
     """
     Built-in Red/Blue demo schedules for engine tests and tools (not pack scenarios).
 
-    - ``interleaved`` — ``InterleavedTwoFactionGameDefinition``
-    - ``sequential`` — ``SequentialTwoFactionGameDefinition``
+    - interleaved — InterleavedTwoFactionGameDefinition
+    - sequential — SequentialTwoFactionGameDefinition
 
-    Pack-owned scenarios use :func:`load_game_definition_for_scenario` instead; the
-    pack declares its own rota via its manifest ``entry_callable``.
+    Pack-owned scenarios use load_game_definition_for_scenario instead; the pack
+    declares its own rota via its manifest entry_callable.
     """
     if schedule.strip().lower() == "sequential":
         return SequentialTwoFactionGameDefinition()
@@ -248,7 +248,7 @@ def reset_pack_loaded_banner_for_tests() -> None:
 
 
 def ensure_pack_import_path_for_scenario(scenario_path: str | Path) -> None:
-    """Prepend the owning pack's ``sys.path`` prefix for ``scenario_path`` (see manifest)."""
+    """Prepend the owning pack's sys.path prefix for scenario_path (see manifest)."""
     from hexengine.game_packs.registry import ensure_pack_import_path_for_scenario as _ensure
 
     try:
@@ -261,8 +261,8 @@ def try_pack_loaded_banner(scenario_path: str | Path) -> None:
     """
     Once per process, call the owning pack's optional loaded-banner hook from the manifest.
 
-    Declared in ``hexengine_pack.toml`` as ``[hooks] loaded_banner_module`` /
-    ``loaded_banner_callable`` (default callable name ``print_loaded_banner``).
+    Declared in hexengine_pack.toml as [hooks] loaded_banner_module /
+    loaded_banner_callable (default callable name print_loaded_banner).
     """
     global _pack_loaded_banner_printed
     if _pack_loaded_banner_printed:

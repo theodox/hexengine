@@ -711,10 +711,10 @@ _UNIT_ARCHETYPE_RESERVED_TOML_KEYS: frozenset[str] = frozenset(
 
 def _normalize_unit_archetype_row_mapping(raw: Mapping[str, Any]) -> dict[str, Any]:
     """
-    Allow flat keys on ``[[unit_archetype]]`` / ``[[unit_archetypes]]`` rows
-    (e.g. ``combat = 6``) as shorthand for ``attributes``.
+    Allow flat keys on [[unit_archetype]] / [[unit_archetypes]] rows
+    (e.g. combat = 6) as shorthand for attributes.
 
-    An explicit ``attributes = { ... }`` table is merged first; duplicate keys from
+    An explicit attributes = { ... } table is merged first; duplicate keys from
     flat entries override the table (flat wins).
     """
     d = dict(raw)

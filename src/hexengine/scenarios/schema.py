@@ -129,14 +129,14 @@ class UnitRow:
     #: Odd-q `(col, row)` after parse (same as `hexengine.hexes.types.HexColRow`).
     position: Position = field(metadata=toml_field("position", coerce="position"))
     faction: str = field(metadata=toml_field("faction", nonempty=True))
-    #: Optional key into ``[[unit_graphics]]``; when omitted, ``type`` is used.
+    #: Optional key into [[unit_graphics]]; when omitted, type is used.
     graphics: str | None = field(
         default=None, metadata=toml_field("graphics", optional_str=True)
     )
     health: int = field(default=100, metadata=toml_field("health"))
     active: bool = field(default=True, metadata=toml_field("active"))
     #: Title-defined per-instance data (TOML inline table); merged with
-    #: ``GameDefinition.merge_spawn_attributes`` when building ``UnitState``.
+    #: GameDefinition.merge_spawn_attributes when building UnitState.
     attributes: dict[str, Any] = field(
         default_factory=dict,
         metadata=toml_field("attributes", coerce="unit_attributes"),
@@ -148,9 +148,9 @@ class UnitRow:
 class UnitArchetypeRow:
     """Named unit template for `[[unit_placements]]` with `archetype = "..."`.
 
-    Besides ``attributes = { ... }``, any key not among ``name`` / ``type`` /
-    ``graphics`` / ``faction`` / ``health`` / ``active`` / ``id_prefix`` /
-    ``attributes`` is folded into ``attributes`` at parse time (flat ``combat = 6`` style).
+    Besides attributes = { ... }, any key not among name / type /
+    graphics / faction / health / active / id_prefix /
+    attributes is folded into attributes at parse time (flat combat = 6 style).
     """
 
     name: str = field(metadata=toml_field("name", nonempty=True))
@@ -165,8 +165,8 @@ class UnitArchetypeRow:
     id_prefix: str | None = field(
         default=None, metadata=toml_field("id_prefix", optional_str=True)
     )
-    #: Default ``attributes`` for every placement using this archetype; per-position
-    #: ``attributes`` tables shallow-merge on top of these defaults.
+    #: Default attributes for every placement using this archetype; per-position
+    #: attributes tables shallow-merge on top of these defaults.
     attributes: dict[str, Any] = field(
         default_factory=dict,
         metadata=toml_field("attributes", coerce="unit_attributes"),

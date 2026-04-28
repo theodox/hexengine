@@ -57,9 +57,9 @@ def scenario_to_initial_state(
     `initial_faction` / `initial_phase` / `phase_actions_remaining` / `schedule_index`
     should match the first rota slot (see `hexengine.gameroot.initial_turn_slot_for_game_definition`).
 
-    When ``game_definition`` is set, initial ``UnitState.attributes`` are filled via
-    ``merge_spawn_attributes`` (type defaults + each row's ``UnitRow.attributes``).
-    With no definition, scenario ``attributes`` tables are copied as-is.
+    When game_definition is set, initial UnitState.attributes are filled via
+    merge_spawn_attributes (type defaults + each row's UnitRow.attributes).
+    With no definition, scenario attributes tables are copied as-is.
     """
     from ..state.game_state import TurnState
 

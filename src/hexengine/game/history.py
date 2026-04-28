@@ -4,7 +4,7 @@ from .events.hotkey import Hotkey, Modifiers
 
 
 class GameHistoryMixin:
-    """Ctrl+Z / Ctrl+Y hotkeys; ``Game`` implements ``undo`` / ``redo`` (server-backed)."""
+    """Ctrl+Z / Ctrl+Y hotkeys; Game implements undo / redo (server-backed)."""
 
     @Hotkey("z", Modifiers.CONTROL)
     def undo_it(self) -> None:

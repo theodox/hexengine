@@ -572,7 +572,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.marker_mgr.sync_markers(wire)
 
     def _title_state_extension_key(self) -> str | None:
-        """Pack bucket in ``GameState.extension`` for combat/retreat (server ``turn_rules``)."""
+        """Pack bucket in GameState.extension for combat/retreat (server turn_rules)."""
         client = getattr(self, "client", None)
         if client is not None:
             tr = getattr(client, "turn_rules", None)
@@ -746,9 +746,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     def _faction_ui_for(self, faction_id: str) -> tuple[str, str | None]:
         """
-        Resolve (label, css_class) for ``faction_id`` from server ``turn_rules``.
+        Resolve (label, css_class) for faction_id from server turn_rules.
 
-        Falls back to ``display_faction_name`` and no explicit css class.
+        Falls back to display_faction_name and no explicit css class.
         """
         tr = self.client.turn_rules if self.client is not None else None
         if isinstance(tr, dict):
@@ -777,7 +777,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         return display_faction_name(faction_id), None
 
     def _apply_title_faction_css(self) -> None:
-        """Inject optional title CSS from ``turn_rules.faction_ui`` (inline + href)."""
+        """Inject optional title CSS from turn_rules.faction_ui (inline + href)."""
         from ..document import js, jsnull
 
         client = self.client
@@ -865,7 +865,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 )
 
     def _apply_focus_unit_after_state_sync(self, state: GameState) -> None:
-        """Apply per-viewer ``StateUpdate.suggested_focus_unit_id`` when valid."""
+        """Apply per-viewer StateUpdate.suggested_focus_unit_id when valid."""
         client = self.client
         if client is None:
             return
@@ -965,7 +965,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             self.popup_manager.create_popup(text, pos)
 
     def _sync_map_overlays(self) -> None:
-        """Apply ``StateUpdate.map_overlays`` via ``MapOverlayManager``."""
+        """Apply StateUpdate.map_overlays via MapOverlayManager."""
         client = self.client
         rows = client.map_overlays if client is not None else []
         self.map_overlay_manager.sync(rows)
@@ -1005,7 +1005,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         return None
 
     def _max_active_units_per_hex(self) -> int | None:
-        """Optional stacking limit from server ``turn_rules`` (title-owned)."""
+        """Optional stacking limit from server turn_rules (title-owned)."""
         c = self.client
         tr = c.turn_rules if c is not None else None
         if not isinstance(tr, dict):

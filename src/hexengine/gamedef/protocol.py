@@ -23,31 +23,31 @@ class GameDefinition(Protocol):
 
     The engine uses only hooks (plus engine defaults when a hook returns `hooks.DEFAULT`).
 
-    Optional: ``title_state_extension_key`` — class attribute or plain ``str`` on the
-    definition naming the ``GameState.extension`` bucket used for title-owned combat
-    and retreat data (for example the string ``hexdemo``). When set, the server publishes it
-    in ``StateUpdate.turn_rules`` and runs phase/combat housekeeping against that key.
+    Optional: title_state_extension_key — class attribute or plain str on the
+    definition naming the GameState.extension bucket used for title-owned combat
+    and retreat data (for example the string hexdemo). When set, the server publishes it
+    in StateUpdate.turn_rules and runs phase/combat housekeeping against that key.
     Built-in schedules omit it.
 
     Phase auto-advance after combat is provided via `TitleHooks` (attack hooks).
 
     Retreat / obligation UX is also provided via `TitleHooks` (movement hooks).
 
-    Optional (per-unit ``UnitState.attributes``, title-defined JSON-safe data):
+    Optional (per-unit UnitState.attributes, title-defined JSON-safe data):
 
-    - ``default_attributes_for_unit_type(unit_type: str) -> dict[str, Any]``
-    - ``merge_spawn_attributes(unit_type: str, instance_attrs: dict[str, Any], state: GameState | None) -> dict[str, Any]``
-    - ``validate_unit_attributes_patch(state: GameState, unit_id: str, patch: dict[str, Any]) -> None``
+    - default_attributes_for_unit_type(unit_type: str) -> dict[str, Any]
+    - merge_spawn_attributes(unit_type: str, instance_attrs: dict[str, Any], state: GameState | None) -> dict[str, Any]
+    - validate_unit_attributes_patch(state: GameState, unit_id: str, patch: dict[str, Any]) -> None
 
     If omitted, built-in definitions use empty defaults / merge / no-op validation.
 
-    Optional (per-viewer focus hint, title policy; consumed via ``StateUpdate``):
+    Optional (per-viewer focus hint, title policy; consumed via StateUpdate):
 
-    - ``focus_unit_id_after_state_sync(state, viewer_faction: str | None) -> str | None``
+    - focus_unit_id_after_state_sync(state, viewer_faction: str | None) -> str | None
 
-    When present, ``GameServer`` copies the result into
-    ``StateUpdate.suggested_focus_unit_id`` for that viewer on each state broadcast.
-    The browser ``Game`` applies that field only (it does not call this hook).
+    When present, GameServer copies the result into
+    StateUpdate.suggested_focus_unit_id for that viewer on each state broadcast.
+    The browser Game applies that field only (it does not call this hook).
     """
 
     def available_factions(self) -> list[str]:

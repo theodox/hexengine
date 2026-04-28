@@ -18,9 +18,9 @@ T = TypeVar("T")
 
 def coerce_unit_attributes(raw: object) -> dict[str, Any]:
     """
-    Parse ``[[units]]`` / placement ``attributes`` as a shallow string-keyed map.
+    Parse [[units]] / placement attributes as a shallow string-keyed map.
 
-    Accepts ``null`` / missing coercer path as ``{}`` via caller; TOML tables only here.
+    Accepts null / missing coercer path as {} via caller; TOML tables only here.
     """
     if raw is None:
         return {}

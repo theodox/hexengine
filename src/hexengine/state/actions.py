@@ -80,7 +80,7 @@ class MoveUnit(StateAction):
 
 
 class PatchUnitAttributes(StateAction):
-    """Shallow-merge keys into ``UnitState.attributes`` (title-defined JSON-safe data)."""
+    """Shallow-merge keys into UnitState.attributes (title-defined JSON-safe data)."""
 
     def __init__(
         self,
@@ -397,7 +397,7 @@ _TITLE_COMBAT_KEYS = (
 
 
 class ClearTitleCombatExtension(StateAction):
-    """Remove title combat keys from ``extension[extension_key]`` (phase rollover)."""
+    """Remove title combat keys from extension[extension_key] (phase rollover)."""
 
     def __init__(self, extension_key: str) -> None:
         self.extension_key = extension_key
@@ -431,7 +431,7 @@ class ClearTitleCombatExtension(StateAction):
 
 
 class ClearHexdemoCombatExtension(ClearTitleCombatExtension):
-    """Backward-compatible alias for ``ClearTitleCombatExtension('hexdemo')``."""
+    """Backward-compatible alias for ClearTitleCombatExtension('hexdemo')."""
 
     def __init__(self) -> None:
         super().__init__("hexdemo")
@@ -441,7 +441,7 @@ class ClearHexdemoCombatExtension(ClearTitleCombatExtension):
 
 
 class ClearUnitRetreatObligation(StateAction):
-    """Clear one unit's entry from title ``retreat_obligations`` after a fulfillment move."""
+    """Clear one unit's entry from title retreat_obligations after a fulfillment move."""
 
     def __init__(self, unit_id: str, extension_key: str) -> None:
         self.unit_id = unit_id
@@ -492,7 +492,7 @@ def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:
 
 
 class Attack(StateAction):
-    """Single attack action (``attack_kind`` dispatches); v1 implements ``adjacent`` only."""
+    """Single attack action (attack_kind dispatches); v1 implements adjacent only."""
 
     def __init__(
         self,
