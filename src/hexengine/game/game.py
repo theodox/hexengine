@@ -126,6 +126,8 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.attack_plan_target_hex: "Hex | None" = None
         self.attack_plan_attacker_ids: set[str] = set()
         self._attack_plan_target_overlay = None
+        self._attack_plan_los_svg_group = None
+        self._attack_plan_los_lines: dict[str, Any] = {}
         self._attack_controls_root = None
         self._attack_controls_status = None
         self._attack_controls_confirm = None
@@ -270,6 +272,150 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             self._attack_plan_target_overlay = div
         return self._attack_plan_target_overlay
 
+    def _ensure_attack_los_svg_group(self):
+        """
+        Ensure an SVG group exists for attack-plan LOS lines.
+
+        Uses the map's highlight SVG so coordinates are in map-space and pan/zoom apply
+        via the #map-world transform.
+        """
+        try:
+            svg = self.canvas.svg_layer._svg
+        except Exception:
+            return None
+        if svg is None:
+            return None
+        if self._attack_plan_los_svg_group is None:
+            g = js.document.createElementNS("http://www.w3.org/2000/svg", "g")
+            g.classList.add("hexengine-attack-los-layer")
+            g.style.pointerEvents = "none"
+            svg.appendChild(g)
+            self._attack_plan_los_svg_group = g
+        return self._attack_plan_los_svg_group
+
+    def _clear_attack_los_lines(self) -> None:
+        for _uid, node in list(self._attack_plan_los_lines.items()):
+            try:
+                node.remove()
+            except Exception:
+                pass
+        self._attack_plan_los_lines.clear()
+
+    def _segment_intersection_with_polygon(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        poly: list[tuple[float, float]],
+    ) -> tuple[float, float] | None:
+        """
+        Return nearest intersection point between segment (x1,y1)-(x2,y2) and polygon edges.
+
+        Polygon is provided as a list of vertices in order (closed implicitly).
+        """
+
+        def cross(ax: float, ay: float, bx: float, by: float) -> float:
+            return ax * by - ay * bx
+
+        rx, ry = (x2 - x1), (y2 - y1)
+        best_t: float | None = None
+        best_pt: tuple[float, float] | None = None
+        n = len(poly)
+        if n < 3:
+            return None
+        for i in range(n):
+            (px, py) = poly[i]
+            (qx, qy) = poly[(i + 1) % n]
+            sx, sy = (qx - px), (qy - py)
+            denom = cross(rx, ry, sx, sy)
+            if abs(denom) < 1e-9:
+                continue  # Parallel or collinear; ignore.
+            qpx, qpy = (px - x1), (py - y1)
+            t = cross(qpx, qpy, sx, sy) / denom
+            u = cross(qpx, qpy, rx, ry) / denom
+            if 0.0 <= t <= 1.0 and 0.0 <= u <= 1.0:
+                if best_t is None or t < best_t:
+                    best_t = t
+                    best_pt = (x1 + rx * t, y1 + ry * t)
+        return best_pt
+
+    def _sync_attack_plan_los_lines(self, st: GameState | None) -> None:
+        """Render LOS lines for ranged attackers toward the current target hex."""
+        if st is None or self.attack_plan_target_hex is None:
+            self._clear_attack_los_lines()
+            return
+        tgt = self.attack_plan_target_hex
+        g = self._ensure_attack_los_svg_group()
+        if g is None:
+            return
+
+        tx, ty = self.canvas.hex_layout.hex_to_pixel(tgt)
+
+        from ..hexes.los import first_blocking_hex
+
+        def blocks(h):
+            loc = st.board.effective_location(h)
+            if loc is None:
+                return False
+            return bool(getattr(loc, "block_los", False))
+
+        keep: set[str] = set()
+        for uid in sorted(self.attack_plan_attacker_ids):
+            u = st.board.units.get(uid)
+            if u is None or not u.active:
+                continue
+            ut = str(getattr(u, "unit_type", "")).lower()
+            if ut not in ("artillery", "art"):
+                continue
+            try:
+                atk_range = int(u.attributes.get("range", 0))
+            except Exception:
+                atk_range = 0
+            if atk_range <= 1:
+                continue
+
+            ax, ay = self.canvas.hex_layout.hex_to_pixel(u.position)
+            endx, endy = (tx, ty)
+            blocked_hex = first_blocking_hex(u.position, tgt, blocks=blocks)
+            is_blocked = blocked_hex is not None
+            if blocked_hex is not None:
+                try:
+                    corners = self.canvas.hex_layout.hex_corners(blocked_hex)
+                    hit = self._segment_intersection_with_polygon(
+                        ax, ay, tx, ty, [(float(x), float(y)) for x, y in corners]
+                    )
+                    if hit is not None:
+                        endx, endy = hit
+                except Exception:
+                    pass
+
+            line = self._attack_plan_los_lines.get(uid)
+            if line is None:
+                line = js.document.createElementNS("http://www.w3.org/2000/svg", "line")
+                line.classList.add("hexengine-attack-los-line")
+                line.setAttribute("data-unit", str(uid))
+                g.appendChild(line)
+                self._attack_plan_los_lines[uid] = line
+            line.setAttribute("x1", str(float(ax)))
+            line.setAttribute("y1", str(float(ay)))
+            line.setAttribute("x2", str(float(endx)))
+            line.setAttribute("y2", str(float(endy)))
+            if is_blocked:
+                line.classList.add("hexengine-attack-los-line--blocked")
+            else:
+                line.classList.remove("hexengine-attack-los-line--blocked")
+            keep.add(uid)
+
+        # Remove stale lines.
+        for uid in list(self._attack_plan_los_lines.keys()):
+            if uid not in keep:
+                try:
+                    self._attack_plan_los_lines[uid].remove()
+                except Exception:
+                    pass
+                self._attack_plan_los_lines.pop(uid, None)
+
     def _sync_attack_plan_ui(self) -> None:
         st = self._interactive_game_state()
         ok_phase = _phase_allows_attack_planning(
@@ -294,6 +440,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             attacker_ids,
             target_unit_ids=target_unit_ids,
         )
+        self._sync_attack_plan_los_lines(st)
 
         if self._attack_controls_status is not None:
             if not ok_phase:
@@ -342,6 +489,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.set_attack_plan_target_hex(None)
         self.ui_state.clear_secondary_selection()
         self.display_mgr.clear_secondary_selection()
+        self._clear_attack_los_lines()
 
     def _attack_unit_is_eligible(self, st, unit_id: str) -> bool:
         if st is None or self.attack_plan_target_hex is None:
@@ -389,17 +537,44 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         if self._attack_unit_is_eligible(st, unit_id):
             self.attack_plan_attacker_ids.add(unit_id)
         else:
+            msg = "Cannot attack target"
+            try:
+                u = st.board.units.get(unit_id)
+                tgt = self.attack_plan_target_hex
+                if u is not None and tgt is not None:
+                    ut = str(getattr(u, "unit_type", "")).lower()
+                    if ut in ("artillery", "art"):
+                        from ..hexes.math import distance
+                        from ..hexes.los import has_line_of_sight
+
+                        d = distance(u.position, tgt)
+                        try:
+                            atk_range = int(u.attributes.get("range", 0))
+                        except Exception:
+                            atk_range = 0
+                        in_range = atk_range > 1 and d > 1 and d <= atk_range
+                        if in_range:
+                            def blocks(h):
+                                loc = st.board.effective_location(h)
+                                if loc is None:
+                                    return False
+                                return bool(getattr(loc, "block_los", False))
+
+                            if not has_line_of_sight(u.position, tgt, blocks=blocks):
+                                msg = "No line of sight"
+            except Exception:
+                pass
             # Show a short callout near the unit (fall back to generic if missing display).
             try:
                 disp = self.display_mgr.get_display(unit_id)
                 if disp is not None:
                     mx, my = self.canvas.hex_layout.hex_to_pixel(disp.position)
                     cx, cy = self.canvas.map_space_to_container_pixel(mx, my)
-                    self.popup_manager.create_popup("Cannot attack target", (cx, cy))
+                    self.popup_manager.create_popup(msg, (cx, cy))
                 else:
-                    self.popup_manager.create_popup("Cannot attack target", (32, 32))
+                    self.popup_manager.create_popup(msg, (32, 32))
             except Exception:
-                self.popup_manager.create_popup("Cannot attack target", (32, 32))
+                self.popup_manager.create_popup(msg, (32, 32))
         self._sync_attack_plan_ui()
 
     def confirm_attack_plan(self) -> None:

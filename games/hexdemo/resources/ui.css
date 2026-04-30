@@ -84,3 +84,14 @@
   stroke: rgba(72, 187, 120, 0.7);
   stroke-width: 2;
 }
+
+/* Hexdemo override: ranged LOS preview lines during attack planning. */
+.hexengine-attack-los-line {
+  stroke: rgba(88, 66, 40, 0.78);
+  stroke-width: 3px;
+}
+
+.hexengine-attack-los-line.hexengine-attack-los-line--blocked {
+  stroke: rgba(229, 62, 62, 0.78);
+  stroke-dasharray: 8 6;
+}

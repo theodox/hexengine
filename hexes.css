@@ -400,6 +400,23 @@ Popup styles — callout: root anchors tail tip; bubble is the main rect; tail i
     background: rgba(0, 0, 0, 0.06);
 }
 
+/* Attack planning: ranged-unit LOS preview lines (SVG, map-space). */
+.hexengine-attack-los-line {
+    stroke: rgba(42, 111, 155, 0.75);
+    stroke-width: 2.5px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+    opacity: 0.95;
+    pointer-events: none;
+}
+
+.hexengine-attack-los-line.hexengine-attack-los-line--blocked {
+    stroke: rgba(229, 62, 62, 0.72);
+    stroke-dasharray: 6 5;
+    opacity: 0.85;
+}
+
 .fade-out {
     animation: fadeOut 0.5s forwards;
 }

@@ -107,5 +107,43 @@ def has_line_of_sight(
     return False
 
 
-__all__ = ["has_line_of_sight"]
+def first_blocking_hex(
+    a: Hex,
+    b: Hex,
+    *,
+    blocks: Callable[[Hex], bool],
+) -> Hex | None:
+    """
+    Return the first LOS-blocking hex between `a` and `b`, or None if LOS is clear.
+
+    Uses the same grazing rule as `has_line_of_sight`: LOS is clear if either of the
+    two infinitesimally-offset rays is clear. When blocked, returns the nearest
+    blocking hex encountered across both rays.
+    """
+    if a == b:
+        return None
+
+    paths = (
+        _ray_hexes(a, b, nudge_sign=+1.0),
+        _ray_hexes(a, b, nudge_sign=-1.0),
+    )
+
+    first_hits: list[Hex] = []
+    for path in paths:
+        hit = None
+        for h in path[1:-1]:
+            if blocks(h):
+                hit = h
+                break
+        if hit is None:
+            # At least one ray is clear → LOS is clear.
+            return None
+        first_hits.append(hit)
+
+    # Both rays blocked. Pick the nearer blocking hex (stable tie-break by coords).
+    best = min(first_hits, key=lambda h: (distance(a, h), int(h.i), int(h.j), int(h.k)))
+    return best
+
+
+__all__ = ["has_line_of_sight", "first_blocking_hex"]
 
