@@ -39,9 +39,9 @@ def hexdemo_four_phase_entries(
         raise ValueError("hexdemo four-phase schedule requires two factions")
     union, confederate = factions[0], factions[1]
     return (
-        {"faction": union, "phase": "Move", "max_actions": 2},
+        {"faction": union, "phase": "Move", "max_actions": 4},
         {"faction": union, "phase": "Combat", "max_actions": 2},
-        {"faction": confederate, "phase": "Move", "max_actions": 2},
+        {"faction": confederate, "phase": "Move", "max_actions": 4},
         {"faction": confederate, "phase": "Combat", "max_actions": 2},
     )
 

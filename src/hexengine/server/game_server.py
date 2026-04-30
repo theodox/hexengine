@@ -116,6 +116,34 @@ def _resolve_title_resource_href(game_definition: Any, rel: str) -> str | None:
         return None
 
 
+def _dedupe_wire_id_list(raw: Any) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for x in raw:
+        if isinstance(x, str) and (s := x.strip()) and s not in seen:
+            seen.add(s)
+            out.append(s)
+    return out
+
+
+def _normalize_attack_party_ids(
+    params: dict[str, Any], *, anchor_id: str, plural_key: str
+) -> tuple[str, ...]:
+    """Build ordered (anchor first) party ids from wire anchor + optional plural list."""
+    anchor = str(anchor_id or "").strip()
+    if not anchor:
+        return ()
+    extras = _dedupe_wire_id_list(params.get(plural_key))
+    if not extras:
+        return (anchor,)
+    if anchor not in extras:
+        return (anchor, *extras)
+    rest = [x for x in extras if x != anchor]
+    return (anchor, *rest)
+
+
 class GameServer:
     """
     Server that manages multiplayer game state.
@@ -935,10 +963,32 @@ class GameServer:
                 du = current_state.board.units.get(deff)
                 if au is None or du is None:
                     raise ValueError("Unknown attacker or defender unit id")
+                attacker_ids = _normalize_attack_party_ids(
+                    params, anchor_id=att, plural_key="attacker_ids"
+                )
+                defender_ids = _normalize_attack_party_ids(
+                    params, anchor_id=deff, plural_key="defender_ids"
+                )
+                for aid in attacker_ids:
+                    a = current_state.board.units.get(aid)
+                    if a is None or not a.active:
+                        raise ValueError("Unknown attacker or inactive unit")
+                    if a.faction != player.faction:
+                        raise ValueError("You do not control one of the attackers")
+                for did in defender_ids:
+                    d = current_state.board.units.get(did)
+                    if d is None or not d.active:
+                        raise ValueError("Unknown defender or inactive unit")
+                    if d.position != du.position:
+                        raise ValueError(
+                            "Multi-defender attack requires all defenders on same hex"
+                        )
+                    if au.faction == d.faction:
+                        raise ValueError("Cannot attack same faction")
                 ctx = AttackContext(
                     state=current_state,
-                    attacker_unit_id=att,
-                    defender_unit_id=deff,
+                    attacker_ids=attacker_ids,
+                    defender_ids=defender_ids,
                     attacker_hex=au.position,
                     defender_hex=du.position,
                     player_faction=player.faction,
@@ -962,14 +1012,16 @@ class GameServer:
                 )
                 return
             try:
+                hr_att = getattr(hr, "attacker_ids", None)
+                hr_def = getattr(hr, "defender_ids", None)
                 atk = Attack(
                     attack_kind,
                     att,
                     deff,
                     extension_key=ek,
                     outcome=str(getattr(hr, "outcome", "")),
-                    attacker_ids=getattr(hr, "attacker_ids", None),
-                    defender_ids=getattr(hr, "defender_ids", None),
+                    attacker_ids=hr_att if hr_att is not None else ctx.attacker_ids,
+                    defender_ids=hr_def if hr_def is not None else ctx.defender_ids,
                     retreat_distance=getattr(hr, "retreat_distance", None),
                     retreat_unit_id=getattr(hr, "retreat_unit_id", None),
                     rng_entry=getattr(hr, "rng_entry", None),

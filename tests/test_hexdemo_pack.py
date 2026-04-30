@@ -83,7 +83,7 @@ def test_hexdemo_registry_build() -> None:
 
 
 def test_hexdemo_default_turn_order_four_phases() -> None:
-    """Shipped hexdemo uses Union then Confederate Move/Combat."""
+    """Shipped hexdemo uses Union then Confederate Move/Combat (4 moves / 2 combats per segment)."""
     import sys
 
     games = str(REPO_ROOT / "games")
@@ -94,9 +94,9 @@ def test_hexdemo_default_turn_order_four_phases() -> None:
     gd = build_game_definition()
     order = gd.turn_order()
     assert len(order) == 4
-    assert order[0] == {"faction": "union", "phase": "Move", "max_actions": 2}
+    assert order[0] == {"faction": "union", "phase": "Move", "max_actions": 4}
     assert order[1] == {"faction": "union", "phase": "Combat", "max_actions": 2}
-    assert order[2] == {"faction": "confederate", "phase": "Move", "max_actions": 2}
+    assert order[2] == {"faction": "confederate", "phase": "Move", "max_actions": 4}
     assert order[3] == {"faction": "confederate", "phase": "Combat", "max_actions": 2}
 
 

@@ -324,8 +324,8 @@ def test_hexdemo_validate_attack_adjacent_and_once_per_unit(hexdemo_server: Game
 
     ctx = AttackContext(
         state=st,
-        attacker_unit_id="u_att",
-        defender_unit_id="u_def",
+        attacker_ids=("u_att",),
+        defender_ids=("u_def",),
         attacker_hex=st.board.units["u_att"].position,
         defender_hex=st.board.units["u_def"].position,
         player_faction="union",
@@ -345,8 +345,8 @@ def test_hexdemo_validate_attack_adjacent_and_once_per_unit(hexdemo_server: Game
         hexdemo_server.hooks.attack.validate(
             AttackContext(
                 state=st_bad,
-                attacker_unit_id="u_att",
-                defender_unit_id="u_def",
+                attacker_ids=("u_att",),
+                defender_ids=("u_def",),
                 attacker_hex=st_bad.board.units["u_att"].position,
                 defender_hex=st_bad.board.units["u_def"].position,
                 player_faction="union",
@@ -376,8 +376,8 @@ def test_hexdemo_validate_attack_adjacent_and_once_per_unit(hexdemo_server: Game
         hexdemo_server.hooks.attack.validate(
             AttackContext(
                 state=st2,
-                attacker_unit_id="u_att",
-                defender_unit_id="u_def",
+                attacker_ids=("u_att",),
+                defender_ids=("u_def",),
                 attacker_hex=st2.board.units["u_att"].position,
                 defender_hex=st2.board.units["u_def"].position,
                 player_faction="union",

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import random
 
-from hexengine.hexes.math import distance
 from hexengine.hexes.los import has_line_of_sight
+from hexengine.hexes.math import distance
 from hexengine.hooks import AttackContext, AttackResolution
 
 from .. import combat
@@ -22,10 +22,8 @@ def _terrain_blocks_los(ctx: AttackContext):
     return blocks
 
 
-def _enemy_defender_ids_on_hex(ctx: AttackContext) -> tuple[str, ...]:
-    """
-    Hexdemo rule: an attack applies to every active enemy unit on the defender hex.
-    """
+def _expected_enemy_defender_ids_on_hex(ctx: AttackContext) -> tuple[str, ...]:
+    """Hexdemo: every active enemy on ``ctx.defender_hex`` is a valid defender."""
     attacker = ctx.state.board.units.get(ctx.attacker_unit_id)
     if attacker is None or not attacker.active:
         return ()
@@ -47,34 +45,25 @@ def validate_attack(ctx: AttackContext) -> None:
     if combat.any_retreat_obligation_pending(ctx.state):
         raise ValueError("Resolve retreat before issuing another attack")
 
-    attacker = ctx.state.board.units.get(ctx.attacker_unit_id)
-    defender = ctx.state.board.units.get(ctx.defender_unit_id)
-    if attacker is None or not attacker.active:
-        raise ValueError("Invalid attacker")
-    if defender is None or not defender.active:
+    defender0 = ctx.state.board.units.get(ctx.defender_unit_id)
+    if defender0 is None or not defender0.active:
         raise ValueError("Invalid defender")
-    if attacker.faction != ctx.player_faction:
-        raise ValueError("You do not control the attacker")
-    if attacker.faction == defender.faction:
-        raise ValueError("Cannot attack same faction")
-    raw_attacker_ids = ctx.params.get("attacker_ids")
-    attacker_ids: list[str] = []
-    if isinstance(raw_attacker_ids, list) and raw_attacker_ids:
-        for uid in raw_attacker_ids:
-            if isinstance(uid, str) and uid.strip():
-                attacker_ids.append(uid.strip())
-    if not attacker_ids:
-        attacker_ids = [ctx.attacker_unit_id]
+
+    expected = set(_expected_enemy_defender_ids_on_hex(ctx))
+    if not expected:
+        raise ValueError("No enemy units on target hex")
+    if set(ctx.defender_ids) != expected:
+        raise ValueError("Defender list must include every enemy on the target hex")
 
     target_hex = ctx.defender_hex
     blocks = _terrain_blocks_los(ctx)
-    for aid in attacker_ids:
+    for aid in ctx.attacker_ids:
         a = ctx.state.board.units.get(aid)
         if a is None or not a.active:
             raise ValueError("Invalid attacker")
         if a.faction != ctx.player_faction:
             raise ValueError("You do not control the attacker")
-        if a.faction == defender.faction:
+        if a.faction == defender0.faction:
             raise ValueError("Cannot attack same faction")
         ut = str(a.unit_type).lower()
         dist = distance(a.position, target_hex)
@@ -96,17 +85,11 @@ def validate_attack(ctx: AttackContext) -> None:
         else:
             raise ValueError(f"Unit type {ut!r} cannot participate in combined attacks")
 
-    # Hexdemo stack-wide: must have at least one enemy defender on the target hex.
-    defender_ids = _enemy_defender_ids_on_hex(ctx)
-    if not defender_ids:
-        raise ValueError("No enemy units on target hex")
-
-    # Preserve existing hexdemo behavior (attack-once per combat segment).
     hx = ctx.state.extension.get(PACK_STATE_EXTENSION_KEY)
     if isinstance(hx, dict):
         prev = hx.get("attacks_this_phase")
         if isinstance(prev, list):
-            for aid in attacker_ids:
+            for aid in ctx.attacker_ids:
                 if aid in prev:
                     raise ValueError("That unit has already attacked this combat phase")
 
@@ -125,33 +108,19 @@ def resolve_attack(ctx: AttackContext) -> AttackResolution:
     elif outcome == "defender_retreat":
         retreat_unit_id = ctx.defender_unit_id
 
-    raw_attacker_ids = ctx.params.get("attacker_ids")
-    attacker_ids: list[str] = []
-    if isinstance(raw_attacker_ids, list) and raw_attacker_ids:
-        for uid in raw_attacker_ids:
-            if isinstance(uid, str) and uid.strip():
-                attacker_ids.append(uid.strip())
-    if not attacker_ids:
-        attacker_ids = [ctx.attacker_unit_id]
-
-    defender_ids = _enemy_defender_ids_on_hex(ctx)
-    if not defender_ids:
-        # Should have been rejected by validate_attack; keep deterministic failure.
-        raise ValueError("No enemy units on target hex")
-
     rng_entry = {
         "op": "combined_attack",
         "outcome": outcome,
         "attacker_id": ctx.attacker_unit_id,
-        "attacker_ids": list(attacker_ids),
+        "attacker_ids": list(ctx.attacker_ids),
         "defender_id": ctx.defender_unit_id,
-        "defender_ids": list(defender_ids),
+        "defender_ids": list(ctx.defender_ids),
         "retreat_distance": retreat_distance,
     }
     return AttackResolution(
         outcome=outcome,
-        attacker_ids=tuple(attacker_ids),
-        defender_ids=defender_ids,
+        attacker_ids=None,
+        defender_ids=None,
         retreat_distance=retreat_distance,
         retreat_unit_id=retreat_unit_id,
         rng_entry=rng_entry,
@@ -170,7 +139,9 @@ def auto_advance_phase_after_attack(state) -> bool:
         return False
     faction = state.turn.current_faction
     active_ids = {
-        u.unit_id for u in state.board.units.values() if u.active and u.faction == faction
+        u.unit_id
+        for u in state.board.units.values()
+        if u.active and u.faction == faction
     }
     if not active_ids:
         return True
@@ -188,4 +159,3 @@ def auto_advance_phase_after_attack(state) -> bool:
         if u is not None and u.active and u.faction == faction:
             attacked.add(uid)
     return active_ids <= attacked
-

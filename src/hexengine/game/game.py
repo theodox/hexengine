@@ -584,7 +584,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         if not self.attack_plan_attacker_ids:
             return
 
-        # Pick one defender id on the target hex to anchor server AttackContext.
         defenders = [
             u
             for u in st.board.active_units_at_hex(self.attack_plan_target_hex)
@@ -599,6 +598,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 self.popup_manager.create_popup("No enemy unit on target", (32, 32))
             return
         defender_id = defenders[-1].unit_id
+        defender_ids = sorted(str(u.unit_id) for u in defenders)
 
         attacker_ids = sorted(self.attack_plan_attacker_ids)
         primary_attacker_id = attacker_ids[0]
@@ -610,6 +610,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 "attacker_id": primary_attacker_id,
                 "attacker_ids": attacker_ids,
                 "defender_id": defender_id,
+                "defender_ids": defender_ids,
             },
         )
         self.cancel_attack_plan()

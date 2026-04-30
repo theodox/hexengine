@@ -31,15 +31,35 @@ from .core import DEFAULT
 
 @dataclass(frozen=True, slots=True)
 class AttackContext:
-    """Context passed to title combat hooks for a single requested attack."""
+    """Context passed to title combat hooks for a single requested attack.
+
+    ``attacker_ids`` and ``defender_ids`` are the full participating parties (often
+    length 1). Wire requests still send ``attacker_id`` / ``defender_id`` as anchors;
+    the server normalizes optional ``attacker_ids`` / ``defender_ids`` lists in
+    ``params`` into these tuples.
+
+    ``attacker_hex`` / ``defender_hex`` are the positions of the anchor units
+    (``attacker_ids[0]`` / ``defender_ids[0]``), i.e. the wire primary ids.
+    """
+
     state: GameState
-    attacker_unit_id: str
-    defender_unit_id: str
+    attacker_ids: tuple[str, ...]
+    defender_ids: tuple[str, ...]
     attacker_hex: Hex
     defender_hex: Hex
     player_faction: str
     attack_kind: str
     params: dict[str, Any]
+
+    @property
+    def attacker_unit_id(self) -> str:
+        """Primary attacker (wire ``attacker_id``); same as ``attacker_ids[0]``."""
+        return self.attacker_ids[0]
+
+    @property
+    def defender_unit_id(self) -> str:
+        """Primary defender (wire ``defender_id``); same as ``defender_ids[0]``."""
+        return self.defender_ids[0]
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,11 +73,11 @@ class AttackResolution:
     """
 
     outcome: str
-    #: Optional: if set, indicates which attackers participated (e.g. multi-select UX).
-    #: The engine may use this for bookkeeping (e.g. attacks_this_phase) and UI summaries.
+    #: When set, overrides ``AttackContext.attacker_ids`` for the engine ``Attack`` action.
+    #: When omitted, the server uses ``AttackContext.attacker_ids``.
     attacker_ids: tuple[str, ...] | None = None
-    #: Optional: if set, the attack applies to all these defender unit ids (e.g. stack-wide).
-    #: When omitted, the engine applies the resolution to `AttackContext.defender_unit_id` only.
+    #: When set, overrides ``AttackContext.defender_ids`` for the engine ``Attack`` action.
+    #: When omitted, the server uses ``AttackContext.defender_ids``.
     defender_ids: tuple[str, ...] | None = None
     retreat_distance: int | None = None
     retreat_unit_id: str | None = None
@@ -92,4 +112,3 @@ __all__ = [
     "AttackResolution",
     "AttackHooks",
 ]
-
