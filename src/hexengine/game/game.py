@@ -279,6 +279,22 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         tgt = self.attack_plan_target_hex
         n_att = len(self.attack_plan_attacker_ids)
 
+        # Secondary selection visuals: selected attackers + all units on the target hex.
+        attacker_ids = set(self.attack_plan_attacker_ids)
+        target_unit_ids: set[str] = set()
+        if st is not None and tgt is not None:
+            try:
+                for u in st.board.active_units_at_hex(tgt):
+                    target_unit_ids.add(str(u.unit_id))
+            except Exception:
+                target_unit_ids = set()
+        self.ui_state.set_secondary_selected_units(attacker_ids)
+        self.ui_state.set_secondary_target_units(target_unit_ids)
+        self.display_mgr.sync_secondary_selection(
+            attacker_ids,
+            target_unit_ids=target_unit_ids,
+        )
+
         if self._attack_controls_status is not None:
             if not ok_phase:
                 self._attack_controls_status.textContent = "Not in Combat phase."
@@ -324,6 +340,8 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     def cancel_attack_plan(self) -> None:
         self.set_attack_plan_target_hex(None)
+        self.ui_state.clear_secondary_selection()
+        self.display_mgr.clear_secondary_selection()
 
     def _attack_unit_is_eligible(self, st, unit_id: str) -> bool:
         if st is None or self.attack_plan_target_hex is None:
@@ -1347,15 +1365,19 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def load_snapshot_json(self, text: str) -> None:
         self.load_snapshot_dict(json.loads(text))
 
-    def _clear_drag_and_highlights(self) -> None:
-        """Clear local drag preview, selection, and hex highlights (no server action)."""
+    def _clear_drag_and_highlights(self, *, keep_secondary: bool = False) -> None:
+        """Clear local drag preview, selection, and hex highlights (no server action).
+
+        Args:
+            keep_secondary: When True, preserves secondary selection highlights (multi-select).
+        """
         self._unit_preview_request_id = ""
         self._marker_preview_request_id = ""
         if self.ui_state.drag_preview:
             preview = self.ui_state.end_drag()
             self._restore_drag_preview_to_committed(preview)
-        self.ui_state.select_unit(None)
-        self.ui_state.select_marker(None)
+        self.ui_state.select_unit(None, exclusive=not keep_secondary)
+        self.ui_state.select_marker(None, exclusive=not keep_secondary)
         mg = getattr(self, "marker_mgr", None)
         if mg is not None:
             mg.set_marker_hilite(None)

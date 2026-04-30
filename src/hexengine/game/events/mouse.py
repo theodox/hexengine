@@ -448,12 +448,12 @@ class MouseEventHandlerMixin:
                 if unit_state.faction != current_faction:
                     # Clicking an enemy unit sets the target hex.
                     self.set_attack_plan_target_hex(unit_state.position)
-                    self._clear_drag_and_highlights()
+                    self._clear_drag_and_highlights(keep_secondary=True)
                     return
                 # Friendly unit toggles as attacker only when a target is set.
                 if self.attack_plan_target_hex is not None:
                     self.toggle_attack_plan_attacker(str(unit_state.unit_id))
-                    self._clear_drag_and_highlights()
+                    self._clear_drag_and_highlights(keep_secondary=True)
                     return
             except Exception:
                 # Fall through to normal handling.
