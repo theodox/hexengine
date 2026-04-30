@@ -36,4 +36,6 @@ def test_attack_can_destroy_multiple_defenders_on_one_hex() -> None:
     lc = hx.get("last_combat")
     assert isinstance(lc, dict)
     assert lc.get("defender_ids") == ["d1", "d2"]
+    assert lc.get("defender_hexes") == [{"i": h_def.i, "j": h_def.j, "k": h_def.k}]
+    assert lc.get("attacker_hexes") == [{"i": h_att.i, "j": h_att.j, "k": h_att.k}]
 

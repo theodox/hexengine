@@ -38,15 +38,21 @@ class AttackContext:
     the server normalizes optional ``attacker_ids`` / ``defender_ids`` lists in
     ``params`` into these tuples.
 
-    ``attacker_hex`` / ``defender_hex`` are the positions of the anchor units
-    (``attacker_ids[0]`` / ``defender_ids[0]``), i.e. the wire primary ids.
+    ``attacker_hexes`` / ``defender_hexes`` are the **distinct map hexes** occupied by
+    those parties (sorted ``(i, j, k)``), so titles can reason about multi-hex attacks
+    without re-walking ``state.board``.
+
+    ``attacker_hex`` / ``defender_hex`` are read-only views of the **anchor** (wire
+    primary) units' positions: ``state.board.units[attacker_ids[0]].position`` and the
+    same for defenders. If that unit is missing, the first entry of the corresponding
+    ``*_hexes`` tuple is used.
     """
 
     state: GameState
     attacker_ids: tuple[str, ...]
     defender_ids: tuple[str, ...]
-    attacker_hex: Hex
-    defender_hex: Hex
+    attacker_hexes: tuple[Hex, ...]
+    defender_hexes: tuple[Hex, ...]
     player_faction: str
     attack_kind: str
     params: dict[str, Any]
@@ -60,6 +66,26 @@ class AttackContext:
     def defender_unit_id(self) -> str:
         """Primary defender (wire ``defender_id``); same as ``defender_ids[0]``."""
         return self.defender_ids[0]
+
+    @property
+    def attacker_hex(self) -> Hex:
+        """Anchor attacker hex (wire ``attacker_id`` unit)."""
+        u = self.state.board.units.get(self.attacker_ids[0])
+        if u is not None and u.active:
+            return u.position
+        if self.attacker_hexes:
+            return self.attacker_hexes[0]
+        raise ValueError("AttackContext has no attacker hex")
+
+    @property
+    def defender_hex(self) -> Hex:
+        """Anchor defender hex (wire ``defender_id`` unit)."""
+        u = self.state.board.units.get(self.defender_ids[0])
+        if u is not None and u.active:
+            return u.position
+        if self.defender_hexes:
+            return self.defender_hexes[0]
+        raise ValueError("AttackContext has no defender hex")
 
 
 @dataclass(frozen=True, slots=True)

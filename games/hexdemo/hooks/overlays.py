@@ -10,16 +10,27 @@ from hexengine.state import GameState
 from ..constants import PACK_STATE_EXTENSION_KEY
 
 
-def map_overlays(state: GameState, _viewer_faction: str | None) -> list[dict[str, object]] | object:
+def _glyph_row(hex_dict: dict) -> dict[str, object] | None:
+    if not isinstance(hex_dict, dict):
+        return None
+    try:
+        hi = int(hex_dict["i"])
+        hj = int(hex_dict["j"])
+        hk = int(hex_dict["k"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return {"i": hi, "j": hj, "k": hk}
+
+
+def map_overlays(
+    state: GameState, _viewer_faction: str | None
+) -> list[dict[str, object]] | object:
     """
-    After combat, show a marker on the defender hex (even if the defender was destroyed).
+    After combat, show a marker on defender hex(es) (even if defenders were destroyed).
     """
     hx = state.extension.get(PACK_STATE_EXTENSION_KEY)
     if not isinstance(hx, dict):
         return DEFAULT
-    # Use a changing id per combat event so glyph CSS animations can replay.
-    # (If we keep a stable id, the client updates the same DOM node and any
-    # `visibility: hidden` / finished animation state can persist across attacks.)
     atk_n = 0
     prev_attacks = hx.get("attacks_this_phase")
     if isinstance(prev_attacks, list):
@@ -27,21 +38,37 @@ def map_overlays(state: GameState, _viewer_faction: str | None) -> list[dict[str
     lc = hx.get("last_combat")
     if not isinstance(lc, dict):
         return DEFAULT
+
+    rows = lc.get("defender_hexes")
+    if isinstance(rows, list) and rows:
+        overlays: list[dict[str, object]] = []
+        for idx, raw in enumerate(rows):
+            hxw = _glyph_row(raw) if isinstance(raw, dict) else None
+            if hxw is None:
+                continue
+            overlays.append(
+                {
+                    "schema": 1,
+                    "id": f"hexdemo-last-combat-target-{atk_n}-{idx}",
+                    "kind": "glyph",
+                    "hex": hxw,
+                    "text": "🟎",
+                    "css_class": "hexdemo-combat-glyph-overlay",
+                }
+            )
+        if overlays:
+            return overlays
+
     dh = lc.get("defender_hex")
-    if not isinstance(dh, dict):
-        return DEFAULT
-    try:
-        int(dh["i"])
-        int(dh["j"])
-        int(dh["k"])
-    except (KeyError, TypeError, ValueError):
+    hxw = _glyph_row(dh) if isinstance(dh, dict) else None
+    if hxw is None:
         return DEFAULT
     return [
         {
             "schema": 1,
             "id": f"hexdemo-last-combat-target-{atk_n}",
             "kind": "glyph",
-            "hex": {"i": int(dh["i"]), "j": int(dh["j"]), "k": int(dh["k"])},
+            "hex": hxw,
             "text": "🟎",
             "css_class": "hexdemo-combat-glyph-overlay",
         }

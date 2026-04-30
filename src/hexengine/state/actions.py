@@ -494,8 +494,9 @@ def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:
 class Attack(StateAction):
     """Single attack action (attack_kind dispatches; title decides legality/outcome).
 
-    Titles may optionally resolve an attack against multiple defenders (e.g. stack-wide)
-    by providing `defender_ids`. All defenders must share the same hex.
+    Titles may resolve an attack against multiple attackers and/or defenders via
+    ``attacker_ids`` / ``defender_ids``. Defenders may occupy multiple hexes; extension
+    ``last_combat`` records both a primary ``defender_hex`` and ``defender_hexes``.
     """
 
     def __init__(
@@ -573,9 +574,18 @@ class Attack(StateAction):
             defenders.append(d)
         defender0 = defenders[0]
         dpos0 = defender0.position
-        for d in defenders[1:]:
-            if d.position != dpos0:
-                raise ValueError("Multi-defender attack requires all defenders on same hex")
+        defender_hexes_sorted = tuple(
+            sorted(
+                {d.position for d in defenders},
+                key=lambda h: (int(h.i), int(h.j), int(h.k)),
+            )
+        )
+        attacker_hexes_sorted = tuple(
+            sorted(
+                {a.position for a in attackers},
+                key=lambda h: (int(h.i), int(h.j), int(h.k)),
+            )
+        )
 
         hx0 = state.extension.get(self.extension_key)
         self._prev_extension_bucket = dict(hx0) if isinstance(hx0, dict) else {}
@@ -643,6 +653,12 @@ class Attack(StateAction):
             "defender_id": self.defender_id,
             "defender_ids": [d.unit_id for d in defenders],
             "defender_hex": {"i": int(dpos0.i), "j": int(dpos0.j), "k": int(dpos0.k)},
+            "defender_hexes": [
+                {"i": int(h.i), "j": int(h.j), "k": int(h.k)} for h in defender_hexes_sorted
+            ],
+            "attacker_hexes": [
+                {"i": int(h.i), "j": int(h.j), "k": int(h.k)} for h in attacker_hexes_sorted
+            ],
             "retreat_distance": retreat_distance,
             "retreat_unit_id": retreat_unit_id,
         }

@@ -603,6 +603,23 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         attacker_ids = sorted(self.attack_plan_attacker_ids)
         primary_attacker_id = attacker_ids[0]
 
+        tgt = self.attack_plan_target_hex
+        seen_att: set[tuple[int, int, int]] = set()
+        attacker_hexes_wire: list[dict[str, int]] = []
+        for uid in attacker_ids:
+            u = st.board.units.get(uid)
+            if u is None or not u.active:
+                continue
+            t = (int(u.position.i), int(u.position.j), int(u.position.k))
+            if t in seen_att:
+                continue
+            seen_att.add(t)
+            attacker_hexes_wire.append({"i": t[0], "j": t[1], "k": t[2]})
+        attacker_hexes_wire.sort(key=lambda d: (d["i"], d["j"], d["k"]))
+        defender_hexes_wire = [
+            {"i": int(tgt.i), "j": int(tgt.j), "k": int(tgt.k)},
+        ]
+
         self.execute_action_request(
             "Attack",
             {
@@ -611,6 +628,8 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 "attacker_ids": attacker_ids,
                 "defender_id": defender_id,
                 "defender_ids": defender_ids,
+                "attacker_hexes": attacker_hexes_wire,
+                "defender_hexes": defender_hexes_wire,
             },
         )
         self.cancel_attack_plan()

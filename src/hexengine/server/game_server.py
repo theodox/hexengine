@@ -144,6 +144,42 @@ def _normalize_attack_party_ids(
     return (anchor, *rest)
 
 
+def _sorted_unique_hexes_from_unit_ids(
+    state: GameState, unit_ids: tuple[str, ...]
+) -> tuple[Hex, ...]:
+    """Distinct hex positions of active units with the given ids (sorted for stability)."""
+    seen: set[tuple[int, int, int]] = set()
+    hs: list[Hex] = []
+    for uid in unit_ids:
+        u = state.board.units.get(uid)
+        if u is None or not u.active:
+            continue
+        t = (int(u.position.i), int(u.position.j), int(u.position.k))
+        if t in seen:
+            continue
+        seen.add(t)
+        hs.append(u.position)
+    return tuple(sorted(hs, key=lambda h: (int(h.i), int(h.j), int(h.k))))
+
+
+def _optional_wire_hex_frozenset(
+    params: dict[str, Any], key: str
+) -> frozenset[Hex] | None:
+    """If ``params[key]`` is a list of ``{i,j,k}``, return those hexes; else None."""
+    raw = params.get(key)
+    if not isinstance(raw, list) or not raw:
+        return None
+    out: list[Hex] = []
+    for row in raw:
+        if not isinstance(row, dict):
+            continue
+        try:
+            out.append(Hex(int(row["i"]), int(row["j"]), int(row["k"])))
+        except (KeyError, TypeError, ValueError):
+            continue
+    return frozenset(out) if out else None
+
+
 class GameServer:
     """
     Server that manages multiplayer game state.
@@ -979,18 +1015,30 @@ class GameServer:
                     d = current_state.board.units.get(did)
                     if d is None or not d.active:
                         raise ValueError("Unknown defender or inactive unit")
-                    if d.position != du.position:
-                        raise ValueError(
-                            "Multi-defender attack requires all defenders on same hex"
-                        )
                     if au.faction == d.faction:
                         raise ValueError("Cannot attack same faction")
+                attacker_hexes = _sorted_unique_hexes_from_unit_ids(
+                    current_state, attacker_ids
+                )
+                defender_hexes = _sorted_unique_hexes_from_unit_ids(
+                    current_state, defender_ids
+                )
+                wire_att_hexes = _optional_wire_hex_frozenset(params, "attacker_hexes")
+                wire_def_hexes = _optional_wire_hex_frozenset(params, "defender_hexes")
+                if wire_att_hexes is not None and wire_att_hexes != frozenset(
+                    attacker_hexes
+                ):
+                    raise ValueError("attacker_hexes does not match attacker unit positions")
+                if wire_def_hexes is not None and wire_def_hexes != frozenset(
+                    defender_hexes
+                ):
+                    raise ValueError("defender_hexes does not match defender unit positions")
                 ctx = AttackContext(
                     state=current_state,
                     attacker_ids=attacker_ids,
                     defender_ids=defender_ids,
-                    attacker_hex=au.position,
-                    defender_hex=du.position,
+                    attacker_hexes=attacker_hexes,
+                    defender_hexes=defender_hexes,
                     player_faction=player.faction,
                     attack_kind=attack_kind,
                     params=params,

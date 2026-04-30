@@ -322,12 +322,14 @@ def test_hexdemo_validate_attack_adjacent_and_once_per_unit(hexdemo_server: Game
     st = hexdemo_server.action_manager.current_state
     from hexengine.hooks import AttackContext
 
+    att_h = st.board.units["u_att"].position
+    def_h = st.board.units["u_def"].position
     ctx = AttackContext(
         state=st,
         attacker_ids=("u_att",),
         defender_ids=("u_def",),
-        attacker_hex=st.board.units["u_att"].position,
-        defender_hex=st.board.units["u_def"].position,
+        attacker_hexes=(att_h,),
+        defender_hexes=(def_h,),
         player_faction="union",
         attack_kind="combined",
         params={
@@ -342,13 +344,15 @@ def test_hexdemo_validate_attack_adjacent_and_once_per_unit(hexdemo_server: Game
     du = st.board.units["u_def"].with_position(far)
     st_bad = st.with_board(st.board.with_unit(du))
     with pytest.raises(ValueError, match="adjacent"):
+        att_h = st_bad.board.units["u_att"].position
+        def_h = st_bad.board.units["u_def"].position
         hexdemo_server.hooks.attack.validate(
             AttackContext(
                 state=st_bad,
                 attacker_ids=("u_att",),
                 defender_ids=("u_def",),
-                attacker_hex=st_bad.board.units["u_att"].position,
-                defender_hex=st_bad.board.units["u_def"].position,
+                attacker_hexes=(att_h,),
+                defender_hexes=(def_h,),
                 player_faction="union",
                 attack_kind="combined",
                 params={
@@ -373,13 +377,15 @@ def test_hexdemo_validate_attack_adjacent_and_once_per_unit(hexdemo_server: Game
     )
     st2 = hexdemo_server.action_manager.current_state
     with pytest.raises(ValueError, match="already attacked"):
+        att_h = st2.board.units["u_att"].position
+        def_h = st2.board.units["u_def"].position
         hexdemo_server.hooks.attack.validate(
             AttackContext(
                 state=st2,
                 attacker_ids=("u_att",),
                 defender_ids=("u_def",),
-                attacker_hex=st2.board.units["u_att"].position,
-                defender_hex=st2.board.units["u_def"].position,
+                attacker_hexes=(att_h,),
+                defender_hexes=(def_h,),
                 player_faction="union",
                 attack_kind="combined",
                 params={
@@ -412,6 +418,13 @@ def test_attack_updates_extension_and_rng() -> None:
     lc = hx.get("last_combat")
     assert isinstance(lc, dict)
     assert lc.get("defender_hex") == {"i": def_hex.i, "j": def_hex.j, "k": def_hex.k}
+    assert lc.get("defender_hexes") == [
+        {"i": int(def_hex.i), "j": int(def_hex.j), "k": int(def_hex.k)}
+    ]
+    att_hex = st.board.units["u_att"].position
+    assert lc.get("attacker_hexes") == [
+        {"i": int(att_hex.i), "j": int(att_hex.j), "k": int(att_hex.k)}
+    ]
 
 
 def test_combat_event_fanout_retreat_vs_wait(hexdemo_server: GameServer) -> None:

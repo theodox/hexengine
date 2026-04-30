@@ -4,6 +4,7 @@ import random
 
 from hexengine.hexes.los import has_line_of_sight
 from hexengine.hexes.math import distance
+from hexengine.hexes.types import Hex
 from hexengine.hooks import AttackContext, AttackResolution
 
 from .. import combat
@@ -22,16 +23,44 @@ def _terrain_blocks_los(ctx: AttackContext):
     return blocks
 
 
-def _expected_enemy_defender_ids_on_hex(ctx: AttackContext) -> tuple[str, ...]:
-    """Hexdemo: every active enemy on ``ctx.defender_hex`` is a valid defender."""
+def _expected_enemy_defender_ids(ctx: AttackContext) -> tuple[str, ...]:
+    """Every active enemy unit on any ``ctx.defender_hexes`` cell."""
     attacker = ctx.state.board.units.get(ctx.attacker_unit_id)
     if attacker is None or not attacker.active:
         return ()
     out: list[str] = []
-    for u in ctx.state.board.active_units_at_hex(ctx.defender_hex):
-        if u.faction != attacker.faction:
-            out.append(str(u.unit_id))
-    return tuple(out)
+    seen: set[str] = set()
+    for h in ctx.defender_hexes:
+        for u in ctx.state.board.active_units_at_hex(h):
+            if u.faction != attacker.faction and u.unit_id not in seen:
+                seen.add(u.unit_id)
+                out.append(str(u.unit_id))
+    return tuple(sorted(out))
+
+
+def _infantry_adjacent_to_any_defender_hex(a, defender_hexes: tuple[Hex, ...]) -> bool:
+    return any(distance(a.position, h) == 1 for h in defender_hexes)
+
+
+def _artillery_can_hit_any_defender_hex(
+    a, defender_hexes: tuple[Hex, ...], blocks
+) -> bool:
+    raw_range = a.attributes.get("range")
+    try:
+        atk_range = int(raw_range) if raw_range is not None else 0
+    except Exception:
+        atk_range = 0
+    if atk_range <= 1:
+        return False
+    for h in defender_hexes:
+        dist = distance(a.position, h)
+        if (
+            dist > 1
+            and dist <= atk_range
+            and has_line_of_sight(a.position, h, blocks=blocks)
+        ):
+            return True
+    return False
 
 
 def validate_attack(ctx: AttackContext) -> None:
@@ -45,17 +74,28 @@ def validate_attack(ctx: AttackContext) -> None:
     if combat.any_retreat_obligation_pending(ctx.state):
         raise ValueError("Resolve retreat before issuing another attack")
 
-    defender0 = ctx.state.board.units.get(ctx.defender_unit_id)
-    if defender0 is None or not defender0.active:
-        raise ValueError("Invalid defender")
+    att_primary = ctx.state.board.units.get(ctx.attacker_unit_id)
+    if att_primary is None or not att_primary.active:
+        raise ValueError("Invalid attacker")
+    if att_primary.faction != ctx.player_faction:
+        raise ValueError("You do not control the attacker")
 
-    expected = set(_expected_enemy_defender_ids_on_hex(ctx))
+    for did in ctx.defender_ids:
+        d = ctx.state.board.units.get(did)
+        if d is None or not d.active:
+            raise ValueError("Invalid defender")
+        if d.faction == att_primary.faction:
+            raise ValueError("Cannot attack same faction")
+
+    expected = set(_expected_enemy_defender_ids(ctx))
     if not expected:
-        raise ValueError("No enemy units on target hex")
+        raise ValueError("No enemy units on defender hex(es)")
     if set(ctx.defender_ids) != expected:
-        raise ValueError("Defender list must include every enemy on the target hex")
+        raise ValueError(
+            "Defender list must include every enemy on the defender hex(es)"
+        )
 
-    target_hex = ctx.defender_hex
+    defender_hexes = ctx.defender_hexes
     blocks = _terrain_blocks_los(ctx)
     for aid in ctx.attacker_ids:
         a = ctx.state.board.units.get(aid)
@@ -63,24 +103,12 @@ def validate_attack(ctx: AttackContext) -> None:
             raise ValueError("Invalid attacker")
         if a.faction != ctx.player_faction:
             raise ValueError("You do not control the attacker")
-        if a.faction == defender0.faction:
-            raise ValueError("Cannot attack same faction")
         ut = str(a.unit_type).lower()
-        dist = distance(a.position, target_hex)
         if ut in ("infantry", "inf"):
-            if dist != 1:
+            if not _infantry_adjacent_to_any_defender_hex(a, defender_hexes):
                 raise ValueError("Infantry attacker is not adjacent to the target")
         elif ut in ("artillery", "art"):
-            raw_range = a.attributes.get("range")
-            try:
-                atk_range = int(raw_range) if raw_range is not None else 0
-            except Exception:
-                atk_range = 0
-            if atk_range <= 1:
-                raise ValueError("Artillery has no ranged capability")
-            if not (dist > 1 and dist <= atk_range):
-                raise ValueError("Artillery target is out of range")
-            if not has_line_of_sight(a.position, target_hex, blocks=blocks):
+            if not _artillery_can_hit_any_defender_hex(a, defender_hexes, blocks):
                 raise ValueError("No line of sight to target")
         else:
             raise ValueError(f"Unit type {ut!r} cannot participate in combined attacks")
@@ -116,6 +144,12 @@ def resolve_attack(ctx: AttackContext) -> AttackResolution:
         "defender_id": ctx.defender_unit_id,
         "defender_ids": list(ctx.defender_ids),
         "retreat_distance": retreat_distance,
+        "attacker_hexes": [
+            {"i": int(h.i), "j": int(h.j), "k": int(h.k)} for h in ctx.attacker_hexes
+        ],
+        "defender_hexes": [
+            {"i": int(h.i), "j": int(h.j), "k": int(h.k)} for h in ctx.defender_hexes
+        ],
     }
     return AttackResolution(
         outcome=outcome,
