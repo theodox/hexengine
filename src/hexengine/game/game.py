@@ -125,6 +125,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         # --- Attack planning UX (client-side, no server sync) ---
         self.attack_plan_target_hex: "Hex | None" = None
         self.attack_plan_attacker_ids: set[str] = set()
+        #: True after combat-phase attack-plan unit mousedown (enemy target pick or friendly
+        #: attacker toggle); suppresses bogus ``mouseup`` on map background retargeting.
+        self._attack_plan_suppress_bg_mouseup_retarget: bool = False
         self._attack_plan_target_overlay = None
         self._attack_plan_los_svg_group = None
         self._attack_plan_los_lines: dict[str, Any] = {}
@@ -132,7 +135,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self._attack_controls_status = None
         self._attack_controls_confirm = None
         self._attack_controls_cancel = None
-        self._init_attack_controls(container)
+        self._init_attack_controls(element("advance"))
 
         self.logger = logging.getLogger("game")
         self.logger.info("Game initialized")
@@ -217,9 +220,13 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             return
         self._sync_attack_plan_ui()
 
-    def _init_attack_controls(self, container) -> None:
+    def _init_attack_controls(self, primary_actions_host) -> None:
         """
         Create Confirm/Cancel UI for the attack planning flow.
+
+        Host is the same permanent shell as the advance-turn control (``#advance``),
+        outside ``#map-container``, so map mouse handlers never treat button clicks
+        as hex picks.
         """
         try:
             root = js.document.createElement("div")
@@ -248,7 +255,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             row.appendChild(btn_confirm)
             root.appendChild(row)
 
-            container.appendChild(root)
+            primary_actions_host.appendChild(root)
             self._attack_controls_root = root
             self._attack_controls_status = status
             self._attack_controls_confirm = btn_confirm
@@ -276,15 +283,27 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         """
         Ensure an SVG group exists for attack-plan LOS lines.
 
-        Uses the map's highlight SVG so coordinates are in map-space and pan/zoom apply
-        via the #map-world transform.
+        Lines live on the **unit** SVG (same map-space size as hex highlights) so they
+        paint above counters. The group is re-appended to the end of that SVG whenever
+        lines sync so it stays on top after ``DisplayManager`` reorders unit nodes.
         """
         try:
-            svg = self.canvas.svg_layer._svg
+            svg = self.canvas.unit_layer._svg
         except Exception:
             return None
         if svg is None:
             return None
+        g = self._attack_plan_los_svg_group
+        if g is not None:
+            try:
+                if getattr(g, "parentNode", None) is not svg:
+                    try:
+                        g.remove()
+                    except Exception:
+                        pass
+                    self._attack_plan_los_svg_group = None
+            except Exception:
+                self._attack_plan_los_svg_group = None
         if self._attack_plan_los_svg_group is None:
             g = js.document.createElementNS("http://www.w3.org/2000/svg", "g")
             g.classList.add("hexengine-attack-los-layer")
@@ -415,6 +434,12 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 except Exception:
                     pass
                 self._attack_plan_los_lines.pop(uid, None)
+
+        # Keep the LOS layer after all unit `<g>` nodes so strokes paint on top.
+        try:
+            self.canvas.unit_layer._svg.appendChild(g)
+        except Exception:
+            pass
 
     def _sync_attack_plan_ui(self) -> None:
         st = self._interactive_game_state()
@@ -552,8 +577,14 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                             atk_range = int(u.attributes.get("range", 0))
                         except Exception:
                             atk_range = 0
-                        in_range = atk_range > 1 and d > 1 and d <= atk_range
-                        if in_range:
+                        if atk_range <= 1:
+                            msg = "No ranged capability"
+                        elif d <= 1:
+                            msg = "Target too close for ranged fire"
+                        elif d > atk_range:
+                            msg = "Target out of range"
+                        else:
+                            # In distance band (not adjacent, within max range); check LOS.
                             def blocks(h):
                                 loc = st.board.effective_location(h)
                                 if loc is None:

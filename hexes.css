@@ -1,7 +1,19 @@
+/* Fills space above the console; holds #map-container + absolutely positioned primary actions. */
+.hexengine-map-stage {
+    position: relative;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
 /* Height comes from in-flow #map-world (flex would collapse a box whose only children are abspos). */
 #map-container {
     position: relative;
     width: 100%;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
 }
 
@@ -259,13 +271,23 @@
     background-color: rgba(40, 40, 40, 0.72);
 }
 
-#advance {
+/* Advance turn, combat confirm/cancel, and future in-session choices (sibling of #map-container). */
+.hexengine-primary-actions {
     position: absolute;
     width: auto;
     height: auto;
     bottom: 32px;
     right: 32px;
     z-index: 400;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: flex-end;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.hexengine-primary-actions > * {
+    pointer-events: auto;
 }
 
 #advance-button {
@@ -346,12 +368,10 @@ Popup styles — callout: root anchors tail tip; bubble is the main rect; tail i
     user-select: none;
 }
 
-/* Client-side attack planning controls (browser UI). */
+/* Client-side attack planning controls (in #advance / .hexengine-primary-actions). */
 .hexengine-attack-controls {
-    position: absolute;
-    right: 12px;
-    bottom: 62px;
-    z-index: 1000;
+    position: static;
+    z-index: auto;
     display: flex;
     flex-direction: column;
     gap: 8px;

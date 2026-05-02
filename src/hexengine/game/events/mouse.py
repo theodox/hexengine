@@ -59,6 +59,7 @@ class MouseEventHandlerMixin:
             return
 
         self.hex_path.clear()
+        self._attack_plan_suppress_bg_mouseup_retarget = False
 
         self.logger.debug(f"Mouse down : {eventInfo}")
         # pixels - use raw_position for screen-space distance calculations
@@ -295,7 +296,15 @@ class MouseEventHandlerMixin:
                         else ""
                     )
                     if state and phase in ("combat", "attack") and self.is_my_turn():
-                        self.set_attack_plan_target_hex(eventInfo.hex)
+                        # Mousedown on a unit often ends with mouseup on the background (no
+                        # unit_id). Do not retarget to that hex or we flash "No enemy unit on
+                        # that hex" and wipe the real LOS/range feedback from attacker toggles.
+                        if not getattr(
+                            self, "_attack_plan_suppress_bg_mouseup_retarget", False
+                        ):
+                            self.set_attack_plan_target_hex(eventInfo.hex)
+                        else:
+                            self._attack_plan_suppress_bg_mouseup_retarget = False
                 except Exception:
                     pass
 
@@ -447,11 +456,14 @@ class MouseEventHandlerMixin:
             try:
                 if unit_state.faction != current_faction:
                     # Clicking an enemy unit sets the target hex.
-                    self.set_attack_plan_target_hex(unit_state.position)
+                    self._attack_plan_suppress_bg_mouseup_retarget = True
+                    h = unit_state.position
+                    self.set_attack_plan_target_hex(h)
                     self._clear_drag_and_highlights(keep_secondary=True)
                     return
                 # Friendly unit toggles as attacker only when a target is set.
                 if self.attack_plan_target_hex is not None:
+                    self._attack_plan_suppress_bg_mouseup_retarget = True
                     self.toggle_attack_plan_attacker(str(unit_state.unit_id))
                     self._clear_drag_and_highlights(keep_secondary=True)
                     return
