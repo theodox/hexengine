@@ -491,6 +491,174 @@ def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:
     return False
 
 
+def _apply_step_loss_to_unit(state: GameState, unit_id: str) -> GameState:
+    """Milestone-A step loss: ``steps_lost`` 0→1 patch; already 1+ → ``DeleteUnit``."""
+    unit = state.board.units.get(unit_id)
+    if unit is None or not unit.active:
+        return state
+    raw = unit.attributes.get("steps_lost", 0)
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        n = 0
+    if n <= 0:
+        return PatchUnitAttributes(unit_id, {"steps_lost": 1}).apply(state)
+    return DeleteUnit(unit_id).apply(state)
+
+
+class ApplyCombatEffects(StateAction):
+    """Apply title ``AttackResolution.effects`` after the core ``Attack`` state action."""
+
+    def __init__(self, extension_key: str, effects: dict[str, Any]) -> None:
+        self.extension_key = extension_key
+        self.effects = dict(effects)
+        self._prev_extension_bucket: dict[str, Any] | None = None
+
+    def apply(self, state: GameState) -> GameState:
+        hx0 = state.extension.get(self.extension_key)
+        self._prev_extension_bucket = dict(hx0) if isinstance(hx0, dict) else {}
+        st = state
+        eff = self.effects
+        if not eff:
+            return state
+
+        step_rows = eff.get("step_losses")
+        if isinstance(step_rows, list):
+            for row in step_rows:
+                if isinstance(row, dict):
+                    uid = str(row.get("unit_id", "")).strip()
+                    try:
+                        count = int(row.get("count", 1))
+                    except (TypeError, ValueError):
+                        count = 1
+                elif isinstance(row, str) and row.strip():
+                    uid, count = row.strip(), 1
+                else:
+                    continue
+                if not uid:
+                    continue
+                for _ in range(max(count, 1)):
+                    st = _apply_step_loss_to_unit(st, uid)
+
+        disrupt = eff.get("disrupt")
+        if isinstance(disrupt, list):
+            seen: set[str] = set()
+            for item in disrupt:
+                uid = str(item).strip() if isinstance(item, str) else ""
+                if not uid or uid in seen:
+                    continue
+                seen.add(uid)
+                u0 = st.board.units.get(uid)
+                if u0 is None or not u0.active:
+                    continue
+                for u in st.board.active_units_at_hex(u0.position):
+                    if u.faction != u0.faction:
+                        continue
+                    st = PatchUnitAttributes(
+                        str(u.unit_id), {"disrupted": True}
+                    ).apply(st)
+
+        ext = dict(st.extension)
+        cur_hx = ext.get(self.extension_key)
+        hx = dict(cur_hx) if isinstance(cur_hx, dict) else dict(self._prev_extension_bucket)
+
+        retreat_meta = eff.get("retreat")
+        if isinstance(retreat_meta, dict) and retreat_meta.get("allow_disrupt_instead"):
+            if str(hx.get("combat_gate", "")) == "awaiting_retreat":
+                hx["combat_gate"] = "awaiting_retreat_or_disrupt"
+
+        patch = eff.get("last_combat_patch")
+        if isinstance(patch, dict):
+            lc = hx.get("last_combat")
+            base = dict(lc) if isinstance(lc, dict) else {}
+            merged = {**base, **patch}
+            hx["last_combat"] = merged
+
+        ext[self.extension_key] = hx
+        return st.with_extension(ext)
+
+    def revert(self, state: GameState) -> GameState:
+        ext = dict(state.extension)
+        ext[self.extension_key] = (
+            dict(self._prev_extension_bucket)
+            if self._prev_extension_bucket is not None
+            else {}
+        )
+        return state.with_extension(ext)
+
+    def should_revert_prior(self) -> bool:
+        return False
+
+    def __repr__(self) -> str:
+        return f"<ApplyCombatEffects extension_key={self.extension_key!r}>"
+
+
+class ResolveDisruptInsteadOfRetreat(StateAction):
+    """Retreating player takes disruption and clears mandatory retreat obligations."""
+
+    def __init__(self, extension_key: str, player_faction: str) -> None:
+        self.extension_key = extension_key
+        self.player_faction = str(player_faction).strip()
+        self._prev_extension_bucket: dict[str, Any] | None = None
+
+    def apply(self, state: GameState) -> GameState:
+        hx0 = state.extension.get(self.extension_key)
+        self._prev_extension_bucket = dict(hx0) if isinstance(hx0, dict) else {}
+        if not isinstance(hx0, dict):
+            raise ValueError("No title combat extension")
+        hx = dict(hx0)
+        gate = str(hx.get("combat_gate", "")).strip()
+        if gate != "awaiting_retreat_or_disrupt":
+            raise ValueError(
+                "Disrupt-instead is only allowed when combat_gate is awaiting_retreat_or_disrupt"
+            )
+        prev_ro = hx.get("retreat_obligations")
+        ro = dict(prev_ro) if isinstance(prev_ro, dict) else {}
+        st = state
+        cleared_any = False
+        for uid in list(ro.keys()):
+            raw = ro.get(uid)
+            try:
+                n = int(raw)
+            except (TypeError, ValueError):
+                continue
+            if n <= 0:
+                continue
+            u = st.board.units.get(uid)
+            if u is None or not u.active or u.faction != self.player_faction:
+                continue
+            st = PatchUnitAttributes(str(uid), {"disrupted": True}).apply(st)
+            ro.pop(uid, None)
+            cleared_any = True
+        if not cleared_any:
+            raise ValueError("No retreat obligation found for this faction")
+
+        hx["retreat_obligations"] = ro
+        if not _retreat_obligations_have_pending(ro):
+            hx.pop("combat_gate", None)
+        ext = dict(st.extension)
+        ext[self.extension_key] = hx
+        return st.with_extension(ext)
+
+    def revert(self, state: GameState) -> GameState:
+        ext = dict(state.extension)
+        ext[self.extension_key] = (
+            dict(self._prev_extension_bucket)
+            if self._prev_extension_bucket is not None
+            else {}
+        )
+        return state.with_extension(ext)
+
+    def should_revert_prior(self) -> bool:
+        return False
+
+    def __repr__(self) -> str:
+        return (
+            f"<ResolveDisruptInsteadOfRetreat "
+            f"extension_key={self.extension_key!r} faction={self.player_faction!r}>"
+        )
+
+
 class Attack(StateAction):
     """Single attack action (attack_kind dispatches; title decides legality/outcome).
 

@@ -446,12 +446,10 @@ def test_combat_event_fanout_retreat_vs_wait(hexdemo_server: GameServer) -> None
     server.add_message_handler(cap)
 
     async def run() -> None:
-        with (
-            patch(
-                    "games.hexdemo.hooks.attack.random.choice",
-                return_value="defender_retreat",
-            ),
-                patch("games.hexdemo.hooks.attack.random.randint", return_value=2),
+        # CRT uses randrange; column 0|1 roll 3 => DC_EX, failed morale => defender RETREAT.
+        with patch(
+            "games.hexdemo.hooks.attack.random.randrange",
+            side_effect=[3, 1],
         ):
             req = ActionRequest(
                 action_type="Attack",
@@ -472,7 +470,7 @@ def test_combat_event_fanout_retreat_vs_wait(hexdemo_server: GameServer) -> None
     by_pid = {pid: payload for pid, _, payload in combat_msgs}
     assert by_pid["p_c"]["instruction"] == "retreat_required"
     assert by_pid["p_c"]["retreat_unit_id"] == "u_def"
-    assert by_pid["p_c"]["retreat_hexes_remaining"] == 2
+    assert by_pid["p_c"]["retreat_hexes_remaining"] == 1
     assert by_pid["p_u"]["instruction"] == "wait"
 
     state_msgs = [c for c in captured if c[1] == "state_update"]
@@ -482,6 +480,57 @@ def test_combat_event_fanout_retreat_vs_wait(hexdemo_server: GameServer) -> None
     assert "Waiting" in su_by_pid["p_u"]["interaction_messages"][-1]["text"]
     assert su_by_pid["p_c"]["interaction_messages"][-1]["kind"] == "retreat"
     assert "retreat" in su_by_pid["p_c"]["interaction_messages"][-1]["text"].lower()
+
+
+def test_combat_disrupt_instead_of_retreat(hexdemo_server: GameServer) -> None:
+    """Optional CRT retreat: waive mandatory retreat and mark the stack disrupted."""
+    server = hexdemo_server
+    server.players["p_u"] = PlayerInfo(
+        player_id="p_u", player_name="U", faction="union", connected=True
+    )
+    server.players["p_c"] = PlayerInfo(
+        player_id="p_c", player_name="C", faction="confederate", connected=True
+    )
+    server.faction_to_player["union"] = "p_u"
+    server.faction_to_player["confederate"] = "p_c"
+
+    async def run() -> None:
+        with patch(
+            "games.hexdemo.hooks.attack.random.randrange",
+            side_effect=[3, 1],
+        ):
+            req = ActionRequest(
+                action_type="Attack",
+                params={
+                    "attack_kind": "combined",
+                    "attacker_id": "u_att",
+                    "attacker_ids": ["u_att"],
+                    "defender_id": "u_def",
+                },
+                player_id="p_u",
+            )
+            await server.handle_message("p_u", req.to_message())
+
+        st = server.action_manager.current_state
+        hx = st.extension.get("hexdemo", {})
+        assert hx.get("combat_gate") == "awaiting_retreat_or_disrupt"
+        ro = hx.get("retreat_obligations", {})
+        assert isinstance(ro, dict) and "u_def" in ro
+
+        dreq = ActionRequest(
+            action_type="CombatDisruptInsteadOfRetreat",
+            params={},
+            player_id="p_c",
+        )
+        await server.handle_message("p_c", dreq.to_message())
+
+        st2 = server.action_manager.current_state
+        hx2 = st2.extension.get("hexdemo", {})
+        assert not hx2.get("combat_gate")
+        assert "u_def" not in (hx2.get("retreat_obligations") or {})
+        assert st2.board.units["u_def"].attributes.get("disrupted") is True
+
+    asyncio.run(run())
 
 
 def test_builtin_game_rejects_attack() -> None:
@@ -598,9 +647,10 @@ def test_auto_advance_when_sole_attacker_has_attacked(hexdemo_server: GameServer
     server.faction_to_player["union"] = "p_u"
 
     async def run() -> None:
-        with (
-            patch("games.hexdemo.hooks.attack.random.choice", return_value="none"),
-            patch("games.hexdemo.hooks.attack.random.randint", return_value=1),
+        # Roll 0 on column 0|1 => AR; failed morale with no "failed" CRT cell => no effect.
+        with patch(
+            "games.hexdemo.hooks.attack.random.randrange",
+            side_effect=[0, 1],
         ):
             req = ActionRequest(
                 action_type="Attack",
@@ -633,12 +683,9 @@ def test_no_auto_advance_while_retreat_pending(hexdemo_server: GameServer) -> No
     server.faction_to_player["confederate"] = "p_c"
 
     async def run() -> None:
-        with (
-            patch(
-                    "games.hexdemo.hooks.attack.random.choice",
-                return_value="defender_retreat",
-            ),
-                patch("games.hexdemo.hooks.attack.random.randint", return_value=1),
+        with patch(
+            "games.hexdemo.hooks.attack.random.randrange",
+            side_effect=[3, 1],
         ):
             req = ActionRequest(
                 action_type="Attack",
@@ -666,9 +713,9 @@ def test_two_union_units_require_two_attacks_before_advance() -> None:
     server.faction_to_player["union"] = "p_u"
 
     async def attack(attacker: str) -> None:
-        with (
-            patch("games.hexdemo.hooks.attack.random.choice", return_value="none"),
-            patch("games.hexdemo.hooks.attack.random.randint", return_value=1),
+        with patch(
+            "games.hexdemo.hooks.attack.random.randrange",
+            side_effect=[0, 1],
         ):
             req = ActionRequest(
                 action_type="Attack",

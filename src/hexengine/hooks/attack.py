@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..hexes.types import Hex
-from ..state import GameState
+from ..state import GameState, UnitState
 from .core import DEFAULT
 
 
@@ -88,6 +88,15 @@ class AttackContext:
         raise ValueError("AttackContext has no defender hex")
 
 
+    @property
+    def attacker_units(self) -> list[UnitState | None]:
+        return [self.state.board.units.get(aid) for aid in self.attacker_ids]
+
+    @property
+    def defender_units(self) -> list[UnitState | None]:
+        return [self.state.board.units.get(did) for did in self.defender_ids]
+
+
 @dataclass(frozen=True, slots=True)
 class AttackResolution:
     """
@@ -108,6 +117,10 @@ class AttackResolution:
     retreat_distance: int | None = None
     retreat_unit_id: str | None = None
     rng_entry: dict[str, Any] | None = None
+    #: JSON-safe follow-up effects applied by the server after ``Attack`` (step loss,
+    #: disruption, optional-retreat gate tweaks, etc.). Schema is title-defined; see
+    #: ``ApplyCombatEffects`` in ``hexengine.state.actions``.
+    effects: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)

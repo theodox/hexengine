@@ -37,6 +37,7 @@ from ..package_version import hexes_package_version
 from ..state import ActionManager, GameState
 from ..state.actions import (
     AddUnit,
+    ApplyCombatEffects,
     Attack,
     ClearTitleCombatExtension,
     ClearUnitRetreatObligation,
@@ -44,6 +45,7 @@ from ..state.actions import (
     MoveUnit,
     NextPhase,
     PatchUnitAttributes,
+    ResolveDisruptInsteadOfRetreat,
     SpendAction,
 )
 from ..state.logic import (
@@ -816,7 +818,10 @@ class GameServer:
                     # retreat outcome. `combat_gate` is cleared when no retreat obligations
                     # remain (see `ClearUnitRetreatObligation`).
                     gate = str(hx.get("combat_gate", "")).strip()
-                    if inst in ("retreat_required", "wait") and gate != "awaiting_retreat":
+                    if inst in ("retreat_required", "wait") and gate not in (
+                        "awaiting_retreat",
+                        "awaiting_retreat_or_disrupt",
+                    ):
                         inst, msg = "resolved", "Combat resolved."
                     kind = (
                         "retreat"
@@ -981,6 +986,59 @@ class GameServer:
         current_state = self.action_manager.current_state
         current_faction = current_state.turn.current_faction
 
+        if request.action_type == "CombatDisruptInsteadOfRetreat":
+            ek = self._title_extension_key()
+            if not ek:
+                await self._send_error(
+                    player_id,
+                    "This game title does not define a state extension key for combat",
+                )
+                return
+            st0 = self.action_manager.current_state
+            hx0 = st0.extension.get(ek)
+            if (
+                not isinstance(hx0, dict)
+                or str(hx0.get("combat_gate", "")).strip()
+                != "awaiting_retreat_or_disrupt"
+            ):
+                await self._send_error(
+                    player_id, "Cannot take disruption instead of retreat right now"
+                )
+                return
+            ro0 = hx0.get("retreat_obligations")
+            ro0 = ro0 if isinstance(ro0, dict) else {}
+            has_ob = False
+            for uid, raw in ro0.items():
+                try:
+                    if int(raw) <= 0:
+                        continue
+                except (TypeError, ValueError):
+                    continue
+                u = st0.board.units.get(str(uid))
+                if (
+                    u is not None
+                    and u.active
+                    and u.faction == player.faction
+                ):
+                    has_ob = True
+                    break
+            if not has_ob:
+                await self._send_error(
+                    player_id, "No mandatory retreat to waive for your units"
+                )
+                return
+            try:
+                self.action_manager.execute(
+                    ResolveDisruptInsteadOfRetreat(ek, str(player.faction))
+                )
+            except Exception as e:
+                await self._send_error(player_id, f"Action failed: {e}")
+                return
+            result = ActionResult(success=True, action_id=str(uuid.uuid4()))
+            await self._send_message(player_id, result.to_message())
+            await self._broadcast_state_update()
+            return
+
         if request.action_type == "Attack":
             if player.faction != current_faction:
                 await self._send_error(
@@ -1075,6 +1133,9 @@ class GameServer:
                     rng_entry=getattr(hr, "rng_entry", None),
                 )
                 self.action_manager.execute(atk)
+                hr_eff = getattr(hr, "effects", None)
+                if isinstance(hr_eff, dict) and hr_eff:
+                    self.action_manager.execute(ApplyCombatEffects(ek, hr_eff))
             except Exception as e:
                 await self._send_error(player_id, f"Action failed: {e}")
                 return

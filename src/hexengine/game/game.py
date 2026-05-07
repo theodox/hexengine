@@ -135,6 +135,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self._attack_controls_status = None
         self._attack_controls_confirm = None
         self._attack_controls_cancel = None
+        self._disrupt_instead_btn = None
         self._init_attack_controls(element("advance"))
 
         self.logger = logging.getLogger("game")
@@ -255,11 +256,31 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             row.appendChild(btn_confirm)
             root.appendChild(row)
 
+            row_alt = js.document.createElement("div")
+            row_alt.className = "hexengine-attack-controls__row"
+            btn_disrupt = js.document.createElement("button")
+            btn_disrupt.className = "hexengine-attack-controls__disrupt-instead"
+            btn_disrupt.textContent = "Disrupt instead of retreat"
+            btn_disrupt.title = (
+                "Take disruption on your retreating stack and waive the mandatory retreat "
+                "(when the title allows)."
+            )
+            btn_disrupt.style.display = "none"
+            btn_disrupt.disabled = True
+            btn_disrupt.onclick = create_proxy(
+                lambda _evt=None: self.execute_action_request(
+                    "CombatDisruptInsteadOfRetreat", {}
+                )
+            )
+            row_alt.appendChild(btn_disrupt)
+            root.appendChild(row_alt)
+
             primary_actions_host.appendChild(root)
             self._attack_controls_root = root
             self._attack_controls_status = status
             self._attack_controls_confirm = btn_confirm
             self._attack_controls_cancel = btn_cancel
+            self._disrupt_instead_btn = btn_disrupt
         except Exception:
             self.logger.debug("attack controls init failed", exc_info=True)
 
@@ -1086,6 +1107,53 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 return k.strip()
         return None
 
+    def _combat_disrupt_instead_available(self, st: GameState) -> bool:
+        """True when title extension allows waiving retreat for disruption (hexdemo CRT)."""
+        ek = self._title_state_extension_key()
+        if not ek:
+            return False
+        hx = st.extension.get(ek)
+        if not isinstance(hx, dict):
+            return False
+        if (
+            str(hx.get("combat_gate", "")).strip()
+            != "awaiting_retreat_or_disrupt"
+        ):
+            return False
+        ro = hx.get("retreat_obligations")
+        if not isinstance(ro, dict):
+            return False
+        client = self.client
+        my = str(client.faction).strip() if client and client.faction else ""
+        if not my:
+            return False
+        for uid, raw in ro.items():
+            try:
+                if int(raw) <= 0:
+                    continue
+            except (TypeError, ValueError):
+                continue
+            u = st.board.units.get(str(uid))
+            if (
+                u is not None
+                and u.active
+                and str(u.faction).strip() == my
+            ):
+                return True
+        return False
+
+    def _sync_disrupt_instead_control(self) -> None:
+        btn = self._disrupt_instead_btn
+        if btn is None:
+            return
+        try:
+            st = self.action_mgr.current_state
+            show = st is not None and self._combat_disrupt_instead_available(st)
+            btn.style.display = "" if show else "none"
+            btn.disabled = not show
+        except Exception:
+            self.logger.debug("disrupt-instead control sync failed", exc_info=True)
+
     def _handle_state_update(self, new_state: GameState) -> None:
         if (
             self.client is not None
@@ -1124,6 +1192,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
         self._sync_map_overlays()
         self._sync_interaction_messages()
+        self._sync_disrupt_instead_control()
         self._apply_title_faction_css()
         self._apply_focus_unit_after_state_sync(new_state)
         self._sync_attack_plan_after_state_update()
