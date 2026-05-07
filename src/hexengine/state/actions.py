@@ -12,7 +12,7 @@ from ..hexes.types import Hex
 from .action_manager import StateAction
 
 if TYPE_CHECKING:
-    from ..state.game_state import GameState
+    from ..state.game_state import GameState, UnitState
 
 LOGGER = logging.getLogger("actions")
 
@@ -393,6 +393,7 @@ _TITLE_COMBAT_KEYS = (
     "retreat_obligations",
     "combat_gate",
     "last_combat",
+    "advance",
 )
 
 
@@ -481,6 +482,122 @@ class ClearUnitRetreatObligation(StateAction):
         )
 
 
+class OpenCombatAdvance(StateAction):
+    """Open a title-defined attacker advance window after retreat is resolved."""
+
+    def __init__(
+        self,
+        extension_key: str,
+        *,
+        advancing_faction: str,
+        from_hex: Hex,
+        to_hex: Hex,
+        unit_ids: tuple[str, ...],
+    ) -> None:
+        self.extension_key = extension_key
+        self.advancing_faction = str(advancing_faction).strip()
+        self.from_hex = from_hex
+        self.to_hex = to_hex
+        self.unit_ids = tuple(str(u).strip() for u in unit_ids if str(u).strip())
+        self._saved_bucket: dict[str, Any] | None = None
+
+    def apply(self, state: GameState) -> GameState:
+        ext = dict(state.extension)
+        hx0 = ext.get(self.extension_key)
+        if not isinstance(hx0, dict):
+            hx0 = {}
+        self._saved_bucket = dict(hx0)
+        hx = dict(hx0)
+        hx["combat_gate"] = "awaiting_advance"
+        hx["advance"] = {
+            "schema": 1,
+            "faction": self.advancing_faction,
+            "from_hex": {"i": int(self.from_hex.i), "j": int(self.from_hex.j), "k": int(self.from_hex.k)},
+            "to_hex": {"i": int(self.to_hex.i), "j": int(self.to_hex.j), "k": int(self.to_hex.k)},
+            "unit_ids": list(self.unit_ids),
+        }
+        ext[self.extension_key] = hx
+        return state.with_extension(ext)
+
+    def revert(self, state: GameState) -> GameState:
+        if self._saved_bucket is None:
+            return state
+        ext = dict(state.extension)
+        ext[self.extension_key] = dict(self._saved_bucket)
+        return state.with_extension(ext)
+
+    def should_revert_prior(self) -> bool:
+        return False
+
+    def __repr__(self) -> str:
+        return f"<OpenCombatAdvance extension_key={self.extension_key!r}>"
+
+
+class ResolveCombatAdvance(StateAction):
+    """Advance the attacker stack and clear the advance gate."""
+
+    def __init__(self, extension_key: str, player_faction: str) -> None:
+        self.extension_key = extension_key
+        self.player_faction = str(player_faction).strip()
+        self._saved_bucket: dict[str, Any] | None = None
+
+    def apply(self, state: GameState) -> GameState:
+        ext = dict(state.extension)
+        hx0 = ext.get(self.extension_key)
+        if not isinstance(hx0, dict):
+            raise ValueError("No title combat extension")
+        self._saved_bucket = dict(hx0)
+        hx = dict(hx0)
+        if str(hx.get("combat_gate", "")).strip() != "awaiting_advance":
+            raise ValueError("No advance pending")
+        adv = hx.get("advance")
+        if not isinstance(adv, dict):
+            raise ValueError("Missing advance payload")
+        if str(adv.get("faction", "")).strip() != self.player_faction:
+            raise ValueError("Not allowed to advance for this faction")
+        to_hex_raw = adv.get("to_hex")
+        if not isinstance(to_hex_raw, dict):
+            raise ValueError("Invalid to_hex")
+        try:
+            to_hex = Hex(int(to_hex_raw["i"]), int(to_hex_raw["j"]), int(to_hex_raw["k"]))
+        except Exception as e:
+            raise ValueError("Invalid to_hex") from e
+        unit_ids_raw = adv.get("unit_ids")
+        if not isinstance(unit_ids_raw, list) or not unit_ids_raw:
+            raise ValueError("No units to advance")
+
+        st = state
+        # Advance each still-active friendly unit listed.
+        for uid in unit_ids_raw:
+            if not isinstance(uid, str) or not uid.strip():
+                continue
+            u = st.board.units.get(uid)
+            if u is None or not u.active or u.faction != self.player_faction:
+                continue
+            st = MoveUnit(uid, from_hex=u.position, to_hex=to_hex).apply(st)
+
+        # Clear the gate + payload.
+        ext2 = dict(st.extension)
+        hx2 = dict(ext2.get(self.extension_key) or {})
+        hx2.pop("advance", None)
+        hx2.pop("combat_gate", None)
+        ext2[self.extension_key] = hx2
+        return st.with_extension(ext2)
+
+    def revert(self, state: GameState) -> GameState:
+        if self._saved_bucket is None:
+            return state
+        ext = dict(state.extension)
+        ext[self.extension_key] = dict(self._saved_bucket)
+        return state.with_extension(ext)
+
+    def should_revert_prior(self) -> bool:
+        return False
+
+    def __repr__(self) -> str:
+        return f"<ResolveCombatAdvance extension_key={self.extension_key!r}>"
+
+
 def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:
     for v in ro.values():
         try:
@@ -491,8 +608,57 @@ def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:
     return False
 
 
+def _unit_type_is_infantry(unit: UnitState) -> bool:
+    """Hexdemo-style two-step cadence applies to ``unit_type`` ``infantry`` only."""
+    return str(unit.unit_type).strip().lower() == "infantry"
+
+
+def _int_attr(attrs: dict[str, Any], key: str, default: int = 0) -> int:
+    raw = attrs.get(key, default)
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+def _step1_patch_from_explicit_steps(attrs: dict[str, Any]) -> dict[str, Any] | None:
+    """
+    Optional explicit step table in unit attributes:
+
+        steps = [ { combat=..., morale=... }, { combat=..., morale=... }, ... ]
+
+    On first step loss we apply step index 1 values when present.
+    """
+    raw = attrs.get("steps")
+    if not isinstance(raw, list) or len(raw) < 2:
+        return None
+    step1 = raw[1]
+    if not isinstance(step1, dict):
+        return None
+    patch: dict[str, Any] = {}
+    if "combat" in step1:
+        try:
+            patch["combat"] = max(0, int(step1["combat"]))
+        except (TypeError, ValueError):
+            pass
+    if "morale" in step1:
+        try:
+            patch["morale"] = max(0, int(step1["morale"]))
+        except (TypeError, ValueError):
+            pass
+    return patch or None
+
+
 def _apply_step_loss_to_unit(state: GameState, unit_id: str) -> GameState:
-    """Milestone-A step loss: ``steps_lost`` 0→1 patch; already 1+ → ``DeleteUnit``."""
+    """Apply one combat step loss: infantry drops combat/morale on first loss; then delete.
+
+    - **Infantry** (`unit_type` ``infantry``, case-insensitive): first loss sets
+      ``steps_lost`` to 1 and reduces ``combat`` and ``morale`` by 1 each (floor 0);
+      movement and other attributes are unchanged. A second loss applies
+      ``DeleteUnit`` (unit deactivated).
+    - **Other types**: first loss only sets ``steps_lost`` to 1; second loss applies
+      ``DeleteUnit`` (no automatic combat/morale change on the first loss).
+    """
     unit = state.board.units.get(unit_id)
     if unit is None or not unit.active:
         return state
@@ -502,7 +668,17 @@ def _apply_step_loss_to_unit(state: GameState, unit_id: str) -> GameState:
     except (TypeError, ValueError):
         n = 0
     if n <= 0:
-        return PatchUnitAttributes(unit_id, {"steps_lost": 1}).apply(state)
+        patch: dict[str, Any] = {"steps_lost": 1}
+        if _unit_type_is_infantry(unit):
+            explicit = _step1_patch_from_explicit_steps(unit.attributes)
+            if explicit is not None:
+                patch.update(explicit)
+            else:
+                c = _int_attr(unit.attributes, "combat", 0)
+                m = _int_attr(unit.attributes, "morale", 0)
+                patch["combat"] = max(0, c - 1)
+                patch["morale"] = max(0, m - 1)
+        return PatchUnitAttributes(unit_id, patch).apply(state)
     return DeleteUnit(unit_id).apply(state)
 
 
