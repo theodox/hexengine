@@ -41,10 +41,12 @@ from ..state.actions import (
     Attack,
     ClearTitleCombatExtension,
     ClearUnitRetreatObligation,
+    OpenCombatAdvance,
     DeleteUnit,
     MoveUnit,
     NextPhase,
     PatchUnitAttributes,
+    ResolveCombatAdvance,
     ResolveDisruptInsteadOfRetreat,
     SpendAction,
 )
@@ -847,6 +849,38 @@ class GameServer:
                         }
                     )
 
+                # Advance prompt (post-retreat attacker advance).
+                gate = str(hx.get("combat_gate", "")).strip()
+                if gate == "awaiting_advance":
+                    adv = hx.get("advance")
+                    adv_faction = (
+                        str(adv.get("faction", "")).strip()
+                        if isinstance(adv, dict)
+                        else ""
+                    )
+                    if adv_faction and adv_faction == str(player.faction):
+                        out.append(
+                            {
+                                "schema": 1,
+                                "kind": "advance",
+                                "dedupe_key": "combat_advance",
+                                "ttl_ms": None,
+                                "css_class": "interaction-msg--advance",
+                                "text": "Advance is available (click Advance).",
+                            }
+                        )
+                    elif adv_faction:
+                        out.append(
+                            {
+                                "schema": 1,
+                                "kind": "wait",
+                                "dedupe_key": "combat_advance_wait",
+                                "ttl_ms": None,
+                                "css_class": "interaction-msg--wait",
+                                "text": "Waiting for the opponent to advance.",
+                            }
+                        )
+
         return out or None
 
     def _map_overlays_for_player_id(self, player_id: str) -> list[dict[str, Any]]:
@@ -986,6 +1020,49 @@ class GameServer:
         current_state = self.action_manager.current_state
         current_faction = current_state.turn.current_faction
 
+        # Treat MoveUnit to the vacated defender hex as an optional combat advance.
+        is_advance_fulfillment = False
+        if request.action_type == "MoveUnit":
+            ek_adv = self._title_extension_key()
+            if ek_adv:
+                hx_adv = current_state.extension.get(ek_adv)
+                if (
+                    isinstance(hx_adv, dict)
+                    and str(hx_adv.get("combat_gate", "")).strip() == "awaiting_advance"
+                ):
+                    adv = hx_adv.get("advance")
+                    if isinstance(adv, dict) and str(adv.get("faction", "")).strip() == str(
+                        player.faction
+                    ):
+                        to_hex_raw = adv.get("to_hex")
+                        unit_ids_raw = adv.get("unit_ids")
+                        if (
+                            isinstance(to_hex_raw, dict)
+                            and isinstance(unit_ids_raw, list)
+                            and isinstance(request.params.get("unit_id"), str)
+                            and isinstance(request.params.get("to_hex"), dict)
+                        ):
+                            try:
+                                adv_to = Hex(
+                                    int(to_hex_raw["i"]),
+                                    int(to_hex_raw["j"]),
+                                    int(to_hex_raw["k"]),
+                                )
+                            except Exception:
+                                adv_to = None
+                            if adv_to is not None:
+                                try:
+                                    req_to = Hex(**request.params["to_hex"])
+                                except Exception:
+                                    req_to = None
+                                uid = str(request.params["unit_id"]).strip()
+                                if (
+                                    req_to == adv_to
+                                    and uid
+                                    and uid in {str(x) for x in unit_ids_raw if isinstance(x, str)}
+                                ):
+                                    is_advance_fulfillment = True
+
         if request.action_type == "CombatDisruptInsteadOfRetreat":
             ek = self._title_extension_key()
             if not ek:
@@ -1031,6 +1108,38 @@ class GameServer:
                 self.action_manager.execute(
                     ResolveDisruptInsteadOfRetreat(ek, str(player.faction))
                 )
+            except Exception as e:
+                await self._send_error(player_id, f"Action failed: {e}")
+                return
+            result = ActionResult(success=True, action_id=str(uuid.uuid4()))
+            await self._send_message(player_id, result.to_message())
+            await self._broadcast_state_update()
+            return
+
+        if request.action_type == "CombatAdvance":
+            ek = self._title_extension_key()
+            if not ek:
+                await self._send_error(
+                    player_id,
+                    "This game title does not define a state extension key for combat",
+                )
+                return
+            st0 = self.action_manager.current_state
+            hx0 = st0.extension.get(ek)
+            if (
+                not isinstance(hx0, dict)
+                or str(hx0.get("combat_gate", "")).strip() != "awaiting_advance"
+            ):
+                await self._send_error(player_id, "No combat advance is pending right now")
+                return
+            adv = hx0.get("advance")
+            if not isinstance(adv, dict) or str(adv.get("faction", "")).strip() != str(
+                player.faction
+            ):
+                await self._send_error(player_id, "You are not allowed to advance right now")
+                return
+            try:
+                self.action_manager.execute(ResolveCombatAdvance(ek, str(player.faction)))
             except Exception as e:
                 await self._send_error(player_id, f"Action failed: {e}")
                 return
@@ -1185,6 +1294,25 @@ class GameServer:
             if unit is None or unit.faction != player.faction:
                 await self._send_error(player_id, "That unit is not yours")
                 return
+
+        # Optional advance path: MoveUnit into the advance hex resolves CombatAdvance.
+        if request.action_type == "MoveUnit" and is_advance_fulfillment:
+            ek = self._title_extension_key()
+            if not ek:
+                await self._send_error(
+                    player_id,
+                    "This game title does not define a state extension key for combat",
+                )
+                return
+            try:
+                self.action_manager.execute(ResolveCombatAdvance(ek, str(player.faction)))
+            except Exception as e:
+                await self._send_error(player_id, f"Action failed: {e}")
+                return
+            result = ActionResult(success=True, action_id=str(uuid.uuid4()))
+            await self._send_message(player_id, result.to_message())
+            await self._broadcast_state_update()
+            return
 
         if request.action_type == "MoveMarker":
             try:
@@ -1352,6 +1480,7 @@ class GameServer:
                         self.action_manager.execute(
                             ClearUnitRetreatObligation(moved_uid, r_ek)
                         )
+                    self._maybe_open_combat_advance_after_retreat(r_ek)
 
             # Spend an action for normal moves (retreat fulfillment never spends)
             if request.action_type == "MoveUnit" and not is_retreat_fulfillment:
@@ -2060,6 +2189,95 @@ class GameServer:
                 )
             case _:
                 raise ValueError(f"Unknown action type: {action_type}")
+
+    def _maybe_open_combat_advance_after_retreat(self, extension_key: str) -> None:
+        """
+        After retreat obligations are cleared, open an optional advance gate when:
+        - last combat outcome was `defender_retreat`
+        - the original defender hex is now empty
+        - at least one active attacker from ``last_combat.attacker_ids`` is cube-adjacent
+          to that hex (so combined / ranged attacks still allow advance from the melee stack)
+        """
+        st = self.action_manager.current_state
+        hx = st.extension.get(extension_key)
+        if not isinstance(hx, dict):
+            return
+        # Don't open while another combat gate is active.
+        if str(hx.get("combat_gate", "")).strip():
+            return
+        last = hx.get("last_combat")
+        if not isinstance(last, dict):
+            return
+        if str(last.get("outcome", "")).strip() != "defender_retreat":
+            return
+
+        attacker_id = str(last.get("attacker_id", "")).strip()
+        defender_id = str(last.get("defender_id", "")).strip()
+        if not attacker_id or not defender_id:
+            return
+        raw_aids = last.get("attacker_ids")
+        if isinstance(raw_aids, list) and raw_aids:
+            attacker_ids = [
+                str(x).strip()
+                for x in raw_aids
+                if isinstance(x, str) and str(x).strip()
+            ]
+        else:
+            attacker_ids = [attacker_id] if attacker_id else []
+        if not attacker_ids:
+            return
+
+        d_hex = last.get("defender_hex")
+        if not isinstance(d_hex, dict):
+            return
+        try:
+            to_hex = Hex(int(d_hex["i"]), int(d_hex["j"]), int(d_hex["k"]))
+        except Exception:
+            return
+
+        d0 = st.board.units.get(defender_id)
+        if d0 is None:
+            return
+
+        # Pick an adjacent attacker stack (primary first, then wire order).
+        anchor_order = [attacker_id, *attacker_ids]
+        seen: set[str] = set()
+        a0 = None
+        for aid in anchor_order:
+            if not aid or aid in seen:
+                continue
+            seen.add(aid)
+            au = st.board.units.get(aid)
+            if au is None or not au.active or au.faction == d0.faction:
+                continue
+            if distance(au.position, to_hex) != 1:
+                continue
+            a0 = au
+            break
+        if a0 is None:
+            return
+
+        from_hex = a0.position
+        # Only advance into a hex vacated by retreat.
+        if any(True for _u in st.board.active_units_at_hex(to_hex)):
+            return
+
+        unit_ids: list[str] = []
+        for u in st.board.active_units_at_hex(from_hex):
+            if u.active and u.faction == a0.faction:
+                unit_ids.append(str(u.unit_id))
+        if not unit_ids:
+            return
+
+        self.action_manager.execute(
+            OpenCombatAdvance(
+                extension_key,
+                advancing_faction=str(a0.faction),
+                from_hex=from_hex,
+                to_hex=to_hex,
+                unit_ids=tuple(sorted(set(unit_ids))),
+            )
+        )
 
     async def _handle_leave_game(self, player_id: str) -> None:
         """Handle a player leaving the game."""

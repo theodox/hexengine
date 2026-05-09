@@ -265,7 +265,7 @@ class MouseEventHandlerMixin:
         mgr = getattr(self, "marker_mgr", None)
         if mgr is not None:
             mgr.set_marker_hilite(None)
-        self.logger.warning(
+        self.logger.debug(
             f"Mouse down on background with modifiers {eventInfo.modifiers}"
         )
         self.popup_manager.clear()
@@ -436,12 +436,12 @@ class MouseEventHandlerMixin:
             self.logger.error("current_state is None - game not fully initialized")
             return
 
-        self.logger.info(
+        self.logger.debug(
             f"State has {len(state.board.units)} units: {list(state.board.units.keys())}"
         )
         unit_state = state.board.units.get(unit_id)
 
-        self.logger.warning(f"Mouse down state {unit_state} for unit {unit_id}")
+        self.logger.debug(f"Mouse down state {unit_state} for unit {unit_id}")
         if not unit_state:
             return
 
@@ -567,7 +567,7 @@ class MouseEventHandlerMixin:
 
             # Handle multi-hex path (shift-drag)
             if len(self.hex_path) > 1 and eventInfo.modifiers & Modifiers.SHIFT:
-                self.logger.warning(self.hex_path)
+                self.logger.debug(self.hex_path)
                 from ...state.actions import MoveUnit
 
                 unit_id = self.ui_state.selected_unit_id

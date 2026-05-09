@@ -621,6 +621,22 @@ def _int_attr(attrs: dict[str, Any], key: str, default: int = 0) -> int:
         return default
 
 
+def _graphics_template_key_for_step(attrs: dict[str, Any], *, step_index: int) -> str | None:
+    """Return ``[[unit_graphics]]`` ``type`` from ``attributes['steps'][step_index].graphics``."""
+    raw = attrs.get("steps")
+    if not isinstance(raw, list) or step_index < 0 or step_index >= len(raw):
+        return None
+    row = raw[step_index]
+    if not isinstance(row, dict):
+        return None
+    g = row.get("graphics")
+    if isinstance(g, str):
+        s = g.strip()
+        if s:
+            return s
+    return None
+
+
 def _step1_patch_from_explicit_steps(attrs: dict[str, Any]) -> dict[str, Any] | None:
     """
     Optional explicit step table in unit attributes:
@@ -658,6 +674,8 @@ def _apply_step_loss_to_unit(state: GameState, unit_id: str) -> GameState:
       ``DeleteUnit`` (unit deactivated).
     - **Other types**: first loss only sets ``steps_lost`` to 1; second loss applies
       ``DeleteUnit`` (no automatic combat/morale change on the first loss).
+    - If ``attributes['steps'][1].graphics`` is set, first loss also updates
+      ``UnitState.graphics`` so clients swap ``[[unit_graphics]]`` templates.
     """
     unit = state.board.units.get(unit_id)
     if unit is None or not unit.active:
@@ -678,7 +696,13 @@ def _apply_step_loss_to_unit(state: GameState, unit_id: str) -> GameState:
                 m = _int_attr(unit.attributes, "morale", 0)
                 patch["combat"] = max(0, c - 1)
                 patch["morale"] = max(0, m - 1)
-        return PatchUnitAttributes(unit_id, patch).apply(state)
+        st = PatchUnitAttributes(unit_id, patch).apply(state)
+        u2 = st.board.units.get(unit_id)
+        if u2 is not None and u2.active:
+            gkey = _graphics_template_key_for_step(u2.attributes, step_index=1)
+            if gkey is not None and gkey != u2.graphics:
+                st = st.with_board(st.board.with_unit(u2.with_graphics(gkey)))
+        return st
     return DeleteUnit(unit_id).apply(state)
 
 

@@ -51,6 +51,10 @@ class UnitState:
         """Return a new UnitState with updated active status."""
         return replace(self, active=is_active)
 
+    def with_graphics(self, graphics: str | None) -> UnitState:
+        """Return a new UnitState with ``graphics`` (``[[unit_graphics]]`` template key)."""
+        return replace(self, graphics=graphics)
+
     def with_attributes(
         self,
         patch: dict[str, Any] | None = None,

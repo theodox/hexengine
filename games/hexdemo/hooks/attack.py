@@ -87,6 +87,9 @@ def validate_attack(ctx: AttackContext) -> None:
         raise ValueError("Not your turn")
     if combat.any_retreat_obligation_pending(ctx.state):
         raise ValueError("Resolve retreat before issuing another attack")
+    hx = ctx.state.extension.get(PACK_STATE_EXTENSION_KEY)
+    if isinstance(hx, dict) and str(hx.get("combat_gate", "")).strip() == "awaiting_advance":
+        raise ValueError("Resolve combat advance before issuing another attack")
 
     att_primary = ctx.state.board.units.get(ctx.attacker_unit_id)
     if att_primary is None or not att_primary.active:
@@ -208,7 +211,19 @@ DM_X = CombatResult(side='d', passed=CombatOutcome.LOSS, failed=CombatOutcome.RO
 
 
 def check_morale(unit: UnitState) -> bool:
-    return random.randrange(1, 6) < unit.attributes.get("morale", 0)
+    """
+    Morale check: roll 1..6 and pass when roll <= morale (0..6).
+
+    Using 1..6 inclusive prevents morale 6 from being an automatic pass under
+    an off-by-one range bug (1..5).
+    """
+    try:
+        morale = int(unit.attributes.get("morale", 0))
+    except (TypeError, ValueError):
+        morale = 0
+    morale = max(0, min(6, morale))
+    roll = random.randrange(1, 7)
+    return roll <= morale
 
 
 def _resolve_primary_attacker_id(ctx: AttackContext) -> str:
@@ -240,6 +255,18 @@ def _stack_unit_ids(state, anchor_unit_id: str) -> tuple[str, ...]:
         if x.active and x.faction == u.faction:
             out.append(str(x.unit_id))
     return tuple(sorted(out))
+
+
+def _attack_includes_adjacent_infantry(ctx: AttackContext) -> bool:
+    """True if any participating attacker is infantry (must be adjacent per ``validate_attack``)."""
+    for aid in ctx.attacker_ids:
+        a = ctx.state.board.units.get(aid)
+        if a is None or not a.active:
+            continue
+        ut = str(a.unit_type).strip().lower()
+        if ut in ("infantry", "inf"):
+            return True
+    return False
 
 
 def resolve_attack(ctx: AttackContext) -> AttackResolution:
@@ -321,6 +348,21 @@ def resolve_attack(ctx: AttackContext) -> AttackResolution:
     if result is None:
         result = CombatOutcome.NO_EFFECT
 
+    # Ranged-only attacks (no adjacent infantry in the attacker party): artillery may
+    # bombard from range but never suffers attacker retreat or rout. Defender retreats
+    # (e.g. artillery shelled by infantry) are unchanged.
+    attacker_retreat_suppressed = False
+    if (
+        not _attack_includes_adjacent_infantry(ctx)
+        and crt.side == "a"
+        and result in (CombatOutcome.RETREAT, CombatOutcome.ROUT)
+    ):
+        attacker_retreat_suppressed = True
+        if result == CombatOutcome.ROUT:
+            result = CombatOutcome.DISRUPT
+        else:
+            result = CombatOutcome.NO_EFFECT
+
     st = ctx.state
     effects: dict = {"schema": 1}
     step_losses: list[dict[str, object]] = []
@@ -382,6 +424,7 @@ def resolve_attack(ctx: AttackContext) -> AttackResolution:
         "hexdemo_column": column,
         "hexdemo_roll": roll,
         "hexdemo_morale_passed": mc,
+        "hexdemo_attacker_retreat_suppressed": attacker_retreat_suppressed,
     }
 
     rng_entry = {
@@ -392,6 +435,7 @@ def resolve_attack(ctx: AttackContext) -> AttackResolution:
         "hexdemo_table_side": crt.side,
         "hexdemo_morale_passed": mc,
         "hexdemo_combat_result": result.name,
+        "hexdemo_attacker_retreat_suppressed": attacker_retreat_suppressed,
         "attacker_id": ctx.attacker_unit_id,
         "attacker_ids": list(ctx.attacker_ids),
         "defender_id": ctx.defender_unit_id,

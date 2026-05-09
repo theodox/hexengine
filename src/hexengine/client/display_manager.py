@@ -93,10 +93,19 @@ class DisplayManager:
         # Update or create displays for all active units
         for unit_id, unit_state in game_state.board.units.items():
             if unit_state.active:
+                desired_gkey = (
+                    getattr(unit_state, "graphics", None) or unit_state.unit_type
+                )
                 if unit_id not in self._unit_displays:
                     self._create_unit_display(unit_state)
                 else:
-                    self._update_unit_display(unit_id, unit_state)
+                    disp = self._unit_displays.get(unit_id)
+                    if disp is not None and disp.unit_type != desired_gkey:
+                        # Template key changed (e.g. step loss → new [[unit_graphics]] row).
+                        self._remove_unit_display(unit_id)
+                        self._create_unit_display(unit_state)
+                    else:
+                        self._update_unit_display(unit_id, unit_state)
 
         # Remove displays for deleted/inactive units
         for unit_id in list(self._unit_displays.keys()):

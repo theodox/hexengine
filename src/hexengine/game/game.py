@@ -136,6 +136,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self._attack_controls_confirm = None
         self._attack_controls_cancel = None
         self._disrupt_instead_btn = None
+        self._advance_btn = None
         self._init_attack_controls(element("advance"))
 
         self.logger = logging.getLogger("game")
@@ -273,6 +274,17 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 )
             )
             row_alt.appendChild(btn_disrupt)
+
+            btn_advance = js.document.createElement("button")
+            btn_advance.className = "hexengine-attack-controls__advance"
+            btn_advance.textContent = "Advance"
+            btn_advance.title = "Advance after opponent retreats (when allowed)."
+            btn_advance.style.display = "none"
+            btn_advance.disabled = True
+            btn_advance.onclick = create_proxy(
+                lambda _evt=None: self.execute_action_request("CombatAdvance", {})
+            )
+            row_alt.appendChild(btn_advance)
             root.appendChild(row_alt)
 
             primary_actions_host.appendChild(root)
@@ -281,6 +293,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             self._attack_controls_confirm = btn_confirm
             self._attack_controls_cancel = btn_cancel
             self._disrupt_instead_btn = btn_disrupt
+            self._advance_btn = btn_advance
         except Exception:
             self.logger.debug("attack controls init failed", exc_info=True)
 
@@ -1142,6 +1155,22 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 return True
         return False
 
+    def _combat_advance_available(self, st: GameState) -> bool:
+        ek = self._title_state_extension_key()
+        if not ek:
+            return False
+        hx = st.extension.get(ek)
+        if not isinstance(hx, dict):
+            return False
+        if str(hx.get("combat_gate", "")).strip() != "awaiting_advance":
+            return False
+        adv = hx.get("advance")
+        if not isinstance(adv, dict):
+            return False
+        client = self.client
+        my = str(client.faction).strip() if client and client.faction else ""
+        return bool(my) and str(adv.get("faction", "")).strip() == my
+
     def _sync_disrupt_instead_control(self) -> None:
         btn = self._disrupt_instead_btn
         if btn is None:
@@ -1153,6 +1182,18 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             btn.disabled = not show
         except Exception:
             self.logger.debug("disrupt-instead control sync failed", exc_info=True)
+
+    def _sync_advance_control(self) -> None:
+        btn = self._advance_btn
+        if btn is None:
+            return
+        try:
+            st = self.action_mgr.current_state
+            show = st is not None and self._combat_advance_available(st)
+            btn.style.display = "" if show else "none"
+            btn.disabled = not show
+        except Exception:
+            self.logger.debug("advance control sync failed", exc_info=True)
 
     def _handle_state_update(self, new_state: GameState) -> None:
         if (
@@ -1193,6 +1234,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self._sync_map_overlays()
         self._sync_interaction_messages()
         self._sync_disrupt_instead_control()
+        self._sync_advance_control()
         self._apply_title_faction_css()
         self._apply_focus_unit_after_state_sync(new_state)
         self._sync_attack_plan_after_state_update()
@@ -1235,7 +1277,14 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             return
 
         def _prio(kind: str) -> int:
-            return {"retreat": 30, "wait": 20, "phase": 10, "info": 5, "error": 40}.get(kind, 0)
+            return {
+                "error": 40,
+                "retreat": 30,
+                "advance": 25,
+                "wait": 20,
+                "phase": 10,
+                "info": 5,
+            }.get(kind, 0)
 
         best: dict[str, Any] | None = None
         best_p = -1
@@ -1269,6 +1318,8 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         base = (
             "interaction-msg--retreat"
             if kind == "retreat"
+            else "interaction-msg--advance"
+            if kind == "advance"
             else "interaction-msg--wait"
             if kind == "wait"
             else "interaction-msg--phase"

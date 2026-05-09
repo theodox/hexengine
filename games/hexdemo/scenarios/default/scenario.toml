@@ -7,9 +7,11 @@ schema_version = 1
 grid_hex = "rgb(172, 172, 172)"
 grid_overlay_line = "rgb(32, 32, 32)"
 rebel_counter = "rgb(144, 144, 140)"
+rebel_counter_step = "rgb(80, 80, 80)"
 rebel_counter_hover = "rgb(193, 186, 147)"
 rebel_counter_hilite = "rgb(215, 132, 105)"
 union_counter = "rgb(80, 92, 169)"
+union_counter_step = "rgb(47, 55, 103)"
 union_counter_hover = "rgb(95, 129, 220)"
 union_counter_hilite = "rgb(91, 207, 246)"
 
@@ -267,8 +269,18 @@ type = "confederate_infantry"
 render = "counter"
 css_file = "unit_counter.css"
 glyph = "⚔"
-caption = "4 ➃ 6"
+caption = "6 ➃ 6"
 counter_fill = "@rebel_counter"
+counter_fill_hover = "@rebel_counter_hover"
+counter_fill_hilite = "@rebel_counter_hilite"
+
+[[unit_graphics]]
+type = "confederate_infantry_step"
+render = "counter"
+css_file = "unit_counter.css"
+glyph = "⚔"
+caption = "4 ➃ 6"
+counter_fill = "@rebel_counter_step"
 counter_fill_hover = "@rebel_counter_hover"
 counter_fill_hilite = "@rebel_counter_hilite"
 
@@ -289,6 +301,16 @@ css_file = "unit_counter.css"
 glyph = "⚔"
 caption = "4 ➃ 5"
 counter_fill = "@union_counter"
+counter_fill_hover = "@union_counter_hover"
+counter_fill_hilite = "@union_counter_hilite"
+
+[[unit_graphics]]
+type = "union_infantry_step"
+render = "counter"
+css_file = "unit_counter.css"
+glyph = "⚔"
+caption = "4 ➃ 3"
+counter_fill = "@union_counter_step"
 counter_fill_hover = "@union_counter_hover"
 counter_fill_hilite = "@union_counter_hilite"
 
@@ -343,6 +365,10 @@ id_prefix = "CI_"
 combat = 6
 morale = 5
 movement = 6
+steps = [
+  { combat = 6, morale = 6, graphics = "confederate_infantry"},
+  { combat = 4, morale = 4, graphics = "confederate_infantry_step"},
+]
 
 [[unit_archetype]]
 name = "confederate_artillery"
@@ -390,6 +416,10 @@ id_prefix = "UI_"
 combat = 5
 morale = 4
 movement = 5
+steps = [
+  { combat = 5, morale = 4, graphics = "union_infantry" },
+  { combat = 4, morale = 3, graphics = "union_infantry_step" },
+]
 
 
 [[unit_archetype]]

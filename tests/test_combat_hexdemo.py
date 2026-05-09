@@ -96,6 +96,53 @@ def _hexdemo_two_union_vs_one_def() -> GameState:
     return GameState(board=board, turn=turn, extension={"hexdemo": {}}, rng_log=())
 
 
+def _hexdemo_artillery_ranged_vs_infantry() -> GameState:
+    """Union artillery at range 2 vs confederate infantry (melee on defender hex only)."""
+    h_def = Hex(0, 0, 0)
+    h_art = Hex(2, -1, -1)
+    # Second union unit avoids auto-advance clearing ``last_combat`` after one attack.
+    h_idle = Hex(5, -5, 0)
+    board = BoardState(
+        units={
+            "u_art": UnitState(
+                unit_id="u_art",
+                unit_type="artillery",
+                faction="union",
+                position=h_art,
+                health=100,
+                active=True,
+                attributes={"combat": 5, "morale": 6, "range": 4},
+            ),
+            "u_idle": UnitState(
+                unit_id="u_idle",
+                unit_type="infantry",
+                faction="union",
+                position=h_idle,
+                health=100,
+                active=True,
+                attributes={"combat": 1, "morale": 1},
+            ),
+            "u_def": UnitState(
+                unit_id="u_def",
+                unit_type="infantry",
+                faction="confederate",
+                position=h_def,
+                health=100,
+                active=True,
+                attributes={"combat": 4, "morale": 4},
+            ),
+        }
+    )
+    turn = TurnState(
+        current_faction="union",
+        current_phase="Combat",
+        phase_actions_remaining=2,
+        turn_number=1,
+        schedule_index=1,
+    )
+    return GameState(board=board, turn=turn, extension={"hexdemo": {}}, rng_log=())
+
+
 def test_pack_extension_retreat_reads_custom_key() -> None:
     from hexengine.state.pack_extension_retreat import retreat_hexes_remaining
 
@@ -529,6 +576,288 @@ def test_combat_disrupt_instead_of_retreat(hexdemo_server: GameServer) -> None:
         assert not hx2.get("combat_gate")
         assert "u_def" not in (hx2.get("retreat_obligations") or {})
         assert st2.board.units["u_def"].attributes.get("disrupted") is True
+
+    asyncio.run(run())
+
+
+def test_ranged_artillery_attack_suppresses_attacker_retreat() -> None:
+    """CRT attacker retreat is ignored when only artillery participates (ranged bombardment)."""
+    gd = game_definition_from_config(default_match_config())
+    server = GameServer(
+        initial_state=_hexdemo_artillery_ranged_vs_infantry(),
+        game_definition=gd,
+    )
+    server.players["p_u"] = PlayerInfo(
+        player_id="p_u", player_name="U", faction="union", connected=True
+    )
+    server.faction_to_player["union"] = "p_u"
+
+    async def run() -> None:
+        # Column 0|1, roll 0 => AR (attacker retreat if morale passes); morale roll 1 passes.
+        with patch("games.hexdemo.hooks.attack.random.randrange", side_effect=[0, 1]):
+            req = ActionRequest(
+                action_type="Attack",
+                params={
+                    "attack_kind": "combined",
+                    "attacker_id": "u_art",
+                    "attacker_ids": ["u_art"],
+                    "defender_id": "u_def",
+                },
+                player_id="p_u",
+            )
+            await server.handle_message("p_u", req.to_message())
+
+        st = server.action_manager.current_state
+        hx = st.extension.get("hexdemo", {})
+        lc = hx.get("last_combat")
+        assert isinstance(lc, dict)
+        assert lc.get("outcome") == "none"
+        ro = hx.get("retreat_obligations") or {}
+        assert "u_art" not in ro
+        entry = st.rng_log[-1]
+        assert entry.get("hexdemo_attacker_retreat_suppressed") is True
+
+    asyncio.run(run())
+
+
+def test_advance_opens_when_wire_primary_is_ranged_but_adjacent_infantry_in_party() -> None:
+    """Advance uses an adjacent stack from ``attacker_ids``, not only ``attacker_id``."""
+    from hexengine.server.protocol import JoinGameRequest
+
+    h_def_orig = Hex(0, 0, 0)
+    h_inf = Hex(1, -1, 0)
+    h_art = Hex(2, -2, 0)
+    h_ret = next(h for h in neighbors(h_def_orig) if h != h_inf)
+    board = BoardState(
+        units={
+            "u_art": UnitState(
+                unit_id="u_art",
+                unit_type="artillery",
+                faction="union",
+                position=h_art,
+                health=100,
+                active=True,
+                attributes={"combat": 5, "morale": 6, "range": 4},
+            ),
+            "u_inf": UnitState(
+                unit_id="u_inf",
+                unit_type="infantry",
+                faction="union",
+                position=h_inf,
+                health=100,
+                active=True,
+                attributes={"combat": 5, "morale": 4},
+            ),
+            "u_def": UnitState(
+                unit_id="u_def",
+                unit_type="infantry",
+                faction="confederate",
+                position=h_ret,
+                health=100,
+                active=True,
+                attributes={"combat": 4, "morale": 4},
+            ),
+        }
+    )
+    turn = TurnState(
+        current_faction="union",
+        current_phase="Combat",
+        phase_actions_remaining=2,
+        turn_number=1,
+        schedule_index=1,
+    )
+    hx = {
+        "last_combat": {
+            "attack_kind": "combined",
+            "outcome": "defender_retreat",
+            "attacker_id": "u_art",
+            "attacker_ids": ["u_art", "u_inf"],
+            "defender_id": "u_def",
+            "defender_ids": ["u_def"],
+            "defender_hex": {"i": h_def_orig.i, "j": h_def_orig.j, "k": h_def_orig.k},
+            "defender_hexes": [{"i": h_def_orig.i, "j": h_def_orig.j, "k": h_def_orig.k}],
+            "attacker_hexes": [
+                {"i": h_art.i, "j": h_art.j, "k": h_art.k},
+                {"i": h_inf.i, "j": h_inf.j, "k": h_inf.k},
+            ],
+            "retreat_distance": 1,
+            "retreat_unit_id": "u_def",
+        },
+        "retreat_obligations": {},
+    }
+    st = GameState(board=board, turn=turn, extension={"hexdemo": hx}, rng_log=())
+    gd = game_definition_from_config(default_match_config())
+    server = GameServer(initial_state=st, game_definition=gd)
+
+    async def run() -> None:
+        await server.handle_message(
+            "p_u", JoinGameRequest(player_name="U", faction="union").to_message()
+        )
+        server._maybe_open_combat_advance_after_retreat("hexdemo")
+        st2 = server.action_manager.current_state
+        adv = st2.extension.get("hexdemo", {}).get("advance")
+        assert isinstance(adv, dict)
+        assert adv.get("faction") == "union"
+        assert adv.get("unit_ids") == ["u_inf"]
+        assert adv.get("to_hex") == {
+            "i": h_def_orig.i,
+            "j": h_def_orig.j,
+            "k": h_def_orig.k,
+        }
+
+    asyncio.run(run())
+
+
+def test_combat_advance_after_defender_retreat(hexdemo_server: GameServer) -> None:
+    """After defender fulfills retreat, attacker may advance into vacated defender hex."""
+    from hexengine.server.protocol import JoinGameRequest
+
+    server = hexdemo_server
+    server.players["p_u"] = PlayerInfo(
+        player_id="p_u", player_name="U", faction="union", connected=True
+    )
+    server.players["p_c"] = PlayerInfo(
+        player_id="p_c", player_name="C", faction="confederate", connected=True
+    )
+    server.faction_to_player["union"] = "p_u"
+    server.faction_to_player["confederate"] = "p_c"
+
+    st0 = server.action_manager.current_state
+    h_att = st0.board.units["u_att"].position
+    h_def = st0.board.units["u_def"].position
+    # Pick a retreat destination adjacent to defender but not attacker.
+    h_ret = next(h for h in neighbors(h_def) if h != h_att)
+
+    async def run() -> None:
+        await server.handle_message(
+            "p_u", JoinGameRequest(player_name="U", faction="union").to_message()
+        )
+        await server.handle_message(
+            "p_c", JoinGameRequest(player_name="C", faction="confederate").to_message()
+        )
+
+        # Defender retreat: CRT roll 3 on column 0|1 => DC_EX, failed morale => defender RETREAT.
+        with patch("games.hexdemo.hooks.attack.random.randrange", side_effect=[3, 1]):
+            req = ActionRequest(
+                action_type="Attack",
+                params={
+                    "attack_kind": "combined",
+                    "attacker_id": "u_att",
+                    "attacker_ids": ["u_att"],
+                    "defender_id": "u_def",
+                },
+                player_id="p_u",
+            )
+            await server.handle_message("p_u", req.to_message())
+
+        # Defender fulfills the (1-hex) retreat.
+        mv = ActionRequest(
+            action_type="MoveUnit",
+            params={
+                "unit_id": "u_def",
+                "from_hex": {"i": h_def.i, "j": h_def.j, "k": h_def.k},
+                "to_hex": {"i": h_ret.i, "j": h_ret.j, "k": h_ret.k},
+            },
+            player_id="p_c",
+        )
+        await server.handle_message("p_c", mv.to_message())
+
+        st1 = server.action_manager.current_state
+        hx = st1.extension.get("hexdemo", {})
+        assert hx.get("combat_gate") == "awaiting_advance"
+        adv = hx.get("advance")
+        assert isinstance(adv, dict)
+        assert adv.get("faction") == "union"
+
+        # Attacker advances into the vacated defender hex.
+        adv_req = ActionRequest(
+            action_type="CombatAdvance",
+            params={},
+            player_id="p_u",
+        )
+        await server.handle_message("p_u", adv_req.to_message())
+
+        st2 = server.action_manager.current_state
+        assert st2.board.units["u_att"].position == h_def
+        hx2 = st2.extension.get("hexdemo", {})
+        assert hx2.get("combat_gate") is None
+        assert hx2.get("advance") is None
+
+    asyncio.run(run())
+
+
+def test_combat_advance_via_move_unit_optional_path(hexdemo_server: GameServer) -> None:
+    """Player may also advance by issuing a MoveUnit into the vacated defender hex."""
+    from hexengine.server.protocol import JoinGameRequest
+
+    server = hexdemo_server
+    server.players["p_u"] = PlayerInfo(
+        player_id="p_u", player_name="U", faction="union", connected=True
+    )
+    server.players["p_c"] = PlayerInfo(
+        player_id="p_c", player_name="C", faction="confederate", connected=True
+    )
+    server.faction_to_player["union"] = "p_u"
+    server.faction_to_player["confederate"] = "p_c"
+
+    st0 = server.action_manager.current_state
+    h_att = st0.board.units["u_att"].position
+    h_def = st0.board.units["u_def"].position
+    h_ret = next(h for h in neighbors(h_def) if h != h_att)
+
+    async def run() -> None:
+        await server.handle_message(
+            "p_u", JoinGameRequest(player_name="U", faction="union").to_message()
+        )
+        await server.handle_message(
+            "p_c", JoinGameRequest(player_name="C", faction="confederate").to_message()
+        )
+
+        with patch("games.hexdemo.hooks.attack.random.randrange", side_effect=[3, 1]):
+            req = ActionRequest(
+                action_type="Attack",
+                params={
+                    "attack_kind": "combined",
+                    "attacker_id": "u_att",
+                    "attacker_ids": ["u_att"],
+                    "defender_id": "u_def",
+                },
+                player_id="p_u",
+            )
+            await server.handle_message("p_u", req.to_message())
+
+        mv = ActionRequest(
+            action_type="MoveUnit",
+            params={
+                "unit_id": "u_def",
+                "from_hex": {"i": h_def.i, "j": h_def.j, "k": h_def.k},
+                "to_hex": {"i": h_ret.i, "j": h_ret.j, "k": h_ret.k},
+            },
+            player_id="p_c",
+        )
+        await server.handle_message("p_c", mv.to_message())
+
+        st1 = server.action_manager.current_state
+        hx = st1.extension.get("hexdemo", {})
+        assert hx.get("combat_gate") == "awaiting_advance"
+
+        # Advance by MoveUnit into the vacated defender hex.
+        adv_move = ActionRequest(
+            action_type="MoveUnit",
+            params={
+                "unit_id": "u_att",
+                "from_hex": {"i": h_att.i, "j": h_att.j, "k": h_att.k},
+                "to_hex": {"i": h_def.i, "j": h_def.j, "k": h_def.k},
+            },
+            player_id="p_u",
+        )
+        await server.handle_message("p_u", adv_move.to_message())
+
+        st2 = server.action_manager.current_state
+        assert st2.board.units["u_att"].position == h_def
+        hx2 = st2.extension.get("hexdemo", {})
+        assert hx2.get("combat_gate") is None
+        assert hx2.get("advance") is None
 
     asyncio.run(run())
 
