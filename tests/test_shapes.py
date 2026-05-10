@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import unittest
 
+from hexengine.hexes.constants import PI_OVER_6
 from hexengine.hexes.math import (
     cartesian_to_hex,
     cross_product,
@@ -10,13 +11,17 @@ from hexengine.hexes.math import (
     dot_product,
     hex_magnitude,
     hex_to_cartesian,
+    line,
     scale_cartesian_vector,
     vector_angle,
 )
 from hexengine.hexes.shapes import (
     angle,
+    angular_sector_hexes,
     convex_hull,
     fill_convex_polygon,
+    filled_wedge,
+    hex_line_segment,
     outer_boundary,
     path,
     polygon,
@@ -24,7 +29,7 @@ from hexengine.hexes.shapes import (
     ring,
     wedge_fill,
 )
-from hexengine.hexes.types import Hex
+from hexengine.hexes.types import Cartesian, Hex, HexColRow
 
 
 class TestHexShapes(unittest.TestCase):
@@ -186,6 +191,39 @@ class TestHexShapes(unittest.TestCase):
         expected_length = distance(start, end) + 1
         self.assertEqual(len(result), expected_length)
 
+    def test_path_hex_col_row_steps(self):
+        """Path accepts odd-q HexColRow waypoints (normalized via _as_hex)."""
+        a = HexColRow(0, 0)
+        b = HexColRow(1, 0)
+        ah, bh = a.to_hex(), b.to_hex()
+        self.assertEqual(list(path([a, b])), list(path([ah, bh])))
+
+    def test_path_cartesian_steps(self):
+        """Path accepts Cartesian waypoints (normalized like other cell types)."""
+        h0, h1 = Hex(0, 0, 0), Hex(1, 0, -1)
+        c0, c1 = Cartesian.from_hex(h0), Cartesian.from_hex(h1)
+        self.assertEqual(list(path([c0, c1])), list(path([h0, h1])))
+
+    def test_path_mixed_hex_like_waypoints(self):
+        """Path may mix Hex, HexColRow, and Cartesian in one polyline."""
+        h0 = Hex(0, 0, 0)
+        cr = HexColRow(1, 0)
+        c2 = Cartesian.from_hex(Hex(2, 0, -2))
+        self.assertEqual(
+            list(path([h0, cr, c2])),
+            list(path([h0, cr.to_hex(), Hex(2, 0, -2)])),
+        )
+
+    def test_radius_hex_col_row_center(self):
+        center_cr = HexColRow(0, 0)
+        center_hex = center_cr.to_hex()
+        self.assertEqual(set(radius(center_cr, 1)), set(radius(center_hex, 1)))
+
+    def test_ring_hex_col_row_center(self):
+        center_cr = HexColRow(0, 0)
+        center_hex = center_cr.to_hex()
+        self.assertEqual(set(ring(center_cr, 2)), set(ring(center_hex, 2)))
+
     def test_radius_zero(self):
         """Test radius of 0 returns only center."""
         center = Hex(1, -1, 0)
@@ -245,6 +283,26 @@ class TestHexShapes(unittest.TestCase):
         result = angle(hex_coord, hex_coord)
         # Should handle this case gracefully
         self.assertIsInstance(result, float)
+
+    def test_hex_line_segment_matches_line(self):
+        """hex_line_segment is the two-point specialization of path / line."""
+        a = Hex(0, 0, 0)
+        b = Hex(3, 0, -3)
+        self.assertEqual(list(hex_line_segment(a, b)), list(line(a, b)))
+        self.assertEqual(list(hex_line_segment(a, b)), list(path((a, b))))
+
+    def test_angular_sector_hexes_default_uses_filled_wedge(self):
+        """half_angle == PI_OVER_6 should match stacked wedge rings."""
+        center = Hex(0, 0, 0)
+        max_d = 3
+        direction = 2
+        s1 = set(
+            angular_sector_hexes(
+                center, max_d, direction=direction, half_angle=PI_OVER_6
+            )
+        )
+        s2 = set(filled_wedge(center, max_d, direction))
+        self.assertEqual(s1, s2)
 
     def test_wedge_fill_contains_center(self):
         """Test that wedge fill always includes center."""

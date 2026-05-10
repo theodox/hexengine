@@ -83,6 +83,7 @@ The browser client should not infer title rules by inspecting `GameState.extensi
 
 **Recommended checklist for title authors:**
 
+- **Pack manifest**: ship `games/<pack_id>/hexengine_pack.toml` with `pack.id` (must match the directory name), `python.path_add`, `python.entry_module`, and `python.entry_callable`. The engine resolves the pack from the scenario path and loads rules through that entry (see `hexengine.game_packs.registry`).
 - **Turn schedule / budgets**: ensure the server includes `StateUpdate.turn_rules` (engine always sends it) and set `movement_budget_attribute_key` if the title uses per-unit budgets.
 - **Focus/selection UX**: implement `focus_unit_id_after_state_sync(...)` on the server `GameDefinition`; the server will publish `StateUpdate.suggested_focus_unit_id` per viewer.
 - **Mandatory retreat UX**: implement `retreat_obligation_hexes_remaining(...)` on the server `GameDefinition`; the server will publish `StateUpdate.retreat_obligations` per viewer (unit id → hexes remaining). The browser `Game` uses this for drag gating and previews.
@@ -116,7 +117,7 @@ from hexengine.scenarios.loader import scenario_to_initial_state
 
 scenario_path = resolve_scenario_path_with_game_root()
 scenario_data = load_scenario(scenario_path)
-game_def = load_game_definition_for_scenario(scenario_path, schedule="interleaved")
+game_def = load_game_definition_for_scenario(scenario_path)
 first = initial_faction_for_game_definition(game_def)
 initial_state = scenario_to_initial_state(
     scenario_data,

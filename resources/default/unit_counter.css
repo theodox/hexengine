@@ -51,6 +51,16 @@
   stroke: rgba(0, 0, 0, 0.35);
 }
 
+.unit.unit-counter.hilited-secondary .unit-counter-base {
+  fill: var(--unit-counter-fill-hilite-secondary, rgba(97, 170, 255, 0.82));
+  stroke: rgba(0, 0, 0, 0.35);
+}
+
+.unit.unit-counter.hilited-secondary-target .unit-counter-base {
+  fill: var(--unit-counter-fill-hilite-secondary-target, rgba(255, 107, 107, 0.78));
+  stroke: rgba(0, 0, 0, 0.35);
+}
+
 .unit.unit-counter.disabled .unit-counter-base {
   opacity: 0.45;
 }

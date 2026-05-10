@@ -5,7 +5,6 @@ State-based actions for the immutable state system.
 from __future__ import annotations
 
 import logging
-import random
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
@@ -13,7 +12,7 @@ from ..hexes.types import Hex
 from .action_manager import StateAction
 
 if TYPE_CHECKING:
-    from ..state.game_state import GameState
+    from ..state.game_state import GameState, UnitState
 
 LOGGER = logging.getLogger("actions")
 
@@ -81,7 +80,7 @@ class MoveUnit(StateAction):
 
 
 class PatchUnitAttributes(StateAction):
-    """Shallow-merge keys into ``UnitState.attributes`` (title-defined JSON-safe data)."""
+    """Shallow-merge keys into UnitState.attributes (title-defined JSON-safe data)."""
 
     def __init__(
         self,
@@ -389,82 +388,214 @@ class RemoveMarker:
         return f"<RemoveMarker {self.marker_id!r}>"
 
 
-_HEXDEMO_COMBAT_KEYS = (
+_TITLE_COMBAT_KEYS = (
     "attacks_this_phase",
     "retreat_obligations",
     "combat_gate",
     "last_combat",
+    "advance",
 )
 
 
-class ClearHexdemoCombatExtension(StateAction):
-    """Remove Hexdemo combat prototype keys from ``extension['hexdemo']`` (phase rollover)."""
+class ClearTitleCombatExtension(StateAction):
+    """Remove title combat keys from extension[extension_key] (phase rollover)."""
 
-    def __init__(self) -> None:
-        self._saved_hexdemo: dict[str, Any] | None = None
+    def __init__(self, extension_key: str) -> None:
+        self.extension_key = extension_key
+        self._saved_bucket: dict[str, Any] | None = None
 
     def apply(self, state: GameState) -> GameState:
         ext = dict(state.extension)
-        hx = ext.get("hexdemo")
+        hx = ext.get(self.extension_key)
         if not isinstance(hx, dict):
-            self._saved_hexdemo = None
+            self._saved_bucket = None
             return state
-        self._saved_hexdemo = dict(hx)
+        self._saved_bucket = dict(hx)
         new_hx = {**hx}
-        for k in _HEXDEMO_COMBAT_KEYS:
+        for k in _TITLE_COMBAT_KEYS:
             new_hx.pop(k, None)
-        ext["hexdemo"] = new_hx
+        ext[self.extension_key] = new_hx
         return state.with_extension(ext)
 
     def revert(self, state: GameState) -> GameState:
-        if self._saved_hexdemo is None:
+        if self._saved_bucket is None:
             return state
         ext = dict(state.extension)
-        ext["hexdemo"] = dict(self._saved_hexdemo)
+        ext[self.extension_key] = dict(self._saved_bucket)
         return state.with_extension(ext)
 
     def should_revert_prior(self) -> bool:
         return False
+
+    def __repr__(self) -> str:
+        return f"<ClearTitleCombatExtension {self.extension_key!r}>"
+
+
+class ClearHexdemoCombatExtension(ClearTitleCombatExtension):
+    """Backward-compatible alias for ClearTitleCombatExtension('hexdemo')."""
+
+    def __init__(self) -> None:
+        super().__init__("hexdemo")
 
     def __repr__(self) -> str:
         return "<ClearHexdemoCombatExtension>"
 
 
 class ClearUnitRetreatObligation(StateAction):
-    """Clear one unit's entry from ``hexdemo.retreat_obligations`` after a fulfillment move."""
+    """Clear one unit's entry from title retreat_obligations after a fulfillment move."""
 
-    def __init__(self, unit_id: str) -> None:
+    def __init__(self, unit_id: str, extension_key: str) -> None:
         self.unit_id = unit_id
-        self._saved_hexdemo: dict[str, Any] | None = None
+        self.extension_key = extension_key
+        self._saved_bucket: dict[str, Any] | None = None
 
     def apply(self, state: GameState) -> GameState:
         ext = dict(state.extension)
-        hx = ext.get("hexdemo")
+        hx = ext.get(self.extension_key)
         if not isinstance(hx, dict):
-            self._saved_hexdemo = None
+            self._saved_bucket = None
             return state
-        self._saved_hexdemo = dict(hx)
+        self._saved_bucket = dict(hx)
         new_hx = {**hx}
         ro = dict(new_hx.get("retreat_obligations", {}))
         ro.pop(self.unit_id, None)
         new_hx["retreat_obligations"] = ro
         if not _retreat_obligations_have_pending(ro):
             new_hx.pop("combat_gate", None)
-        ext["hexdemo"] = new_hx
+        ext[self.extension_key] = new_hx
         return state.with_extension(ext)
 
     def revert(self, state: GameState) -> GameState:
-        if self._saved_hexdemo is None:
+        if self._saved_bucket is None:
             return state
         ext = dict(state.extension)
-        ext["hexdemo"] = dict(self._saved_hexdemo)
+        ext[self.extension_key] = dict(self._saved_bucket)
         return state.with_extension(ext)
 
     def should_revert_prior(self) -> bool:
         return False
 
     def __repr__(self) -> str:
-        return f"<ClearUnitRetreatObligation {self.unit_id!r}>"
+        return (
+            f"<ClearUnitRetreatObligation {self.unit_id!r} "
+            f"extension_key={self.extension_key!r}>"
+        )
+
+
+class OpenCombatAdvance(StateAction):
+    """Open a title-defined attacker advance window after retreat is resolved."""
+
+    def __init__(
+        self,
+        extension_key: str,
+        *,
+        advancing_faction: str,
+        from_hex: Hex,
+        to_hex: Hex,
+        unit_ids: tuple[str, ...],
+    ) -> None:
+        self.extension_key = extension_key
+        self.advancing_faction = str(advancing_faction).strip()
+        self.from_hex = from_hex
+        self.to_hex = to_hex
+        self.unit_ids = tuple(str(u).strip() for u in unit_ids if str(u).strip())
+        self._saved_bucket: dict[str, Any] | None = None
+
+    def apply(self, state: GameState) -> GameState:
+        ext = dict(state.extension)
+        hx0 = ext.get(self.extension_key)
+        if not isinstance(hx0, dict):
+            hx0 = {}
+        self._saved_bucket = dict(hx0)
+        hx = dict(hx0)
+        hx["combat_gate"] = "awaiting_advance"
+        hx["advance"] = {
+            "schema": 1,
+            "faction": self.advancing_faction,
+            "from_hex": {"i": int(self.from_hex.i), "j": int(self.from_hex.j), "k": int(self.from_hex.k)},
+            "to_hex": {"i": int(self.to_hex.i), "j": int(self.to_hex.j), "k": int(self.to_hex.k)},
+            "unit_ids": list(self.unit_ids),
+        }
+        ext[self.extension_key] = hx
+        return state.with_extension(ext)
+
+    def revert(self, state: GameState) -> GameState:
+        if self._saved_bucket is None:
+            return state
+        ext = dict(state.extension)
+        ext[self.extension_key] = dict(self._saved_bucket)
+        return state.with_extension(ext)
+
+    def should_revert_prior(self) -> bool:
+        return False
+
+    def __repr__(self) -> str:
+        return f"<OpenCombatAdvance extension_key={self.extension_key!r}>"
+
+
+class ResolveCombatAdvance(StateAction):
+    """Advance the attacker stack and clear the advance gate."""
+
+    def __init__(self, extension_key: str, player_faction: str) -> None:
+        self.extension_key = extension_key
+        self.player_faction = str(player_faction).strip()
+        self._saved_bucket: dict[str, Any] | None = None
+
+    def apply(self, state: GameState) -> GameState:
+        ext = dict(state.extension)
+        hx0 = ext.get(self.extension_key)
+        if not isinstance(hx0, dict):
+            raise ValueError("No title combat extension")
+        self._saved_bucket = dict(hx0)
+        hx = dict(hx0)
+        if str(hx.get("combat_gate", "")).strip() != "awaiting_advance":
+            raise ValueError("No advance pending")
+        adv = hx.get("advance")
+        if not isinstance(adv, dict):
+            raise ValueError("Missing advance payload")
+        if str(adv.get("faction", "")).strip() != self.player_faction:
+            raise ValueError("Not allowed to advance for this faction")
+        to_hex_raw = adv.get("to_hex")
+        if not isinstance(to_hex_raw, dict):
+            raise ValueError("Invalid to_hex")
+        try:
+            to_hex = Hex(int(to_hex_raw["i"]), int(to_hex_raw["j"]), int(to_hex_raw["k"]))
+        except Exception as e:
+            raise ValueError("Invalid to_hex") from e
+        unit_ids_raw = adv.get("unit_ids")
+        if not isinstance(unit_ids_raw, list) or not unit_ids_raw:
+            raise ValueError("No units to advance")
+
+        st = state
+        # Advance each still-active friendly unit listed.
+        for uid in unit_ids_raw:
+            if not isinstance(uid, str) or not uid.strip():
+                continue
+            u = st.board.units.get(uid)
+            if u is None or not u.active or u.faction != self.player_faction:
+                continue
+            st = MoveUnit(uid, from_hex=u.position, to_hex=to_hex).apply(st)
+
+        # Clear the gate + payload.
+        ext2 = dict(st.extension)
+        hx2 = dict(ext2.get(self.extension_key) or {})
+        hx2.pop("advance", None)
+        hx2.pop("combat_gate", None)
+        ext2[self.extension_key] = hx2
+        return st.with_extension(ext2)
+
+    def revert(self, state: GameState) -> GameState:
+        if self._saved_bucket is None:
+            return state
+        ext = dict(state.extension)
+        ext[self.extension_key] = dict(self._saved_bucket)
+        return state.with_extension(ext)
+
+    def should_revert_prior(self) -> bool:
+        return False
+
+    def __repr__(self) -> str:
+        return f"<ResolveCombatAdvance extension_key={self.extension_key!r}>"
 
 
 def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:
@@ -477,110 +608,453 @@ def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:
     return False
 
 
+def _unit_type_is_infantry(unit: UnitState) -> bool:
+    """Hexdemo-style two-step cadence applies to ``unit_type`` ``infantry`` only."""
+    return str(unit.unit_type).strip().lower() == "infantry"
+
+
+def _int_attr(attrs: dict[str, Any], key: str, default: int = 0) -> int:
+    raw = attrs.get(key, default)
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+def _graphics_template_key_for_step(attrs: dict[str, Any], *, step_index: int) -> str | None:
+    """Return ``[[unit_graphics]]`` ``type`` from ``attributes['steps'][step_index].graphics``."""
+    raw = attrs.get("steps")
+    if not isinstance(raw, list) or step_index < 0 or step_index >= len(raw):
+        return None
+    row = raw[step_index]
+    if not isinstance(row, dict):
+        return None
+    g = row.get("graphics")
+    if isinstance(g, str):
+        s = g.strip()
+        if s:
+            return s
+    return None
+
+
+def _step1_patch_from_explicit_steps(attrs: dict[str, Any]) -> dict[str, Any] | None:
+    """
+    Optional explicit step table in unit attributes:
+
+        steps = [ { combat=..., morale=... }, { combat=..., morale=... }, ... ]
+
+    On first step loss we apply step index 1 values when present.
+    """
+    raw = attrs.get("steps")
+    if not isinstance(raw, list) or len(raw) < 2:
+        return None
+    step1 = raw[1]
+    if not isinstance(step1, dict):
+        return None
+    patch: dict[str, Any] = {}
+    if "combat" in step1:
+        try:
+            patch["combat"] = max(0, int(step1["combat"]))
+        except (TypeError, ValueError):
+            pass
+    if "morale" in step1:
+        try:
+            patch["morale"] = max(0, int(step1["morale"]))
+        except (TypeError, ValueError):
+            pass
+    return patch or None
+
+
+def _apply_step_loss_to_unit(state: GameState, unit_id: str) -> GameState:
+    """Apply one combat step loss: infantry drops combat/morale on first loss; then delete.
+
+    - **Infantry** (`unit_type` ``infantry``, case-insensitive): first loss sets
+      ``steps_lost`` to 1 and reduces ``combat`` and ``morale`` by 1 each (floor 0);
+      movement and other attributes are unchanged. A second loss applies
+      ``DeleteUnit`` (unit deactivated).
+    - **Other types**: first loss only sets ``steps_lost`` to 1; second loss applies
+      ``DeleteUnit`` (no automatic combat/morale change on the first loss).
+    - If ``attributes['steps'][1].graphics`` is set, first loss also updates
+      ``UnitState.graphics`` so clients swap ``[[unit_graphics]]`` templates.
+    """
+    unit = state.board.units.get(unit_id)
+    if unit is None or not unit.active:
+        return state
+    raw = unit.attributes.get("steps_lost", 0)
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        n = 0
+    if n <= 0:
+        patch: dict[str, Any] = {"steps_lost": 1}
+        if _unit_type_is_infantry(unit):
+            explicit = _step1_patch_from_explicit_steps(unit.attributes)
+            if explicit is not None:
+                patch.update(explicit)
+            else:
+                c = _int_attr(unit.attributes, "combat", 0)
+                m = _int_attr(unit.attributes, "morale", 0)
+                patch["combat"] = max(0, c - 1)
+                patch["morale"] = max(0, m - 1)
+        st = PatchUnitAttributes(unit_id, patch).apply(state)
+        u2 = st.board.units.get(unit_id)
+        if u2 is not None and u2.active:
+            gkey = _graphics_template_key_for_step(u2.attributes, step_index=1)
+            if gkey is not None and gkey != u2.graphics:
+                st = st.with_board(st.board.with_unit(u2.with_graphics(gkey)))
+        return st
+    return DeleteUnit(unit_id).apply(state)
+
+
+class ApplyCombatEffects(StateAction):
+    """Apply title ``AttackResolution.effects`` after the core ``Attack`` state action."""
+
+    def __init__(self, extension_key: str, effects: dict[str, Any]) -> None:
+        self.extension_key = extension_key
+        self.effects = dict(effects)
+        self._prev_extension_bucket: dict[str, Any] | None = None
+
+    def apply(self, state: GameState) -> GameState:
+        hx0 = state.extension.get(self.extension_key)
+        self._prev_extension_bucket = dict(hx0) if isinstance(hx0, dict) else {}
+        st = state
+        eff = self.effects
+        if not eff:
+            return state
+
+        step_rows = eff.get("step_losses")
+        if isinstance(step_rows, list):
+            for row in step_rows:
+                if isinstance(row, dict):
+                    uid = str(row.get("unit_id", "")).strip()
+                    try:
+                        count = int(row.get("count", 1))
+                    except (TypeError, ValueError):
+                        count = 1
+                elif isinstance(row, str) and row.strip():
+                    uid, count = row.strip(), 1
+                else:
+                    continue
+                if not uid:
+                    continue
+                for _ in range(max(count, 1)):
+                    st = _apply_step_loss_to_unit(st, uid)
+
+        disrupt = eff.get("disrupt")
+        if isinstance(disrupt, list):
+            seen: set[str] = set()
+            for item in disrupt:
+                uid = str(item).strip() if isinstance(item, str) else ""
+                if not uid or uid in seen:
+                    continue
+                seen.add(uid)
+                u0 = st.board.units.get(uid)
+                if u0 is None or not u0.active:
+                    continue
+                for u in st.board.active_units_at_hex(u0.position):
+                    if u.faction != u0.faction:
+                        continue
+                    st = PatchUnitAttributes(
+                        str(u.unit_id), {"disrupted": True}
+                    ).apply(st)
+
+        ext = dict(st.extension)
+        cur_hx = ext.get(self.extension_key)
+        hx = dict(cur_hx) if isinstance(cur_hx, dict) else dict(self._prev_extension_bucket)
+
+        retreat_meta = eff.get("retreat")
+        if isinstance(retreat_meta, dict) and retreat_meta.get("allow_disrupt_instead"):
+            if str(hx.get("combat_gate", "")) == "awaiting_retreat":
+                hx["combat_gate"] = "awaiting_retreat_or_disrupt"
+
+        patch = eff.get("last_combat_patch")
+        if isinstance(patch, dict):
+            lc = hx.get("last_combat")
+            base = dict(lc) if isinstance(lc, dict) else {}
+            merged = {**base, **patch}
+            hx["last_combat"] = merged
+
+        ext[self.extension_key] = hx
+        return st.with_extension(ext)
+
+    def revert(self, state: GameState) -> GameState:
+        ext = dict(state.extension)
+        ext[self.extension_key] = (
+            dict(self._prev_extension_bucket)
+            if self._prev_extension_bucket is not None
+            else {}
+        )
+        return state.with_extension(ext)
+
+    def should_revert_prior(self) -> bool:
+        return False
+
+    def __repr__(self) -> str:
+        return f"<ApplyCombatEffects extension_key={self.extension_key!r}>"
+
+
+class ResolveDisruptInsteadOfRetreat(StateAction):
+    """Retreating player takes disruption and clears mandatory retreat obligations."""
+
+    def __init__(self, extension_key: str, player_faction: str) -> None:
+        self.extension_key = extension_key
+        self.player_faction = str(player_faction).strip()
+        self._prev_extension_bucket: dict[str, Any] | None = None
+
+    def apply(self, state: GameState) -> GameState:
+        hx0 = state.extension.get(self.extension_key)
+        self._prev_extension_bucket = dict(hx0) if isinstance(hx0, dict) else {}
+        if not isinstance(hx0, dict):
+            raise ValueError("No title combat extension")
+        hx = dict(hx0)
+        gate = str(hx.get("combat_gate", "")).strip()
+        if gate != "awaiting_retreat_or_disrupt":
+            raise ValueError(
+                "Disrupt-instead is only allowed when combat_gate is awaiting_retreat_or_disrupt"
+            )
+        prev_ro = hx.get("retreat_obligations")
+        ro = dict(prev_ro) if isinstance(prev_ro, dict) else {}
+        st = state
+        cleared_any = False
+        for uid in list(ro.keys()):
+            raw = ro.get(uid)
+            try:
+                n = int(raw)
+            except (TypeError, ValueError):
+                continue
+            if n <= 0:
+                continue
+            u = st.board.units.get(uid)
+            if u is None or not u.active or u.faction != self.player_faction:
+                continue
+            st = PatchUnitAttributes(str(uid), {"disrupted": True}).apply(st)
+            ro.pop(uid, None)
+            cleared_any = True
+        if not cleared_any:
+            raise ValueError("No retreat obligation found for this faction")
+
+        hx["retreat_obligations"] = ro
+        if not _retreat_obligations_have_pending(ro):
+            hx.pop("combat_gate", None)
+        ext = dict(st.extension)
+        ext[self.extension_key] = hx
+        return st.with_extension(ext)
+
+    def revert(self, state: GameState) -> GameState:
+        ext = dict(state.extension)
+        ext[self.extension_key] = (
+            dict(self._prev_extension_bucket)
+            if self._prev_extension_bucket is not None
+            else {}
+        )
+        return state.with_extension(ext)
+
+    def should_revert_prior(self) -> bool:
+        return False
+
+    def __repr__(self) -> str:
+        return (
+            f"<ResolveDisruptInsteadOfRetreat "
+            f"extension_key={self.extension_key!r} faction={self.player_faction!r}>"
+        )
+
+
 class Attack(StateAction):
-    """Single attack action (``attack_kind`` dispatches); v1 implements ``adjacent`` only."""
+    """Single attack action (attack_kind dispatches; title decides legality/outcome).
 
-    _OUTCOMES = (
-        "none",
-        "attacker_retreat",
-        "defender_retreat",
-        "defender_destroyed",
-    )
+    Titles may resolve an attack against multiple attackers and/or defenders via
+    ``attacker_ids`` / ``defender_ids``. Defenders may occupy multiple hexes; extension
+    ``last_combat`` records both a primary ``defender_hex`` and ``defender_hexes``.
+    """
 
-    def __init__(self, attack_kind: str, attacker_id: str, defender_id: str) -> None:
+    def __init__(
+        self,
+        attack_kind: str,
+        attacker_id: str,
+        defender_id: str,
+        *,
+        extension_key: str,
+        outcome: str,
+        attacker_ids: tuple[str, ...] | None = None,
+        defender_ids: tuple[str, ...] | None = None,
+        retreat_distance: int | None = None,
+        retreat_unit_id: str | None = None,
+        rng_entry: dict[str, Any] | None = None,
+    ) -> None:
         self.attack_kind = attack_kind
         self.attacker_id = attacker_id
         self.defender_id = defender_id
-        self._prev_hexdemo: dict[str, Any] | None = None
+        self.extension_key = extension_key
+        self.outcome = outcome
+        if attacker_ids is None:
+            self.attacker_ids: tuple[str, ...] | None = None
+        else:
+            norm_a: list[str] = []
+            seen_a: set[str] = set()
+            for uid in attacker_ids:
+                if not isinstance(uid, str):
+                    continue
+                s = uid.strip()
+                if not s or s in seen_a:
+                    continue
+                seen_a.add(s)
+                norm_a.append(s)
+            self.attacker_ids = tuple(norm_a) if norm_a else None
+        if defender_ids is None:
+            self.defender_ids: tuple[str, ...] | None = None
+        else:
+            norm: list[str] = []
+            seen: set[str] = set()
+            for uid in defender_ids:
+                if not isinstance(uid, str):
+                    continue
+                s = uid.strip()
+                if not s or s in seen:
+                    continue
+                seen.add(s)
+                norm.append(s)
+            self.defender_ids = tuple(norm) if norm else None
+        self.retreat_distance = retreat_distance
+        self.retreat_unit_id = str(retreat_unit_id) if retreat_unit_id else None
+        self.rng_entry = dict(rng_entry) if isinstance(rng_entry, dict) else None
+        self._prev_extension_bucket: dict[str, Any] | None = None
         self._prev_rng_log: tuple[dict[str, Any], ...] | None = None
-        self._delete_applied = False
+        self._deleted_unit_ids: tuple[str, ...] = ()
 
     def apply(self, state: GameState) -> GameState:
-        if self.attack_kind != "adjacent":
-            raise ValueError(f"Unknown attack_kind {self.attack_kind!r}")
+        attacker_ids = self.attacker_ids or (self.attacker_id,)
+        attackers = []
+        for aid in attacker_ids:
+            a = state.board.units.get(aid)
+            if a is None or not a.active:
+                raise ValueError(f"Attacker {aid!r} not found or inactive")
+            attackers.append(a)
+        attacker0 = attackers[0]
 
-        attacker = state.board.units.get(self.attacker_id)
-        defender = state.board.units.get(self.defender_id)
-        if attacker is None or not attacker.active:
-            raise ValueError(f"Attacker {self.attacker_id!r} not found or inactive")
-        if defender is None or not defender.active:
-            raise ValueError(f"Defender {self.defender_id!r} not found or inactive")
-        if attacker.faction == defender.faction:
-            raise ValueError("Cannot attack same faction")
+        defender_ids = self.defender_ids or (self.defender_id,)
+        defenders = []
+        for did in defender_ids:
+            d = state.board.units.get(did)
+            if d is None or not d.active:
+                raise ValueError(f"Defender {did!r} not found or inactive")
+            if attacker0.faction == d.faction:
+                raise ValueError("Cannot attack same faction")
+            defenders.append(d)
+        defender0 = defenders[0]
+        dpos0 = defender0.position
+        defender_hexes_sorted = tuple(
+            sorted(
+                {d.position for d in defenders},
+                key=lambda h: (int(h.i), int(h.j), int(h.k)),
+            )
+        )
+        attacker_hexes_sorted = tuple(
+            sorted(
+                {a.position for a in attackers},
+                key=lambda h: (int(h.i), int(h.j), int(h.k)),
+            )
+        )
 
-        hx0 = state.extension.get("hexdemo")
-        self._prev_hexdemo = dict(hx0) if isinstance(hx0, dict) else {}
+        hx0 = state.extension.get(self.extension_key)
+        self._prev_extension_bucket = dict(hx0) if isinstance(hx0, dict) else {}
         self._prev_rng_log = state.rng_log
 
-        outcome = random.choice(self._OUTCOMES)
-        retreat_distance: int | None
-        if outcome in ("attacker_retreat", "defender_retreat"):
-            retreat_distance = random.randint(1, 3)
-        else:
-            retreat_distance = None
+        outcome = str(self.outcome)
+        retreat_distance = self.retreat_distance
+        if outcome in ("attacker_retreat", "defender_retreat") and retreat_distance is None:
+            raise ValueError("retreat_distance is required for retreat outcomes")
+        if outcome not in (
+            "none",
+            "attacker_retreat",
+            "defender_retreat",
+            "defender_destroyed",
+        ):
+            raise ValueError(f"Unknown attack outcome {outcome!r}")
 
-        rng_entry: dict[str, Any] = {
-            "op": "adjacent_attack",
-            "outcome": outcome,
-            "attacker_id": self.attacker_id,
-            "defender_id": self.defender_id,
-            "retreat_distance": retreat_distance,
-        }
-        new_rng = state.rng_log + (rng_entry,)
+        new_rng = state.rng_log
+        if self.rng_entry is not None:
+            new_rng = new_rng + (dict(self.rng_entry),)
 
-        hx = dict(self._prev_hexdemo)
+        hx = dict(self._prev_extension_bucket)
         prev_attacks = hx.get("attacks_this_phase")
         attacks = list(prev_attacks) if isinstance(prev_attacks, list) else []
-        attacks.append(self.attacker_id)
+        for a in attackers:
+            attacks.append(a.unit_id)
         hx["attacks_this_phase"] = attacks
 
         prev_ro = hx.get("retreat_obligations")
         retreat_obligations: dict[str, int] = (
             dict(prev_ro) if isinstance(prev_ro, dict) else {}
         )
-        retreat_unit_id: str | None = None
+        retreat_unit_id: str | None = self.retreat_unit_id
         if outcome == "attacker_retreat":
             assert retreat_distance is not None
-            retreat_obligations[self.attacker_id] = retreat_distance
-            retreat_unit_id = self.attacker_id
+            retreat_unit_id = retreat_unit_id or self.attacker_id
+            u0 = state.board.units.get(retreat_unit_id)
+            if u0 is not None:
+                for u in state.board.active_units_at_hex(u0.position):
+                    if u.faction == u0.faction:
+                        retreat_obligations[u.unit_id] = retreat_distance
             hx["combat_gate"] = "awaiting_retreat"
         elif outcome == "defender_retreat":
             assert retreat_distance is not None
-            retreat_obligations[self.defender_id] = retreat_distance
-            retreat_unit_id = self.defender_id
+            retreat_unit_id = retreat_unit_id or self.defender_id
+            u0 = state.board.units.get(retreat_unit_id)
+            if u0 is not None:
+                for u in state.board.active_units_at_hex(u0.position):
+                    if u.faction == u0.faction:
+                        retreat_obligations[u.unit_id] = retreat_distance
             hx["combat_gate"] = "awaiting_retreat"
         else:
             hx.pop("combat_gate", None)
 
         if outcome == "defender_destroyed":
-            retreat_obligations.pop(self.defender_id, None)
+            for d in defenders:
+                retreat_obligations.pop(d.unit_id, None)
 
         hx["retreat_obligations"] = retreat_obligations
         hx["last_combat"] = {
             "attack_kind": self.attack_kind,
             "outcome": outcome,
             "attacker_id": self.attacker_id,
+            "attacker_ids": [a.unit_id for a in attackers],
             "defender_id": self.defender_id,
+            "defender_ids": [d.unit_id for d in defenders],
+            "defender_hex": {"i": int(dpos0.i), "j": int(dpos0.j), "k": int(dpos0.k)},
+            "defender_hexes": [
+                {"i": int(h.i), "j": int(h.j), "k": int(h.k)} for h in defender_hexes_sorted
+            ],
+            "attacker_hexes": [
+                {"i": int(h.i), "j": int(h.j), "k": int(h.k)} for h in attacker_hexes_sorted
+            ],
             "retreat_distance": retreat_distance,
             "retreat_unit_id": retreat_unit_id,
         }
 
         st = state
         if outcome == "defender_destroyed":
-            st = DeleteUnit(self.defender_id).apply(st)
-            self._delete_applied = True
+            deleted: list[str] = []
+            for d in defenders:
+                st = DeleteUnit(d.unit_id).apply(st)
+                deleted.append(d.unit_id)
+            self._deleted_unit_ids = tuple(deleted)
         else:
-            self._delete_applied = False
+            self._deleted_unit_ids = ()
 
-        new_ext = {**st.extension, "hexdemo": hx}
+        new_ext = {**st.extension, self.extension_key: hx}
         return st.with_extension(new_ext).with_rng_log(new_rng)
 
     def revert(self, state: GameState) -> GameState:
         st = state
-        if self._delete_applied:
-            st = DeleteUnit(self.defender_id).revert(st)
+        if self._deleted_unit_ids:
+            for uid in self._deleted_unit_ids:
+                st = DeleteUnit(uid).revert(st)
         ext = dict(st.extension)
-        ext["hexdemo"] = dict(self._prev_hexdemo) if self._prev_hexdemo is not None else {}
+        ext[self.extension_key] = (
+            dict(self._prev_extension_bucket)
+            if self._prev_extension_bucket is not None
+            else {}
+        )
         st = st.with_extension(ext)
         return st.with_rng_log(self._prev_rng_log if self._prev_rng_log is not None else ())
 
@@ -589,5 +1063,6 @@ class Attack(StateAction):
 
     def __repr__(self) -> str:
         return (
-            f"<Attack {self.attack_kind!r} {self.attacker_id!r} -> {self.defender_id!r}>"
+            f"<Attack {self.attack_kind!r} {self.attacker_id!r} -> {self.defender_id!r} "
+            f"extension_key={self.extension_key!r}>"
         )

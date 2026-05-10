@@ -47,6 +47,8 @@ class DisplayManager:
         self._board = game_board
         self._unit_displays: dict[str, DisplayUnit] = {}
         self._unit_graphics_wire: dict[str, dict[str, Any]] = {}
+        self._secondary_hilite_ids: set[str] = set()
+        self._secondary_target_hilite_ids: set[str] = set()
         self.logger = logging.getLogger("display_manager")
 
     def apply_unit_graphics(self, wire: dict[str, Any]) -> None:
@@ -91,10 +93,19 @@ class DisplayManager:
         # Update or create displays for all active units
         for unit_id, unit_state in game_state.board.units.items():
             if unit_state.active:
+                desired_gkey = (
+                    getattr(unit_state, "graphics", None) or unit_state.unit_type
+                )
                 if unit_id not in self._unit_displays:
                     self._create_unit_display(unit_state)
                 else:
-                    self._update_unit_display(unit_id, unit_state)
+                    disp = self._unit_displays.get(unit_id)
+                    if disp is not None and disp.unit_type != desired_gkey:
+                        # Template key changed (e.g. step loss → new [[unit_graphics]] row).
+                        self._remove_unit_display(unit_id)
+                        self._create_unit_display(unit_state)
+                    else:
+                        self._update_unit_display(unit_id, unit_state)
 
         # Remove displays for deleted/inactive units
         for unit_id in list(self._unit_displays.keys()):
@@ -104,6 +115,7 @@ class DisplayManager:
 
         self._reorder_unit_layer_by_stack(game_state)
         self.redraw_terrain_overlay(game_state)
+        self._canvas.redraw_map_features(game_state)
 
     def _reorder_unit_layer_by_stack(self, game_state: GameState) -> None:
         """
@@ -312,15 +324,66 @@ class DisplayManager:
         """Get display unit by ID."""
         return self._unit_displays.get(unit_id)
 
-    def highlight_hexes(self, hexes: set[Hex]) -> None:
+    def sync_secondary_selection(
+        self,
+        selected_unit_ids: set[str],
+        *,
+        cls: str = "hilited-secondary",
+        target_unit_ids: set[str] | None = None,
+        target_cls: str = "hilited-secondary-target",
+    ) -> None:
+        """
+        Apply secondary selection classes to unit displays.
+
+        This is client-only visual state (no server sync). Intended for multi-select UX,
+        e.g. selected attackers and all units in a target hex.
+        """
+        target_unit_ids = set(target_unit_ids or set())
+
+        # Remove stale classes first.
+        stale = self._secondary_hilite_ids - set(selected_unit_ids)
+        for uid in stale:
+            disp = self._unit_displays.get(uid)
+            if disp is not None:
+                disp.proxy.classList.remove(cls)
+        stale_t = self._secondary_target_hilite_ids - target_unit_ids
+        for uid in stale_t:
+            disp = self._unit_displays.get(uid)
+            if disp is not None:
+                disp.proxy.classList.remove(target_cls)
+
+        # Add current classes.
+        for uid in selected_unit_ids:
+            disp = self._unit_displays.get(uid)
+            if disp is not None:
+                disp.proxy.classList.add(cls)
+        for uid in target_unit_ids:
+            disp = self._unit_displays.get(uid)
+            if disp is not None:
+                disp.proxy.classList.add(target_cls)
+
+        self._secondary_hilite_ids = set(selected_unit_ids)
+        self._secondary_target_hilite_ids = set(target_unit_ids)
+
+    def clear_secondary_selection(
+        self,
+        *,
+        cls: str = "hilited-secondary",
+        target_cls: str = "hilited-secondary-target",
+    ) -> None:
+        """Clear any secondary selection classes from unit displays."""
+        self.sync_secondary_selection(set(), cls=cls, target_unit_ids=set(), target_cls=target_cls)
+
+    def highlight_hexes(self, hexes: set[Hex], cls: str = "highlight") -> None:
         """
         Highlight a set of hexes (e.g., valid move targets).
 
         Args:
             hexes: Set of hex coordinates to highlight
+            cls: CSS class applied to the highlight SVG group
         """
         # Delegate to map's draw_hexes method
-        self._canvas.draw_hexes(hexes)
+        self._canvas.draw_hexes(hexes, cls=cls)
 
     def clear_highlights(self) -> None:
         """Clear all hex highlights."""
@@ -336,6 +399,7 @@ class DisplayManager:
         self.refresh_unit_positions()
         if game_state is not None:
             self.redraw_terrain_overlay(game_state)
+            self._canvas.redraw_map_features(game_state)
 
     def refresh_unit_positions(self) -> None:
         """

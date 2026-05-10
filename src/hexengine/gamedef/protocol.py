@@ -1,4 +1,4 @@
-"""Protocol for title-specific rules (turn order, factions) hosted by the engine."""
+"""Protocol for title-specific match rules (turn order, factions) hosted by the engine."""
 
 from __future__ import annotations
 
@@ -16,50 +16,38 @@ class GameDefinition(Protocol):
     per-match state on `self` (derive from `hexengine.state.game_state.GameState`
     or inject closures when a title needs session-scoped behavior).
 
-    Optional (for authoritative move validation): `movement_budget_for_unit(state, unit_id)`
-    returning the movement cost budget for that unit this phase. Implementations that
-    resolve the unit from `state` should raise `ValueError` if `unit_id` is not on the
-    board. If absent, the server uses `hexengine.state.logic.DEFAULT_MOVEMENT_BUDGET`.
+    Rule customization (movement/combat/stacking/ZOC/etc.) is provided via a hooks bundle:
 
-    Optional (zone of control, stop-on-entry movement): ``zoc_hexes_for_unit(state, unit_id)
-    -> frozenset[Hex] | None``. If absent or returns ``None``, moves use reachability
-    without ZOC. Otherwise the set is passed to ``hexengine.state.logic`` helpers
-    (same rule for retreat destinations when the title supplies ZOC).
+    - `hexengine.hooks.TitleHooks`
+    - Exposed by the game definition as either `hooks` (attribute) or `hooks()` (callable)
 
-    Optional (for ``Attack`` actions): ``validate_attack_request(
-        state, *, player_faction: str, attack_kind: str, params: dict
-    ) -> None`` — raise ``ValueError`` if the attack is illegal for this title
-    (wrong phase, not adjacent when ``attack_kind == "adjacent"``, etc.).
-    If absent, the server rejects ``Attack`` requests for that title.
+    The engine uses only hooks (plus engine defaults when a hook returns `hooks.DEFAULT`).
 
-    Optional (after a successful ``Attack``): ``should_auto_advance_phase_after_attack(state) -> bool``.
-    If present and returns True, ``GameServer`` immediately applies ``NextPhase`` (same path as
-    manual advance). Titles use this e.g. when every active unit of ``state.turn.current_faction``
-    has used its combat-segment attack and no retreat obligation remains.
+    Optional: title_state_extension_key — class attribute or plain str on the
+    definition naming the GameState.extension bucket used for title-owned combat
+    and retreat data (for example the string hexdemo). When set, the server publishes it
+    in StateUpdate.turn_rules and runs phase/combat housekeeping against that key.
+    Built-in schedules omit it.
 
-    Optional (retreat / obligation UX, title-defined extension layout):
+    Phase auto-advance after combat is provided via `TitleHooks` (attack hooks).
 
-    - ``retreat_obligation_hexes_remaining(state, unit_id) -> int | None``
-    - ``any_retreat_obligation_pending(state) -> bool``
-    - ``faction_has_pending_retreat_obligation(state, faction: str) -> bool``
+    Retreat / obligation UX is also provided via `TitleHooks` (movement hooks).
 
-    If absent, the server treats every unit as having no retreat obligation.
+    Optional (per-unit UnitState.attributes, title-defined JSON-safe data):
 
-    Optional (per-unit ``UnitState.attributes``, title-defined JSON-safe data):
-
-    - ``default_attributes_for_unit_type(unit_type: str) -> dict[str, Any]``
-    - ``merge_spawn_attributes(unit_type: str, instance_attrs: dict[str, Any], state: GameState | None) -> dict[str, Any]``
-    - ``validate_unit_attributes_patch(state: GameState, unit_id: str, patch: dict[str, Any]) -> None``
+    - default_attributes_for_unit_type(unit_type: str) -> dict[str, Any]
+    - merge_spawn_attributes(unit_type: str, instance_attrs: dict[str, Any], state: GameState | None) -> dict[str, Any]
+    - validate_unit_attributes_patch(state: GameState, unit_id: str, patch: dict[str, Any]) -> None
 
     If omitted, built-in definitions use empty defaults / merge / no-op validation.
 
-    Optional (per-viewer focus hint, title policy; consumed via ``StateUpdate``):
+    Optional (per-viewer focus hint, title policy; consumed via StateUpdate):
 
-    - ``focus_unit_id_after_state_sync(state, viewer_faction: str | None) -> str | None``
+    - focus_unit_id_after_state_sync(state, viewer_faction: str | None) -> str | None
 
-    When present, ``GameServer`` copies the result into
-    ``StateUpdate.suggested_focus_unit_id`` for that viewer on each state broadcast.
-    The browser ``Game`` applies that field only (it does not call this hook).
+    When present, GameServer copies the result into
+    StateUpdate.suggested_focus_unit_id for that viewer on each state broadcast.
+    The browser Game applies that field only (it does not call this hook).
     """
 
     def available_factions(self) -> list[str]:

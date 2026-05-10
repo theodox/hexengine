@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 import sys
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +45,7 @@ class WebSocketGameServer:
         marker_placement_rule=None,
         *,
         game_definition: GameDefinition,
+        listen_ready_event: threading.Event | None = None,
     ) -> None:
         """
         Initialize WebSocket server.
@@ -68,6 +70,7 @@ class WebSocketGameServer:
             marker_placement_rule=marker_placement_rule,
             game_definition=game_definition,
         )
+        self._listen_ready_event = listen_ready_event
 
         # Map connection to player_id
         self.connections: dict[WebSocketServerProtocol, str] = {}
@@ -83,6 +86,8 @@ class WebSocketGameServer:
         self.logger.info(f"Starting WebSocket server on {self.host}:{self.port}")
 
         async with websockets.serve(self._handle_connection, self.host, self.port):
+            if self._listen_ready_event is not None:
+                self._listen_ready_event.set()
             self.logger.info("WebSocket server started")
             await asyncio.Future()  # Run forever
 
@@ -185,7 +190,7 @@ async def main(
     scenario_file: Path | str | None = None,
     game_root: Path | str | None = None,
     scenario_id: str | None = None,
-    schedule: str = "interleaved",
+    listen_ready_event: threading.Event | None = None,
 ):
     """Run a standalone WebSocket game server."""
     logging.basicConfig(
@@ -197,7 +202,7 @@ async def main(
         initial_turn_slot_for_game_definition,
         load_game_definition_for_scenario,
         resolve_scenario_path_with_game_root,
-        try_hexdemo_loaded_banner,
+        try_pack_loaded_banner,
     )
     from ..scenarios import load_scenario
     from ..scenarios.loader import scenario_to_initial_state
@@ -208,7 +213,7 @@ async def main(
         scenario_id=scenario_id,
     )
     scenario_data = load_scenario(scenario_path)
-    game_def = load_game_definition_for_scenario(scenario_path, schedule=schedule)
+    game_def = load_game_definition_for_scenario(scenario_path)
     first = initial_turn_slot_for_game_definition(game_def)
 
     initial_state = scenario_to_initial_state(
@@ -230,8 +235,9 @@ async def main(
         marker_graphics=scenario_data.marker_graphics_to_wire_dict(),
         markers=scenario_data.markers_to_wire_list(),
         game_definition=game_def,
+        listen_ready_event=listen_ready_event,
     )
-    try_hexdemo_loaded_banner(scenario_path)
+    try_pack_loaded_banner(scenario_path)
     await server.start()
 
 
@@ -245,7 +251,6 @@ def run(argv: list[str] | None = None) -> None:
             scenario_file=args.scenario_file,
             game_root=args.game_root,
             scenario_id=args.scenario_id,
-            schedule=args.schedule,
         )
     )
 

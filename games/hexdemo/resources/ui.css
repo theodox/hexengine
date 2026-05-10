@@ -1,0 +1,97 @@
+/* Hexdemo UI additions (loaded via `title_css_file`). */
+
+/* Interaction-banner faction colors (applied via css_class). */
+#interaction-banner.union {
+  background-color: rgba(33, 52, 120, 0.82);
+}
+#interaction-banner.confederate {
+  background-color: rgba(88, 66, 40, 0.82);
+}
+
+/* Callout chrome: set bubble fill (tail uses same CSS variable). */
+.popup.popup--callout {
+  --popup-bubble-bg: rgba(54, 182, 120, 0.9);
+}
+
+.popup--callout .popup-bubble {
+  width: min(460px, calc(100vw - 32px));
+  min-height: 72px;
+  border-radius: 12px;
+}
+
+
+/* Inspect popup content. */
+.popup .hexdemo-inspect {
+  display: grid;
+  gap: 2px;
+  font-weight: 600;
+}
+.popup .hexdemo-inspect__type {
+  opacity: 0.85;
+}
+.popup .hexdemo-inspect__pos,
+.popup .hexdemo-inspect__hp {
+  font-weight: 700;
+}
+
+/* Combat target marker (map overlay glyph). */
+.hexengine-map-overlay.hexdemo-combat-glyph-overlay {
+  font-size: 28px;
+  line-height: 1;
+  color: #e53e3e;
+  -webkit-text-fill-color: #e53e3e;
+  text-shadow: 0 0 3px #fff;
+  opacity: 1;
+  /* Hold ~1s, then fade out (emoji may ignore `color` on some platforms). */
+  animation: hexdemo-combat-glyph-fade 0.5s ease-in forwards;
+  animation-delay: 1s;
+}
+
+@keyframes hexdemo-combat-glyph-fade {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/* Drag-preview valid hex styling (title-provided classes via StateUpdate.turn_rules.ui). */
+.hexengine-hex-highlight.hexdemo-move-hex polygon {
+  fill: rgba(66, 153, 225, 0.18);
+  stroke: rgba(66, 153, 225, 0.65);
+  stroke-width: 2;
+}
+
+.hexengine-hex-highlight.hexdemo-retreat-hex polygon {
+  fill: rgba(229, 62, 62, 0.14);
+  stroke: rgba(229, 62, 62, 0.7);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+
+.hexengine-hex-highlight.hexdemo-retreat-through-hex polygon {
+  fill: rgba(229, 62, 62, 0.06);
+  stroke: rgba(229, 62, 62, 0.35);
+  stroke-width: 2;
+  stroke-dasharray: 4 6;
+}
+
+.hexengine-hex-highlight.hexdemo-marker-hex polygon {
+  fill: rgba(72, 187, 120, 0.14);
+  stroke: rgba(72, 187, 120, 0.7);
+  stroke-width: 2;
+}
+
+/* Hexdemo override: ranged LOS preview lines during attack planning. */
+.hexengine-attack-los-line {
+  stroke: rgba(88, 66, 40, 0.78);
+  stroke-width: 3px;
+}
+
+.hexengine-attack-los-line.hexengine-attack-los-line--blocked {
+  stroke: rgba(229, 62, 62, 0.78);
+  stroke-dasharray: 8 6;
+}

@@ -4,9 +4,14 @@ import logging
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
-from ..document import js, jsnull
-from ..hexes.types import Hex
-from ..state.game_state import GameState
+from ..document import js, js_nullish, js_present, jsnull
+from ..hexes.edges import (
+    EdgeKey,
+    polyline_vertices_for_vertex_adjacent_edge_keys,
+    shared_edge_side_midpoint,
+)
+from ..hexes.types import Hex, HexColRow
+from ..state.game_state import BoardEdgeFeature, GameState
 from .canvas_layer import CanvasLayer, TerrainOverlayLayer
 from .handler import MouseHandler
 from .layout import HexLayout, unit_display_pixel_size
@@ -15,6 +20,51 @@ from .unit_layer import UnitLayer
 
 if TYPE_CHECKING:
     from ..units.graphics import DisplayUnit
+
+
+def _edge_keys_share_one_hex(a: EdgeKey, b: EdgeKey) -> bool:
+    """True if two undirected edges are consecutive on a hex spine (share exactly one hex)."""
+    sa = {a.hex_low, a.hex_high}
+    sb = {b.hex_low, b.hex_high}
+    return len(sa & sb) == 1
+
+
+def _edge_feature_logical_group_stem(feature_id: str) -> str:
+    """Stem before '~' digits (e.g. river~3 → river); used to avoid merging distinct features."""
+    if "~" in feature_id:
+        stem, suf = feature_id.rsplit("~", 1)
+        if suf.isdigit():
+            return stem
+    return feature_id
+
+
+def _edge_features_mergeable_render(a: BoardEdgeFeature, b: BoardEdgeFeature) -> bool:
+    """Only chain edge rows that look like the same overlay (tags + stroke hints)."""
+    return (
+        a.tags == b.tags
+        and a.stroke_width == b.stroke_width
+        and a.stroke_color == b.stroke_color
+        and a.stroke_dash == b.stroke_dash
+        and a.layer_z == b.layer_z
+        and _edge_feature_logical_group_stem(a.feature_id)
+        == _edge_feature_logical_group_stem(b.feature_id)
+    )
+
+
+def _svg_apply_feature_stroke(
+    el: Any,
+    *,
+    stroke_color: str | None,
+    stroke_width: float | None,
+    stroke_dash: str | None,
+) -> None:
+    """Presentation attributes for per-feature stroke (overrides CSS defaults when set)."""
+    if stroke_color is not None:
+        el.setAttribute("stroke", str(stroke_color))
+    if stroke_width is not None:
+        el.setAttribute("stroke-width", str(float(stroke_width)))
+    if stroke_dash is not None:
+        el.setAttribute("stroke-dasharray", str(stroke_dash))
 
 
 class Map:
@@ -74,10 +124,11 @@ class Map:
 
         self._bg_element = js.document.getElementById("map-bg")
         self._transform_root = js.document.getElementById("map-world")
-        if self._transform_root is None:
+        if js_nullish(self._transform_root):
             logging.getLogger(__name__).error(
                 "Missing #map-world wrapper; pan/zoom will not apply. Update hexes.html."
             )
+        self._overlay_layer: Any = None
 
         self._canvas_layer = CanvasLayer(
             canvas_element, self._hex_layout, self._hex_color, self._hex_stroke
@@ -114,13 +165,16 @@ class Map:
             marker_element,
             unit_element,
         ):
-            if el is not None:
+            if js_present(el):
                 el.style.transform = ""
 
         self._clamp_pan()
         self._apply_transform()
         self._sync_overlay_svg_size()
         self._sync_map_bg_dom_size()
+
+        #: Odd-q col,row labels on #map-svg (toggle with Alt+H in Game).
+        self._hex_address_labels_visible = False
 
     @property
     def on_drag(self):
@@ -141,6 +195,37 @@ class Map:
     @property
     def hex_layout(self) -> HexLayout:
         return self._hex_layout
+
+    def map_space_to_container_pixel(self, x: float, y: float) -> tuple[float, float]:
+        """
+        Map-space pixel (e.g. from HexLayout.hex_to_pixel) to coordinates in
+        #map-container space under the current translate(pan) scale(zoom)
+        on #map-world (see _clamp_pan docstring: zoom * m + pan).
+        """
+        z = self._zoom_level
+        return (float(x) * z + self._pan_x, float(y) * z + self._pan_y)
+
+    def ensure_overlay_layer(self) -> Any:
+        """
+        Single absolutely positioned layer inside #map-world for title-driven overlays.
+
+        Map-space left / top match HexLayout.hex_to_pixel; pan/zoom apply via
+        the parent transform.
+        """
+        if js_nullish(self._transform_root):
+            return None
+        if self._overlay_layer is None:
+            div = js.document.createElement("div")
+            div.id = "hexengine-map-overlays"
+            div.style.position = "absolute"
+            div.style.left = "0"
+            div.style.top = "0"
+            div.style.width = "100%"
+            div.style.height = "100%"
+            div.style.zIndex = "400"
+            self._transform_root.appendChild(div)
+            self._overlay_layer = div
+        return self._overlay_layer
 
     @property
     def unit_size_multiplier(self) -> float:
@@ -173,6 +258,89 @@ class Map:
         """Repaint terrain tints from board locations (hex_color)."""
         self._terrain_layer.set_layout(self._hex_layout)
         self._terrain_layer.redraw_terrain(state.board.locations.values())
+
+    def redraw_map_features(self, state: GameState) -> None:
+        """Draw edge and centerline primitives from board state (SVG under interaction highlights)."""
+        svg = self._svg_layer._svg
+        old = js.document.getElementById("hexengine-map-features")
+        if js_present(old):
+            old.remove()
+        if not state.board.edge_features and not state.board.linear_features:
+            return
+        g = js.document.createElementNS("http://www.w3.org/2000/svg", "g")
+        g.setAttribute("id", "hexengine-map-features")
+        g.setAttribute("class", "hexengine-map-features")
+        if svg.firstChild is not None:
+            svg.insertBefore(g, svg.firstChild)
+        else:
+            svg.appendChild(g)
+        layout = self._hex_layout
+        edge_feats = state.board.edge_features
+
+        ei = 0
+        while ei < len(edge_feats):
+            ej = ei + 1
+            while ej < len(edge_feats):
+                prev, cur = edge_feats[ej - 1], edge_feats[ej]
+                if not _edge_keys_share_one_hex(prev.edge_key, cur.edge_key):
+                    break
+                if not _edge_features_mergeable_render(prev, cur):
+                    break
+                ej += 1
+            group = edge_feats[ei:ej]
+            g0 = group[0]
+            keys = tuple(f.edge_key for f in group)
+            pts = polyline_vertices_for_vertex_adjacent_edge_keys(layout, keys)
+            if len(pts) >= 2:
+                poly = js.document.createElementNS("http://www.w3.org/2000/svg", "polyline")
+                poly.setAttribute(
+                    "points",
+                    " ".join(f"{float(x)},{float(y)}" for x, y in pts),
+                )
+                poly.setAttribute("class", "hexengine-map-edge-feature")
+                poly.setAttribute("fill", "none")
+                _svg_apply_feature_stroke(
+                    poly,
+                    stroke_color=g0.stroke_color,
+                    stroke_width=g0.stroke_width,
+                    stroke_dash=g0.stroke_dash,
+                )
+                g.appendChild(poly)
+            else:
+                for feat in group:
+                    (x0, y0), (x1, y1) = shared_edge_side_midpoint(layout, feat.edge_key)
+                    line = js.document.createElementNS(
+                        "http://www.w3.org/2000/svg", "line"
+                    )
+                    line.setAttribute("x1", str(float(x0)))
+                    line.setAttribute("y1", str(float(y0)))
+                    line.setAttribute("x2", str(float(x1)))
+                    line.setAttribute("y2", str(float(y1)))
+                    line.setAttribute("class", "hexengine-map-edge-feature")
+                    _svg_apply_feature_stroke(
+                        line,
+                        stroke_color=feat.stroke_color,
+                        stroke_width=feat.stroke_width,
+                        stroke_dash=feat.stroke_dash,
+                    )
+                    g.appendChild(line)
+            ei = ej
+        for lf in state.board.linear_features:
+            pts: list[str] = []
+            for h in lf.path_hexes:
+                x, y = layout.hex_to_pixel(h)
+                pts.append(f"{float(x)},{float(y)}")
+            poly = js.document.createElementNS("http://www.w3.org/2000/svg", "polyline")
+            poly.setAttribute("points", " ".join(pts))
+            poly.setAttribute("class", "hexengine-map-linear-feature")
+            poly.setAttribute("fill", "none")
+            _svg_apply_feature_stroke(
+                poly,
+                stroke_color=lf.stroke_color,
+                stroke_width=lf.stroke_width,
+                stroke_dash=lf.stroke_dash,
+            )
+            g.appendChild(poly)
 
     def draw_hex(self, hex: Hex, cls="highlight"):
         self._svg_layer.draw_hexes([hex], cls=cls)
@@ -222,7 +390,7 @@ class Map:
         Size #map-world to the grid canvas pixel box so the layout is not a huge CSS
         aspect-ratio viewport with a small hex grid in the corner.
         """
-        if self._transform_root is None:
+        if js_nullish(self._transform_root):
             return
         c = self._canvas_layer.canvas
         w, h = int(c.width), int(c.height)
@@ -244,7 +412,7 @@ class Map:
         still be the wide `aspect-ratio` strip—so `background-size: cover` scales the
         art to that large box. Explicit px ties the background to the hex map extent.
         """
-        if self._bg_element is None:
+        if js_nullish(self._bg_element):
             return
         c = self._canvas_layer.canvas
         w, h = int(c.width), int(c.height)
@@ -282,6 +450,44 @@ class Map:
         logging.getLogger().info(
             f"Map refreshed: hex_size={self._hex_layout.size}, unit_size={unit_size}"
         )
+        if self._hex_address_labels_visible:
+            self.sync_hex_address_labels()
+
+    _HEX_ADDRESS_LABELS_SVG_ID = "hexengine-hex-address-labels"
+
+    def toggle_hex_address_labels(self) -> bool:
+        """Toggle odd-q col,row text on each grid hex; returns new visibility."""
+        self._hex_address_labels_visible = not self._hex_address_labels_visible
+        self.sync_hex_address_labels()
+        return self._hex_address_labels_visible
+
+    def sync_hex_address_labels(self) -> None:
+        """Remove or rebuild the address label group on #map-svg (map-space coords)."""
+        svg = self._svg_layer._svg
+        old = js.document.getElementById(self._HEX_ADDRESS_LABELS_SVG_ID)
+        if js_present(old):
+            old.remove()
+        if not self._hex_address_labels_visible:
+            return
+        hexes = self._canvas_layer.grid_hexes_for_labels()
+        if not hexes:
+            return
+        g = js.document.createElementNS(SVGLayer.SVG, "g")
+        g.setAttribute("id", self._HEX_ADDRESS_LABELS_SVG_ID)
+        g.setAttribute("class", "hexengine-hex-address-labels")
+        layout = self._hex_layout
+        for hx in hexes:
+            cr = HexColRow.from_hex(hx)
+            x, y = layout.hex_to_pixel(hx)
+            t = js.document.createElementNS(SVGLayer.SVG, "text")
+            t.setAttribute("x", str(x))
+            t.setAttribute("y", str(y))
+            t.setAttribute("text-anchor", "middle")
+            t.setAttribute("dominant-baseline", "central")
+            t.setAttribute("font-size", "11")
+            t.textContent = f"{cr.col},{cr.row}"
+            g.appendChild(t)
+        svg.appendChild(g)
 
     def _set_unit_css_vars(self) -> None:
         unit_size = unit_display_pixel_size(
@@ -292,7 +498,7 @@ class Map:
 
     def _apply_map_background(self, m: Any) -> None:
         """Set `#map-bg` image URL and crop vs stretch via CSS classes (see hexes.css)."""
-        if self._bg_element is None:
+        if js_nullish(self._bg_element):
             return
         el = self._bg_element
         el.classList.remove(self._MAP_BG_CLASS_CROP, self._MAP_BG_CLASS_STRETCH)
@@ -389,7 +595,7 @@ class Map:
 
     def _map_viewport_size(self) -> tuple[float, float]:
         """Visible map area in CSS pixels (#map-world or container fallback)."""
-        if self._transform_root is not None:
+        if js_present(self._transform_root):
             w = float(self._transform_root.clientWidth)
             h = float(self._transform_root.clientHeight)
             if w > 0 and h > 0:
@@ -429,10 +635,10 @@ class Map:
         transform = (
             f"translate({self._pan_x}px, {self._pan_y}px) scale({self._zoom_level})"
         )
-        if self._transform_root is not None:
+        if js_present(self._transform_root):
             self._transform_root.style.transform = transform
         else:
-            if self._bg_element:
+            if js_present(self._bg_element):
                 self._bg_element.style.transform = transform
             self._canvas_layer.canvas.style.transform = transform
             self._terrain_layer._canvas.style.transform = transform

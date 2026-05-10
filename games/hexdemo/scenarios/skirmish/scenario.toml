@@ -44,6 +44,7 @@ hex_rows = 10
 terrain = "plain"
 movement_cost = 1.0
 default = true
+block_los = false
 hex_color = "@plain_fill"
 
 [[terrain_types]]

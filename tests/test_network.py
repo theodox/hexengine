@@ -22,6 +22,7 @@ from hexengine.state import GameState
 from hexengine.state.actions import MoveUnit
 from hexengine.state.game_state import BoardState, TurnState, UnitState
 from hexengine.state.snapshot import game_state_to_wire_dict
+from hexengine.hooks import AttackHooks, MovementHooks, StackingPolicy, TitleHooks
 
 
 def _hex_wire(h: Hex) -> dict[str, int]:
@@ -49,20 +50,23 @@ class TestGameServer(unittest.TestCase):
         self.assertIsNotNone(self.server.action_manager)
         self.assertEqual(len(self.server.players), 0)
 
-    async def test_player_join(self):
+    def test_player_join(self):
         """Test player can join the game."""
-        player_id = "test-player-1"
-        join_request = JoinGameRequest(player_name="Alice", faction="Red")
 
-        await self.server.handle_message(player_id, join_request.to_message())
+        async def run():
+            player_id = "test-player-1"
+            join_request = JoinGameRequest(player_name="Alice", faction="Red")
 
-        # Check player was added
-        self.assertEqual(len(self.server.players), 1)
-        self.assertIn(player_id, self.server.players)
+            await self.server.handle_message(player_id, join_request.to_message())
 
-        player = self.server.players[player_id]
-        self.assertEqual(player.player_name, "Alice")
-        self.assertEqual(player.faction, "Red")
+            self.assertEqual(len(self.server.players), 1)
+            self.assertIn(player_id, self.server.players)
+
+            player = self.server.players[player_id]
+            self.assertEqual(player.player_name, "Alice")
+            self.assertEqual(player.faction, "Red")
+
+        asyncio.run(run())
 
     def test_leave_frees_faction_for_reconnect(self):
         """Disconnect removes player so a new WebSocket id can take the same faction."""
@@ -126,29 +130,33 @@ class TestGameServer(unittest.TestCase):
 
         asyncio.run(run())
 
-    async def test_action_request_wrong_turn(self):
+    def test_action_request_wrong_turn(self):
         """Test action rejected if not player's turn."""
-        # Join as Blue faction
-        player_id = "test-player-1"
-        join_request = JoinGameRequest(player_name="Alice", faction="Blue")
-        await self.server.handle_message(player_id, join_request.to_message())
 
-        # Set current turn to Red
-        state = self.server.action_manager.current_state
-        from hexengine.state.game_state import TurnState
+        async def run():
+            player_id = "test-player-1"
+            join_request = JoinGameRequest(player_name="Alice", faction="Blue")
+            await self.server.handle_message(player_id, join_request.to_message())
 
-        new_turn = TurnState(
-            turn_number=1,
-            current_faction="Red",  # Not Blue
-            current_phase="Movement",
-            phase_actions_remaining=2,
-            schedule_index=0,
-        )
-        self.server.action_manager.replace_state(state.with_turn(new_turn))
+            state = self.server.action_manager.current_state
+            from hexengine.state.game_state import TurnState
 
-        player = self.server.players[player_id]
-        current_faction = self.server.action_manager.current_state.turn.current_faction
-        self.assertNotEqual(player.faction, current_faction)
+            new_turn = TurnState(
+                turn_number=1,
+                current_faction="Red",  # Not Blue
+                current_phase="Movement",
+                phase_actions_remaining=2,
+                schedule_index=0,
+            )
+            self.server.action_manager.replace_state(state.with_turn(new_turn))
+
+            player = self.server.players[player_id]
+            current_faction = (
+                self.server.action_manager.current_state.turn.current_faction
+            )
+            self.assertNotEqual(player.faction, current_faction)
+
+        asyncio.run(run())
 
     def test_move_unit_rejected_out_of_budget(self) -> None:
         """Server rejects MoveUnit when path cost exceeds movement budget."""
@@ -298,6 +306,377 @@ class TestGameServer(unittest.TestCase):
 
         asyncio.run(run())
 
+    def test_hooks_stacking_policy_overrides_game_definition_attr(self) -> None:
+        async def run() -> None:
+            start = Hex.from_hex_col_row(HexColRow(0, 0))
+            dest = next(iter(neighbors(start)))
+            board = BoardState(
+                units={
+                    "mover": UnitState(
+                        unit_id="mover",
+                        unit_type="t",
+                        faction="Blue",
+                        position=start,
+                        active=True,
+                    ),
+                    "b1": UnitState(
+                        unit_id="b1",
+                        unit_type="t",
+                        faction="Blue",
+                        position=dest,
+                        active=True,
+                    ),
+                }
+            )
+            turn = TurnState(
+                current_faction="Blue",
+                current_phase="Movement",
+                phase_actions_remaining=2,
+                schedule_index=1,
+            )
+            state = GameState(board=board, turn=turn)
+
+            class _GD(InterleavedTwoFactionGameDefinition):
+                # Legacy attr would allow stacking, but hook below forbids it.
+                max_active_units_per_hex = 3
+
+                def movement_budget_for_unit(self, _state: GameState, _unit_id: str) -> float:
+                    return 10.0
+
+                @property
+                def hooks(self) -> TitleHooks:
+                    return TitleHooks(
+                        movement=MovementHooks(
+                            stacking_policy_for_unit=lambda _s, _uid: StackingPolicy(limit=1)
+                        )
+                    )
+
+            server = GameServer(state, game_definition=_GD())
+            errors: list[str] = []
+
+            def capture(_pid: str, m: Message) -> None:
+                if m.type == "error":
+                    errors.append(str(m.payload.get("error", "")))
+
+            server.add_message_handler(capture)
+            await server.handle_message(
+                "p1",
+                JoinGameRequest(player_name="Alice", faction="Blue").to_message(),
+            )
+            req = ActionRequest(
+                action_type="MoveUnit",
+                params={
+                    "unit_id": "mover",
+                    "from_hex": _hex_wire(start),
+                    "to_hex": _hex_wire(dest),
+                },
+                player_id="p1",
+            )
+            await server.handle_message("p1", req.to_message())
+            self.assertTrue(errors)
+            self.assertIn("stacking limit", errors[-1])
+
+        asyncio.run(run())
+
+    def test_hooks_attack_validate_used_when_present(self) -> None:
+        async def run() -> None:
+            h0 = Hex.from_hex_col_row(HexColRow(0, 0))
+            h1 = next(iter(neighbors(h0)))
+            board = BoardState(
+                units={
+                    "a": UnitState(
+                        unit_id="a",
+                        unit_type="t",
+                        faction="Blue",
+                        position=h0,
+                        active=True,
+                    ),
+                    "d": UnitState(
+                        unit_id="d",
+                        unit_type="t",
+                        faction="Red",
+                        position=h1,
+                        active=True,
+                    ),
+                }
+            )
+            turn = TurnState(
+                current_faction="Blue",
+                current_phase="Combat",
+                phase_actions_remaining=2,
+                schedule_index=1,
+            )
+            state = GameState(board=board, turn=turn, extension={"t": {}}, rng_log=())
+
+            class _GD(InterleavedTwoFactionGameDefinition):
+                title_state_extension_key = "t"
+
+                @property
+                def hooks(self) -> TitleHooks:
+                    def _reject(_ctx):
+                        raise ValueError("nope")
+
+                    return TitleHooks(attack=AttackHooks(validate_attack=_reject))
+
+            server = GameServer(state, game_definition=_GD())
+            errors: list[str] = []
+
+            def capture(_pid: str, m: Message) -> None:
+                if m.type == "error":
+                    errors.append(str(m.payload.get("error", "")))
+
+            server.add_message_handler(capture)
+            await server.handle_message(
+                "p1",
+                JoinGameRequest(player_name="Alice", faction="Blue").to_message(),
+            )
+            req = ActionRequest(
+                action_type="Attack",
+                params={
+                    "attack_kind": "adjacent",
+                    "attacker_id": "a",
+                    "defender_id": "d",
+                },
+                player_id="p1",
+            )
+            await server.handle_message("p1", req.to_message())
+            self.assertTrue(errors)
+            self.assertIn("nope", errors[-1])
+
+        asyncio.run(run())
+
+    def test_hooks_attack_resolve_can_choose_retreat_owner(self) -> None:
+        async def run() -> None:
+            h0 = Hex.from_hex_col_row(HexColRow(0, 0))
+            h1 = next(iter(neighbors(h0)))
+            board = BoardState(
+                units={
+                    "a": UnitState(
+                        unit_id="a",
+                        unit_type="t",
+                        faction="Blue",
+                        position=h0,
+                        active=True,
+                    ),
+                    "d": UnitState(
+                        unit_id="d",
+                        unit_type="t",
+                        faction="Red",
+                        position=h1,
+                        active=True,
+                    ),
+                    # Extra friendly unit stacked with attacker.
+                    "a2": UnitState(
+                        unit_id="a2",
+                        unit_type="t",
+                        faction="Blue",
+                        position=h0,
+                        active=True,
+                        stack_index=1,
+                    ),
+                }
+            )
+            turn = TurnState(
+                current_faction="Blue",
+                current_phase="Combat",
+                phase_actions_remaining=2,
+                schedule_index=1,
+            )
+            state = GameState(board=board, turn=turn, extension={"t": {}}, rng_log=())
+
+            class _GD(InterleavedTwoFactionGameDefinition):
+                title_state_extension_key = "t"
+
+                @property
+                def hooks(self) -> TitleHooks:
+                    def resolve(_ctx):
+                        # Force attacker retreat, but choose a2 as the retreat owner.
+                        from hexengine.hooks import AttackResolution
+
+                        return AttackResolution(
+                            outcome="attacker_retreat",
+                            retreat_distance=1,
+                            retreat_unit_id="a2",
+                            rng_entry={"op": "test"},
+                        )
+
+                    return TitleHooks(attack=AttackHooks(validate_attack=lambda _c: None, resolve_attack=resolve))
+
+            server = GameServer(state, game_definition=_GD())
+            errors: list[str] = []
+
+            def capture(_pid: str, m: Message) -> None:
+                if m.type == "error":
+                    errors.append(str(m.payload.get("error", "")))
+
+            server.add_message_handler(capture)
+            await server.handle_message(
+                "p1",
+                JoinGameRequest(player_name="Alice", faction="Blue").to_message(),
+            )
+            req = ActionRequest(
+                action_type="Attack",
+                params={
+                    "attack_kind": "adjacent",
+                    "attacker_id": "a",
+                    "defender_id": "d",
+                },
+                player_id="p1",
+            )
+            await server.handle_message("p1", req.to_message())
+            self.assertFalse(errors)
+            hx = server.action_manager.current_state.extension.get("t", {})
+            self.assertEqual(hx.get("last_combat", {}).get("retreat_unit_id"), "a2")
+            ro = hx.get("retreat_obligations", {})
+            # Group retreat applies to the stack at a2's hex (h0), so both Blue units retreat.
+            self.assertEqual(ro.get("a"), 1)
+            self.assertEqual(ro.get("a2"), 1)
+
+        asyncio.run(run())
+
+    def test_hooks_retreat_blocked_hexes_blocks_retreat_path(self) -> None:
+        async def run() -> None:
+            h0 = Hex.from_hex_col_row(HexColRow(0, 0))
+            h1 = next(iter(neighbors(h0)))
+            board = BoardState(
+                units={
+                    "u": UnitState(
+                        unit_id="u",
+                        unit_type="t",
+                        faction="Blue",
+                        position=h0,
+                        active=True,
+                    ),
+                }
+            )
+            turn = TurnState(
+                current_faction="Blue",
+                current_phase="Combat",
+                phase_actions_remaining=2,
+                schedule_index=1,
+            )
+            state = GameState(
+                board=board,
+                turn=turn,
+                extension={"t": {"retreat_obligations": {"u": 1}}},
+                rng_log=(),
+            )
+
+            class _GD(InterleavedTwoFactionGameDefinition):
+                title_state_extension_key = "t"
+
+                @property
+                def hooks(self) -> TitleHooks:
+                    return TitleHooks(
+                        movement=MovementHooks(
+                            retreat_obligation_hexes_remaining=lambda st, uid: 1
+                            if uid == "u"
+                            else None,
+                            faction_has_pending_retreat_obligation=lambda _st, fac: fac == "Blue",
+                            retreat_blocked_hexes=lambda _st, _uid: frozenset({h1}),
+                        )
+                    )
+
+            server = GameServer(state, game_definition=_GD())
+            errors: list[str] = []
+
+            def capture(_pid: str, m: Message) -> None:
+                if m.type == "error":
+                    errors.append(str(m.payload.get("error", "")))
+
+            server.add_message_handler(capture)
+            await server.handle_message(
+                "p1",
+                JoinGameRequest(player_name="Alice", faction="Blue").to_message(),
+            )
+            req = ActionRequest(
+                action_type="MoveUnit",
+                params={
+                    "unit_id": "u",
+                    "from_hex": _hex_wire(h0),
+                    "to_hex": _hex_wire(h1),
+                },
+                player_id="p1",
+            )
+            await server.handle_message("p1", req.to_message())
+            self.assertTrue(errors)
+            self.assertIn("Illegal retreat path", errors[-1])
+
+        asyncio.run(run())
+
+    def test_hooks_validate_retreat_move_can_override_distance_rule(self) -> None:
+        async def run() -> None:
+            h0 = Hex.from_hex_col_row(HexColRow(0, 0))
+            # We'll make obligation 2 but allow a 1-hex retreat.
+            h1 = next(iter(neighbors(h0)))
+            board = BoardState(
+                units={
+                    "u": UnitState(
+                        unit_id="u",
+                        unit_type="t",
+                        faction="Blue",
+                        position=h0,
+                        active=True,
+                    ),
+                }
+            )
+            turn = TurnState(
+                current_faction="Blue",
+                current_phase="Combat",
+                phase_actions_remaining=2,
+                schedule_index=1,
+            )
+            state = GameState(
+                board=board,
+                turn=turn,
+                extension={"t": {"retreat_obligations": {"u": 2}}},
+                rng_log=(),
+            )
+
+            class _GD(InterleavedTwoFactionGameDefinition):
+                title_state_extension_key = "t"
+
+                @property
+                def hooks(self) -> TitleHooks:
+                    def allow_any_distance(_ctx, _rem: int) -> None:
+                        return None
+
+                    return TitleHooks(
+                        movement=MovementHooks(
+                            retreat_obligation_hexes_remaining=lambda _st, uid: 2
+                            if uid == "u"
+                            else None,
+                            faction_has_pending_retreat_obligation=lambda _st, fac: fac == "Blue",
+                            validate_retreat_move=allow_any_distance,
+                        )
+                    )
+
+            server = GameServer(state, game_definition=_GD())
+            errors: list[str] = []
+
+            def capture(_pid: str, m: Message) -> None:
+                if m.type == "error":
+                    errors.append(str(m.payload.get("error", "")))
+
+            server.add_message_handler(capture)
+            await server.handle_message(
+                "p1",
+                JoinGameRequest(player_name="Alice", faction="Blue").to_message(),
+            )
+            req = ActionRequest(
+                action_type="MoveUnit",
+                params={
+                    "unit_id": "u",
+                    "from_hex": _hex_wire(h0),
+                    "to_hex": _hex_wire(h1),
+                },
+                player_id="p1",
+            )
+            await server.handle_message("p1", req.to_message())
+            self.assertFalse(errors)
+
+        asyncio.run(run())
+
     def test_move_unit_rejected_onto_occupied_hex(self) -> None:
         async def run() -> None:
             start = Hex.from_hex_col_row(HexColRow(0, 0))
@@ -444,6 +823,39 @@ class TestGameServer(unittest.TestCase):
 
         asyncio.run(run())
 
+    def test_turn_rules_wire_builtin_omits_title_state_extension_key(self) -> None:
+        server = GameServer(self.initial_state, game_definition=_test_game_definition())
+        tr = server._turn_rules_wire()
+        self.assertNotIn("title_state_extension_key", tr)
+
+    def test_turn_rules_wire_hexdemo_includes_title_state_extension_key(self) -> None:
+        from games.hexdemo.game_config import (
+            HexdemoGameDefinition,
+            default_match_config,
+            game_definition_from_config,
+        )
+
+        base = game_definition_from_config(default_match_config())
+        gd = HexdemoGameDefinition(base)
+        server = GameServer(self.initial_state, game_definition=gd)
+        tr = server._turn_rules_wire()
+        self.assertEqual(tr.get("title_state_extension_key"), "hexdemo")
+        self.assertEqual(tr.get("max_active_units_per_hex"), 3)
+
+    def test_after_next_phase_builtin_skips_title_combat_extension_clear(self) -> None:
+        """Built-in ``GameDefinition`` has no ``title_state_extension_key``; do not mutate."""
+        server = GameServer(self.initial_state, game_definition=_test_game_definition())
+        ext = {
+            "hexdemo": {"attacks_this_phase": ["x"], "last_combat": {"outcome": "none"}}
+        }
+        server.action_manager._current_state = (
+            server.action_manager.current_state.with_extension(ext)
+        )
+        server._after_next_phase_applied()
+        hx = server.action_manager.current_state.extension.get("hexdemo")
+        self.assertIsInstance(hx, dict)
+        self.assertIn("attacks_this_phase", hx)
+
 
 class TestStateUpdateTurnRules(unittest.TestCase):
     def test_state_update_turn_rules_roundtrip(self) -> None:
@@ -533,6 +945,31 @@ class TestActionSerialization(unittest.TestCase):
         self.assertEqual(restored.payload, original.payload)
 
 
+def test_state_update_map_overlays_round_trip() -> None:
+    """StateUpdate carries optional map_overlays list for client DOM sync."""
+    from hexengine.server.protocol import Message, StateUpdate
+
+    msg = StateUpdate(
+        game_state={"board": {"units": {}}},
+        sequence_number=7,
+        map_overlays=[
+            {
+                "schema": 1,
+                "id": "t1",
+                "kind": "glyph",
+                "hex": {"i": 1, "j": -1, "k": 0},
+                "text": "🟎",
+                "css_class": "x",
+            }
+        ],
+    ).to_message()
+    restored = Message.from_json(msg.to_json())
+    assert restored.type == StateUpdate.wire_type
+    p = restored.payload
+    assert isinstance(p.get("map_overlays"), list)
+    assert p["map_overlays"][0]["id"] == "t1"
+
+
 def test_wire_message_registry_covers_all_message_types() -> None:
     """Every wire message type must have a @wire_message payload class."""
     from hexengine.server.protocol import registered_message_types
@@ -546,6 +983,9 @@ def test_wire_message_registry_covers_all_message_types() -> None:
             "undo_request",
             "redo_request",
             "load_snapshot",
+            "inspect",
+            "marker_preview_request",
+            "unit_preview_request",
             # server -> client
             "state_update",
             "action_result",
@@ -554,27 +994,12 @@ def test_wire_message_registry_covers_all_message_types() -> None:
             "error",
             "server_log",
             "combat_event",
+            "ui_popup",
+            "marker_preview",
+            "unit_preview",
         }
     )
 
 
-def run_async_test(coro):
-    """Helper to run async test."""
-    loop = asyncio.get_event_loop()
-    return loop.run_until_complete(coro)
-
-
 if __name__ == "__main__":
-    # Need to handle async tests
-    for test_case in [TestGameServer]:
-        for method_name in dir(test_case):
-            if method_name.startswith("test_"):
-                method = getattr(test_case, method_name)
-                if asyncio.iscoroutinefunction(method):
-                    print(f"\nRunning async test: {test_case.__name__}.{method_name}")
-                    instance = test_case(method_name)
-                    instance.setUp()
-                    run_async_test(method(instance))
-
-    # Run sync tests normally
     unittest.main(verbosity=2)

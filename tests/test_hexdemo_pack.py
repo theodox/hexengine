@@ -26,31 +26,24 @@ def test_display_faction_name_hexdemo() -> None:
     assert display_phase_name("Movement") == "Movement"
 
 
-def test_scenario_path_indicates_hexdemo_pack() -> None:
-    from hexengine.gameroot import scenario_path_indicates_hexdemo_pack
+def test_hexdemo_manifest_declares_loaded_banner_hook() -> None:
+    from hexengine.game_packs.registry import resolve_pack_for_scenario
 
-    assert scenario_path_indicates_hexdemo_pack(HEXDEMO_SCENARIO)
-    assert not scenario_path_indicates_hexdemo_pack(
-        REPO_ROOT
-        / "src"
-        / "hexengine"
-        / "scenarios"
-        / "data"
-        / "test_scenario"
-        / "scenario.toml"
-    )
+    rec = resolve_pack_for_scenario(HEXDEMO_SCENARIO)
+    assert rec.manifest.hooks_loaded_banner_module == "hexdemo.boot"
+    assert rec.manifest.hooks_loaded_banner_callable == "print_loaded_banner"
 
 
 def test_try_hexdemo_loaded_banner_once(caplog: pytest.LogCaptureFixture) -> None:
     from hexengine.gameroot import (
-        reset_hexdemo_loaded_banner_for_tests,
-        try_hexdemo_loaded_banner,
+        reset_pack_loaded_banner_for_tests,
+        try_pack_loaded_banner,
     )
 
-    reset_hexdemo_loaded_banner_for_tests()
+    reset_pack_loaded_banner_for_tests()
     with caplog.at_level(logging.INFO, logger="hexdemo.boot"):
-        try_hexdemo_loaded_banner(HEXDEMO_SCENARIO)
-        try_hexdemo_loaded_banner(HEXDEMO_SCENARIO)
+        try_pack_loaded_banner(HEXDEMO_SCENARIO)
+        try_pack_loaded_banner(HEXDEMO_SCENARIO)
 
     boot_logs = [r for r in caplog.records if r.name == "hexdemo.boot"]
     assert len(boot_logs) == 1
@@ -73,7 +66,7 @@ def test_load_game_definition_for_scenario_rejects_engine_packaged_path() -> Non
     from hexengine.gameroot import load_game_definition_for_scenario
     from hexengine.scenarios.load.parse import default_scenario_path
 
-    with pytest.raises(ValueError, match="No title rules"):
+    with pytest.raises(ValueError, match="No registered game pack"):
         load_game_definition_for_scenario(default_scenario_path())
 
 
@@ -83,15 +76,14 @@ def test_hexdemo_registry_build() -> None:
     games = str(REPO_ROOT / "games")
     if games not in sys.path:
         sys.path.insert(0, games)
-    from hexdemo.registry import build_game_definition, registered_game_definition_ids
+    from hexdemo.registry import build_game_definition
 
-    gd = build_game_definition("interleaved")
+    gd = build_game_definition()
     assert gd.available_factions() == ["union", "confederate"]
-    assert "default" in registered_game_definition_ids()
 
 
 def test_hexdemo_default_turn_order_four_phases() -> None:
-    """Default / interleaved registry uses Union then Confederate Move/Combat."""
+    """Shipped hexdemo uses Union then Confederate Move/Combat (4 moves / 2 combats per segment)."""
     import sys
 
     games = str(REPO_ROOT / "games")
@@ -99,35 +91,29 @@ def test_hexdemo_default_turn_order_four_phases() -> None:
         sys.path.insert(0, games)
     from hexdemo.registry import build_game_definition
 
-    gd = build_game_definition("default")
+    gd = build_game_definition()
     order = gd.turn_order()
     assert len(order) == 4
-    assert order[0] == {"faction": "union", "phase": "Move", "max_actions": 2}
+    assert order[0] == {"faction": "union", "phase": "Move", "max_actions": 4}
     assert order[1] == {"faction": "union", "phase": "Combat", "max_actions": 2}
-    assert order[2] == {"faction": "confederate", "phase": "Move", "max_actions": 2}
+    assert order[2] == {"faction": "confederate", "phase": "Move", "max_actions": 4}
     assert order[3] == {"faction": "confederate", "phase": "Combat", "max_actions": 2}
 
 
 def test_hexdemo_game_config_matches_registry() -> None:
-    """Registry ids must match `hexdemo.game_config.HexdemoMatchConfig` defaults."""
+    """``build_game_definition`` matches ``game_definition_from_config(default_match_config())``."""
     import sys
 
     games = str(REPO_ROOT / "games")
     if games not in sys.path:
         sys.path.insert(0, games)
-    from hexdemo.game_config import HexdemoMatchConfig, game_definition_from_config
+    from hexdemo.game_config import default_match_config, game_definition_from_config
     from hexdemo.registry import build_game_definition
 
-    for key in ("interleaved", "sequential"):
-        reg = build_game_definition(key)
-        cfg = game_definition_from_config(HexdemoMatchConfig.from_registry_key(key))
-        assert type(reg) is type(cfg)
-        assert reg.turn_order() == cfg.turn_order()
-
-    default_gd = build_game_definition("default")
-    inter_gd = build_game_definition("interleaved")
-    assert type(default_gd) is type(inter_gd)
-    assert default_gd.turn_order() == inter_gd.turn_order()
+    reg = build_game_definition()
+    cfg = game_definition_from_config(default_match_config())
+    assert type(reg) is type(cfg)
+    assert reg.turn_order() == cfg.turn_order()
 
 
 def _ensure_games_on_path() -> None:

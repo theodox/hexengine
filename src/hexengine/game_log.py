@@ -1,9 +1,9 @@
 """
 Per-request game logger: stdlib logging plus optional fan-out to WebSocket clients.
 
-Install a :class:`GameLogger` for the duration of :meth:`hexengine.server.game_server.GameServer.handle_message`
-via :func:`game_logger_scope`; game code calls :func:`get_game_logger` to log once to server stdout and
-(inside that scope) enqueue the same line for ``\"server_log\"`` broadcasts.
+Install a GameLogger for the duration of hexengine.server.game_server.GameServer.handle_message
+via game_logger_scope; game code calls get_game_logger to log once to server stdout and
+(inside that scope) enqueue the same line for "server_log" broadcasts.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ def _wire_text(msg: object, *args: object) -> str:
 
 
 class GameLogger:
-    """Logs to a stdlib :class:`logging.Logger` and optionally enqueues wire-safe lines."""
+    """Logs to a stdlib logging.Logger and optionally enqueues wire-safe lines."""
 
     __slots__ = ("_enqueue", "_stdlib")
 
@@ -99,7 +99,7 @@ def get_game_logger() -> GameLogger:
 
 @contextmanager
 def game_logger_scope(logger: GameLogger) -> Iterator[None]:
-    """Bind ``logger`` for :func:`get_game_logger` within the context block."""
+    """Bind logger for get_game_logger within the context block."""
     token = _game_logger_ctx.set(logger)
     try:
         yield

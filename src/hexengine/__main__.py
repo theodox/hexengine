@@ -30,19 +30,15 @@ def parse_url_params():
     mode = get_param("mode", "single")  # "single" or "multi"
     player_name = get_param("name", "Player")
     faction = get_param("faction")  # None for auto-assign
+    if isinstance(faction, str) and faction.strip():
+        faction = faction.strip().lower()
     server_url = get_param("server", "ws://localhost:8765")
-    raw_schedule = (get_param("schedule", "interleaved") or "interleaved").lower()
-    game_schedule = (
-        raw_schedule if raw_schedule in ("interleaved", "sequential") else "interleaved"
-    )
-
     return {
         "mode": mode,
         "player_name": player_name,
         "faction": faction,
         "server_url": server_url,
         "use_local_server": mode == "single",
-        "game_schedule": game_schedule,
     }
 
 
@@ -72,7 +68,6 @@ def async_main() -> None:
             player_name=config["player_name"],
             preferred_faction=config["faction"],
             use_local_server=config["use_local_server"],
-            game_schedule=config["game_schedule"],
         )
 
         MAP = GAME.canvas

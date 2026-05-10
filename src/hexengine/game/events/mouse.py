@@ -59,6 +59,7 @@ class MouseEventHandlerMixin:
             return
 
         self.hex_path.clear()
+        self._attack_plan_suppress_bg_mouseup_retarget = False
 
         self.logger.debug(f"Mouse down : {eventInfo}")
         # pixels - use raw_position for screen-space distance calculations
@@ -126,7 +127,7 @@ class MouseEventHandlerMixin:
             self._unit_mouseup(eventInfo)
 
     def _marker_dbl_click(self, eventInfo: EventInfo) -> None:
-        """Inspect marker (type, id, odd-q position) in a small popup."""
+        """Inspect marker (title-formatted) in a small popup."""
         mid = eventInfo.marker_id or self.ui_state.selected_marker_id
         mgr = getattr(self, "marker_mgr", None)
         if not mgr or not mid:
@@ -136,13 +137,8 @@ class MouseEventHandlerMixin:
         if not disp:
             self.last_click_time = 0
             return
-        offset_pos = eventInfo.raw_position[0] + 10, eventInfo.raw_position[1] + 20
-        h = disp.position
-        cr = HexColRow.from_hex(h)
-        pos_s = f"[{cr.col}, {cr.row}]"
-        self.popup_manager.create_popup(
-            f"marker {mid} ({disp.unit_type}) @ {pos_s}", offset_pos
-        )
+        if self.client:
+            self.client.send_inspect("marker", str(mid))
         self.last_click_time = 0
 
     def _marker_mousedown(self, eventInfo: EventInfo) -> None:
@@ -264,13 +260,12 @@ class MouseEventHandlerMixin:
         self.logger.debug(f"Dragging background by {distance} pixels")
 
     def _bg_mousedown(self, eventInfo: EventInfo) -> None:
-        self.pending_attack_attacker_id = None
         self.selection = None
         self.ui_state.select_marker(None)
         mgr = getattr(self, "marker_mgr", None)
         if mgr is not None:
             mgr.set_marker_hilite(None)
-        self.logger.warning(
+        self.logger.debug(
             f"Mouse down on background with modifiers {eventInfo.modifiers}"
         )
         self.popup_manager.clear()
@@ -291,6 +286,28 @@ class MouseEventHandlerMixin:
                 self._bg_dbl_click(eventInfo)
                 self.last_click_time = 0  # Reset to prevent triple-click
             else:
+                # Attack planning: background click sets/changing target hex should be immediate
+                # (do not wait out the double-click timeout).
+                try:
+                    state = self._interactive_game_state()
+                    phase = (
+                        str(state.turn.current_phase).strip().lower()
+                        if state is not None
+                        else ""
+                    )
+                    if state and phase in ("combat", "attack") and self.is_my_turn():
+                        # Mousedown on a unit often ends with mouseup on the background (no
+                        # unit_id). Do not retarget to that hex or we flash "No enemy unit on
+                        # that hex" and wipe the real LOS/range feedback from attacker toggles.
+                        if not getattr(
+                            self, "_attack_plan_suppress_bg_mouseup_retarget", False
+                        ):
+                            self.set_attack_plan_target_hex(eventInfo.hex)
+                        else:
+                            self._attack_plan_suppress_bg_mouseup_retarget = False
+                except Exception:
+                    pass
+
                 # Delay single click to check for double-click
                 if self.pending_click_timeout is not None:
                     js.clearTimeout(self.pending_click_timeout)
@@ -322,19 +339,11 @@ class MouseEventHandlerMixin:
             else "Double click with no unit under cursor"
         )
 
-        offset_pos = eventInfo.raw_position[0] + 10, eventInfo.raw_position[1] + 20
         if not unit or not eventInfo.unit_id:
             self.last_click_time = 0
             return
-
-        # Use server/board state for faction; GameUnit.faction may be a class default.
-        faction = unit.faction
-        if self.action_mgr and self.action_mgr.current_state:
-            us = self.action_mgr.current_state.board.units.get(eventInfo.unit_id)
-            if us is not None:
-                faction = us.faction
-
-        self.popup_manager.create_popup(f"{unit.unit_id} @ {faction}", offset_pos)
+        if self.client:
+            self.client.send_inspect("unit", str(eventInfo.unit_id))
         self.last_click_time = 0
 
     def _unit_drag(self, eventInfo: EventInfo) -> None:
@@ -422,29 +431,45 @@ class MouseEventHandlerMixin:
             return
 
         # Check faction from state
-        state = self.action_mgr.current_state
+        state = self._interactive_game_state()
         if state is None:
             self.logger.error("current_state is None - game not fully initialized")
             return
 
-        self.logger.info(
+        self.logger.debug(
             f"State has {len(state.board.units)} units: {list(state.board.units.keys())}"
         )
         unit_state = state.board.units.get(unit_id)
 
-        self.logger.warning(f"Mouse down state {unit_state} for unit {unit_id}")
+        self.logger.debug(f"Mouse down state {unit_state} for unit {unit_id}")
         if not unit_state:
             return
 
-        pending = getattr(self, "pending_attack_attacker_id", None)
-        phase_ok = str(state.turn.current_phase) in ("Combat", "Attack")
+        phase_ok = str(state.turn.current_phase).strip().lower() in ("combat", "attack")
         current_faction = state.turn.current_faction
         retreating = (
             self.retreat_obligation_hexes_remaining(state, unit_id) is not None
         )
 
-        if phase_ok and pending and unit_state.faction != current_faction and self.is_my_turn():
-            return
+        # Attack planning: treat unit mousedown as selection/toggle (not drag) during Combat.
+        if phase_ok and self.is_my_turn() and not retreating:
+            try:
+                if unit_state.faction != current_faction:
+                    # Clicking an enemy unit sets the target hex.
+                    self._attack_plan_suppress_bg_mouseup_retarget = True
+                    h = unit_state.position
+                    self.set_attack_plan_target_hex(h)
+                    self._clear_drag_and_highlights(keep_secondary=True)
+                    return
+                # Friendly unit toggles as attacker only when a target is set.
+                if self.attack_plan_target_hex is not None:
+                    self._attack_plan_suppress_bg_mouseup_retarget = True
+                    self.toggle_attack_plan_attacker(str(unit_state.unit_id))
+                    self._clear_drag_and_highlights(keep_secondary=True)
+                    return
+            except Exception:
+                # Fall through to normal handling.
+                pass
 
         if not self.is_my_turn() and not retreating:
             self._clear_drag_and_highlights()
@@ -498,31 +523,7 @@ class MouseEventHandlerMixin:
                     self.display_mgr.clear_highlights()
                 return
 
-            state = self.action_mgr.current_state
-            pending = getattr(self, "pending_attack_attacker_id", None)
-            if (
-                maybe_click
-                and pending
-                and eventInfo.unit_id
-                and state
-                and str(state.turn.current_phase) in ("Combat", "Attack")
-                and self.is_my_turn()
-            ):
-                from ...hexes.math import distance
-                from ...state.actions import Attack
-
-                target_id = str(eventInfo.unit_id)
-                defender = state.board.units.get(target_id)
-                attacker = state.board.units.get(pending)
-                if defender and attacker and defender.faction != attacker.faction:
-                    if distance(attacker.position, defender.position) == 1:
-                        self.execute_action(
-                            Attack("adjacent", pending, target_id)
-                        )
-                        self.pending_attack_attacker_id = None
-                        self._clear_drag_and_highlights()
-                        self.last_click_time = current_time
-                        return
+            # Attack planning runs on _unit_mousedown only (mouseup would double-toggle attackers).
 
             uid_sel = self.ui_state.selected_unit_id
             if uid_sel is not None:
@@ -552,19 +553,6 @@ class MouseEventHandlerMixin:
                 unit = self._event_unit(eventInfo)
                 if unit:
                     self.selection = unit
-                    us = (
-                        state.board.units.get(str(unit.unit_id))
-                        if state and unit.unit_id
-                        else None
-                    )
-                    if (
-                        us
-                        and state
-                        and str(state.turn.current_phase) in ("Combat", "Attack")
-                        and self.is_my_turn()
-                        and us.faction == state.turn.current_faction
-                    ):
-                        self.pending_attack_attacker_id = str(unit.unit_id)
                 self.pending_click_timeout = js.setTimeout(
                     create_proxy(lambda: self._unit_click(eventInfo)),
                     self.DBL_CLICK_THRESHOLD,
@@ -579,7 +567,7 @@ class MouseEventHandlerMixin:
 
             # Handle multi-hex path (shift-drag)
             if len(self.hex_path) > 1 and eventInfo.modifiers & Modifiers.SHIFT:
-                self.logger.warning(self.hex_path)
+                self.logger.debug(self.hex_path)
                 from ...state.actions import MoveUnit
 
                 unit_id = self.ui_state.selected_unit_id

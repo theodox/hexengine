@@ -8,21 +8,18 @@ Typical changes:
 
 - **Faction order** — `HEXDEMO_FACTIONS` in `hexdemo.constants` (first side opens
   the round; see `hexengine.gameroot.initial_turn_slot_for_game_definition`).
-- **Default vs sequential** — `schedule` (`interleaved` / `default` use the four-phase
-  Union/Confederate Move/Combat rota; `sequential` uses Movement/Attack blocks).
+- **Turn rota** — edit ``hexdemo_four_phase_entries`` (or replace the
+  ``StaticScheduleGameDefinition`` built in ``game_definition_from_config``).
 - **Movement preview budget** — set `movement_budget` to match scenario feel.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 from hexengine.gamedef import unit_attributes as unit_attr_helpers
-from hexengine.gamedef.builtin import (
-    SequentialTwoFactionGameDefinition,
-    StaticScheduleGameDefinition,
-)
+from hexengine.gamedef.builtin import StaticScheduleGameDefinition
 from hexengine.gamedef.protocol import GameDefinition
 from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
@@ -31,9 +28,7 @@ from hexengine.state.logic import adjacent_enemy_zoc_hexes
 from hexengine.state.phase_rules import phase_allows_unit_move
 
 from . import combat
-from .constants import HEXDEMO_FACTIONS
-
-Schedule = Literal["interleaved", "sequential"]
+from .constants import HEXDEMO_FACTIONS, PACK_STATE_EXTENSION_KEY
 
 
 def hexdemo_four_phase_entries(
@@ -42,12 +37,12 @@ def hexdemo_four_phase_entries(
     """Union Move, Union Combat, Confederate Move, Confederate Combat."""
     if len(factions) < 2:
         raise ValueError("hexdemo four-phase schedule requires two factions")
-    union_side, confed_side = factions[0], factions[1]
+    union, confederate = factions[0], factions[1]
     return (
-        {"faction": union_side, "phase": "Move", "max_actions": 2},
-        {"faction": union_side, "phase": "Combat", "max_actions": 2},
-        {"faction": confed_side, "phase": "Move", "max_actions": 2},
-        {"faction": confed_side, "phase": "Combat", "max_actions": 2},
+        {"faction": union, "phase": "Move", "max_actions": 4},
+        {"faction": union, "phase": "Combat", "max_actions": 2},
+        {"faction": confederate, "phase": "Move", "max_actions": 4},
+        {"faction": confederate, "phase": "Combat", "max_actions": 2},
     )
 
 
@@ -63,8 +58,43 @@ class HexdemoGameDefinition:
     #: Published in `StateUpdate.turn_rules` so thin clients match per-unit budgets.
     movement_budget_attribute_key = "movement"
 
+    #: Published in ``StateUpdate.turn_rules`` for local ``Attack`` / extension reads.
+    title_state_extension_key = PACK_STATE_EXTENSION_KEY
+
+    #: Turn-strip label and styling metadata (published in ``StateUpdate.turn_rules``).
+    faction_display_names = {
+        "union": "Union",
+        "confederate": "Confederate",
+    }
+    faction_css_classes = {
+        "union": "union",
+        "confederate": "confederate",
+    }
+    title_css_file = "ui.css"
+
+    #: Optional preview highlight class names for thin clients. These are applied to the
+    #: SVG group drawn for valid move/retreat hexes during drag preview.
+    hex_highlight_ui = {
+        "schema": 1,
+        "move_hex_class": "hexdemo-move-hex",
+        "retreat_hex_class": "hexdemo-retreat-hex",
+        "retreat_through_hex_class": "hexdemo-retreat-through-hex",
+        "marker_hex_class": "hexdemo-marker-hex",
+    }
+
+    #: Title rule: max number of *active* units allowed on a single hex.
+    #: Used by the server for authoritative MoveUnit validation and by thin clients
+    #: for drag-preview constraints.
+    max_active_units_per_hex = 3
+
     def __init__(self, base: GameDefinition) -> None:
         self._base = base
+
+    @property
+    def hooks(self):
+        from .hooks import build_hooks
+
+        return build_hooks()
 
     @property
     def _movement_budget(self) -> float:
@@ -104,7 +134,7 @@ class HexdemoGameDefinition:
         """
         Title rules for ``Attack`` (adjacency and combat phase); not encoded in ``phase_rules``.
         """
-        if attack_kind != "adjacent":
+        if attack_kind not in ("combined",):
             raise ValueError(f"Unknown attack_kind for hexdemo: {attack_kind!r}")
         phase = str(state.turn.current_phase)
         if phase not in ("Combat", "Attack"):
@@ -129,46 +159,66 @@ class HexdemoGameDefinition:
             raise ValueError("You do not control the attacker")
         if attacker.faction == defender.faction:
             raise ValueError("Cannot attack same faction")
-        if distance(attacker.position, defender.position) != 1:
-            raise ValueError("Defender is not adjacent to the attacker")
-        hx = state.extension.get("hexdemo")
+        # Multi-attacker support: params may include `attacker_ids` (list[str]).
+        raw_attacker_ids = params.get("attacker_ids")
+        attacker_ids: list[str] = []
+        if isinstance(raw_attacker_ids, list) and raw_attacker_ids:
+            for uid in raw_attacker_ids:
+                if isinstance(uid, str) and uid.strip():
+                    attacker_ids.append(uid.strip())
+        if not attacker_ids:
+            attacker_ids = [str(attacker_id)]
+
+        from hexengine.hexes.los import has_line_of_sight
+        from hexengine.state import edges_block_los_predicate
+
+        def blocks(h: Hex) -> bool:
+            loc = state.board.effective_location(h)
+            if loc is None:
+                return False
+            return bool(getattr(loc, "block_los", False))
+
+        edges_block = edges_block_los_predicate(state.board)
+
+        # Each attacker must be eligible vs the target hex (defender.position).
+        target_hex = defender.position
+        for aid in attacker_ids:
+            a = state.board.units.get(aid)
+            if a is None or not a.active:
+                raise ValueError("Invalid attacker")
+            if a.faction != player_faction:
+                raise ValueError("You do not control the attacker")
+            if a.faction == defender.faction:
+                raise ValueError("Cannot attack same faction")
+
+            dist = distance(a.position, target_hex)
+            ut = str(a.unit_type).lower()
+            if ut in ("infantry", "inf"):
+                if dist != 1:
+                    raise ValueError("Infantry attacker is not adjacent to the target")
+            elif ut in ("artillery", "art"):
+                raw_range = a.attributes.get("range")
+                try:
+                    atk_range = int(raw_range) if raw_range is not None else 0
+                except Exception:
+                    atk_range = 0
+                if atk_range <= 1:
+                    raise ValueError("Artillery has no ranged capability")
+                if not (dist > 1 and dist <= atk_range):
+                    raise ValueError("Artillery target is out of range")
+                if not has_line_of_sight(
+                    a.position, target_hex, blocks=blocks, edges_block=edges_block
+                ):
+                    raise ValueError("No line of sight to target")
+            else:
+                raise ValueError(f"Unit type {ut!r} cannot participate in combined attacks")
+        hx = state.extension.get(PACK_STATE_EXTENSION_KEY)
         if isinstance(hx, dict):
             prev = hx.get("attacks_this_phase")
-            if isinstance(prev, list) and attacker_id in prev:
-                raise ValueError("That unit has already attacked this combat phase")
-
-    def should_auto_advance_phase_after_attack(self, state: GameState) -> bool:
-        """
-        Advance the schedule when every active unit of the current faction has attacked
-        this combat segment and no mandatory retreat is pending.
-        """
-        if combat.any_retreat_obligation_pending(state):
-            return False
-        phase = str(state.turn.current_phase)
-        if phase not in ("Combat", "Attack"):
-            return False
-        faction = state.turn.current_faction
-        active_ids = {
-            u.unit_id
-            for u in state.board.units.values()
-            if u.active and u.faction == faction
-        }
-        if not active_ids:
-            return True
-        hx = state.extension.get("hexdemo")
-        if not isinstance(hx, dict):
-            return False
-        raw = hx.get("attacks_this_phase")
-        if not isinstance(raw, list):
-            return False
-        attacked: set[str] = set()
-        for uid in raw:
-            if not isinstance(uid, str):
-                continue
-            u = state.board.units.get(uid)
-            if u is not None and u.active and u.faction == faction:
-                attacked.add(uid)
-        return active_ids <= attacked
+            if isinstance(prev, list):
+                for aid in attacker_ids:
+                    if aid in prev:
+                        raise ValueError("That unit has already attacked this combat phase")
 
     def retreat_obligation_hexes_remaining(
         self, state: GameState, unit_id: str
@@ -230,8 +280,8 @@ class HexdemoGameDefinition:
         """
         Called by the server after each `NextPhase` is applied.
 
-        Combat bookkeeping in ``extension['hexdemo']`` is cleared by the engine
-        (`GameServer` runs `ClearHexdemoCombatExtension` after every phase advance).
+        Combat bookkeeping in the hexdemo extension bucket is cleared by the engine
+        (``GameServer`` runs ``ClearTitleCombatExtension`` after every phase advance).
         """
         from .turn_hooks import before_union_move
 
@@ -242,47 +292,21 @@ class HexdemoGameDefinition:
 
 @dataclass(frozen=True, slots=True)
 class HexdemoMatchConfig:
-    """
-    Title-owned settings for one match (authoritative server + thin clients).
+    """Title-owned settings for one match (authoritative server + thin clients)."""
 
-    `schedule` `interleaved` (and registry `default`) use the four-phase rota.
-    `sequential` uses classic Movement/Attack per faction (IGOUGO).
-    """
-
-    schedule: Schedule
     factions: tuple[str, ...] = HEXDEMO_FACTIONS
     movement_budget: float = DEFAULT_MOVEMENT_BUDGET
 
-    @classmethod
-    def from_registry_key(cls, key: str) -> HexdemoMatchConfig:
-        """
-        Map `hexdemo.registry.build_game_definition` ids to a config.
-
-        Keys: `default` / `interleaved` → four-phase rota; `sequential` → Movement/Attack sequential.
-        """
-        k = key.strip().lower()
-        if k in ("default", "interleaved"):
-            return cls(schedule="interleaved")
-        if k == "sequential":
-            return cls(schedule="sequential")
-        raise KeyError(f"Unknown hexdemo game definition id: {key!r}")
-
 
 def game_definition_from_config(config: HexdemoMatchConfig) -> GameDefinition:
-    """Return a fresh `GameDefinition` for `config`."""
-    if config.schedule == "sequential":
-        base: GameDefinition = SequentialTwoFactionGameDefinition(
-            factions=config.factions,
-            movement_budget=config.movement_budget,
-        )
-    else:
-        base = StaticScheduleGameDefinition(
-            hexdemo_four_phase_entries(config.factions),
-            movement_budget=config.movement_budget,
-        )
+    """Return a fresh `GameDefinition` for `config` (single static four-phase rota)."""
+    base = StaticScheduleGameDefinition(
+        hexdemo_four_phase_entries(config.factions),
+        movement_budget=config.movement_budget,
+    )
     return HexdemoGameDefinition(base)
 
 
 def default_match_config() -> HexdemoMatchConfig:
-    """Default four-phase schedule with `hexdemo.constants.HEXDEMO_FACTIONS`."""
-    return HexdemoMatchConfig(schedule="interleaved")
+    """Default factions and movement budget for the shipped rota."""
+    return HexdemoMatchConfig()

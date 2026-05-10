@@ -1,4 +1,4 @@
-"""Tests for :mod:`hexengine.game_log` and ``Message.try_from_json``."""
+"""Tests for hexengine.game_log and Message.try_from_json."""
 
 from __future__ import annotations
 

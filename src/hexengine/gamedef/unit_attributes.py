@@ -1,4 +1,4 @@
-"""Optional ``GameDefinition`` hooks for title-defined per-unit ``UnitState.attributes``."""
+"""Optional GameDefinition hooks for title-defined per-unit UnitState.attributes."""
 
 from __future__ import annotations
 

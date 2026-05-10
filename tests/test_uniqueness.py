@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.hexengine.hexes.types import Cartesian, Hex
+from hexengine.hexes.types import Cartesian, Hex
 
 
 def test_round_trip():
@@ -23,13 +23,9 @@ def test_round_trip():
                 failures.append((hex_orig, cart, hex_back))
 
     if failures:
-        print(f"Found {len(failures)} round-trip failures:")
-        for orig, cart, back in failures[:10]:  # Show first 10
-            print(f"  {orig} -> {cart} -> {back}")
-    else:
-        print("✓ All hex coordinates round-trip correctly!")
-
-    return len(failures) == 0
+        sample = "; ".join(f"{o} -> {c} -> {b}" for o, c, b in failures[:10])
+        assert False, f"Found {len(failures)} round-trip failures (first 10): {sample}"
+    print("✓ All hex coordinates round-trip correctly!")
 
 
 def test_cartesian_uniqueness():
@@ -50,13 +46,9 @@ def test_cartesian_uniqueness():
                 cart_to_hex[cart] = hex_coord
 
     if collisions:
-        print(f"\n✗ Found {len(collisions)} cartesian collisions:")
-        for hex1, hex2, cart in collisions[:10]:  # Show first 10
-            print(f"  {hex1} and {hex2} both -> {cart}")
-    else:
-        print("\n✓ No collisions: each hex produces a unique cartesian coordinate!")
-
-    return len(collisions) == 0
+        sample = "; ".join(f"{h1} and {h2} both -> {c}" for h1, h2, c in collisions[:10])
+        assert False, f"Found {len(collisions)} cartesian collisions (first 10): {sample}"
+    print("\n✓ No collisions: each hex produces a unique cartesian coordinate!")
 
 
 def test_arbitrary_cartesian():
@@ -77,26 +69,20 @@ def test_arbitrary_cartesian():
                 inconsistencies.append((cart, hex1, cart2, hex2))
 
     if inconsistencies:
-        print(
-            f"\n✗ Found {len(inconsistencies)} inconsistencies in arbitrary cartesian coords:"
+        sample = "; ".join(
+            f"{ca} -> {h1} -> {c2} -> {h2b}"
+            for ca, h1, c2, h2b in inconsistencies[:10]
         )
-        for cart, hex1, cart2, hex2 in inconsistencies[:10]:
-            print(f"  {cart} -> {hex1} -> {cart2} -> {hex2}")
-    else:
-        print("\n✓ Arbitrary cartesian coordinates are consistent!")
-
-    return len(inconsistencies) == 0
+        assert (
+            False
+        ), f"Found {len(inconsistencies)} arbitrary-cartesian inconsistencies (first 10): {sample}"
+    print("\n✓ Arbitrary cartesian coordinates are consistent!")
 
 
 if __name__ == "__main__":
     print("Testing cartesian-to-hex uniqueness...\n")
-
-    result1 = test_round_trip()
-    result2 = test_cartesian_uniqueness()
-    result3 = test_arbitrary_cartesian()
-
+    test_round_trip()
+    test_cartesian_uniqueness()
+    test_arbitrary_cartesian()
     print("\n" + "=" * 60)
-    if result1 and result2 and result3:
-        print("✓ ALL TESTS PASSED: The conversion is bijective!")
-    else:
-        print("✗ TESTS FAILED: The conversion has issues")
+    print("✓ ALL TESTS PASSED: The conversion is bijective!")

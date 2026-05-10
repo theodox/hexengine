@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+from ..hexes.edges import EdgeKey
 from ..hexes.types import Hex
 
 
@@ -19,10 +20,10 @@ class UnitState:
 
     No display logic, no UI state - just the facts about this unit.
 
-    ``stack_index`` orders units on the same hex (lower = earlier in stack order).
-    ``attributes`` holds title-defined JSON-safe primitives (shallow-copied on change).
-    ``graphics`` overrides the key into scenario ``[[unit_graphics]]`` when set;
-    otherwise ``unit_type`` is used (see client ``DisplayManager``).
+    stack_index orders units on the same hex (lower = earlier in stack order).
+    attributes holds title-defined JSON-safe primitives (shallow-copied on change).
+    graphics overrides the key into scenario [[unit_graphics]] when set;
+    otherwise unit_type is used (see client DisplayManager).
     """
 
     unit_id: str
@@ -51,13 +52,17 @@ class UnitState:
         """Return a new UnitState with updated active status."""
         return replace(self, active=is_active)
 
+    def with_graphics(self, graphics: str | None) -> UnitState:
+        """Return a new UnitState with ``graphics`` (``[[unit_graphics]]`` template key)."""
+        return replace(self, graphics=graphics)
+
     def with_attributes(
         self,
         patch: dict[str, Any] | None = None,
         *,
         remove_keys: tuple[str, ...] | frozenset[str] | None = None,
     ) -> UnitState:
-        """Merge ``patch`` into ``attributes``; drop keys listed in ``remove_keys``."""
+        """Merge patch into attributes; drop keys listed in remove_keys."""
         next_attrs = dict(self.attributes)
         if remove_keys:
             for k in remove_keys:
@@ -85,6 +90,32 @@ class LocationState:
 
 
 @dataclass(frozen=True)
+class BoardEdgeFeature:
+    """Rule-neutral primitive on a shared hex side (identity + opaque tags + optional stroke hints)."""
+
+    feature_id: str
+    edge_key: EdgeKey
+    tags: tuple[str, ...] = ()
+    stroke_width: float | None = None
+    stroke_color: str | None = None
+    stroke_dash: str | None = None
+    layer_z: int | None = None
+
+
+@dataclass(frozen=True)
+class BoardLinearFeature:
+    """Rule-neutral centerline path through consecutive neighbor hexes."""
+
+    feature_id: str
+    path_hexes: tuple[Hex, ...]
+    tags: tuple[str, ...] = ()
+    stroke_width: float | None = None
+    stroke_color: str | None = None
+    stroke_dash: str | None = None
+    layer_z: int | None = None
+
+
+@dataclass(frozen=True)
 class UnsetTerrainDefaults:
     """Terrain applied to any hex not listed in `BoardState.locations`."""
 
@@ -108,6 +139,23 @@ class BoardState:
     locations: dict[Hex, LocationState] = field(default_factory=dict)
     #: From scenario `[[terrain_types]]` row with `default = true`; `None` = legacy 1.0 cost.
     unset_defaults: UnsetTerrainDefaults | None = None
+    edge_features: tuple[BoardEdgeFeature, ...] = ()
+    linear_features: tuple[BoardLinearFeature, ...] = ()
+    #: Per-tag hex-step cost on ``[[linear_features]]`` (scenario TOML); sorted by tag.
+    linear_movement_by_tag: tuple[tuple[str, float], ...] = ()
+    #: Per-tag extra movement cost when a step crosses an ``[[edge_features]]`` primitive
+    #: with that tag (summed per tag occurrence on overlays on that edge). Sorted by tag.
+    edge_movement_extra_by_tag: tuple[tuple[str, float], ...] = ()
+    #: Per-tag whether crossing an edge with that tag blocks line-of-sight (sorted by tag).
+    edge_line_of_sight_by_tag: tuple[tuple[str, bool], ...] = ()
+
+    def edge_map_features_at(self, key: EdgeKey) -> tuple[BoardEdgeFeature, ...]:
+        """All edge primitives sharing this undirected border (may be multiple overlays)."""
+        return tuple(f for f in self.edge_features if f.edge_key == key)
+
+    def linear_map_features_at_hex(self, h: Hex) -> tuple[BoardLinearFeature, ...]:
+        """Centerline primitives whose spine includes this hex."""
+        return tuple(f for f in self.linear_features if h in f.path_hexes)
 
     def with_unit(self, unit: UnitState) -> BoardState:
         """Return a new BoardState with the unit added or updated."""
@@ -125,13 +173,13 @@ class BoardState:
         return replace(self, locations=new_locations)
 
     def active_units_at_hex(self, position: Hex) -> tuple[UnitState, ...]:
-        """All active units on ``position``, ordered by ``stack_index`` then ``unit_id``."""
+        """All active units on position, ordered by stack_index then unit_id."""
         found = [u for u in self.units.values() if u.active and u.position == position]
         found.sort(key=lambda u: (u.stack_index, u.unit_id))
         return tuple(found)
 
     def next_stack_index_at_hex(self, position: Hex, *, exclude_unit_id: str | None = None) -> int:
-        """Next free ``stack_index`` at this hex (max existing + 1 among counted units)."""
+        """Next free stack_index at this hex (max existing + 1 among counted units)."""
         idxs = [
             u.stack_index
             for u in self.units.values()
@@ -142,16 +190,16 @@ class BoardState:
         return (max(idxs) + 1) if idxs else 0
 
     def units_at(self, position: Hex) -> tuple[UnitState, ...]:
-        """Alias for :meth:`active_units_at_hex` (stacking-aware)."""
+        """Alias for active_units_at_hex (stacking-aware)."""
         return self.active_units_at_hex(position)
 
     def get_unit_at(self, position: Hex) -> UnitState | None:
-        """One unit at ``position`` for backward compatibility (top of stack = highest ``stack_index``)."""
+        """One unit at position for backward compatibility (top of stack = highest stack_index)."""
         at = self.active_units_at_hex(position)
         return at[-1] if at else None
 
     def is_occupied(self, position: Hex) -> bool:
-        """True if any active unit occupies ``position`` (stacking-aware)."""
+        """True if any active unit occupies position (stacking-aware)."""
         return bool(self.active_units_at_hex(position))
 
     def explicit_location(self, position: Hex) -> LocationState | None:
@@ -194,7 +242,7 @@ class TurnState:
     turn_number: int = 1
     #: Index into the match turn rota (`GameDefinition.turn_order()`); authoritative for sequencing.
     schedule_index: int = 0
-    #: Monotonic counter incremented on each ``NextPhase`` apply (time-based title effects).
+    #: Monotonic counter incremented on each NextPhase apply (time-based title effects).
     global_tick: int = 0
 
     def with_actions_spent(self, amount: int = 1) -> TurnState:
@@ -214,7 +262,7 @@ class TurnState:
     ) -> TurnState:
         """Return a new TurnState for the next phase.
 
-        If ``global_tick`` is ``None``, the tick is unchanged (used when restoring state).
+        If global_tick is None, the tick is unchanged (used when restoring state).
         """
         if global_tick is None:
             return replace(

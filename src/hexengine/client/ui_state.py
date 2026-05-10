@@ -63,6 +63,8 @@ class UIState:
     # Selection
     selected_unit_id: str | None = None
     selected_marker_id: str | None = None
+    secondary_selected_unit_ids: set[str] = field(default_factory=set)
+    secondary_target_unit_ids: set[str] = field(default_factory=set)
 
     # Hover/cursor state
     hover_hex: Hex | None = None
@@ -73,21 +75,50 @@ class UIState:
     # Valid moves for selected unit (computed from game state)
     movement_constraints: set[Hex] = field(default_factory=set)
 
-    def select_unit(self, unit_id: str | None) -> None:
-        """Select a unit (or clear selection if None)."""
+    def select_unit(self, unit_id: str | None, *, exclusive: bool = True) -> None:
+        """Select a unit (or clear selection if None).
+
+        Args:
+            unit_id: Primary selected unit id, or None to clear.
+            exclusive: When True (default), clears any secondary selections.
+        """
         self.selected_unit_id = unit_id
         if unit_id is not None:
             self.selected_marker_id = None
+        if exclusive:
+            self.secondary_selected_unit_ids.clear()
+            self.secondary_target_unit_ids.clear()
         if unit_id is None:
             self.movement_constraints.clear()
 
-    def select_marker(self, marker_id: str | None) -> None:
-        """Select a map marker (or clear). Clears unit selection when a marker is chosen."""
+    def select_marker(self, marker_id: str | None, *, exclusive: bool = True) -> None:
+        """Select a map marker (or clear). Clears unit selection when a marker is chosen.
+
+        Args:
+            marker_id: Primary selected marker id, or None to clear.
+            exclusive: When True (default), clears any secondary selections.
+        """
         self.selected_marker_id = marker_id
         if marker_id is not None:
             self.selected_unit_id = None
+        if exclusive:
+            self.secondary_selected_unit_ids.clear()
+            self.secondary_target_unit_ids.clear()
         if marker_id is None:
             self.movement_constraints.clear()
+
+    def set_secondary_selected_units(self, unit_ids: set[str]) -> None:
+        """Set secondary unit selection (e.g. multi-selected attackers)."""
+        self.secondary_selected_unit_ids = set(unit_ids)
+
+    def set_secondary_target_units(self, unit_ids: set[str]) -> None:
+        """Set secondary target selection (e.g. all units in a target hex)."""
+        self.secondary_target_unit_ids = set(unit_ids)
+
+    def clear_secondary_selection(self) -> None:
+        """Clear all secondary selections."""
+        self.secondary_selected_unit_ids.clear()
+        self.secondary_target_unit_ids.clear()
 
     def start_drag(
         self, unit_id: str, original_position: Hex, pixel_x: float, pixel_y: float

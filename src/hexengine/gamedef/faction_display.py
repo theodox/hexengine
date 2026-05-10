@@ -2,20 +2,8 @@
 
 from __future__ import annotations
 
-# Wire / scenario faction id → turn banner label
-_FACTION_DISPLAY_LABEL: dict[str, str] = {
-    "red": "Red",
-    "blue": "Blue",
-    "confederate": "Confederate",
-    "union": "Union",
-}
-
-
 def display_faction_name(faction: str) -> str:
     """Short label for turn UI (known ids match CSS classes on #turn-display)."""
-    key = faction.strip().lower()
-    if key in _FACTION_DISPLAY_LABEL:
-        return _FACTION_DISPLAY_LABEL[key]
     return faction.replace("_", " ").strip().title() or faction
 
 

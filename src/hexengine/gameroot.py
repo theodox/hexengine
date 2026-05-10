@@ -1,8 +1,9 @@
 """
 Resolve scenario paths from launch arguments and repo layout (GameRoot: loose dir or zip).
 
-When no pack is specified, a `games/hexdemo` tree next to an ancestor of this module
-(typical dev checkout) supplies the **default** scenario.
+When no pack is specified, a games/<pack_id>/ tree next to an ancestor of this module
+(typical dev checkout) supplies the **default** scenario when that pack includes
+scenarios/default/scenario.toml (today: the bundled hexdemo pack).
 
 Zip archives extract to a temporary directory for import compatibility.
 
@@ -12,15 +13,18 @@ Zip archives extract to a temporary directory for import compatibility.
   or the packaged engine `test_scenario` when no `games/<pack>` layout is found —
   `resolve_scenario_path_with_game_root` raises `FileNotFoundError` instead.
 - `load_game_definition_for_scenario` no longer returns generic Red/Blue rules for
-  arbitrary paths; only title packs recognised today (e.g. hexdemo under
-  `hexdemo/scenarios/`) load title Python — otherwise `ValueError`.
-- `load_game_definition` remains for **explicit** engine test / demo schedules only
-  (not inferred from a scenario path).
+  arbitrary paths; only directories with hexengine_pack.toml (discovered under
+  games/*/ or on an ancestor chain of the scenario path) load title Python —
+  otherwise `ValueError`.
+- `load_game_definition` remains for **explicit** engine test / demo Red/Blue schedules only
+  (not inferred from a scenario path). Pack scenarios use the pack's own
+  load_game_definition() from hexengine_pack.toml (no engine-passed schedule).
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib
 import shutil
 import sys
 import tempfile
@@ -53,39 +57,28 @@ def initial_faction_for_game_definition(game: GameDefinition) -> str:
     return initial_turn_slot_for_game_definition(game)["faction"]
 
 
-def load_game_definition_for_scenario(
-    scenario_path: str | Path, *, schedule: str = "interleaved"
-) -> GameDefinition:
+def load_game_definition_for_scenario(scenario_path: str | Path) -> GameDefinition:
     """
-    Return the `hexengine.gamedef.protocol.GameDefinition` for the resolved scenario.
+    Return the hexengine.gamedef.protocol.GameDefinition for the resolved scenario.
 
-    Dispatches to title code under ``games/<pack>/`` via :mod:`hexengine.game_packs`
-    (see ``hexdemo_bridge``). Path checks and ``sys.path`` fixes live here; concrete
-    imports of ``hexdemo`` stay in the bridge modules.
+    Dispatches via hexengine.game_packs.registry using each pack's hexengine_pack.toml
+    (no engine code names individual titles). The pack's entry_callable returns the
+    title's single static schedule.
     """
-    if scenario_path_indicates_hexdemo_pack(scenario_path):
-        ensure_hexdemo_package_import_path(scenario_path)
-        from hexengine.game_packs import hexdemo_bridge
+    from hexengine.game_packs.registry import load_game_definition_for_scenario_path
 
-        return hexdemo_bridge.load_game_definition(schedule=schedule)
-    raise ValueError(
-        "No title rules are registered for this scenario path "
-        f"({scenario_path!r}). Place the scenario under a supported game pack "
-        "(e.g. …/hexdemo/scenarios/…) or load rules explicitly."
-    )
+    return load_game_definition_for_scenario_path(scenario_path)
 
 
 def load_game_definition(*, schedule: str = "interleaved") -> GameDefinition:
     """
-    Select turn schedule for headless / server / client parity.
+    Built-in Red/Blue demo schedules for engine tests and tools (not pack scenarios).
 
-    `schedule` must match the value used by the WebSocket server and other clients.
+    - interleaved — InterleavedTwoFactionGameDefinition
+    - sequential — SequentialTwoFactionGameDefinition
 
-    - `"interleaved"` — `hexengine.gamedef.builtin.InterleavedTwoFactionGameDefinition` (Red/Blue)
-    - `"sequential"` — `hexengine.gamedef.builtin.SequentialTwoFactionGameDefinition` (Red/Blue)
-
-    Not used when resolving rules from a game-pack scenario; see
-    `load_game_definition_for_scenario`.
+    Pack-owned scenarios use load_game_definition_for_scenario instead; the pack
+    declares its own rota via its manifest entry_callable.
     """
     if schedule.strip().lower() == "sequential":
         return SequentialTwoFactionGameDefinition()
@@ -93,7 +86,7 @@ def load_game_definition(*, schedule: str = "interleaved") -> GameDefinition:
 
 
 def add_game_launch_arguments(parser: argparse.ArgumentParser) -> None:
-    """Register scenario and schedule flags (shared by server CLIs)."""
+    """Register scenario flags (shared by server CLIs)."""
     parser.add_argument(
         "--scenario-file",
         type=Path,
@@ -120,14 +113,6 @@ def add_game_launch_arguments(parser: argparse.ArgumentParser) -> None:
             "--game-root when the hexdemo pack is found automatically)"
         ),
     )
-    parser.add_argument(
-        "--schedule",
-        choices=("interleaved", "sequential"),
-        default="interleaved",
-        help="Turn schedule (must match server and other clients)",
-    )
-
-
 def resolve_scenario_path_with_game_root(
     *,
     scenario_file: str | Path | None = None,
@@ -253,63 +238,52 @@ def cleanup_extracted_game_roots() -> None:
     _ZIP_EXTRACT_CACHE.clear()
 
 
-_hexdemo_loaded_banner_printed: bool = False
+_pack_loaded_banner_printed: bool = False
 
 
-def reset_hexdemo_loaded_banner_for_tests() -> None:
-    """Allow banner to fire again (unit tests only)."""
-    global _hexdemo_loaded_banner_printed
-    _hexdemo_loaded_banner_printed = False
+def reset_pack_loaded_banner_for_tests() -> None:
+    """Allow the pack loaded-banner hook to fire again (unit tests only)."""
+    global _pack_loaded_banner_printed
+    _pack_loaded_banner_printed = False
 
 
-def scenario_path_indicates_hexdemo_pack(scenario_path: str | Path) -> bool:
-    """
-    True when `scenario.toml` lives under a `hexdemo/scenarios/` directory.
+def ensure_pack_import_path_for_scenario(scenario_path: str | Path) -> None:
+    """Prepend the owning pack's sys.path prefix for scenario_path (see manifest)."""
+    from hexengine.game_packs.registry import ensure_pack_import_path_for_scenario as _ensure
 
-    Used to detect the bundled hexdemo pack regardless of repo root location.
-    """
-    parts = Path(scenario_path).resolve().parts
-    for i, part in enumerate(parts):
-        if i + 1 >= len(parts):
-            break
-        if part.casefold() == "hexdemo" and parts[i + 1].casefold() == "scenarios":
-            return True
-    return False
-
-
-def ensure_hexdemo_package_import_path(scenario_path: str | Path) -> None:
-    """
-    Prepend `…/games` to `sys.path` when the scenario is under `hexdemo/scenarios`.
-
-    Enables `import hexdemo` without a manual `PYTHONPATH` in the typical repo layout.
-    """
-    if not scenario_path_indicates_hexdemo_pack(scenario_path):
-        return
-    path = Path(scenario_path).resolve()
-    # …/games/hexdemo/scenarios/<id>/scenario.toml
-    games_dir = path.parent.parent.parent.parent
-    if not (games_dir / "hexdemo").is_dir():
-        return
-    s = str(games_dir)
-    if s not in sys.path:
-        sys.path.insert(0, s)
-
-
-def try_hexdemo_loaded_banner(scenario_path: str | Path) -> None:
-    """
-    Log hexdemo's welcome line once per process after authoritative scenario load.
-
-    Delegates to `hexdemo.boot.print_loaded_banner` (`logging`) when importable.
-    """
-    global _hexdemo_loaded_banner_printed
-    if _hexdemo_loaded_banner_printed:
-        return
-    if not scenario_path_indicates_hexdemo_pack(scenario_path):
-        return
-    ensure_hexdemo_package_import_path(scenario_path)
     try:
-        from hexdemo.boot import print_loaded_banner
+        _ensure(scenario_path)
+    except ValueError:
+        return
+
+
+def try_pack_loaded_banner(scenario_path: str | Path) -> None:
+    """
+    Once per process, call the owning pack's optional loaded-banner hook from the manifest.
+
+    Declared in hexengine_pack.toml as [hooks] loaded_banner_module /
+    loaded_banner_callable (default callable name print_loaded_banner).
+    """
+    global _pack_loaded_banner_printed
+    if _pack_loaded_banner_printed:
+        return
+    from hexengine.game_packs.registry import resolve_pack_for_scenario
+
+    try:
+        rec = resolve_pack_for_scenario(scenario_path)
+    except ValueError:
+        return
+    mod_name = rec.manifest.hooks_loaded_banner_module
+    if not mod_name:
+        return
+    ensure_pack_import_path_for_scenario(scenario_path)
+    name = rec.manifest.hooks_loaded_banner_callable or "print_loaded_banner"
+    try:
+        mod = importlib.import_module(mod_name)
+        fn = getattr(mod, name, None)
+        if not callable(fn):
+            return
+        fn()
     except ImportError:
         return
-    print_loaded_banner()
-    _hexdemo_loaded_banner_printed = True
+    _pack_loaded_banner_printed = True

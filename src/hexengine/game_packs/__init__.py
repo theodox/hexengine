@@ -1,16 +1,11 @@
 """
-Title-pack bridge: **all** engine imports of repository game code (``hexdemo``, …) go through here.
+Game pack loading for the hexes wheel (engine ships hexengine only).
 
-The ``hexes`` wheel ships only ``hexengine``; game rules live under ``games/<pack>/`` at repo
-layout (or on ``sys.path`` after :func:`hexengine.gameroot.ensure_hexdemo_package_import_path`).
-The WebSocket server, local server, and scenario bootstrap call :func:`gameroot.load_game_definition_for_scenario`,
-which delegates into this package so there is a single, documented place that imports title
-Python from disk.
+Rules live under games/<pack_id>/ with a small manifest:
 
-Adding a new pack:
+- hexengine_pack.toml — pack.id, python.path_add, python.entry_module,
+  python.entry_callable (see hexengine.game_packs.registry).
 
-1. Implement ``<pack>_bridge.py`` with a small ``load_game_definition(...)`` (and any other
-   hooks the engine should call through a stable name).
-2. Extend :func:`hexengine.gameroot.load_game_definition_for_scenario` with path detection and
-   ``sys.path`` setup for that pack, then call the new bridge.
+hexengine.gameroot.load_game_definition_for_scenario resolves the owning pack from the
+scenario path and imports the declared entry callable (no per-title branches in gameroot).
 """

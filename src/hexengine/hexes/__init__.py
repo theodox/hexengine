@@ -24,10 +24,15 @@ from .math import (
     subtract_cartesian_vectors,
 )
 from .shapes import (
+    HexLike,
+    _as_hex,
     angle,
+    angular_sector_hexes,
     convex_hull,
     convex_polygon,
     fill_convex_polygon,
+    filled_wedge,
+    hex_line_segment,
     outer_boundary,
     path,
     polygon,
@@ -37,6 +42,33 @@ from .shapes import (
     wedge_fill,
 )
 from .types import Hex, HexColRow
+from .centerline import (
+    LinearFeaturePath,
+    consecutive_step_on_path,
+    linear_feature_path_around_hexes,
+    perimeter_hex_path,
+    silhouette_edge,
+    validate_linear_hex_path,
+)
+from .edges import (
+    EdgeKey,
+    direction_toward_neighbor,
+    edge_between,
+    edge_keys_along_hex_chain,
+    edge_keys_for_shape_path,
+    exterior_edge_keys_for_hexes,
+    incident_edge_keys_for_hexes,
+    incident_edge_keys_iter,
+    internal_edge_keys_for_hexes,
+    shared_edge_side_midpoint,
+)
+from .los import has_line_of_sight
+from .vertices import (
+    VertexKey,
+    shortest_edge_key_path_within_vertex_a_star,
+    shortest_edge_key_path_within_vertex_bfs,
+    vertex_key_pair_for_edge_key,
+)
 
 __version__: str
 try:
@@ -49,6 +81,8 @@ __all__ = [
     "Hex",
     "Cartesian",
     "HexColRow",
+    "HexLike",
+    "_as_hex",
     # Math functions
     "distance",
     "neighbors",
@@ -72,12 +106,38 @@ __all__ = [
     "radius",
     "ring",
     "path",
+    "hex_line_segment",
     "wedge",
+    "filled_wedge",
     "angle",
     "wedge_fill",
+    "angular_sector_hexes",
     "convex_hull",
     "outer_boundary",
     "polygon",
     "convex_polygon",
     "fill_convex_polygon",
+    # LOS
+    "has_line_of_sight",
+    # Map edges / centerlines
+    "EdgeKey",
+    "edge_between",
+    "direction_toward_neighbor",
+    "edge_keys_along_hex_chain",
+    "edge_keys_for_shape_path",
+    "exterior_edge_keys_for_hexes",
+    "incident_edge_keys_for_hexes",
+    "incident_edge_keys_iter",
+    "internal_edge_keys_for_hexes",
+    "shared_edge_side_midpoint",
+    "VertexKey",
+    "vertex_key_pair_for_edge_key",
+    "shortest_edge_key_path_within_vertex_bfs",
+    "shortest_edge_key_path_within_vertex_a_star",
+    "LinearFeaturePath",
+    "validate_linear_hex_path",
+    "consecutive_step_on_path",
+    "perimeter_hex_path",
+    "silhouette_edge",
+    "linear_feature_path_around_hexes",
 ]

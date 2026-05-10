@@ -1,7 +1,19 @@
+/* Fills space above the console; holds #map-container + absolutely positioned primary actions. */
+.hexengine-map-stage {
+    position: relative;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
 /* Height comes from in-flow #map-world (flex would collapse a box whose only children are abspos). */
 #map-container {
     position: relative;
     width: 100%;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
 }
 
@@ -77,6 +89,35 @@
     left: 0px;
     pointer-events: auto;
     z-index: 10;
+}
+
+/*
+ * Valid-move / retreat highlight polygons (SVGLayer). Polygons have no fill attribute;
+ * default SVG fill is black. Title sheets (e.g. hexdemo ui.css) use more specific
+ * selectors to override these defaults.
+ */
+.hexengine-hex-highlight polygon {
+    fill: rgba(55, 231, 96, 0.333);
+    stroke: rgba(25, 100, 50, 0.55);
+    stroke-width: 2px;
+}
+
+/* Board primitives (same SVG as highlights); always styled here — global.css may not load. */
+.hexengine-map-edge-feature {
+    stroke: #4a90d9;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    pointer-events: none;
+}
+
+.hexengine-map-linear-feature {
+    stroke: #a67c52;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+    pointer-events: none;
 }
 
 #map-markers {
@@ -221,7 +262,7 @@
     pointer-events: none;
 }
 
-#turn-display {
+#interaction-banner {
     position: absolute;
     width: 100%;
     height: auto;
@@ -233,18 +274,49 @@
 
     border-radius: 3px;
     color: rgb(240, 240, 233);
-    font-size: 18px;
+    font-size: 14px;
     font-family: sans-serif;
-    padding: 8px;    
-}   
+    padding: 6px;
+    background-color: rgba(40, 40, 40, 0.72);
+}
 
-#advance {
+#interaction-banner.interaction-msg--wait {
+    background-color: rgba(60, 60, 60, 0.72);
+}
+
+#interaction-banner.interaction-msg--retreat {
+    background-color: rgba(120, 68, 20, 0.78);
+}
+
+#interaction-banner.interaction-msg--phase {
+    background-color: rgba(40, 40, 40, 0.72);
+}
+
+#interaction-banner.interaction-msg--error {
+    background-color: rgba(120, 24, 24, 0.82);
+}
+
+#interaction-banner.interaction-msg--info {
+    background-color: rgba(40, 40, 40, 0.72);
+}
+
+/* Advance turn, combat confirm/cancel, and future in-session choices (sibling of #map-container). */
+.hexengine-primary-actions {
     position: absolute;
     width: auto;
     height: auto;
     bottom: 32px;
     right: 32px;
     z-index: 400;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: flex-end;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.hexengine-primary-actions > * {
+    pointer-events: auto;
 }
 
 #advance-button {
@@ -271,43 +343,142 @@
     animation: pulse 1.5s ease-in-out infinite;
 }
 
-.red {
-    background-color: rgba(141, 33, 33, 0.75);
-}   
-
-.blue {
-    background-color: rgba(33, 33, 141, 0.75);
-}
-
-.confederate {
-    background-color: rgba(88, 66, 40, 0.82);
-}
-
-.union {
-    background-color: rgba(33, 52, 120, 0.82);
-}
-
-
-
 /*
-Popup styles
+Popup styles — callout: root anchors tail tip; bubble is the main rect; tail is a triangle.
 */
-.popup {
+.popup.popup--callout {
     position: absolute;
-    width: 450px;
-    height: 64px;
-    background-color: rgba(205, 214, 216, 0.9);
     z-index: 300;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform: translate(-50%, -100%);
+    --popup-bubble-bg: rgba(205, 214, 216, 0.9);
+    --popup-tail-w: 12px;
+    --popup-tail-h: 11px;
+    pointer-events: auto;
+}
+
+.popup-bubble {
+    position: relative;
+    width: min(450px, calc(100vw - 32px));
+    min-height: 48px;
+    box-sizing: border-box;
+    padding: 6px 10px;
+    background-color: var(--popup-bubble-bg);
+    border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
 }
 
-.popup p {
+.popup-tail {
+    width: 0;
+    height: 0;
+    border-left: var(--popup-tail-w) solid transparent;
+    border-right: var(--popup-tail-w) solid transparent;
+    border-top: var(--popup-tail-h) solid var(--popup-bubble-bg);
+    margin-top: -1px;
+    filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.15));
+}
+
+.popup--callout .popup-bubble p {
     font-family: sans-serif;
     font-size: 12pt;
     color: rgb(0, 0, 0);
     text-align: center;
-    align-content: top center;
-    border: 2 em
+    margin: 0;
+}
+
+/* Hex grid address overlay (toggle Alt+H); lives on #map-svg under #map-world. */
+.hexengine-hex-address-labels {
+    pointer-events: none;
+    user-select: none;
+}
+
+.hexengine-hex-address-labels text {
+    font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+    font-size: 11px;
+    fill: rgba(28, 28, 28, 0.92);
+    stroke: rgba(255, 255, 255, 0.55);
+    stroke-width: 0.4px;
+    paint-order: stroke fill;
+}
+
+/* Map overlays (#hexengine-map-overlays inside #map-world; map-space coords). */
+.hexengine-map-overlay.hexengine-map-overlay--glyph {
+    font-size: 22px;
+    line-height: 1;
+    color: rgb(40, 40, 40);
+    text-shadow: 0 0 2px rgb(255, 255, 255);
+    user-select: none;
+}
+
+/* Client-side attack planning controls (in #advance / .hexengine-primary-actions). */
+.hexengine-attack-controls {
+    position: static;
+    z-index: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    background: rgba(245, 245, 245, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.25);
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+    font-family: sans-serif;
+}
+
+.hexengine-attack-controls__row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.hexengine-attack-controls__status {
+    font-size: 12px;
+    color: rgb(30, 30, 30);
+    max-width: 320px;
+    text-align: right;
+}
+
+.hexengine-attack-controls button {
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    background: rgb(255, 255, 255);
+    cursor: pointer;
+}
+
+.hexengine-attack-controls button:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.hexengine-attack-controls button.hexengine-attack-controls__confirm {
+    background: rgba(42, 111, 155, 0.12);
+    border-color: rgba(42, 111, 155, 0.6);
+}
+
+.hexengine-attack-controls button.hexengine-attack-controls__cancel {
+    background: rgba(0, 0, 0, 0.06);
+}
+
+/* Attack planning: ranged-unit LOS preview lines (SVG, map-space). */
+.hexengine-attack-los-line {
+    stroke: rgba(42, 111, 155, 0.75);
+    stroke-width: 2.5px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+    opacity: 0.95;
+    pointer-events: none;
+}
+
+.hexengine-attack-los-line.hexengine-attack-los-line--blocked {
+    stroke: rgba(229, 62, 62, 0.72);
+    stroke-dasharray: 6 5;
+    opacity: 0.85;
 }
 
 .fade-out {

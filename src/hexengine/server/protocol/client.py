@@ -56,4 +56,33 @@ class JoinGameRequest:
 @dataclass
 class LeaveGameRequest:
     """Client request to leave the game session."""
+    pass
+
+
+@client_message("inspect")
+@dataclass
+class InspectRequest:
+    """Request a title-formatted informational popup for a target."""
+
+    target_kind: str  # e.g. "unit" | "marker"
+    target_id: str
+
+
+@client_message("marker_preview_request")
+@dataclass
+class MarkerPreviewRequest:
+    """Request allowed destination hexes for a marker drag preview."""
+
+    marker_id: str
+    marker_type: str
+    request_id: str = ""
+
+
+@client_message("unit_preview_request")
+@dataclass
+class UnitPreviewRequest:
+    """Request allowed destination hexes for a unit drag preview (move or retreat)."""
+
+    unit_id: str
+    request_id: str = ""
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import socket
 import subprocess
 import sys
 import threading
@@ -12,6 +13,20 @@ import webbrowser
 from pathlib import Path
 
 BASE_URL = "http://localhost:8000/hexes.html"
+
+
+def _wait_tcp_port(
+    host: str, port: int, *, timeout_s: float = 30.0, poll_s: float = 0.05
+) -> bool:
+    """Return True once something accepts TCP connections on host:port."""
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=0.4):
+                return True
+        except OSError:
+            time.sleep(poll_s)
+    return False
 
 
 def main():
@@ -24,13 +39,8 @@ def main():
     add_game_launch_arguments(parser)
     args = parser.parse_args()
 
-    sched_q = (
-        f"&schedule={args.schedule}"
-        if args.schedule.strip().lower() != "interleaved"
-        else ""
-    )
-    player1_url = f"{BASE_URL}?mode=multi&name=Player1&faction=confederate{sched_q}"
-    player2_url = f"{BASE_URL}?mode=multi&name=Player2&faction=union{sched_q}"
+    player1_url = f"{BASE_URL}?mode=multi&name=Player1&faction=confederate"
+    player2_url = f"{BASE_URL}?mode=multi&name=Player2&faction=union"
 
     print("=" * 60)
     print("Starting Hexes Servers")
@@ -44,12 +54,16 @@ def main():
         cwd=Path(__file__).parent,
     )
 
-    # Give HTTP server time to start
-    time.sleep(1)
+    if not _wait_tcp_port("127.0.0.1", 8000, timeout_s=15.0):
+        print("ERROR: HTTP server did not become ready on port 8000", file=sys.stderr)
+        http_process.terminate()
+        http_process.wait()
+        sys.exit(1)
 
     # Start WebSocket game server in a thread so we can open the browser after it's ready
     print("Starting WebSocket game server on ws://localhost:8765")
     server_error = None
+    ws_listen_ready = threading.Event()
 
     def run_websocket_server():
         nonlocal server_error
@@ -63,18 +77,25 @@ def main():
                     scenario_file=args.scenario_file,
                     game_root=args.game_root,
                     scenario_id=args.scenario_id,
-                    schedule=args.schedule,
+                    listen_ready_event=ws_listen_ready,
                 )
             )
         except Exception as e:
             server_error = e
             traceback.print_exc()
-
     server_thread = threading.Thread(target=run_websocket_server, daemon=True)
     server_thread.start()
 
-    # Wait for WebSocket server to be ready (or to fail)
-    time.sleep(2)
+    # Wait until websockets.serve() is listening (do not TCP-probe 8765: a bare connect
+    # then close sends no HTTP upgrade and the server logs InvalidMessage / EOFError).
+    deadline = time.monotonic() + 120.0
+    ws_ready = False
+    while time.monotonic() < deadline:
+        if server_error is not None:
+            break
+        if ws_listen_ready.wait(timeout=0.05):
+            ws_ready = True
+            break
 
     if server_error is not None:
         print("ERROR: WebSocket server failed to start:", file=sys.stderr)
@@ -82,6 +103,15 @@ def main():
             type(server_error),
             server_error,
             server_error.__traceback__,
+            file=sys.stderr,
+        )
+        http_process.terminate()
+        http_process.wait()
+        sys.exit(1)
+
+    if not ws_ready:
+        print(
+            "ERROR: WebSocket server did not become ready on port 8765 (timeout)",
             file=sys.stderr,
         )
         http_process.terminate()
