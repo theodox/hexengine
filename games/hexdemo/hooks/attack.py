@@ -8,7 +8,7 @@ from hexengine.hexes.los import has_line_of_sight
 from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
 from hexengine.hooks import AttackContext, AttackResolution
-from hexengine.state import UnitState
+from hexengine.state import UnitState, edges_block_los_predicate
 
 from .. import combat
 from ..constants import PACK_STATE_EXTENSION_KEY
@@ -37,6 +37,10 @@ def _terrain_blocks_los(ctx: AttackContext):
     return blocks
 
 
+def _los_edges_block(ctx: AttackContext):
+    return edges_block_los_predicate(ctx.state.board)
+
+
 def _expected_enemy_defender_ids(ctx: AttackContext) -> tuple[str, ...]:
     """Every active enemy unit on any ``ctx.defender_hexes`` cell."""
     attacker = ctx.state.board.units.get(ctx.attacker_unit_id)
@@ -57,7 +61,11 @@ def _infantry_adjacent_to_any_defender_hex(a, defender_hexes: tuple[Hex, ...]) -
 
 
 def _artillery_can_hit_any_defender_hex(
-    a, defender_hexes: tuple[Hex, ...], blocks
+    a,
+    defender_hexes: tuple[Hex, ...],
+    blocks,
+    *,
+    edges_block,
 ) -> bool:
     raw_range = a.attributes.get("range")
     try:
@@ -71,7 +79,12 @@ def _artillery_can_hit_any_defender_hex(
         if (
             dist > 1
             and dist <= atk_range
-            and has_line_of_sight(a.position, h, blocks=blocks)
+            and has_line_of_sight(
+                a.position,
+                h,
+                blocks=blocks,
+                edges_block=edges_block,
+            )
         ):
             return True
     return False
@@ -114,6 +127,7 @@ def validate_attack(ctx: AttackContext) -> None:
 
     defender_hexes = ctx.defender_hexes
     blocks = _terrain_blocks_los(ctx)
+    edges_block = _los_edges_block(ctx)
     for aid in ctx.attacker_ids:
         a = ctx.state.board.units.get(aid)
         if a is None or not a.active:
@@ -125,7 +139,9 @@ def validate_attack(ctx: AttackContext) -> None:
             if not _infantry_adjacent_to_any_defender_hex(a, defender_hexes):
                 raise ValueError("Infantry attacker is not adjacent to the target")
         elif ut in ("artillery", "art"):
-            if not _artillery_can_hit_any_defender_hex(a, defender_hexes, blocks):
+            if not _artillery_can_hit_any_defender_hex(
+                a, defender_hexes, blocks, edges_block=edges_block
+            ):
                 raise ValueError("No line of sight to target")
         else:
             raise ValueError(f"Unit type {ut!r} cannot participate in combined attacks")

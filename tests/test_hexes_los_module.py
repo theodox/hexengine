@@ -52,3 +52,20 @@ def test_hexes_los_grazing_rule_via_dual_rays() -> None:
 
     assert has_line_of_sight(a, b, blocks=blocks2) is False
 
+
+def test_hexes_los_edges_block_predicate() -> None:
+    a = Hex(0, 0, 0)
+    b = Hex(2, 0, -2)
+
+    def edges_block(h1: Hex, h2: Hex) -> bool:
+        # Block only the step from origin into the line (first grid edge).
+        return h1 == a and h2 == Hex(1, 0, -1)
+
+    def blocks(_h: Hex) -> bool:
+        return False
+
+    assert has_line_of_sight(a, b, blocks=blocks, edges_block=edges_block) is False
+    assert (
+        has_line_of_sight(a, b, blocks=blocks, edges_block=None) is True
+    )
+

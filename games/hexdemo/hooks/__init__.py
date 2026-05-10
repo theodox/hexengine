@@ -14,8 +14,10 @@ from . import attack, movement, overlays, ui
 def build_hooks() -> TitleHooks:
     return TitleHooks(
         movement=MovementHooks(
+            movement_budget_for_unit=movement.movement_budget_for_unit,
             zoc_hexes_for_unit=movement.zoc_hexes_for_unit,
             stacking_policy_for_unit=movement.stacking_policy_for_unit,
+            movement_step_cost_for_unit=movement.movement_step_cost_for_unit,
             stacking_limit=lambda _state: 3,
             retreat_obligation_hexes_remaining=movement.retreat_obligation_hexes_remaining,
             any_retreat_obligation_pending=movement.any_retreat_obligation_pending,

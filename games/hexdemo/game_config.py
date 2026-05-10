@@ -170,12 +170,15 @@ class HexdemoGameDefinition:
             attacker_ids = [str(attacker_id)]
 
         from hexengine.hexes.los import has_line_of_sight
+        from hexengine.state import edges_block_los_predicate
 
         def blocks(h: Hex) -> bool:
             loc = state.board.effective_location(h)
             if loc is None:
                 return False
             return bool(getattr(loc, "block_los", False))
+
+        edges_block = edges_block_los_predicate(state.board)
 
         # Each attacker must be eligible vs the target hex (defender.position).
         target_hex = defender.position
@@ -203,7 +206,9 @@ class HexdemoGameDefinition:
                     raise ValueError("Artillery has no ranged capability")
                 if not (dist > 1 and dist <= atk_range):
                     raise ValueError("Artillery target is out of range")
-                if not has_line_of_sight(a.position, target_hex, blocks=blocks):
+                if not has_line_of_sight(
+                    a.position, target_hex, blocks=blocks, edges_block=edges_block
+                ):
                     raise ValueError("No line of sight to target")
             else:
                 raise ValueError(f"Unit type {ut!r} cannot participate in combined attacks")

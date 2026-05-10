@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..document import jsnull
+from ..wire_interop import js_nullish
 
 
 def safe_remove_child(parent: Any, child: Any) -> bool:
@@ -19,7 +19,7 @@ def safe_remove_child(parent: Any, child: Any) -> bool:
     Returns True if a remove was attempted successfully, False if it was skipped
     or failed (never raises).
     """
-    if parent is None or parent is jsnull or child is None or child is jsnull:
+    if js_nullish(parent) or js_nullish(child):
         return False
     try:
         parent.removeChild(child)

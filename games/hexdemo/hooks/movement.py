@@ -1,25 +1,47 @@
 from __future__ import annotations
 
-from hexengine.hooks import StackingPolicy
-from hexengine.hexes.types import Hex
+from hexengine.hooks import DEFAULT, StackingPolicy
 from hexengine.hexes.math import distance
-from hexengine.state import GameState
+from hexengine.hexes.types import Hex
+from hexengine.state import (
+    GameState,
+    edge_movement_extra_for_neighbor_step,
+    linear_features_on_neighbor_step,
+    min_linear_movement_cost_for_tags,
+)
 from hexengine.state.logic import adjacent_enemy_zoc_hexes
 from hexengine.state.logic import retreat_impassable_enemy_zoc_hexes
 
 from .. import combat
 
 
-def movement_budget_for_unit(state: GameState, unit_id: str) -> float:
+def movement_step_cost_for_unit(
+    state: GameState, unit_id: str, from_hex: Hex, to_hex: Hex, base_cost: float
+) -> float:
+    tags_on_step: list[str] = []
+    for lf in linear_features_on_neighbor_step(state.board, from_hex, to_hex):
+        tags_on_step.extend(lf.tags)
+    linear = (
+        min_linear_movement_cost_for_tags(state.board, tags_on_step)
+        if tags_on_step
+        else None
+    )
+    step_base = float(linear) if linear is not None else base_cost
+    return step_base + edge_movement_extra_for_neighbor_step(
+        state.board, from_hex, to_hex
+    )
+
+
+def movement_budget_for_unit(state: GameState, unit_id: str) -> float | object:
     u = state.board.units.get(unit_id)
     if u is None:
         raise ValueError(f"Unknown unit {unit_id!r}")
     raw = u.attributes.get("movement")
     if raw is not None:
         return float(raw)
-    # Fallback: schedule budget is published separately; this hook is intended
-    # primarily for per-unit overrides via attributes.
-    return 0.0
+    # Let the server use `DEFAULT_MOVEMENT_BUDGET` / schedule scalar — never return 0.0
+    # here: if this hook is wired on `MovementHooks`, 0.0 makes every move unreachable.
+    return DEFAULT
 
 
 def zoc_hexes_for_unit(state: GameState, unit_id: str) -> frozenset[Hex]:

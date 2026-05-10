@@ -17,12 +17,23 @@ from .actions import (
     SpendAction,
 )
 from .game_state import (
+    BoardEdgeFeature,
+    BoardLinearFeature,
     BoardState,
     GameState,
     LocationState,
     TurnState,
     UnitState,
     UnsetTerrainDefaults,
+)
+from .map_feature_queries import (
+    board_edge_features_along_hex_line,
+    edge_keys_along_hex_line,
+    edge_line_of_sight_blocks_hex_line,
+    edge_movement_extra_for_neighbor_step,
+    edges_block_los_predicate,
+    linear_features_on_neighbor_step,
+    min_linear_movement_cost_for_tags,
 )
 from .logic import (
     DEFAULT_MOVEMENT_BUDGET,
@@ -54,6 +65,8 @@ __all__ = [
     "game_state_to_wire_dict",
     "GameState",
     "BoardState",
+    "BoardEdgeFeature",
+    "BoardLinearFeature",
     "UnitState",
     "LocationState",
     "UnsetTerrainDefaults",
@@ -86,4 +99,11 @@ __all__ = [
     "MarkerPlacementRule",
     "default_marker_destination_allowed",
     "marker_destination_hexes_for_preview",
+    "edge_keys_along_hex_line",
+    "board_edge_features_along_hex_line",
+    "linear_features_on_neighbor_step",
+    "min_linear_movement_cost_for_tags",
+    "edge_movement_extra_for_neighbor_step",
+    "edge_line_of_sight_blocks_hex_line",
+    "edges_block_los_predicate",
 ]

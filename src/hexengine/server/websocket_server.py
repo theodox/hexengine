@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 import sys
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +45,7 @@ class WebSocketGameServer:
         marker_placement_rule=None,
         *,
         game_definition: GameDefinition,
+        listen_ready_event: threading.Event | None = None,
     ) -> None:
         """
         Initialize WebSocket server.
@@ -68,6 +70,7 @@ class WebSocketGameServer:
             marker_placement_rule=marker_placement_rule,
             game_definition=game_definition,
         )
+        self._listen_ready_event = listen_ready_event
 
         # Map connection to player_id
         self.connections: dict[WebSocketServerProtocol, str] = {}
@@ -83,6 +86,8 @@ class WebSocketGameServer:
         self.logger.info(f"Starting WebSocket server on {self.host}:{self.port}")
 
         async with websockets.serve(self._handle_connection, self.host, self.port):
+            if self._listen_ready_event is not None:
+                self._listen_ready_event.set()
             self.logger.info("WebSocket server started")
             await asyncio.Future()  # Run forever
 
@@ -185,6 +190,7 @@ async def main(
     scenario_file: Path | str | None = None,
     game_root: Path | str | None = None,
     scenario_id: str | None = None,
+    listen_ready_event: threading.Event | None = None,
 ):
     """Run a standalone WebSocket game server."""
     logging.basicConfig(
@@ -229,6 +235,7 @@ async def main(
         marker_graphics=scenario_data.marker_graphics_to_wire_dict(),
         markers=scenario_data.markers_to_wire_list(),
         game_definition=game_def,
+        listen_ready_event=listen_ready_event,
     )
     try_pack_loaded_banner(scenario_path)
     await server.start()

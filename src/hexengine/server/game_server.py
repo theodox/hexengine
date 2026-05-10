@@ -27,7 +27,7 @@ from ..gamedef.unit_attributes import (
     merge_spawn_attributes,
     validate_unit_attributes_patch,
 )
-from ..hexes.math import distance
+from ..hexes.math import distance, neighbors
 from ..hexes.types import Hex, HexColRow
 from ..hooks.core import DEFAULT as HOOKS_DEFAULT
 from ..hooks.title import TitleHooks
@@ -52,6 +52,7 @@ from ..state.actions import (
 )
 from ..state.logic import (
     DEFAULT_MOVEMENT_BUDGET,
+    compute_valid_moves,
     is_valid_move,
 )
 from ..state.marker_placement import (
@@ -791,7 +792,8 @@ class GameServer:
                 "schema": 1,
                 "kind": "phase",
                 "dedupe_key": f"phase:{sig[2]}",
-                "ttl_ms": 2_000,
+                # No ttl: turn/phase is persistent until the next StateUpdate replaces it.
+                "ttl_ms": None,
                 "css_class": "interaction-msg--phase",
                 "text": f"{sig[0]}: {sig[1]} (actions: {sig[3]})",
             }
@@ -1662,27 +1664,32 @@ class GameServer:
                 budget = self._movement_budget_for_unit(state, unit_id)
                 zoc = self._zoc_hexes_for_unit(state, unit_id)
                 max_stack = self._max_active_units_per_hex(state, unit_id)
-                out: list[dict[str, int]] = []
-                for h in self._iter_board_hexes(state):
-                    # Enemy-occupied destinations are never allowed.
-                    if any(x.faction != player.faction for x in state.board.active_units_at_hex(h)):
-                        continue
-                    if max_stack is not None and len(state.board.active_units_at_hex(h)) >= max_stack:
-                        continue
-                    if is_valid_move(
-                        state,
-                        unit_id,
-                        h,
-                        budget,
-                        zoc_hexes=zoc,
-                        max_active_units_per_hex=max_stack,
-                    ):
-                        out.append({"i": int(h.i), "j": int(h.j), "k": int(h.k)})
-                out_hexes = out
+                step_fn = self._movement_step_cost_fn(unit_id)
+                valid = compute_valid_moves(
+                    state,
+                    unit_id,
+                    budget,
+                    zoc_hexes=zoc,
+                    blocked_hexes=None,
+                    max_active_units_per_hex=max_stack,
+                    step_cost=step_fn,
+                )
+                # Middle-ground footprint: declared board hexes plus start and immediate
+                # neighbors (covers sparse grid lists that omit a legal adjacent cell).
+                start_h = u.position
+                footprint = (
+                    frozenset(self._iter_board_hexes(state))
+                    | {start_h}
+                    | frozenset(neighbors(start_h))
+                )
+                out_hexes = [
+                    {"i": int(h.i), "j": int(h.j), "k": int(h.k)}
+                    for h in sorted(valid, key=lambda x: (x.i, x.j, x.k))
+                    if h in footprint
+                ]
         else:
             # Retreat preview: legal endpoints exactly at retreat distance, obeying terrain,
             # blocked hexes, and stacking/enemy occupancy checks.
-            from ..hexes.math import distance
             from ..state.logic import compute_reachable_hexes
 
             budget = float(rem)
@@ -1692,6 +1699,7 @@ class GameServer:
             else:
                 blocked_hexes = blocked if isinstance(blocked, frozenset) else frozenset(blocked)
             max_stack = self._max_active_units_per_hex(state, unit_id)
+            step_fn = self._movement_step_cost_fn(unit_id)
 
             start = u.position
             reachable = compute_reachable_hexes(
@@ -1702,6 +1710,7 @@ class GameServer:
                 zoc_hexes=None,
                 blocked_hexes=blocked_hexes,
                 max_active_units_per_hex=max_stack,
+                step_cost=step_fn,
             )
 
             end_set: list[dict[str, int]] = []
@@ -1724,6 +1733,7 @@ class GameServer:
                     zoc_hexes=None,
                     blocked_hexes=blocked_hexes,
                     max_active_units_per_hex=max_stack,
+                    step_cost=step_fn,
                 ):
                     end_set.append({"i": int(h.i), "j": int(h.j), "k": int(h.k)})
 
@@ -2005,6 +2015,22 @@ class GameServer:
             return None
         return raw if isinstance(raw, frozenset) else frozenset(raw)
 
+    def _movement_step_cost_fn(
+        self, unit_id: str
+    ) -> Callable[[GameState, Hex, Hex, float], float] | None:
+        """Per-step cost callback for reachability when the title implements movement_step_cost_for_unit."""
+        mh = self.hooks.movement
+        if mh.movement_step_cost_for_unit is None:
+            return None
+
+        def fn(s: GameState, from_h: Hex, to_h: Hex, base: float) -> float:
+            raw = mh.step_cost_move(s, unit_id, from_h, to_h, base)
+            if raw is HOOKS_DEFAULT:
+                return base
+            return float(raw)
+
+        return fn
+
     def _validate_move_unit_request(
         self,
         state: GameState,
@@ -2075,6 +2101,7 @@ class GameServer:
                 raise ValueError(
                     f"Destination hex already has {max_stack} active units (stacking limit)"
                 )
+            step_fn = self._movement_step_cost_fn(unit_id)
             if not is_valid_move(
                 state,
                 unit_id,
@@ -2083,6 +2110,7 @@ class GameServer:
                 zoc_hexes=None,
                 blocked_hexes=blocked_hexes,
                 max_active_units_per_hex=max_stack,
+                step_cost=step_fn,
             ):
                 raise ValueError("Illegal retreat path for current terrain")
             return
@@ -2106,6 +2134,7 @@ class GameServer:
             raise ValueError(
                 f"Destination hex already has {max_stack} active units (stacking limit)"
             )
+        step_fn = self._movement_step_cost_fn(unit_id)
         if not is_valid_move(
             state,
             unit_id,
@@ -2113,6 +2142,7 @@ class GameServer:
             budget,
             zoc_hexes=zoc,
             max_active_units_per_hex=max_stack,
+            step_cost=step_fn,
         ):
             raise ValueError("Illegal move for current terrain and movement budget")
 

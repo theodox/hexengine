@@ -115,6 +115,7 @@ class DisplayManager:
 
         self._reorder_unit_layer_by_stack(game_state)
         self.redraw_terrain_overlay(game_state)
+        self._canvas.redraw_map_features(game_state)
 
     def _reorder_unit_layer_by_stack(self, game_state: GameState) -> None:
         """
@@ -398,6 +399,7 @@ class DisplayManager:
         self.refresh_unit_positions()
         if game_state is not None:
             self.redraw_terrain_overlay(game_state)
+            self._canvas.redraw_map_features(game_state)
 
     def refresh_unit_positions(self) -> None:
         """

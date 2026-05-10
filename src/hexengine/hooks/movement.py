@@ -73,6 +73,9 @@ class MovementHooks:
     retreat_blocked_hexes: Callable[[GameState, str], frozenset[Hex] | None | object] | None = None
     validate_retreat_move: Callable[[MoveContext, int], None | object] | None = None
     validate_move: Callable[[MoveContext], None | object] | None = None
+    movement_step_cost_for_unit: Callable[
+        [GameState, str, Hex, Hex, float], float | object
+    ] | None = None
 
     def budget(self, state: GameState, unit_id: str) -> float | object:
         if self.movement_budget_for_unit is None:
@@ -128,6 +131,13 @@ class MovementHooks:
         if self.validate_move is None:
             return DEFAULT
         return self.validate_move(ctx)
+
+    def step_cost_move(
+        self, state: GameState, unit_id: str, from_h: Hex, to_h: Hex, base: float
+    ) -> float | object:
+        if self.movement_step_cost_for_unit is None:
+            return DEFAULT
+        return self.movement_step_cost_for_unit(state, unit_id, from_h, to_h, base)
 
 
 __all__ = [

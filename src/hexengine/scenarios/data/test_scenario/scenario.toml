@@ -12,6 +12,16 @@ terrain = "open"
 movement_cost = 1.0
 default = true
 
+[linear_movement]
+road = 0.5
+
+[[linear_features]]
+feature_id = "road1"
+waypoints = [ [6, 8], [10, 8], [14, 8] ]
+tags = [ "road" ]
+stroke_width = 3
+stroke_color = "rgba(90, 70, 45, 0.55)"
+
 [map]
 hex_size = 24
 hex_margin = 0

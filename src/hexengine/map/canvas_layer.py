@@ -167,6 +167,22 @@ class CanvasLayer:
             )
         self._sync_canvas_resolution_and_draw_grid()
 
+    def grid_hexes_for_labels(self) -> tuple[Hex, ...]:
+        """Hex centers that match the drawn grid (odd-q labels use HexColRow.from_hex)."""
+        if self._grid_hex_list is not None:
+            return tuple(self._grid_hex_list)
+        if self._scenario_grid is not None:
+            cols, rows, oi, oj = self._scenario_grid
+            return tuple(
+                iter_map_grid_hex_col_rows(cols, rows, origin_col=oi, origin_row=oj)
+            )
+        hs = int(self._hex_layout.size)
+        w = (self._canvas.width - (self._hex_layout.origin_x * 2)) // max(hs, 1)
+        h = (self._canvas.height - (self._hex_layout.origin_y * 2)) // max(hs, 1)
+        start = Hex.from_cartesian(Cartesian(0, 0))
+        br = Hex.from_cartesian(Cartesian(w, h))
+        return tuple(rectangle_from_corners(start, br))
+
     def _sync_canvas_resolution_and_draw_grid(self) -> None:
         if self._grid_hex_list is not None:
             assert self._fixed_canvas_w is not None and self._fixed_canvas_h is not None

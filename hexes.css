@@ -91,6 +91,35 @@
     z-index: 10;
 }
 
+/*
+ * Valid-move / retreat highlight polygons (SVGLayer). Polygons have no fill attribute;
+ * default SVG fill is black. Title sheets (e.g. hexdemo ui.css) use more specific
+ * selectors to override these defaults.
+ */
+.hexengine-hex-highlight polygon {
+    fill: rgba(55, 231, 96, 0.333);
+    stroke: rgba(25, 100, 50, 0.55);
+    stroke-width: 2px;
+}
+
+/* Board primitives (same SVG as highlights); always styled here — global.css may not load. */
+.hexengine-map-edge-feature {
+    stroke: #4a90d9;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    pointer-events: none;
+}
+
+.hexengine-map-linear-feature {
+    stroke: #a67c52;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+    pointer-events: none;
+}
+
 #map-markers {
     position: absolute;
     width: 100%;
@@ -357,6 +386,21 @@ Popup styles — callout: root anchors tail tip; bubble is the main rect; tail i
     color: rgb(0, 0, 0);
     text-align: center;
     margin: 0;
+}
+
+/* Hex grid address overlay (toggle Alt+H); lives on #map-svg under #map-world. */
+.hexengine-hex-address-labels {
+    pointer-events: none;
+    user-select: none;
+}
+
+.hexengine-hex-address-labels text {
+    font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+    font-size: 11px;
+    fill: rgba(28, 28, 28, 0.92);
+    stroke: rgba(255, 255, 255, 0.55);
+    stroke-width: 0.4px;
+    paint-order: stroke fill;
 }
 
 /* Map overlays (#hexengine-map-overlays inside #map-world; map-space coords). */

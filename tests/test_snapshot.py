@@ -280,6 +280,46 @@ class TestPerUnitStateStackingAndTick(unittest.TestCase):
         self.assertEqual(mgr.current_state.board.units["m"].stack_index, 5)
         self.assertEqual(mgr.current_state.board.units["m"].position, h0)
 
+    def test_board_linear_movement_wire_dict(self) -> None:
+        d = {
+            "board": {
+                "units": {},
+                "locations": [],
+                "linear_movement": {"road": 0.4, "rail": 0.1},
+            },
+            "turn": {
+                "current_faction": "Red",
+                "current_phase": "Move",
+                "phase_actions_remaining": 1,
+            },
+        }
+        gs = game_state_from_wire_dict(d)
+        self.assertEqual(
+            gs.board.linear_movement_by_tag,
+            (("rail", 0.1), ("road", 0.4)),
+        )
+
+    def test_board_edge_movement_and_los_wire_dict(self) -> None:
+        d = {
+            "board": {
+                "units": {},
+                "locations": [],
+                "edge_movement_extra": {"river": 2.0},
+                "edge_line_of_sight": {"river": True, "wall": False},
+            },
+            "turn": {
+                "current_faction": "Red",
+                "current_phase": "Move",
+                "phase_actions_remaining": 1,
+            },
+        }
+        gs = game_state_from_wire_dict(d)
+        self.assertEqual(gs.board.edge_movement_extra_by_tag, (("river", 2.0),))
+        self.assertEqual(
+            gs.board.edge_line_of_sight_by_tag,
+            (("river", True), ("wall", False)),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

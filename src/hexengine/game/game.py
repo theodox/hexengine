@@ -406,12 +406,15 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         tx, ty = self.canvas.hex_layout.hex_to_pixel(tgt)
 
         from ..hexes.los import first_blocking_hex
+        from ..state.map_feature_queries import edges_block_los_predicate
 
         def blocks(h):
             loc = st.board.effective_location(h)
             if loc is None:
                 return False
             return bool(getattr(loc, "block_los", False))
+
+        edges_block = edges_block_los_predicate(st.board)
 
         keep: set[str] = set()
         for uid in sorted(self.attack_plan_attacker_ids):
@@ -430,7 +433,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
             ax, ay = self.canvas.hex_layout.hex_to_pixel(u.position)
             endx, endy = (tx, ty)
-            blocked_hex = first_blocking_hex(u.position, tgt, blocks=blocks)
+            blocked_hex = first_blocking_hex(
+                u.position, tgt, blocks=blocks, edges_block=edges_block
+            )
             is_blocked = blocked_hex is not None
             if blocked_hex is not None:
                 try:
@@ -562,6 +567,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             return False
         from ..hexes.math import distance
         from ..hexes.los import has_line_of_sight
+        from ..state.map_feature_queries import edges_block_los_predicate
 
         target_hex = self.attack_plan_target_hex
         ut = str(u.unit_type).lower()
@@ -582,7 +588,10 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                     return False
                 return bool(getattr(loc, "block_los", False))
 
-            return has_line_of_sight(u.position, target_hex, blocks=blocks)
+            edges_block = edges_block_los_predicate(st.board)
+            return has_line_of_sight(
+                u.position, target_hex, blocks=blocks, edges_block=edges_block
+            )
         return False
 
     def toggle_attack_plan_attacker(self, unit_id: str) -> None:
@@ -605,6 +614,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                     if ut in ("artillery", "art"):
                         from ..hexes.math import distance
                         from ..hexes.los import has_line_of_sight
+                        from ..state.map_feature_queries import edges_block_los_predicate
 
                         d = distance(u.position, tgt)
                         try:
@@ -625,7 +635,10 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                                     return False
                                 return bool(getattr(loc, "block_los", False))
 
-                            if not has_line_of_sight(u.position, tgt, blocks=blocks):
+                            eb = edges_block_los_predicate(st.board)
+                            if not has_line_of_sight(
+                                u.position, tgt, blocks=blocks, edges_block=eb
+                            ):
                                 msg = "No line of sight"
             except Exception:
                 pass
@@ -833,6 +846,12 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def toggle_terrain_overlay(self) -> None:
         """Toggle terrain tint layer (console: `set_terrain_overlay` / `terrain_overlay_visible()`)."""
         self.canvas.set_terrain_overlay_visible(not self.canvas.terrain_overlay_visible)
+
+    @Hotkey("h", Modifiers.ALT)
+    def toggle_hex_address_labels(self) -> None:
+        """Toggle odd-q col,row labels on each map hex (same as TOML [col, row])."""
+        on = self.canvas.toggle_hex_address_labels()
+        self.logger.info("Hex address labels %s (Alt+H)", "on" if on else "off")
 
     # ===== SERVER SESSION (WebSocket) =====
 
@@ -1241,7 +1260,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     def _sync_interaction_messages(self) -> None:
         """Render per-recipient `StateUpdate.interaction_messages` as a small banner."""
-        from ..document import element, js, jsnull
+        from ..document import element, js, jsnull, wire_str
 
         client = self.client
         msgs = client.interaction_messages if client is not None else None
@@ -1268,12 +1287,44 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 else:
                     passthrough.append(r)
             rows = [*passthrough, *deduped.values()]
-        if not rows:
-            # Clear if present.
+
+        def paint_interaction_banner(
+            text: str, base: str, extra_cls: str = "", fac: str | None = None
+        ) -> None:
+            if fac is None:
+                st = self.action_mgr.current_state
+                fac = wire_str(st.turn.current_faction) if st is not None else ""
+            _, faction_cls = self._faction_ui_for(fac)
+            banner_el = js.document.getElementById("interaction-banner")
+            if banner_el is None or banner_el is jsnull:
+                ui = element("ui-panel")
+                banner_el = js.document.createElement("div")
+                banner_el.id = "interaction-banner"
+                ui.appendChild(banner_el)
+            banner_el.innerText = text
+            banner_el.className = " ".join(
+                c for c in (base, extra_cls, faction_cls or "") if c
+            ).strip()
+
+        def clear_interaction_banner() -> None:
             el = js.document.getElementById("interaction-banner")
             if el is not None and el is not jsnull:
                 el.innerText = ""
                 el.className = ""
+
+        if not rows:
+            # Prefer replicated turn state when there are no server messages (e.g. all TTL-expired
+            # rows from an older server build, or empty interaction_messages).
+            st_fb = self.action_mgr.current_state
+            if st_fb is not None and client is not None:
+                t = st_fb.turn
+                text_fb = (
+                    f"{wire_str(t.current_faction)}: {wire_str(t.current_phase)} "
+                    f"(actions: {t.phase_actions_remaining})"
+                )
+                paint_interaction_banner(text_fb, "interaction-msg--phase")
+                return
+            clear_interaction_banner()
             return
 
         def _prio(kind: str) -> int:
@@ -1289,32 +1340,29 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         best: dict[str, Any] | None = None
         best_p = -1
         for r in rows:
-            t = r.get("text")
-            if not isinstance(t, str) or not t.strip():
+            t = wire_str(r.get("text")).strip()
+            if not t:
                 continue
             kraw = r.get("kind")
-            k = str(kraw).strip() if kraw is not None else ""
+            k = wire_str(kraw).strip()
             p = _prio(k)
             if p >= best_p:
                 best_p = p
                 best = r
         if best is None:
+            st_fb = self.action_mgr.current_state
+            if st_fb is not None and client is not None:
+                t = st_fb.turn
+                text_fb = (
+                    f"{wire_str(t.current_faction)}: {wire_str(t.current_phase)} "
+                    f"(actions: {t.phase_actions_remaining})"
+                )
+                paint_interaction_banner(text_fb, "interaction-msg--phase")
             return
-        text = str(best.get("text", "")).strip()
-        kind = str(best.get("kind", "")).strip()
-        extra_cls = best.get("css_class")
-        extra_cls = str(extra_cls).strip() if isinstance(extra_cls, str) and extra_cls.strip() else ""
+        text = wire_str(best.get("text")).strip()
+        kind = wire_str(best.get("kind")).strip()
+        extra_cls = wire_str(best.get("css_class")).strip()
 
-        banner = js.document.getElementById("interaction-banner")
-        if banner is None or banner is jsnull:
-            ui = element("ui-panel")
-            if ui is None:
-                return
-            banner = js.document.createElement("div")
-            banner.id = "interaction-banner"
-            ui.appendChild(banner)
-
-        banner.innerText = text
         base = (
             "interaction-msg--retreat"
             if kind == "retreat"
@@ -1326,15 +1374,11 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             if kind == "phase"
             else ""
         )
-        # Also apply the title's faction css class so titles can style phase banners.
         fac = ""
         st = self.action_mgr.current_state
         if st is not None:
-            fac = str(st.turn.current_faction)
-        _, faction_cls = self._faction_ui_for(fac)
-        banner.className = " ".join(
-            c for c in (base, extra_cls, faction_cls or "") if c
-        ).strip()
+            fac = wire_str(st.turn.current_faction)
+        paint_interaction_banner(text, base, extra_cls, fac)
 
     def _set_engine_banner_message(
         self,

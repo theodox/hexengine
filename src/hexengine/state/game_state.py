@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+from ..hexes.edges import EdgeKey
 from ..hexes.types import Hex
 
 
@@ -89,6 +90,32 @@ class LocationState:
 
 
 @dataclass(frozen=True)
+class BoardEdgeFeature:
+    """Rule-neutral primitive on a shared hex side (identity + opaque tags + optional stroke hints)."""
+
+    feature_id: str
+    edge_key: EdgeKey
+    tags: tuple[str, ...] = ()
+    stroke_width: float | None = None
+    stroke_color: str | None = None
+    stroke_dash: str | None = None
+    layer_z: int | None = None
+
+
+@dataclass(frozen=True)
+class BoardLinearFeature:
+    """Rule-neutral centerline path through consecutive neighbor hexes."""
+
+    feature_id: str
+    path_hexes: tuple[Hex, ...]
+    tags: tuple[str, ...] = ()
+    stroke_width: float | None = None
+    stroke_color: str | None = None
+    stroke_dash: str | None = None
+    layer_z: int | None = None
+
+
+@dataclass(frozen=True)
 class UnsetTerrainDefaults:
     """Terrain applied to any hex not listed in `BoardState.locations`."""
 
@@ -112,6 +139,23 @@ class BoardState:
     locations: dict[Hex, LocationState] = field(default_factory=dict)
     #: From scenario `[[terrain_types]]` row with `default = true`; `None` = legacy 1.0 cost.
     unset_defaults: UnsetTerrainDefaults | None = None
+    edge_features: tuple[BoardEdgeFeature, ...] = ()
+    linear_features: tuple[BoardLinearFeature, ...] = ()
+    #: Per-tag hex-step cost on ``[[linear_features]]`` (scenario TOML); sorted by tag.
+    linear_movement_by_tag: tuple[tuple[str, float], ...] = ()
+    #: Per-tag extra movement cost when a step crosses an ``[[edge_features]]`` primitive
+    #: with that tag (summed per tag occurrence on overlays on that edge). Sorted by tag.
+    edge_movement_extra_by_tag: tuple[tuple[str, float], ...] = ()
+    #: Per-tag whether crossing an edge with that tag blocks line-of-sight (sorted by tag).
+    edge_line_of_sight_by_tag: tuple[tuple[str, bool], ...] = ()
+
+    def edge_map_features_at(self, key: EdgeKey) -> tuple[BoardEdgeFeature, ...]:
+        """All edge primitives sharing this undirected border (may be multiple overlays)."""
+        return tuple(f for f in self.edge_features if f.edge_key == key)
+
+    def linear_map_features_at_hex(self, h: Hex) -> tuple[BoardLinearFeature, ...]:
+        """Centerline primitives whose spine includes this hex."""
+        return tuple(f for f in self.linear_features if h in f.path_hexes)
 
     def with_unit(self, unit: UnitState) -> BoardState:
         """Return a new BoardState with the unit added or updated."""

@@ -262,6 +262,75 @@ positions = [
 terrain = "strongpoint"
 positions = [[9,9], [7,9]]
 
+
+# River: start_edge / end_edge pin the first and last shared borders; waypoints are sparse
+# odd-q centers (hex-grid lines between them, like linear_features). Same 7 edges as a full
+# spine; Euler trail so no segment is used twice.
+# Optional: stroke_width, stroke_color (or shorthand `color`), stroke_dash, layer_z.
+[[edge_features]]
+feature_id = "river"
+start_edge = { between = [ [9, 10], [9, 9] ] }
+end_edge = { between = [ [19, 13], [19, 12] ] }
+waypoints = [ [9, 10], [11,11], [13, 10], [15, 10],[19,13] ]
+tags = [ "river" ]
+stroke_width = 4
+stroke_color = "rgb(47, 47, 219)"
+
+[linear_movement]
+road = 0.5
+
+# Extra movement cost when a step crosses an [[edge_features]] segment with that tag.
+[edge_movement_extra]
+river = 1.0
+
+# When true, a sight line crossing an edge with that tag is blocked (artillery LOS, etc.).
+[edge_line_of_sight]
+river = true
+
+# Road: odd-q waypoints joined by straight hex-grid segments (see hexes.shapes.path).
+[[linear_features]]
+feature_id = "road1"
+waypoints = [ [8,0],[7,10], [12,15], [14,18], [11,22]]
+tags = [ "road" ]
+stroke_width = 8
+stroke_color = "rgba(50, 38, 24, 0.46)"
+
+[[linear_features]]
+feature_id = "road2"
+waypoints = [ [7,10], [3,9], [2,10], [2,13]]
+tags = [ "road" ]
+stroke_width = 8
+stroke_color = "rgba(50, 38, 24, 0.46)"
+
+[[linear_features]]
+feature_id = "road3"
+waypoints = [ [8,12], [7,14], [6,16], [1, 18]]
+tags = [ "road" ]
+stroke_width = 8
+stroke_color = "rgba(50, 38, 24, 0.46)"
+
+
+[[linear_features]]
+feature_id = "road4"
+waypoints = [ [11,14], [18,4]]
+tags = [ "road" ]
+stroke_width = 8
+stroke_color = "rgba(50, 38, 24, 0.46)"
+
+[[linear_features]]
+feature_id = "road5"
+waypoints = [ [14,19], [19,22]]
+tags = [ "road" ]
+stroke_width = 8
+stroke_color = "rgba(50, 38, 24, 0.46)"
+
+[[linear_features]]
+feature_id = "road6"
+waypoints = [ [14,17], [19,14]]
+tags = [ "road" ]
+stroke_width = 8
+stroke_color = "rgba(50, 38, 24, 0.46)"
+
 # -------------- graphics -----------
 
 [[unit_graphics]]

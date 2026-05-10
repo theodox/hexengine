@@ -349,9 +349,14 @@ class BrowserWebSocketClient:
             if isinstance(update.retreat_obligations, dict)
             else None
         )
+        raw_msgs = update.interaction_messages
+        if raw_msgs is not None and not isinstance(raw_msgs, list):
+            to_py = getattr(raw_msgs, "to_py", None)
+            if callable(to_py):
+                raw_msgs = to_py()
         self.interaction_messages = (
-            [dict(m) for m in update.interaction_messages]
-            if isinstance(update.interaction_messages, list)
+            [dict(m) for m in raw_msgs]
+            if isinstance(raw_msgs, list)
             else None
         )
         if isinstance(self.interaction_messages, list):
@@ -593,6 +598,12 @@ class BrowserWebSocketClient:
         """Reconstruct GameState from dictionary."""
         from ..state.snapshot import game_state_from_wire_dict
 
+        if not isinstance(state_dict, dict):
+            to_py = getattr(state_dict, "to_py", None)
+            if callable(to_py):
+                state_dict = to_py()
+        if not isinstance(state_dict, dict):
+            raise TypeError("game_state wire payload must be a dict")
         return game_state_from_wire_dict(state_dict)
 
     def _start_connection_health_check(self) -> None:

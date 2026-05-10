@@ -349,6 +349,66 @@ class UnitGraphicsTemplate:
         )
 
 
+@dataclass(frozen=True)
+class EdgeEndpointSpec:
+    """One map edge: two adjacent odd-q hex centers.
+
+    Exactly one of: between = [[col,row],[col,row]] or position + direction (neighbor from
+    position toward the second hex).
+    """
+
+    between: tuple[tuple[int, int], tuple[int, int]] | None = None
+    position: tuple[int, int] | None = None
+    direction: int | None = None
+
+
+@dataclass(frozen=True)
+class EdgeFeatureSpec:
+    """Parsed [[edge_features]] row.
+
+    start_edge pins the first shared border (ordered hex pair). waypoints lists further
+    odd-q cells (may be empty for a single segment); non-adjacent consecutive cells are
+    joined by hex-grid lines like linear waypoints. end_edge optionally pins the last
+    border; if the expanded path ends on the first hex of that pair but not the second,
+    the loader appends the second hex when it is a grid neighbor.
+
+    Optional start_side / end_side (0..5) validate the first step and approach to the
+    last hex (see edge_keys_along_hex_chain).
+    """
+
+    feature_id: str
+    start_edge: EdgeEndpointSpec
+    waypoints: tuple[tuple[int, int], ...] = ()
+    end_edge: EdgeEndpointSpec | None = None
+    tags: tuple[str, ...] = ()
+    stroke_width: float | None = None
+    stroke_color: str | None = None
+    stroke_dash: str | None = None
+    layer_z: int | None = None
+    start_side: int | None = None
+    end_side: int | None = None
+
+
+@dataclass(frozen=True)
+class LinearFeatureSpec:
+    """Parsed [[linear_features]] row; odd-q [col, row] cells.
+
+    Exactly one of: path (consecutive neighbor centers), perimeter_of (hex union for
+    outline via linear_feature_path_around_hexes), or waypoints (sparse vertices joined
+    by straight hex-grid segments, same as shapes.path).
+    """
+
+    feature_id: str
+    path: tuple[tuple[int, int], ...] | None = None
+    perimeter_of: tuple[tuple[int, int], ...] | None = None
+    waypoints: tuple[tuple[int, int], ...] | None = None
+    tags: tuple[str, ...] = ()
+    stroke_width: float | None = None
+    stroke_color: str | None = None
+    stroke_dash: str | None = None
+    layer_z: int | None = None
+
+
 @scenario_toml_table("markers")
 @dataclass(frozen=True)
 class MarkerRow:
@@ -391,6 +451,18 @@ class ScenarioData:
     # marker_graphics + markers mirror unit_graphics + units: type → template, then instances.
     marker_graphics: dict[str, UnitGraphicsTemplate] = field(default_factory=dict)
     markers: list[MarkerRow] = field(default_factory=list)
+    #: Hex-side primitives (rivers, walls, …); tags are opaque until title annotation.
+    edge_features: tuple[EdgeFeatureSpec, ...] = ()
+    #: Centerline primitives (roads, hedgerow spines, …).
+    linear_features: tuple[LinearFeatureSpec, ...] = ()
+    #: Per-tag movement cost for a hex step along a ``[[linear_features]]`` path
+    #: (e.g. ``road`` vs ``rail``). Canonical order: sorted by tag. Empty when no
+    #: linear overrides; titles use destination terrain cost for those steps.
+    linear_movement_by_tag: tuple[tuple[str, float], ...] = ()
+    #: Per-tag extra cost when crossing ``[[edge_features]]`` with that tag (e.g. river).
+    edge_movement_extra_by_tag: tuple[tuple[str, float], ...] = ()
+    #: Per-tag LOS blocking when a sight line crosses an edge with that tag.
+    edge_line_of_sight_by_tag: tuple[tuple[str, bool], ...] = ()
 
     def unit_graphics_to_wire_dict(self) -> dict[str, dict]:
         """Map unit type string → template payload for JSON sync."""

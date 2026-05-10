@@ -50,20 +50,23 @@ class TestGameServer(unittest.TestCase):
         self.assertIsNotNone(self.server.action_manager)
         self.assertEqual(len(self.server.players), 0)
 
-    async def test_player_join(self):
+    def test_player_join(self):
         """Test player can join the game."""
-        player_id = "test-player-1"
-        join_request = JoinGameRequest(player_name="Alice", faction="Red")
 
-        await self.server.handle_message(player_id, join_request.to_message())
+        async def run():
+            player_id = "test-player-1"
+            join_request = JoinGameRequest(player_name="Alice", faction="Red")
 
-        # Check player was added
-        self.assertEqual(len(self.server.players), 1)
-        self.assertIn(player_id, self.server.players)
+            await self.server.handle_message(player_id, join_request.to_message())
 
-        player = self.server.players[player_id]
-        self.assertEqual(player.player_name, "Alice")
-        self.assertEqual(player.faction, "Red")
+            self.assertEqual(len(self.server.players), 1)
+            self.assertIn(player_id, self.server.players)
+
+            player = self.server.players[player_id]
+            self.assertEqual(player.player_name, "Alice")
+            self.assertEqual(player.faction, "Red")
+
+        asyncio.run(run())
 
     def test_leave_frees_faction_for_reconnect(self):
         """Disconnect removes player so a new WebSocket id can take the same faction."""
@@ -127,29 +130,33 @@ class TestGameServer(unittest.TestCase):
 
         asyncio.run(run())
 
-    async def test_action_request_wrong_turn(self):
+    def test_action_request_wrong_turn(self):
         """Test action rejected if not player's turn."""
-        # Join as Blue faction
-        player_id = "test-player-1"
-        join_request = JoinGameRequest(player_name="Alice", faction="Blue")
-        await self.server.handle_message(player_id, join_request.to_message())
 
-        # Set current turn to Red
-        state = self.server.action_manager.current_state
-        from hexengine.state.game_state import TurnState
+        async def run():
+            player_id = "test-player-1"
+            join_request = JoinGameRequest(player_name="Alice", faction="Blue")
+            await self.server.handle_message(player_id, join_request.to_message())
 
-        new_turn = TurnState(
-            turn_number=1,
-            current_faction="Red",  # Not Blue
-            current_phase="Movement",
-            phase_actions_remaining=2,
-            schedule_index=0,
-        )
-        self.server.action_manager.replace_state(state.with_turn(new_turn))
+            state = self.server.action_manager.current_state
+            from hexengine.state.game_state import TurnState
 
-        player = self.server.players[player_id]
-        current_faction = self.server.action_manager.current_state.turn.current_faction
-        self.assertNotEqual(player.faction, current_faction)
+            new_turn = TurnState(
+                turn_number=1,
+                current_faction="Red",  # Not Blue
+                current_phase="Movement",
+                phase_actions_remaining=2,
+                schedule_index=0,
+            )
+            self.server.action_manager.replace_state(state.with_turn(new_turn))
+
+            player = self.server.players[player_id]
+            current_faction = (
+                self.server.action_manager.current_state.turn.current_faction
+            )
+            self.assertNotEqual(player.faction, current_faction)
+
+        asyncio.run(run())
 
     def test_move_unit_rejected_out_of_budget(self) -> None:
         """Server rejects MoveUnit when path cost exceeds movement budget."""
@@ -994,23 +1001,5 @@ def test_wire_message_registry_covers_all_message_types() -> None:
     )
 
 
-def run_async_test(coro):
-    """Helper to run async test."""
-    loop = asyncio.get_event_loop()
-    return loop.run_until_complete(coro)
-
-
 if __name__ == "__main__":
-    # Need to handle async tests
-    for test_case in [TestGameServer]:
-        for method_name in dir(test_case):
-            if method_name.startswith("test_"):
-                method = getattr(test_case, method_name)
-                if asyncio.iscoroutinefunction(method):
-                    print(f"\nRunning async test: {test_case.__name__}.{method_name}")
-                    instance = test_case(method_name)
-                    instance.setUp()
-                    run_async_test(method(instance))
-
-    # Run sync tests normally
     unittest.main(verbosity=2)

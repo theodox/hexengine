@@ -8,6 +8,7 @@ line of sight, etc. from game state without modifying it.
 from __future__ import annotations
 
 import heapq
+from collections.abc import Callable
 
 from ..hexes.math import distance, neighbors
 from ..hexes.shapes import angular_sector_hexes
@@ -15,6 +16,7 @@ from ..hexes.shapes import hex_line_segment
 from ..hexes.constants import PI_OVER_6
 from ..hexes.types import Hex
 from ..state.game_state import GameState
+from .map_feature_queries import edge_line_of_sight_blocks_hex_line
 
 # Default path-cost budget when hexengine.gamedef.protocol.GameDefinition
 # does not implement movement_budget_for_unit.
@@ -40,8 +42,12 @@ def get_blocking_hexes(state: GameState, a: Hex, b: Hex) -> tuple[Hex, ...]:
 
 
 def has_line_of_sight(state: GameState, a: Hex, b: Hex) -> bool:
-    """True when there are no LOS-blocking intermediate hexes between a and b."""
-    return not get_blocking_hexes(state, a, b)
+    """True when there are no LOS-blocking intermediate hexes or blocking edge tags."""
+    if get_blocking_hexes(state, a, b):
+        return False
+    if edge_line_of_sight_blocks_hex_line(state.board, a, b):
+        return False
+    return True
 
 
 def los_visible_hexes_in_cone(
@@ -146,6 +152,7 @@ def compute_reachable_hexes(
     zoc_hexes: frozenset[Hex] | None = None,
     blocked_hexes: frozenset[Hex] | None = None,
     max_active_units_per_hex: int | None = None,
+    step_cost: Callable[[GameState, Hex, Hex, float], float] | None = None,
 ) -> dict[Hex, float]:
     """Calculate all hexes reachable from start_hex within max_cost.
 
@@ -167,6 +174,10 @@ def compute_reachable_hexes(
     max_active_units_per_hex: when set, allows ending a move on a hex with fewer than this
     many active units. A unit may still traverse through friendly-occupied hexes (paying
     normal terrain cost) as long as moving_faction is set and the hex is friendly-occupied.
+
+    step_cost: when set, called as (state, from_hex, to_hex, destination_terrain_cost) and
+    must return the total movement cost for that neighbor step (inf = impassable). When
+    omitted, each step costs destination_terrain_cost only.
 
     Returns a dict mapping reachable hexes to their minimum cost from start_hex.
     """
@@ -217,7 +228,16 @@ def compute_reachable_hexes(
             if neighbor_terrain_cost == float("inf"):
                 continue
 
-            new_cost = current_cost + neighbor_terrain_cost
+            if step_cost is None:
+                step_total = neighbor_terrain_cost
+            else:
+                step_total = float(
+                    step_cost(state, current_hex, neighbor, neighbor_terrain_cost)
+                )
+            if step_total == float("inf"):
+                continue
+
+            new_cost = current_cost + step_total
 
             if new_cost > max_cost:
                 continue
@@ -247,6 +267,7 @@ def compute_valid_moves(
     zoc_hexes: frozenset[Hex] | None = None,
     blocked_hexes: frozenset[Hex] | None = None,
     max_active_units_per_hex: int | None = None,
+    step_cost: Callable[[GameState, Hex, Hex, float], float] | None = None,
 ) -> set[Hex]:
     """Compute valid movement hexes for a unit.
 
@@ -270,6 +291,7 @@ def compute_valid_moves(
         zoc_hexes=zoc_hexes,
         blocked_hexes=blocked_hexes,
         max_active_units_per_hex=max_active_units_per_hex,
+        step_cost=step_cost,
     )
 
     # Return just the hexes (not the costs)
@@ -297,6 +319,7 @@ def is_valid_move(
     zoc_hexes: frozenset[Hex] | None = None,
     blocked_hexes: frozenset[Hex] | None = None,
     max_active_units_per_hex: int | None = None,
+    step_cost: Callable[[GameState, Hex, Hex, float], float] | None = None,
 ) -> bool:
     """Check if a specific move is valid.
 
@@ -313,6 +336,7 @@ def is_valid_move(
         zoc_hexes=zoc_hexes,
         blocked_hexes=blocked_hexes,
         max_active_units_per_hex=max_active_units_per_hex,
+        step_cost=step_cost,
     )
 
 
@@ -325,6 +349,7 @@ def compute_retreat_destination_hexes(
     zoc_hexes: frozenset[Hex] | None = None,
     blocked_hexes: frozenset[Hex] | None = None,
     max_active_units_per_hex: int | None = None,
+    step_cost: Callable[[GameState, Hex, Hex, float], float] | None = None,
 ) -> set[Hex]:
     """
     Hexes reachable as a retreat fulfillment: graph reachability within budget and
@@ -346,6 +371,7 @@ def compute_retreat_destination_hexes(
         zoc_hexes=zoc_hexes,
         blocked_hexes=blocked_hexes,
         max_active_units_per_hex=max_active_units_per_hex,
+        step_cost=step_cost,
     )
     out: set[Hex] = set()
     for h in reachable:
@@ -357,6 +383,7 @@ def compute_retreat_destination_hexes(
             zoc_hexes=zoc_hexes,
             blocked_hexes=blocked_hexes,
             max_active_units_per_hex=max_active_units_per_hex,
+            step_cost=step_cost,
         ):
             out.add(h)
     return out

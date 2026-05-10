@@ -3,6 +3,8 @@ Line-of-sight (LOS) helpers for hex grids.
 
 This module is intentionally **state-agnostic**: callers supply a `blocks(hex) -> bool`
 predicate describing what counts as LOS-blocking (terrain, units, smoke, etc.).
+Optionally, ``edges_block(h1, h2) -> bool`` marks grid steps whose crossed map edge
+blocks LOS (e.g. rivers on ``[[edge_features]]``).
 
 LOS rule supported:
 - A ray may trace along the edge of a single blocking hex (grazing is allowed).
@@ -77,16 +79,59 @@ def _ray_hexes(a: Hex, b: Hex, *, nudge_sign: float) -> list[Hex]:
     return out
 
 
+def _ray_path_clear(
+    path: list[Hex],
+    blocks: Callable[[Hex], bool],
+    edges_block: Callable[[Hex, Hex], bool] | None,
+) -> bool:
+    for h in path[1:-1]:
+        if blocks(h):
+            return False
+    if edges_block is not None:
+        from .shapes import hex_line_segment
+
+        for i in range(len(path) - 1):
+            seg = list(hex_line_segment(path[i], path[i + 1]))
+            for j in range(len(seg) - 1):
+                if edges_block(seg[j], seg[j + 1]):
+                    return False
+    return True
+
+
+def _first_block_on_ray_path(
+    path: list[Hex],
+    blocks: Callable[[Hex], bool],
+    edges_block: Callable[[Hex, Hex], bool] | None,
+) -> Hex | None:
+    """First blocking hex along ``path`` (interior hexes, then edge steps), or None."""
+    for h in path[1:-1]:
+        if blocks(h):
+            return h
+    if edges_block is not None:
+        from .shapes import hex_line_segment
+
+        for i in range(len(path) - 1):
+            seg = list(hex_line_segment(path[i], path[i + 1]))
+            for j in range(len(seg) - 1):
+                if edges_block(seg[j], seg[j + 1]):
+                    return seg[j + 1]
+    return None
+
+
 def has_line_of_sight(
     a: Hex,
     b: Hex,
     *,
     blocks: Callable[[Hex], bool],
+    edges_block: Callable[[Hex, Hex], bool] | None = None,
 ) -> bool:
     """
     Return True if `a` has LOS to `b` under the caller-supplied `blocks` predicate.
 
     Endpoints `a` and `b` are *not* tested against `blocks` (only intermediate hexes).
+
+    When ``edges_block`` is set, it must return True if the undirected step between two
+    adjacent hexes on the ray (including sub-steps along the grid line) blocks LOS.
     """
     if a == b:
         return True
@@ -97,12 +142,7 @@ def has_line_of_sight(
         _ray_hexes(a, b, nudge_sign=-1.0),
     )
     for path in paths:
-        blocked = False
-        for h in path[1:-1]:
-            if blocks(h):
-                blocked = True
-                break
-        if not blocked:
+        if _ray_path_clear(path, blocks, edges_block):
             return True
     return False
 
@@ -112,13 +152,15 @@ def first_blocking_hex(
     b: Hex,
     *,
     blocks: Callable[[Hex], bool],
+    edges_block: Callable[[Hex, Hex], bool] | None = None,
 ) -> Hex | None:
     """
     Return the first LOS-blocking hex between `a` and `b`, or None if LOS is clear.
 
     Uses the same grazing rule as `has_line_of_sight`: LOS is clear if either of the
     two infinitesimally-offset rays is clear. When blocked, returns the nearest
-    blocking hex encountered across both rays.
+    blocking hex encountered across both rays (or a hex on the far side of a blocking
+    edge when only edge rules apply on a segment).
     """
     if a == b:
         return None
@@ -128,17 +170,17 @@ def first_blocking_hex(
         _ray_hexes(a, b, nudge_sign=-1.0),
     )
 
+    for path in paths:
+        if _ray_path_clear(path, blocks, edges_block):
+            return None
+
     first_hits: list[Hex] = []
     for path in paths:
-        hit = None
-        for h in path[1:-1]:
-            if blocks(h):
-                hit = h
-                break
-        if hit is None:
-            # At least one ray is clear → LOS is clear.
-            return None
-        first_hits.append(hit)
+        hit = _first_block_on_ray_path(path, blocks, edges_block)
+        if hit is not None:
+            first_hits.append(hit)
+    if not first_hits:
+        return None
 
     # Both rays blocked. Pick the nearer blocking hex (stable tie-break by coords).
     best = min(first_hits, key=lambda h: (distance(a, h), int(h.i), int(h.j), int(h.k)))
