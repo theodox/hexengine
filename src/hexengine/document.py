@@ -5,7 +5,7 @@ import logging
 import js  # pyright: ignore[reportMissingImports]
 from pyodide.ffi import create_proxy  # pyright: ignore[reportMissingImports]
 
-from .wire_interop import js_present, js_nullish, jsnull, wire_str
+from .wire_interop import js_nullish, js_present, jsnull, wire_str
 
 
 def element(id: str) -> js.HTMLElement:

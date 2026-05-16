@@ -9,15 +9,24 @@ from .builtin import (
     advance_turn_action_for_state,
     default_game_definition,
 )
-from .faction_display import display_faction_name, display_phase_name
+from .client_title_data import ClientTitleData
+from .game_data import GameData
+from .game_data_toml import (
+    game_data_from_mapping,
+    load_game_data_for_pack_root,
+    merged_gamedata_dict_from_manifest,
+)
 from .interactions import InteractionKind
 from .protocol import GameDefinition
 from .rng import RngService
 
 __all__ = [
+    "ClientTitleData",
+    "GameData",
     "GameDefinition",
-    "display_faction_name",
-    "display_phase_name",
+    "game_data_from_mapping",
+    "load_game_data_for_pack_root",
+    "merged_gamedata_dict_from_manifest",
     "InteractionKind",
     "InterleavedTwoFactionGameDefinition",
     "RngService",

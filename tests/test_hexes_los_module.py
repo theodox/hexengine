@@ -35,7 +35,9 @@ def test_hexes_los_grazing_rule_via_dual_rays() -> None:
     # Choose a blocker that lies on exactly one of the two offset paths.
     only_plus = sorted(plus_mid - minus_mid, key=lambda h: (h.i, h.j, h.k))
     only_minus = sorted(minus_mid - plus_mid, key=lambda h: (h.i, h.j, h.k))
-    assert only_plus and only_minus, "Expected each offset path to have unique intermediates"
+    assert only_plus and only_minus, (
+        "Expected each offset path to have unique intermediates"
+    )
 
     blocked = {only_plus[0]}
 
@@ -65,7 +67,4 @@ def test_hexes_los_edges_block_predicate() -> None:
         return False
 
     assert has_line_of_sight(a, b, blocks=blocks, edges_block=edges_block) is False
-    assert (
-        has_line_of_sight(a, b, blocks=blocks, edges_block=None) is True
-    )
-
+    assert has_line_of_sight(a, b, blocks=blocks, edges_block=None) is True

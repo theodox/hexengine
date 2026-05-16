@@ -1,5 +1,10 @@
 /* Hexdemo UI additions (loaded via `title_css_file`). */
 
+/* Hold splash visible briefly after first state (engine reads this CSS var). */
+#loading.hexengine-splash-active {
+  --hexengine-splash-dismiss-delay-ms: 2200ms;
+}
+
 /* Interaction-banner faction colors (applied via css_class). */
 #interaction-banner.union {
   background-color: rgba(33, 52, 120, 0.82);

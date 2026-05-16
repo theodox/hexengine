@@ -11,7 +11,7 @@ def focus_unit_id_after_state_sync(
     state: GameState, viewer_faction: str | None
 ) -> str | None:
     """
-    When exactly one active unit on ``viewer_faction`` owes a mandatory retreat,
+    When exactly one active unit on `viewer_faction` owes a mandatory retreat,
     return its id so the client can select it (visible marker + retreat drag UX).
     """
     if not viewer_faction:

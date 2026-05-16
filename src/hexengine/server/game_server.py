@@ -29,26 +29,35 @@ from ..gamedef.unit_attributes import (
 )
 from ..hexes.math import distance, neighbors
 from ..hexes.types import Hex, HexColRow
-from ..hooks.core import DEFAULT as HOOKS_DEFAULT
-from ..hooks.title import TitleHooks
-from ..hooks.attack import AttackContext
+from ..hooks.core import ENGINE_DEFAULT
+from ..hooks.internal import (
+    default_maybe_open_combat_advance_after_retreat,
+    get_engine_catalog_hook,
+    validate_title_contract,
+)
 from ..hooks.movement import MoveContext
+from ..hooks.title import TitleHooks, read_title_hooks_from_definition
+from ..hooks.ui import (
+    AdvanceGateInteractionContext,
+    CombatInteractionContext,
+    PhaseBannerContext,
+    default_advance_gate_banners_for_viewer,
+    default_combat_instruction_for_viewer,
+    default_phase_banner_text_for_viewer,
+)
 from ..package_version import hexes_package_version
 from ..state import ActionManager, GameState
 from ..state.actions import (
     AddUnit,
-    ApplyCombatEffects,
-    Attack,
     ClearTitleCombatExtension,
-    ClearUnitRetreatObligation,
-    OpenCombatAdvance,
     DeleteUnit,
     MoveUnit,
     NextPhase,
+    OpenCombatAdvance,
     PatchUnitAttributes,
-    ResolveCombatAdvance,
-    ResolveDisruptInsteadOfRetreat,
+    ResolvePassMovementInterrupt,
     SpendAction,
+    WriteHexengineMovementArc,
 )
 from ..state.logic import (
     DEFAULT_MOVEMENT_BUDGET,
@@ -59,20 +68,31 @@ from ..state.marker_placement import (
     MarkerPlacementRule,
     default_marker_destination_allowed,
 )
-from ..state.phase_rules import phase_allows_unit_move
+from ..state.phase_rules import (
+    phase_allows_movement_interrupt_pass,
+    phase_allows_unit_move,
+)
 from ..state.snapshot import game_state_from_wire_dict, game_state_to_wire_dict
+from .arcs import (
+    execute_authority_attack_request,
+    finalize_retreat_fulfillment_stack,
+    handle_authority_move_unit_normal,
+    handle_combat_advance_rpc,
+    handle_combat_disrupt_instead_of_retreat,
+    handle_move_unit_combat_advance_resolution,
+    move_unit_is_combat_advance_fulfillment,
+    read_movement_arc,
+)
 from .protocol import (
     ActionRequest,
     ActionResult,
     CombatEventWire,
     InspectRequest,
-    MarkerPreviewRequest,
-    MarkerPreviewWire,
-    UnitPreviewRequest,
-    UnitPreviewWire,
     JoinGameRequest,
     LeaveGameRequest,
     LoadSnapshotRequest,
+    MarkerPreviewRequest,
+    MarkerPreviewWire,
     Message,
     PlayerInfo,
     PlayerJoinedWire,
@@ -81,8 +101,10 @@ from .protocol import (
     ServerError,
     ServerLogEvent,
     StateUpdate,
-    UndoRequest,
     UIPopupWire,
+    UndoRequest,
+    UnitPreviewRequest,
+    UnitPreviewWire,
 )
 
 
@@ -121,70 +143,6 @@ def _resolve_title_resource_href(game_definition: Any, rel: str) -> str | None:
         return None
 
 
-def _dedupe_wire_id_list(raw: Any) -> list[str]:
-    if not isinstance(raw, list):
-        return []
-    out: list[str] = []
-    seen: set[str] = set()
-    for x in raw:
-        if isinstance(x, str) and (s := x.strip()) and s not in seen:
-            seen.add(s)
-            out.append(s)
-    return out
-
-
-def _normalize_attack_party_ids(
-    params: dict[str, Any], *, anchor_id: str, plural_key: str
-) -> tuple[str, ...]:
-    """Build ordered (anchor first) party ids from wire anchor + optional plural list."""
-    anchor = str(anchor_id or "").strip()
-    if not anchor:
-        return ()
-    extras = _dedupe_wire_id_list(params.get(plural_key))
-    if not extras:
-        return (anchor,)
-    if anchor not in extras:
-        return (anchor, *extras)
-    rest = [x for x in extras if x != anchor]
-    return (anchor, *rest)
-
-
-def _sorted_unique_hexes_from_unit_ids(
-    state: GameState, unit_ids: tuple[str, ...]
-) -> tuple[Hex, ...]:
-    """Distinct hex positions of active units with the given ids (sorted for stability)."""
-    seen: set[tuple[int, int, int]] = set()
-    hs: list[Hex] = []
-    for uid in unit_ids:
-        u = state.board.units.get(uid)
-        if u is None or not u.active:
-            continue
-        t = (int(u.position.i), int(u.position.j), int(u.position.k))
-        if t in seen:
-            continue
-        seen.add(t)
-        hs.append(u.position)
-    return tuple(sorted(hs, key=lambda h: (int(h.i), int(h.j), int(h.k))))
-
-
-def _optional_wire_hex_frozenset(
-    params: dict[str, Any], key: str
-) -> frozenset[Hex] | None:
-    """If ``params[key]`` is a list of ``{i,j,k}``, return those hexes; else None."""
-    raw = params.get(key)
-    if not isinstance(raw, list) or not raw:
-        return None
-    out: list[Hex] = []
-    for row in raw:
-        if not isinstance(row, dict):
-            continue
-        try:
-            out.append(Hex(int(row["i"]), int(row["j"]), int(row["k"])))
-        except (KeyError, TypeError, ValueError):
-            continue
-    return frozenset(out) if out else None
-
-
 class GameServer:
     """
     Server that manages multiplayer game state.
@@ -218,8 +176,8 @@ class GameServer:
                 for marker moves/adds; if omitted, uses empty-hex rule (board hex, no unit).
             game_definition: Turn schedule and factions (required).
         """
-        self.game_state = initial_state or GameState.create_empty()
-        self.action_manager = ActionManager(self.game_state)
+        init_state = initial_state or GameState.create_empty()
+        self.action_manager = ActionManager(init_state)
         self.map_display = map_display
         self.global_styles = global_styles
         self.unit_graphics = unit_graphics
@@ -235,6 +193,8 @@ class GameServer:
         self._server_package_version = hexes_package_version()
         self._game_definition = game_definition
         self.hooks = self._bind_title_hooks()
+        self.game_data = self._game_definition.game_data
+        validate_title_contract(game_definition)
 
         # Player management
         self.players: dict[str, PlayerInfo] = {}
@@ -254,6 +214,12 @@ class GameServer:
 
         self._pending_game_log_events: deque[tuple[str, str, str]] = deque()
 
+    @property
+    def game_state(self) -> GameState:
+        """Authoritative match state (same object as `action_manager.current_state`)."""
+
+        return self.action_manager.current_state
+
     # --- GameDefinition access helpers (optional hooks / attributes) ---
     def _bind_title_hooks(self) -> TitleHooks:
         """
@@ -266,15 +232,7 @@ class GameServer:
         If absent or invalid, the server uses an empty `TitleHooks()` bundle.
         """
 
-        raw = getattr(self._game_definition, "hooks", None)
-        if raw is None:
-            return TitleHooks()
-        if callable(raw):
-            try:
-                raw = raw()
-            except Exception:
-                return TitleHooks()
-        return raw if isinstance(raw, TitleHooks) else TitleHooks()
+        return read_title_hooks_from_definition(self._game_definition)
 
     def _call(
         self,
@@ -361,7 +319,9 @@ class GameServer:
             return None
         return uid.strip()
 
-    def _retreat_obligations_for_player_id(self, player_id: str) -> dict[str, int] | None:
+    def _retreat_obligations_for_player_id(
+        self, player_id: str
+    ) -> dict[str, int] | None:
         """
         Per-viewer mandatory retreat obligations for the player's faction.
 
@@ -385,8 +345,10 @@ class GameServer:
         return out or None
 
     def _title_extension_key(self) -> str | None:
-        raw = self._get_attr("title_state_extension_key", None, type=str, strip=True)
-        return raw if raw else None
+        raw = self.game_data.title_state_extension_key
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+        return None
 
     def _turn_rules_wire(self) -> dict[str, Any]:
         """Full turn rota + budget + fingerprint for thin clients (no game pack on disk)."""
@@ -400,11 +362,12 @@ class GameServer:
             "movement_budget": budget,
             "rota_id": _turn_rules_rota_id(entries),
         }
+        gd = self.game_data
         # Thin clients need a scalar stacking limit for drag preview and warnings.
-        raw_stack = self.hooks.movement.stack_limit(self.action_manager.current_state)
-        if raw_stack is not HOOKS_DEFAULT and raw_stack is not None:
+        mx = gd.max_active_units_per_hex
+        if mx is not None:
             try:
-                n = int(raw_stack)
+                n = int(mx)
             except (TypeError, ValueError):
                 n = 0
             if n > 0:
@@ -416,10 +379,10 @@ class GameServer:
             facs = []
         if facs:
             fd = getattr(self._game_definition, "faction_display_name", None)
-            fd_map = getattr(self._game_definition, "faction_display_names", None)
+            fd_map = gd.faction_display_names
             fc = getattr(self._game_definition, "faction_css_class", None)
-            fc_map = getattr(self._game_definition, "faction_css_classes", None)
-            rows: list[dict[str, Any]] = []
+            fc_map = gd.faction_css_classes
+            resolved: list[tuple[str, str | None, str | None]] = []
             for f in facs:
                 fid = str(f)
                 label: str | None = None
@@ -446,58 +409,84 @@ class GameServer:
                     raw = fc_map.get(fid)
                     if isinstance(raw, str) and raw.strip():
                         css_class = raw.strip()
-                row: dict[str, Any] = {"id": fid}
-                if label is not None:
-                    row["label"] = label
-                if css_class is not None:
-                    row["css_class"] = css_class
-                rows.append(row)
-            if rows:
+                resolved.append((fid, label, css_class))
+
+            missing_labels = sorted(fid for fid, lab, _ in resolved if lab is None)
+            if missing_labels:
+                ids = ", ".join(missing_labels)
+                out["faction_display_contract_error"] = {
+                    "schema": 1,
+                    "text": (
+                        "Hexengine faction UI contract: every schedule faction needs a "
+                        f"non-empty display label. Missing labels for: {ids}. "
+                        "Provide `GameData.faction_display_names` (for example the "
+                        "`[faction_display_names]` table in title game_data TOML) or implement "
+                        "`GameDefinition.faction_display_name(faction_id) -> str`."
+                    ),
+                    "missing_faction_ids": missing_labels,
+                }
+            else:
+                rows: list[dict[str, Any]] = []
+                for fid, lab, css_class in resolved:
+                    assert lab is not None
+                    row: dict[str, Any] = {"id": fid, "label": lab}
+                    if css_class is not None:
+                        row["css_class"] = css_class
+                    rows.append(row)
                 out["faction_ui"] = {"schema": 1, "factions": rows}
-            css_raw = getattr(self._game_definition, "title_css", None)
-            css_text: str | None = None
-            if callable(css_raw):
-                try:
-                    v = css_raw()
-                    if isinstance(v, str) and v.strip():
-                        css_text = v
-                except Exception:
-                    css_text = None
-            elif isinstance(css_raw, str) and css_raw.strip():
-                css_text = css_raw
-            if css_text is not None:
-                out.setdefault("faction_ui", {"schema": 1, "factions": rows})["css"] = css_text
-            css_file_raw = getattr(self._game_definition, "title_css_file", None)
-            css_href: str | None = None
-            if callable(css_file_raw):
-                try:
-                    v = css_file_raw()
-                    if isinstance(v, str) and v.strip():
-                        css_href = _resolve_title_resource_href(self._game_definition, v)
-                except Exception:
-                    css_href = None
-            elif isinstance(css_file_raw, str) and css_file_raw.strip():
-                css_href = _resolve_title_resource_href(self._game_definition, css_file_raw)
-            if css_href:
-                out.setdefault("faction_ui", {"schema": 1, "factions": rows})[
-                    "css_href"
-                ] = css_href
+                css_text: str | None = None
+                tcss = gd.title_css
+                if isinstance(tcss, str) and tcss.strip():
+                    css_text = tcss.strip()
+                else:
+                    css_raw = getattr(self._game_definition, "title_css", None)
+                    if callable(css_raw):
+                        try:
+                            v = css_raw()
+                            if isinstance(v, str) and v.strip():
+                                css_text = v
+                        except Exception:
+                            css_text = None
+                    elif isinstance(css_raw, str) and css_raw.strip():
+                        css_text = css_raw
+                if css_text is not None:
+                    out["faction_ui"]["css"] = css_text
+                css_href: str | None = None
+                tfile = gd.title_css_file
+                if isinstance(tfile, str) and tfile.strip():
+                    css_href = _resolve_title_resource_href(
+                        self._game_definition, tfile.strip()
+                    )
+                else:
+                    css_file_raw = getattr(
+                        self._game_definition, "title_css_file", None
+                    )
+                    if callable(css_file_raw):
+                        try:
+                            v = css_file_raw()
+                            if isinstance(v, str) and v.strip():
+                                css_href = _resolve_title_resource_href(
+                                    self._game_definition, v
+                                )
+                        except Exception:
+                            css_href = None
+                    elif isinstance(css_file_raw, str) and css_file_raw.strip():
+                        css_href = _resolve_title_resource_href(
+                            self._game_definition, css_file_raw
+                        )
+                if css_href:
+                    out["faction_ui"]["css_href"] = css_href
         # Optional title-provided highlight styling for move/retreat/marker previews.
-        ui_raw = getattr(self._game_definition, "hex_highlight_ui", None)
-        ui: dict[str, Any] | None = None
-        if callable(ui_raw):
-            try:
-                v = ui_raw()
-                if isinstance(v, dict):
-                    ui = v
-            except Exception:
-                ui = None
-        elif isinstance(ui_raw, dict):
-            ui = ui_raw
+        ui = dict(gd.hex_highlight_ui) if gd.hex_highlight_ui else None
         if ui:
             # Minimal validation + normalization: keep only known keys.
             out_ui: dict[str, Any] = {"schema": 1}
-            for k in ("move_hex_class", "retreat_hex_class", "marker_hex_class"):
+            for k in (
+                "move_hex_class",
+                "retreat_hex_class",
+                "retreat_through_hex_class",
+                "marker_hex_class",
+            ):
                 raw = ui.get(k)
                 if isinstance(raw, str) and raw.strip():
                     out_ui[k] = raw.strip()
@@ -506,9 +495,9 @@ class GameServer:
         tek = self._title_extension_key()
         if tek:
             out["title_state_extension_key"] = tek
-        attr_key = self._get_attr("movement_budget_attribute_key", None, type=str, strip=True)
-        if isinstance(attr_key, str) and attr_key:
-            out["movement_budget_attribute"] = attr_key
+        attr_key = gd.movement_budget_attribute_key
+        if isinstance(attr_key, str) and attr_key.strip():
+            out["movement_budget_attribute"] = attr_key.strip()
         out["client_contract"] = {
             "schema": 1,
             "features": sorted(
@@ -516,14 +505,21 @@ class GameServer:
                 for f in (
                     "suggested_focus_unit_id"
                     if callable(
-                        getattr(self._game_definition, "focus_unit_id_after_state_sync", None)
+                        getattr(
+                            self._game_definition,
+                            "focus_unit_id_after_state_sync",
+                            None,
+                        )
                     )
                     else None,
                     "retreat_obligations"
-                    if getattr(self.hooks.movement, "retreat_obligation_hexes_remaining", None)
+                    if getattr(
+                        self.hooks.movement, "retreat_obligation_hexes_remaining", None
+                    )
                     else None,
                     "zoc_hexes_for_unit"
-                    if getattr(self.hooks.movement, "zoc_hexes_for_unit", None) is not None
+                    if getattr(self.hooks.movement, "zoc_hexes_for_unit", None)
+                    is not None
                     else None,
                 )
                 if f is not None
@@ -543,10 +539,7 @@ class GameServer:
         if isinstance(raw, list) and raw:
             out: list[Hex] = []
             for item in raw:
-                if (
-                    isinstance(item, (list, tuple))
-                    and len(item) == 3
-                ):
+                if isinstance(item, (list, tuple)) and len(item) == 3:
                     try:
                         out.append(Hex(int(item[0]), int(item[1]), int(item[2])))
                     except Exception:
@@ -703,15 +696,19 @@ class GameServer:
     def _after_next_phase_applied(self) -> None:
         """Title hook then strip title combat keys from the pack extension bucket."""
         self._invoke_phase_transition_hook()
+        try:
+            self.action_manager.execute(WriteHexengineMovementArc(None))
+        except Exception as e:
+            self.logger.error(
+                "WriteHexengineMovementArc clear failed: %s", e, exc_info=True
+            )
         ek = self._title_extension_key()
         if not ek:
             return
         try:
             self.action_manager.execute(ClearTitleCombatExtension(ek))
         except Exception as e:
-            self.logger.error(
-                "ClearTitleCombatExtension failed: %s", e, exc_info=True
-            )
+            self.logger.error("ClearTitleCombatExtension failed: %s", e, exc_info=True)
 
     def _retreat_obligation_hexes_remaining(
         self, state: GameState, unit_id: str | None
@@ -719,7 +716,7 @@ class GameServer:
         if not unit_id:
             return None
         out = self.hooks.movement.retreat_remaining(state, unit_id)
-        if out is HOOKS_DEFAULT:
+        if out is ENGINE_DEFAULT:
             return None
         try:
             n = int(out) if out is not None else None
@@ -729,7 +726,7 @@ class GameServer:
 
     def _faction_has_pending_retreat(self, state: GameState, faction: str) -> bool:
         out = self.hooks.movement.faction_retreat_pending(state, faction)
-        if out is HOOKS_DEFAULT:
+        if out is ENGINE_DEFAULT:
             return False
         return bool(out)
 
@@ -744,23 +741,89 @@ class GameServer:
             return u.faction if u else None
         return None
 
-    def _combat_instruction_for_player(
-        self, recipient_faction: str, *, outcome: str, retreat_owner_faction: str | None
+    def _combat_instruction_for_viewer(
+        self,
+        state: GameState,
+        recipient_faction: str | None,
+        *,
+        outcome: str,
+        retreat_owner_faction: str | None,
     ) -> tuple[str, str]:
-        if outcome == "defender_destroyed":
-            return "resolved", "Defender destroyed."
-        if outcome == "none":
-            return "resolved", "Combat resolved with no effect."
-        if retreat_owner_faction is None:
-            return "resolved", "Combat resolved."
-        if recipient_faction == retreat_owner_faction:
-            return (
-                "retreat_required",
-                "You must retreat this unit in one move (exact hex distance).",
-            )
-        return "wait", "Waiting for the opponent to complete a mandatory retreat."
+        """Resolve per-viewer combat line via `UIHooks` or engine default."""
 
-    def _interaction_messages_for_player_id(self, player_id: str) -> list[dict[str, Any]] | None:
+        ctx = CombatInteractionContext(
+            state=state,
+            viewer_faction=recipient_faction,
+            outcome=outcome,
+            retreat_owner_faction=retreat_owner_faction,
+        )
+        raw = self.hooks.ui.combat_instruction(ctx)
+        if raw is ENGINE_DEFAULT:
+            return default_combat_instruction_for_viewer(ctx)
+        if (
+            isinstance(raw, tuple)
+            and len(raw) == 2
+            and isinstance(raw[0], str)
+            and isinstance(raw[1], str)
+        ):
+            return raw[0], raw[1]
+        raise TypeError(
+            "hooks.ui.combat_instruction_for_viewer must return (str, str) or hooks.ENGINE_DEFAULT"
+        )
+
+    def _advance_gate_banner_text_pair(
+        self,
+        state: GameState,
+        viewer_faction: str | None,
+        advancing_faction: str,
+    ) -> tuple[str, str]:
+        """Return (line for the advancing faction viewer, line for other viewers)."""
+
+        ctx = AdvanceGateInteractionContext(
+            state=state,
+            viewer_faction=viewer_faction,
+            advancing_faction=advancing_faction,
+        )
+        raw = self.hooks.ui.advance_gate_banners(ctx)
+        if raw is ENGINE_DEFAULT:
+            return default_advance_gate_banners_for_viewer(ctx)
+        if (
+            isinstance(raw, tuple)
+            and len(raw) == 2
+            and isinstance(raw[0], str)
+            and isinstance(raw[1], str)
+        ):
+            return raw[0], raw[1]
+        raise TypeError(
+            "hooks.ui.advance_gate_banners_for_viewer must return (str, str) or hooks.ENGINE_DEFAULT"
+        )
+
+    def _phase_interaction_banner_text(
+        self, state: GameState, viewer_faction: str | None
+    ) -> str:
+        """Single line for the default phase `kind: phase` interaction row."""
+
+        t = state.turn
+        ctx = PhaseBannerContext(
+            state=state,
+            viewer_faction=viewer_faction,
+            current_faction=str(t.current_faction),
+            current_phase=str(t.current_phase),
+            schedule_index=int(t.schedule_index),
+            phase_actions_remaining=int(t.phase_actions_remaining),
+        )
+        raw = self.hooks.ui.phase_banner_text(ctx)
+        if raw is ENGINE_DEFAULT:
+            return default_phase_banner_text_for_viewer(ctx)
+        if isinstance(raw, str):
+            return raw
+        raise TypeError(
+            "hooks.ui.phase_banner_text_for_viewer must return str or hooks.ENGINE_DEFAULT"
+        )
+
+    def _interaction_messages_for_player_id(
+        self, player_id: str
+    ) -> list[dict[str, Any]] | None:
         """
         Per-recipient transient UI messages delivered via `StateUpdate`.
 
@@ -775,27 +838,23 @@ class GameServer:
         # Title override: allow full control via hooks.ui.interaction_messages.
         viewer_faction = str(player.faction) if player.faction else None
         title_out = self.hooks.ui.messages(st, viewer_faction)
-        if title_out is not HOOKS_DEFAULT:
+        if title_out is not ENGINE_DEFAULT:
             return list(title_out) if isinstance(title_out, list) else None
 
         out: list[dict[str, Any]] = []
 
         # Phase/turn transition banner (deduped client-side).
-        sig = (
-            str(st.turn.current_faction),
-            str(st.turn.current_phase),
-            int(st.turn.schedule_index),
-            int(st.turn.phase_actions_remaining),
-        )
+        schedule_index = int(st.turn.schedule_index)
+        phase_line = self._phase_interaction_banner_text(st, viewer_faction)
         out.append(
             {
                 "schema": 1,
                 "kind": "phase",
-                "dedupe_key": f"phase:{sig[2]}",
+                "dedupe_key": f"phase:{schedule_index}",
                 # No ttl: turn/phase is persistent until the next StateUpdate replaces it.
                 "ttl_ms": None,
                 "css_class": "interaction-msg--phase",
-                "text": f"{sig[0]}: {sig[1]} (actions: {sig[3]})",
+                "text": phase_line,
             }
         )
 
@@ -812,8 +871,9 @@ class GameServer:
                     retreat_owner = self._retreat_owner_faction(
                         st, outcome, attacker_id, defender_id
                     )
-                    inst, msg = self._combat_instruction_for_player(
-                        str(player.faction),
+                    inst, msg = self._combat_instruction_for_viewer(
+                        st,
+                        str(player.faction) if player.faction else None,
                         outcome=outcome,
                         retreat_owner_faction=retreat_owner,
                     )
@@ -860,28 +920,34 @@ class GameServer:
                         if isinstance(adv, dict)
                         else ""
                     )
-                    if adv_faction and adv_faction == str(player.faction):
-                        out.append(
-                            {
-                                "schema": 1,
-                                "kind": "advance",
-                                "dedupe_key": "combat_advance",
-                                "ttl_ms": None,
-                                "css_class": "interaction-msg--advance",
-                                "text": "Advance is available (click Advance).",
-                            }
+                    if adv_faction:
+                        t_adv, t_wait = self._advance_gate_banner_text_pair(
+                            st,
+                            str(player.faction) if player.faction else None,
+                            adv_faction,
                         )
-                    elif adv_faction:
-                        out.append(
-                            {
-                                "schema": 1,
-                                "kind": "wait",
-                                "dedupe_key": "combat_advance_wait",
-                                "ttl_ms": None,
-                                "css_class": "interaction-msg--wait",
-                                "text": "Waiting for the opponent to advance.",
-                            }
-                        )
+                        if adv_faction == str(player.faction):
+                            out.append(
+                                {
+                                    "schema": 1,
+                                    "kind": "advance",
+                                    "dedupe_key": "combat_advance",
+                                    "ttl_ms": None,
+                                    "css_class": "interaction-msg--advance",
+                                    "text": t_adv,
+                                }
+                            )
+                        else:
+                            out.append(
+                                {
+                                    "schema": 1,
+                                    "kind": "wait",
+                                    "dedupe_key": "combat_advance_wait",
+                                    "ttl_ms": None,
+                                    "css_class": "interaction-msg--wait",
+                                    "text": t_wait,
+                                }
+                            )
 
         return out or None
 
@@ -899,7 +965,7 @@ class GameServer:
         st = self.action_manager.current_state
         viewer_faction = str(player.faction) if player.faction else None
         raw = self.hooks.ui.overlays(st, viewer_faction)
-        if raw is HOOKS_DEFAULT:
+        if raw is ENGINE_DEFAULT:
             return []
         if not isinstance(raw, list):
             return []
@@ -988,8 +1054,9 @@ class GameServer:
         for pid, pinfo in self.players.items():
             if not pinfo.connected:
                 continue
-            inst, msg = self._combat_instruction_for_player(
-                pinfo.faction,
+            inst, msg = self._combat_instruction_for_viewer(
+                state_after,
+                str(pinfo.faction) if pinfo.faction else None,
                 outcome=outcome,
                 retreat_owner_faction=retreat_owner,
             )
@@ -1025,125 +1092,40 @@ class GameServer:
         # Treat MoveUnit to the vacated defender hex as an optional combat advance.
         is_advance_fulfillment = False
         if request.action_type == "MoveUnit":
-            ek_adv = self._title_extension_key()
-            if ek_adv:
-                hx_adv = current_state.extension.get(ek_adv)
-                if (
-                    isinstance(hx_adv, dict)
-                    and str(hx_adv.get("combat_gate", "")).strip() == "awaiting_advance"
-                ):
-                    adv = hx_adv.get("advance")
-                    if isinstance(adv, dict) and str(adv.get("faction", "")).strip() == str(
-                        player.faction
-                    ):
-                        to_hex_raw = adv.get("to_hex")
-                        unit_ids_raw = adv.get("unit_ids")
-                        if (
-                            isinstance(to_hex_raw, dict)
-                            and isinstance(unit_ids_raw, list)
-                            and isinstance(request.params.get("unit_id"), str)
-                            and isinstance(request.params.get("to_hex"), dict)
-                        ):
-                            try:
-                                adv_to = Hex(
-                                    int(to_hex_raw["i"]),
-                                    int(to_hex_raw["j"]),
-                                    int(to_hex_raw["k"]),
-                                )
-                            except Exception:
-                                adv_to = None
-                            if adv_to is not None:
-                                try:
-                                    req_to = Hex(**request.params["to_hex"])
-                                except Exception:
-                                    req_to = None
-                                uid = str(request.params["unit_id"]).strip()
-                                if (
-                                    req_to == adv_to
-                                    and uid
-                                    and uid in {str(x) for x in unit_ids_raw if isinstance(x, str)}
-                                ):
-                                    is_advance_fulfillment = True
+            is_advance_fulfillment = move_unit_is_combat_advance_fulfillment(
+                current_state,
+                request.params,
+                player_faction=str(player.faction),
+                extension_key=self._title_extension_key(),
+            )
 
         if request.action_type == "CombatDisruptInsteadOfRetreat":
-            ek = self._title_extension_key()
-            if not ek:
+            await handle_combat_disrupt_instead_of_retreat(self, player_id, player)
+            return
+
+        if request.action_type == "CombatAdvance":
+            await handle_combat_advance_rpc(self, player_id, player)
+            return
+
+        if request.action_type == "PassMovementInterrupt":
+            if player.faction != current_faction:
                 await self._send_error(
-                    player_id,
-                    "This game title does not define a state extension key for combat",
+                    player_id, f"Not your turn (current: {current_faction})"
                 )
                 return
-            st0 = self.action_manager.current_state
-            hx0 = st0.extension.get(ek)
-            if (
-                not isinstance(hx0, dict)
-                or str(hx0.get("combat_gate", "")).strip()
-                != "awaiting_retreat_or_disrupt"
+            if not phase_allows_movement_interrupt_pass(
+                current_state.turn.current_phase
             ):
                 await self._send_error(
-                    player_id, "Cannot take disruption instead of retreat right now"
-                )
-                return
-            ro0 = hx0.get("retreat_obligations")
-            ro0 = ro0 if isinstance(ro0, dict) else {}
-            has_ob = False
-            for uid, raw in ro0.items():
-                try:
-                    if int(raw) <= 0:
-                        continue
-                except (TypeError, ValueError):
-                    continue
-                u = st0.board.units.get(str(uid))
-                if (
-                    u is not None
-                    and u.active
-                    and u.faction == player.faction
-                ):
-                    has_ob = True
-                    break
-            if not has_ob:
-                await self._send_error(
-                    player_id, "No mandatory retreat to waive for your units"
+                    player_id, "No movement interrupt to pass right now"
                 )
                 return
             try:
                 self.action_manager.execute(
-                    ResolveDisruptInsteadOfRetreat(ek, str(player.faction))
+                    ResolvePassMovementInterrupt(str(player.faction))
                 )
             except Exception as e:
-                await self._send_error(player_id, f"Action failed: {e}")
-                return
-            result = ActionResult(success=True, action_id=str(uuid.uuid4()))
-            await self._send_message(player_id, result.to_message())
-            await self._broadcast_state_update()
-            return
-
-        if request.action_type == "CombatAdvance":
-            ek = self._title_extension_key()
-            if not ek:
-                await self._send_error(
-                    player_id,
-                    "This game title does not define a state extension key for combat",
-                )
-                return
-            st0 = self.action_manager.current_state
-            hx0 = st0.extension.get(ek)
-            if (
-                not isinstance(hx0, dict)
-                or str(hx0.get("combat_gate", "")).strip() != "awaiting_advance"
-            ):
-                await self._send_error(player_id, "No combat advance is pending right now")
-                return
-            adv = hx0.get("advance")
-            if not isinstance(adv, dict) or str(adv.get("faction", "")).strip() != str(
-                player.faction
-            ):
-                await self._send_error(player_id, "You are not allowed to advance right now")
-                return
-            try:
-                self.action_manager.execute(ResolveCombatAdvance(ek, str(player.faction)))
-            except Exception as e:
-                await self._send_error(player_id, f"Action failed: {e}")
+                await self._send_error(player_id, str(e))
                 return
             result = ActionResult(success=True, action_id=str(uuid.uuid4()))
             await self._send_message(player_id, result.to_message())
@@ -1156,119 +1138,15 @@ class GameServer:
                     player_id, f"Not your turn (current: {current_faction})"
                 )
                 return
-            params = request.params
-            try:
-                # Prefer structured hooks bundle, fallback to legacy GameDefinition hook.
-                attack_kind = str(params.get("attack_kind", ""))
-                att = str(params.get("attacker_id", ""))
-                deff = str(params.get("defender_id", ""))
-                if not att or not deff:
-                    raise ValueError("Attack requires attacker_id and defender_id")
-                au = current_state.board.units.get(att)
-                du = current_state.board.units.get(deff)
-                if au is None or du is None:
-                    raise ValueError("Unknown attacker or defender unit id")
-                attacker_ids = _normalize_attack_party_ids(
-                    params, anchor_id=att, plural_key="attacker_ids"
-                )
-                defender_ids = _normalize_attack_party_ids(
-                    params, anchor_id=deff, plural_key="defender_ids"
-                )
-                for aid in attacker_ids:
-                    a = current_state.board.units.get(aid)
-                    if a is None or not a.active:
-                        raise ValueError("Unknown attacker or inactive unit")
-                    if a.faction != player.faction:
-                        raise ValueError("You do not control one of the attackers")
-                for did in defender_ids:
-                    d = current_state.board.units.get(did)
-                    if d is None or not d.active:
-                        raise ValueError("Unknown defender or inactive unit")
-                    if au.faction == d.faction:
-                        raise ValueError("Cannot attack same faction")
-                attacker_hexes = _sorted_unique_hexes_from_unit_ids(
-                    current_state, attacker_ids
-                )
-                defender_hexes = _sorted_unique_hexes_from_unit_ids(
-                    current_state, defender_ids
-                )
-                wire_att_hexes = _optional_wire_hex_frozenset(params, "attacker_hexes")
-                wire_def_hexes = _optional_wire_hex_frozenset(params, "defender_hexes")
-                if wire_att_hexes is not None and wire_att_hexes != frozenset(
-                    attacker_hexes
-                ):
-                    raise ValueError("attacker_hexes does not match attacker unit positions")
-                if wire_def_hexes is not None and wire_def_hexes != frozenset(
-                    defender_hexes
-                ):
-                    raise ValueError("defender_hexes does not match defender unit positions")
-                ctx = AttackContext(
-                    state=current_state,
-                    attacker_ids=attacker_ids,
-                    defender_ids=defender_ids,
-                    attacker_hexes=attacker_hexes,
-                    defender_hexes=defender_hexes,
-                    player_faction=player.faction,
-                    attack_kind=attack_kind,
-                    params=params,
-                )
-                hv = self.hooks.attack.validate(ctx)
-                if hv is HOOKS_DEFAULT:
-                    raise ValueError("This game title does not support Attack actions")
-                hr = self.hooks.attack.resolve(ctx)
-                if hr is HOOKS_DEFAULT:
-                    raise ValueError("This game title does not resolve Attack actions")
-            except Exception as e:
-                await self._send_error(player_id, str(e))
+            ok = await execute_authority_attack_request(
+                self,
+                player_id=player_id,
+                player_faction=str(player.faction),
+                current_state=current_state,
+                params=request.params,
+            )
+            if not ok:
                 return
-            ek = self._title_extension_key()
-            if not ek:
-                await self._send_error(
-                    player_id,
-                    "This game title does not define a state extension key for combat",
-                )
-                return
-            try:
-                hr_att = getattr(hr, "attacker_ids", None)
-                hr_def = getattr(hr, "defender_ids", None)
-                atk = Attack(
-                    attack_kind,
-                    att,
-                    deff,
-                    extension_key=ek,
-                    outcome=str(getattr(hr, "outcome", "")),
-                    attacker_ids=hr_att if hr_att is not None else ctx.attacker_ids,
-                    defender_ids=hr_def if hr_def is not None else ctx.defender_ids,
-                    retreat_distance=getattr(hr, "retreat_distance", None),
-                    retreat_unit_id=getattr(hr, "retreat_unit_id", None),
-                    rng_entry=getattr(hr, "rng_entry", None),
-                )
-                self.action_manager.execute(atk)
-                hr_eff = getattr(hr, "effects", None)
-                if isinstance(hr_eff, dict) and hr_eff:
-                    self.action_manager.execute(ApplyCombatEffects(ek, hr_eff))
-            except Exception as e:
-                await self._send_error(player_id, f"Action failed: {e}")
-                return
-            st_after = self.action_manager.current_state
-            await self._broadcast_combat_events(st_after)
-            adv = self.hooks.attack.auto_advance(st_after)
-            if adv is not HOOKS_DEFAULT and bool(adv):
-                next_phase_info = self._get_next_phase()
-                self.logger.info(
-                    "Auto-advancing phase after attack (%s → %s %s)",
-                    st_after.turn.current_faction,
-                    next_phase_info["faction"],
-                    next_phase_info["phase"],
-                )
-                next_phase_action = NextPhase(
-                    new_faction=next_phase_info["faction"],
-                    new_phase=next_phase_info["phase"],
-                    max_actions=next_phase_info["max_actions"],
-                    new_schedule_index=int(next_phase_info["schedule_index"]),
-                )
-                self.action_manager.execute(next_phase_action)
-                self._after_next_phase_applied()
             result = ActionResult(success=True, action_id=str(uuid.uuid4()))
             await self._send_message(player_id, result.to_message())
             await self._broadcast_state_update()
@@ -1299,21 +1177,7 @@ class GameServer:
 
         # Optional advance path: MoveUnit into the advance hex resolves CombatAdvance.
         if request.action_type == "MoveUnit" and is_advance_fulfillment:
-            ek = self._title_extension_key()
-            if not ek:
-                await self._send_error(
-                    player_id,
-                    "This game title does not define a state extension key for combat",
-                )
-                return
-            try:
-                self.action_manager.execute(ResolveCombatAdvance(ek, str(player.faction)))
-            except Exception as e:
-                await self._send_error(player_id, f"Action failed: {e}")
-                return
-            result = ActionResult(success=True, action_id=str(uuid.uuid4()))
-            await self._send_message(player_id, result.to_message())
-            await self._broadcast_state_update()
+            await handle_move_unit_combat_advance_resolution(self, player_id, player)
             return
 
         if request.action_type == "MoveMarker":
@@ -1397,6 +1261,11 @@ class GameServer:
             return
 
         if request.action_type == "MoveUnit":
+            if not is_retreat_fulfillment:
+                if await handle_authority_move_unit_normal(
+                    self, player_id, player, request, current_state
+                ):
+                    return
             try:
                 self._validate_move_unit_request(
                     current_state,
@@ -1411,6 +1280,10 @@ class GameServer:
         # Create action from request (NextPhase is always server-authoritative)
         try:
             if request.action_type == "NextPhase":
+                if read_movement_arc(self.action_manager.current_state):
+                    raise ValueError(
+                        "Advance phase is blocked while a movement arc is incomplete"
+                    )
                 info = self._get_next_phase()
                 action = NextPhase(
                     new_faction=info["faction"],
@@ -1437,82 +1310,18 @@ class GameServer:
             if request.action_type == "MoveUnit" and is_retreat_fulfillment:
                 if uid_for_move is None:
                     raise RuntimeError("MoveUnit retreat without unit_id")
-                # Stacked retreat: if any unit in a friendly stack owes retreat, the whole
-                # stack retreats to the same destination.
-                r_ek = self._title_extension_key()
-                fh, th = request.params.get("from_hex"), request.params.get("to_hex")
-                if isinstance(fh, dict) and isinstance(th, dict):
-                    from_hex = Hex(**fh)
-                    to_hex = Hex(**th)
-                else:
-                    from_hex = None
-                    to_hex = None
-                to_move: list[str] = []
-                if from_hex is not None and to_hex is not None:
-                    st_before = current_state
-                    for u in st_before.board.active_units_at_hex(from_hex):
-                        if u.faction != player.faction:
-                            continue
-                        if self._retreat_obligation_hexes_remaining(st_before, u.unit_id) is None:
-                            continue
-                        to_move.append(u.unit_id)
-                # Ensure the requested unit is included (at least itself).
-                if uid_for_move not in to_move:
-                    to_move = [uid_for_move]
-                # Move remaining stackmates (requested unit was already moved by `action`).
-                if from_hex is not None and to_hex is not None:
-                    for other_uid in to_move:
-                        if other_uid == uid_for_move:
-                            continue
-                        self._validate_move_unit_request(
-                            self.action_manager.current_state,
-                            {
-                                "unit_id": other_uid,
-                                "from_hex": fh,
-                                "to_hex": th,
-                            },
-                            player,
-                            is_retreat_fulfillment=True,
-                        )
-                        self.action_manager.execute(
-                            MoveUnit(other_uid, from_hex=from_hex, to_hex=to_hex)
-                        )
-                if r_ek:
-                    for moved_uid in to_move:
-                        self.action_manager.execute(
-                            ClearUnitRetreatObligation(moved_uid, r_ek)
-                        )
-                    self._maybe_open_combat_advance_after_retreat(r_ek)
+                finalize_retreat_fulfillment_stack(
+                    self,
+                    uid_for_move=uid_for_move,
+                    player=player,
+                    request=request,
+                    st_before=current_state,
+                )
 
             # Spend an action for normal moves (retreat fulfillment never spends)
             if request.action_type == "MoveUnit" and not is_retreat_fulfillment:
                 try:
-                    self.logger.debug("Spending 1 action for MoveUnit")
-                    spend_action = SpendAction(amount=1)
-                    self.action_manager.execute(spend_action)
-
-                    # Check if we need to advance to next phase
-                    current_state = self.action_manager.current_state
-                    self.logger.debug(
-                        f"After spending: {current_state.turn.current_faction}-"
-                        f"{current_state.turn.current_phase}, "
-                        f"actions remaining: {current_state.turn.phase_actions_remaining}"
-                    )
-
-                    if current_state.turn.phase_actions_remaining <= 0:
-                        next_phase_info = self._get_next_phase()
-                        self.logger.info("Actions depleted, advancing to next phase")
-                        next_phase_action = NextPhase(
-                            new_faction=next_phase_info["faction"],
-                            new_phase=next_phase_info["phase"],
-                            max_actions=next_phase_info["max_actions"],
-                            new_schedule_index=int(next_phase_info["schedule_index"]),
-                        )
-                        self.action_manager.execute(next_phase_action)
-                        self._after_next_phase_applied()
-                        self.logger.info(
-                            f"Advanced to {next_phase_info['faction']}-{next_phase_info['phase']}"
-                        )
+                    self._spend_action_after_normal_move_unit()
                 except Exception as e:
                     self.logger.error(f"Error in turn advancement: {e}", exc_info=True)
 
@@ -1554,7 +1363,7 @@ class GameServer:
             return
 
         pm = self.hooks.ui.popup(state, viewer_faction, target_kind, target_id)
-        if pm is HOOKS_DEFAULT or pm is None:
+        if pm is ENGINE_DEFAULT or pm is None:
             # Engine defaults are intentionally minimal (mostly for local debugging).
             if target_kind == "unit":
                 u = state.board.units.get(target_id)
@@ -1563,7 +1372,11 @@ class GameServer:
                 txt = f"{target_kind} {target_id}"
             popup = UIPopupWire(
                 text=txt,
-                hex={"i": int(anchor_hex.i), "j": int(anchor_hex.j), "k": int(anchor_hex.k)},
+                hex={
+                    "i": int(anchor_hex.i),
+                    "j": int(anchor_hex.j),
+                    "k": int(anchor_hex.k),
+                },
             )
             await self._send_message(player_id, popup.to_message())
             return
@@ -1584,7 +1397,11 @@ class GameServer:
         popup = UIPopupWire(
             text=txt or None,
             html=html or None,
-            hex={"i": int(anchor_hex.i), "j": int(anchor_hex.j), "k": int(anchor_hex.k)},
+            hex={
+                "i": int(anchor_hex.i),
+                "j": int(anchor_hex.j),
+                "k": int(anchor_hex.k),
+            },
             kind=kind,
             ttl_ms=ttl_ms,
             css_class=css_class,
@@ -1694,10 +1511,12 @@ class GameServer:
 
             budget = float(rem)
             blocked = self.hooks.movement.retreat_blocked(state, unit_id)
-            if blocked is HOOKS_DEFAULT or blocked is None:
+            if blocked is ENGINE_DEFAULT or blocked is None:
                 blocked_hexes = None
             else:
-                blocked_hexes = blocked if isinstance(blocked, frozenset) else frozenset(blocked)
+                blocked_hexes = (
+                    blocked if isinstance(blocked, frozenset) else frozenset(blocked)
+                )
             max_stack = self._max_active_units_per_hex(state, unit_id)
             step_fn = self._movement_step_cost_fn(unit_id)
 
@@ -1717,9 +1536,15 @@ class GameServer:
             through_set: list[dict[str, int]] = []
             for h in reachable.keys():
                 # never highlight enemy-occupied hexes as retreat options
-                if any(x.faction != player.faction for x in state.board.active_units_at_hex(h)):
+                if any(
+                    x.faction != player.faction
+                    for x in state.board.active_units_at_hex(h)
+                ):
                     continue
-                if max_stack is not None and len(state.board.active_units_at_hex(h)) >= max_stack:
+                if (
+                    max_stack is not None
+                    and len(state.board.active_units_at_hex(h)) >= max_stack
+                ):
                     continue
                 if h != start:
                     through_set.append({"i": int(h.i), "j": int(h.j), "k": int(h.k)})
@@ -1853,7 +1678,6 @@ class GameServer:
             return
 
         self.action_manager.replace_state(new_state)
-        self.game_state = self.action_manager.current_state
         self.logger.info(f"Loaded snapshot from {player.player_name}")
 
         await self._broadcast_state_update()
@@ -1973,45 +1797,41 @@ class GameServer:
 
     def _movement_budget_for_unit(self, state: GameState, unit_id: str) -> float:
         out = self.hooks.movement.budget(state, unit_id)
-        if out is not HOOKS_DEFAULT:
+        if out is not ENGINE_DEFAULT:
             try:
                 return float(out)
             except (TypeError, ValueError):
                 raise TypeError(
-                    "Movement hook movement_budget_for_unit must return a number or hooks.DEFAULT"
+                    "Movement hook movement_budget_for_unit must return a number or hooks.ENGINE_DEFAULT"
                 ) from None
-        return float(DEFAULT_MOVEMENT_BUDGET)
+        fn = get_engine_catalog_hook("movement.movement_budget_for_unit")
+        if fn is None:
+            raise RuntimeError(
+                "Engine hook catalog missing movement.movement_budget_for_unit"
+            )
+        return fn(state, unit_id)
 
     def _max_active_units_per_hex(self, state: GameState, unit_id: str) -> int | None:
         """
         Max active units allowed to *end* stacked on a hex for this unit, or None.
 
-        Titles can supply this via hooks (`hooks.movement.stacking_policy_for_unit`).
+        Authoritative value comes from `GameServer.game_data.max_active_units_per_hex`.
         """
+        _ = state, unit_id
+        raw = self.game_data.max_active_units_per_hex
+        if raw is None:
+            return None
+        try:
+            n = int(raw)
+        except (TypeError, ValueError):
+            return None
+        return n if n > 0 else None
 
-        pol = self.hooks.movement.stacking(state, unit_id)
-        if pol is not HOOKS_DEFAULT:
-            limit = getattr(pol, "limit", None)
-            try:
-                n = int(limit)
-            except (TypeError, ValueError):
-                raise TypeError(
-                    "Movement hook stacking_policy_for_unit must return a StackingPolicy "
-                    "with a positive integer .limit, or hooks.DEFAULT"
-                ) from None
-            return n if n > 0 else None
-        raw = self.hooks.movement.stack_limit(state)
-        if raw is not HOOKS_DEFAULT and raw is not None:
-            try:
-                n = int(raw)
-            except (TypeError, ValueError):
-                n = 0
-            return n if n > 0 else None
-        return None
-
-    def _zoc_hexes_for_unit(self, state: GameState, unit_id: str) -> frozenset[Hex] | None:
+    def _zoc_hexes_for_unit(
+        self, state: GameState, unit_id: str
+    ) -> frozenset[Hex] | None:
         raw = self.hooks.movement.zoc(state, unit_id)
-        if raw is HOOKS_DEFAULT or raw is None:
+        if raw is ENGINE_DEFAULT or raw is None:
             return None
         return raw if isinstance(raw, frozenset) else frozenset(raw)
 
@@ -2025,11 +1845,51 @@ class GameServer:
 
         def fn(s: GameState, from_h: Hex, to_h: Hex, base: float) -> float:
             raw = mh.step_cost_move(s, unit_id, from_h, to_h, base)
-            if raw is HOOKS_DEFAULT:
+            if raw is ENGINE_DEFAULT:
                 return base
             return float(raw)
 
         return fn
+
+    def _movement_step_total_cost(
+        self, state: GameState, unit_id: str, from_h: Hex, to_h: Hex
+    ) -> float:
+        base = state.board.get_movement_cost(to_h)
+        if base == float("inf"):
+            return float("inf")
+        fn = self._movement_step_cost_fn(unit_id)
+        if fn is None:
+            return float(base)
+        return float(fn(state, from_h, to_h, base))
+
+    async def _send_move_unit_success_and_broadcast(self, player_id: str) -> None:
+        result = ActionResult(success=True, action_id=str(uuid.uuid4()))
+        await self._send_message(player_id, result.to_message())
+        await self._broadcast_state_update()
+
+    def _spend_action_after_normal_move_unit(self) -> None:
+        self.logger.debug("Spending 1 action for MoveUnit")
+        self.action_manager.execute(SpendAction(amount=1))
+        current_state = self.action_manager.current_state
+        self.logger.debug(
+            f"After spending: {current_state.turn.current_faction}-"
+            f"{current_state.turn.current_phase}, "
+            f"actions remaining: {current_state.turn.phase_actions_remaining}"
+        )
+        if current_state.turn.phase_actions_remaining <= 0:
+            next_phase_info = self._get_next_phase()
+            self.logger.info("Actions depleted, advancing to next phase")
+            next_phase_action = NextPhase(
+                new_faction=next_phase_info["faction"],
+                new_phase=next_phase_info["phase"],
+                max_actions=next_phase_info["max_actions"],
+                new_schedule_index=int(next_phase_info["schedule_index"]),
+            )
+            self.action_manager.execute(next_phase_action)
+            self._after_next_phase_applied()
+            self.logger.info(
+                f"Advanced to {next_phase_info['faction']}-{next_phase_info['phase']}"
+            )
 
     def _validate_move_unit_request(
         self,
@@ -2080,7 +1940,7 @@ class GameServer:
                 is_retreat_fulfillment=True,
             )
             out = self.hooks.movement.validate_retreat(ctx, rem)
-            if out is HOOKS_DEFAULT:
+            if out is ENGINE_DEFAULT:
                 leg = distance(from_hex, to_hex)
                 if leg != rem:
                     raise ValueError(
@@ -2088,16 +1948,21 @@ class GameServer:
                     )
             budget = float(rem)
             blocked = self.hooks.movement.retreat_blocked(state, unit_id)
-            if blocked is HOOKS_DEFAULT or blocked is None:
+            if blocked is ENGINE_DEFAULT or blocked is None:
                 blocked_hexes = None
             else:
-                blocked_hexes = blocked if isinstance(blocked, frozenset) else frozenset(blocked)
+                blocked_hexes = (
+                    blocked if isinstance(blocked, frozenset) else frozenset(blocked)
+                )
             # Occupied destination (enemy or stacked beyond limit) is always illegal.
             for u in state.board.active_units_at_hex(to_hex):
                 if u.unit_id != unit_id and u.faction != player.faction:
                     raise ValueError("Destination hex is occupied by an enemy unit")
             max_stack = self._max_active_units_per_hex(state, unit_id)
-            if max_stack is not None and len(state.board.active_units_at_hex(to_hex)) >= max_stack:
+            if (
+                max_stack is not None
+                and len(state.board.active_units_at_hex(to_hex)) >= max_stack
+            ):
                 raise ValueError(
                     f"Destination hex already has {max_stack} active units (stacking limit)"
                 )
@@ -2130,7 +1995,10 @@ class GameServer:
             if u.unit_id != unit_id and u.faction != player.faction:
                 raise ValueError("Destination hex is occupied by an enemy unit")
         max_stack = self._max_active_units_per_hex(state, unit_id)
-        if max_stack is not None and len(state.board.active_units_at_hex(to_hex)) >= max_stack:
+        if (
+            max_stack is not None
+            and len(state.board.active_units_at_hex(to_hex)) >= max_stack
+        ):
             raise ValueError(
                 f"Destination hex already has {max_stack} active units (stacking limit)"
             )
@@ -2221,93 +2089,23 @@ class GameServer:
                 raise ValueError(f"Unknown action type: {action_type}")
 
     def _maybe_open_combat_advance_after_retreat(self, extension_key: str) -> None:
-        """
-        After retreat obligations are cleared, open an optional advance gate when:
-        - last combat outcome was `defender_retreat`
-        - the original defender hex is now empty
-        - at least one active attacker from ``last_combat.attacker_ids`` is cube-adjacent
-          to that hex (so combined / ranged attacks still allow advance from the melee stack)
-        """
+        """Delegates advance-gate policy to `AttackHooks` and engine default in `hooks.internal.advance`."""
+
         st = self.action_manager.current_state
-        hx = st.extension.get(extension_key)
-        if not isinstance(hx, dict):
-            return
-        # Don't open while another combat gate is active.
-        if str(hx.get("combat_gate", "")).strip():
-            return
-        last = hx.get("last_combat")
-        if not isinstance(last, dict):
-            return
-        if str(last.get("outcome", "")).strip() != "defender_retreat":
-            return
-
-        attacker_id = str(last.get("attacker_id", "")).strip()
-        defender_id = str(last.get("defender_id", "")).strip()
-        if not attacker_id or not defender_id:
-            return
-        raw_aids = last.get("attacker_ids")
-        if isinstance(raw_aids, list) and raw_aids:
-            attacker_ids = [
-                str(x).strip()
-                for x in raw_aids
-                if isinstance(x, str) and str(x).strip()
-            ]
+        raw = self.hooks.attack.advance_after_retreat(st, extension_key)
+        if raw is ENGINE_DEFAULT:
+            action = default_maybe_open_combat_advance_after_retreat(st, extension_key)
+        elif raw is None:
+            action = None
+        elif isinstance(raw, OpenCombatAdvance):
+            action = raw
         else:
-            attacker_ids = [attacker_id] if attacker_id else []
-        if not attacker_ids:
-            return
-
-        d_hex = last.get("defender_hex")
-        if not isinstance(d_hex, dict):
-            return
-        try:
-            to_hex = Hex(int(d_hex["i"]), int(d_hex["j"]), int(d_hex["k"]))
-        except Exception:
-            return
-
-        d0 = st.board.units.get(defender_id)
-        if d0 is None:
-            return
-
-        # Pick an adjacent attacker stack (primary first, then wire order).
-        anchor_order = [attacker_id, *attacker_ids]
-        seen: set[str] = set()
-        a0 = None
-        for aid in anchor_order:
-            if not aid or aid in seen:
-                continue
-            seen.add(aid)
-            au = st.board.units.get(aid)
-            if au is None or not au.active or au.faction == d0.faction:
-                continue
-            if distance(au.position, to_hex) != 1:
-                continue
-            a0 = au
-            break
-        if a0 is None:
-            return
-
-        from_hex = a0.position
-        # Only advance into a hex vacated by retreat.
-        if any(True for _u in st.board.active_units_at_hex(to_hex)):
-            return
-
-        unit_ids: list[str] = []
-        for u in st.board.active_units_at_hex(from_hex):
-            if u.active and u.faction == a0.faction:
-                unit_ids.append(str(u.unit_id))
-        if not unit_ids:
-            return
-
-        self.action_manager.execute(
-            OpenCombatAdvance(
-                extension_key,
-                advancing_faction=str(a0.faction),
-                from_hex=from_hex,
-                to_hex=to_hex,
-                unit_ids=tuple(sorted(set(unit_ids))),
+            raise TypeError(
+                "hooks.attack.maybe_open_combat_advance_after_retreat must return "
+                "OpenCombatAdvance, None, or hooks.ENGINE_DEFAULT"
             )
-        )
+        if action is not None:
+            self.action_manager.execute(action)
 
     async def _handle_leave_game(self, player_id: str) -> None:
         """Handle a player leaving the game."""
@@ -2365,7 +2163,9 @@ class GameServer:
                     retreat_obligations=self._retreat_obligations_for_player_id(
                         player_id
                     ),
-                    interaction_messages=self._interaction_messages_for_player_id(player_id),
+                    interaction_messages=self._interaction_messages_for_player_id(
+                        player_id
+                    ),
                     map_overlays=self._map_overlays_for_player_id(player_id),
                 )
                 await self._send_message(player_id, update.to_message())
@@ -2386,7 +2186,9 @@ class GameServer:
 
     async def _send_error(self, player_id: str, error_message: str) -> None:
         """Send an error message to a player."""
-        await self._send_message(player_id, ServerError(error=error_message).to_message())
+        await self._send_message(
+            player_id, ServerError(error=error_message).to_message()
+        )
 
     async def _send_message(self, player_id: str, message: Message) -> None:
         """Send a message to a specific player via registered handlers."""
@@ -2409,7 +2211,9 @@ class GameServer:
         return [p for p in self.players.values() if p.connected]
 
 
-async def _dispatch_leave_game(server: GameServer, player_id: str, _message: Message) -> None:
+async def _dispatch_leave_game(
+    server: GameServer, player_id: str, _message: Message
+) -> None:
     await server._handle_leave_game(player_id)
 
 

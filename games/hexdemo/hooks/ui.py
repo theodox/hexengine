@@ -7,10 +7,12 @@ This is title-authored UI policy for small inspection popups (Enter / double-cli
 from __future__ import annotations
 
 from hexengine.hexes.types import HexColRow
-from hexengine.hooks import DEFAULT
+from hexengine.hooks.ui import ENGINE_DEFAULT, UIHook
+from hexengine.hooks.wiring import bind_title_hook
 from hexengine.state import GameState
 
 
+@bind_title_hook(UIHook.POPUP_MESSAGE)
 def popup_message(
     state: GameState,
     viewer_faction: str | None,
@@ -55,8 +57,7 @@ def popup_message(
         # Markers are not in GameState; server provides anchoring separately.
         return {"text": f"marker {tid}", "kind": "info", "ttl_ms": 1200}
 
-    return DEFAULT
+    return ENGINE_DEFAULT
 
 
 __all__ = ["popup_message"]
-

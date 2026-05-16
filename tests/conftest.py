@@ -1,4 +1,4 @@
-"""CPython test runs: stub Pyodide-only modules so ``hexengine`` imports succeed."""
+"""CPython test runs: stub Pyodide-only modules so `hexengine` imports succeed."""
 
 from __future__ import annotations
 

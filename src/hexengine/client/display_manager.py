@@ -372,7 +372,9 @@ class DisplayManager:
         target_cls: str = "hilited-secondary-target",
     ) -> None:
         """Clear any secondary selection classes from unit displays."""
-        self.sync_secondary_selection(set(), cls=cls, target_unit_ids=set(), target_cls=target_cls)
+        self.sync_secondary_selection(
+            set(), cls=cls, target_unit_ids=set(), target_cls=target_cls
+        )
 
     def highlight_hexes(self, hexes: set[Hex], cls: str = "highlight") -> None:
         """

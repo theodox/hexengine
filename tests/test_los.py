@@ -13,16 +13,14 @@ from hexengine.state.game_state import BoardEdgeFeature, BoardState, LocationSta
 
 
 def test_los_blocked_by_edge_feature_on_hex_line() -> None:
-    """``edge_line_of_sight_by_tag`` blocks LOS along the straight hex segment."""
+    """`edge_line_of_sight_by_tag` blocks LOS along the straight hex segment."""
     a = Hex(0, 0, 0)
     b = Hex(2, 0, -2)
     h1 = Hex(1, 0, -1)
     ek = edge_between(a, h1)
     assert ek is not None
     board = BoardState(
-        edge_features=(
-            BoardEdgeFeature(feature_id="r", edge_key=ek, tags=("river",)),
-        ),
+        edge_features=(BoardEdgeFeature(feature_id="r", edge_key=ek, tags=("river",)),),
         edge_line_of_sight_by_tag=(("river", True),),
     )
     state = GameState.create_empty().with_board(board)
@@ -100,9 +98,7 @@ def test_los_visible_hexes_in_cone_filters_blocked_targets() -> None:
     off_axis = Hex(1, 1, -2)
 
     # Find the direction index which points from origin to `blocker`.
-    direction = next(
-        d for d in range(6) if neighbor_hex(origin, d) == blocker
-    )
+    direction = next(d for d in range(6) if neighbor_hex(origin, d) == blocker)
 
     board = BoardState().with_location(
         LocationState(
@@ -116,11 +112,14 @@ def test_los_visible_hexes_in_cone_filters_blocked_targets() -> None:
 
     # Use a wider cone so an off-axis target is included for this test.
     visible = los_visible_hexes_in_cone(
-        state, origin, 3, direction=direction, half_angle=1.0471975512  # ~= pi/3
+        state,
+        origin,
+        3,
+        direction=direction,
+        half_angle=1.0471975512,  # ~= pi/3
     )
 
     assert origin in visible
     assert blocker in visible  # endpoints do not block LOS
     assert behind_blocker not in visible  # blocked by `blocker`
     assert off_axis in visible  # not on the blocked line
-

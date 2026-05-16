@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from ..gamedef.faction_display import display_faction_name, display_phase_name
 
-
-def apply_turn_strip_faction(turn_bg, faction: str, *, css_class: str | None = None) -> None:
+def apply_turn_strip_faction(
+    turn_bg, faction: str, *, css_class: str | None = None
+) -> None:
     """Remove the previously applied faction class (if any), then add `css_class`."""
     prev = getattr(getattr(turn_bg, "dataset", None), "factionClass", None)
     if prev:
@@ -18,6 +18,4 @@ def apply_turn_strip_faction(turn_bg, faction: str, *, css_class: str | None = N
 
 __all__ = [
     "apply_turn_strip_faction",
-    "display_faction_name",
-    "display_phase_name",
 ]

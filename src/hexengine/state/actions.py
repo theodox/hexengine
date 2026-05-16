@@ -9,7 +9,19 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 from ..hexes.types import Hex
+from ..snapshot import (
+    assert_snapshot_json_serializable,
+    normalize_snapshot_mapping,
+    normalize_snapshot_value,
+)
 from .action_manager import StateAction
+from .game_state import TurnState
+from .movement_arc import (
+    HEXENGINE_MOVEMENT_ARC_KEY,
+    MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
+    MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
+    turn_state_from_movement_arc_snapshot,
+)
 
 if TYPE_CHECKING:
     from ..state.game_state import GameState, UnitState
@@ -43,7 +55,9 @@ class MoveUnit(StateAction):
             )
 
         self.prev_stack_index = unit.stack_index
-        si = state.board.next_stack_index_at_hex(self.to_hex, exclude_unit_id=self.unit_id)
+        si = state.board.next_stack_index_at_hex(
+            self.to_hex, exclude_unit_id=self.unit_id
+        )
         new_unit = unit.with_position(self.to_hex).with_stack_index(si)
 
         # Create new board with updated unit
@@ -77,6 +91,121 @@ class MoveUnit(StateAction):
 
     def __repr__(self) -> str:
         return f"<MoveUnit '{self.unit_id}', {self.from_hex} -> {self.to_hex}>"
+
+
+class SetTurnState(StateAction):
+    """Replace `GameState.turn` (used for movement interrupt handoffs)."""
+
+    def __init__(self, new_turn: TurnState):
+        self.new_turn = new_turn
+        self._prev_turn: TurnState | None = None
+
+    def apply(self, state: GameState) -> GameState:
+        self._prev_turn = state.turn
+        return state.with_turn(self.new_turn)
+
+    def revert(self, state: GameState) -> GameState:
+        if self._prev_turn is None:
+            return state
+        return state.with_turn(self._prev_turn)
+
+    def should_revert_prior(self) -> bool:
+        return False
+
+    def __repr__(self) -> str:
+        return f"<SetTurnState {self.new_turn!r}>"
+
+
+class WriteHexengineMovementArc(StateAction):
+    """Write or clear `extension[HEXENGINE_MOVEMENT_ARC_KEY]` (movement **arc** state)."""
+
+    def __init__(self, payload: dict[str, Any] | None):
+        self.payload = payload
+        self._had_key = False
+        self._prev_value: Any = None
+
+    def apply(self, state: GameState) -> GameState:
+        ext = dict(state.extension)
+        self._had_key = HEXENGINE_MOVEMENT_ARC_KEY in ext
+        self._prev_value = ext.get(HEXENGINE_MOVEMENT_ARC_KEY)
+        if self.payload is None:
+            ext.pop(HEXENGINE_MOVEMENT_ARC_KEY, None)
+        else:
+            ext[HEXENGINE_MOVEMENT_ARC_KEY] = dict(self.payload)
+        return state.with_extension(ext)
+
+    def revert(self, state: GameState) -> GameState:
+        ext = dict(state.extension)
+        if self._had_key:
+            ext[HEXENGINE_MOVEMENT_ARC_KEY] = self._prev_value
+        else:
+            ext.pop(HEXENGINE_MOVEMENT_ARC_KEY, None)
+        return state.with_extension(ext)
+
+    def should_revert_prior(self) -> bool:
+        return False
+
+    def __repr__(self) -> str:
+        return f"<WriteHexengineMovementArc {self.payload!r}>"
+
+
+class ResolvePassMovementInterrupt(StateAction):
+    """Finish one **segment** of a movement interrupt queue (see `movement_arc`)."""
+
+    def __init__(self, responding_faction: str):
+        self.responding_faction = str(responding_faction).strip()
+        self._saved_ext: dict[str, Any] | None = None
+        self._saved_turn: TurnState | None = None
+
+    def apply(self, state: GameState) -> GameState:
+        ext = dict(state.extension)
+        raw = ext.get(HEXENGINE_MOVEMENT_ARC_KEY)
+        if not isinstance(raw, dict):
+            raise ValueError("No hexengine movement arc")
+        arc = dict(raw)
+        if str(arc.get("gate", "")) != MOVEMENT_ARC_GATE_AWAITING_INTERRUPT:
+            raise ValueError("Not awaiting movement interrupt")
+        q_raw = arc.get("interrupt_queue")
+        if not isinstance(q_raw, list) or not q_raw:
+            raise ValueError("Movement interrupt queue empty")
+        queue = [str(x).strip() for x in q_raw if str(x).strip()]
+        if not queue or queue[0] != self.responding_faction:
+            raise ValueError("Not your movement interrupt window")
+
+        self._saved_ext = dict(state.extension)
+        self._saved_turn = state.turn
+
+        rest = queue[1:]
+        if not rest:
+            snap = arc.get("saved_turn")
+            if not isinstance(snap, dict):
+                raise ValueError("Movement arc missing saved_turn")
+            restored = turn_state_from_movement_arc_snapshot(snap)
+            arc["interrupt_queue"] = []
+            arc["gate"] = MOVEMENT_ARC_GATE_AWAITING_CONTINUE
+            arc["saved_turn"] = None
+            ext[HEXENGINE_MOVEMENT_ARC_KEY] = arc
+            return state.with_extension(ext).with_turn(restored)
+
+        next_f = rest[0]
+        arc["interrupt_queue"] = rest
+        ext[HEXENGINE_MOVEMENT_ARC_KEY] = arc
+        nt = replace(
+            state.turn,
+            current_faction=next_f,
+        )
+        return state.with_extension(ext).with_turn(nt)
+
+    def revert(self, state: GameState) -> GameState:
+        if self._saved_ext is None or self._saved_turn is None:
+            return state
+        return state.with_extension(self._saved_ext).with_turn(self._saved_turn)
+
+    def should_revert_prior(self) -> bool:
+        return False
+
+    def __repr__(self) -> str:
+        return f"<ResolvePassMovementInterrupt {self.responding_faction!r}>"
 
 
 class PatchUnitAttributes(StateAction):
@@ -512,8 +641,16 @@ class OpenCombatAdvance(StateAction):
         hx["advance"] = {
             "schema": 1,
             "faction": self.advancing_faction,
-            "from_hex": {"i": int(self.from_hex.i), "j": int(self.from_hex.j), "k": int(self.from_hex.k)},
-            "to_hex": {"i": int(self.to_hex.i), "j": int(self.to_hex.j), "k": int(self.to_hex.k)},
+            "from_hex": {
+                "i": int(self.from_hex.i),
+                "j": int(self.from_hex.j),
+                "k": int(self.from_hex.k),
+            },
+            "to_hex": {
+                "i": int(self.to_hex.i),
+                "j": int(self.to_hex.j),
+                "k": int(self.to_hex.k),
+            },
             "unit_ids": list(self.unit_ids),
         }
         ext[self.extension_key] = hx
@@ -559,7 +696,9 @@ class ResolveCombatAdvance(StateAction):
         if not isinstance(to_hex_raw, dict):
             raise ValueError("Invalid to_hex")
         try:
-            to_hex = Hex(int(to_hex_raw["i"]), int(to_hex_raw["j"]), int(to_hex_raw["k"]))
+            to_hex = Hex(
+                int(to_hex_raw["i"]), int(to_hex_raw["j"]), int(to_hex_raw["k"])
+            )
         except Exception as e:
             raise ValueError("Invalid to_hex") from e
         unit_ids_raw = adv.get("unit_ids")
@@ -609,7 +748,7 @@ def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:
 
 
 def _unit_type_is_infantry(unit: UnitState) -> bool:
-    """Hexdemo-style two-step cadence applies to ``unit_type`` ``infantry`` only."""
+    """Hexdemo-style two-step cadence applies to `unit_type` `infantry` only."""
     return str(unit.unit_type).strip().lower() == "infantry"
 
 
@@ -621,8 +760,10 @@ def _int_attr(attrs: dict[str, Any], key: str, default: int = 0) -> int:
         return default
 
 
-def _graphics_template_key_for_step(attrs: dict[str, Any], *, step_index: int) -> str | None:
-    """Return ``[[unit_graphics]]`` ``type`` from ``attributes['steps'][step_index].graphics``."""
+def _graphics_template_key_for_step(
+    attrs: dict[str, Any], *, step_index: int
+) -> str | None:
+    """Return `[[unit_graphics]]` `type` from `attributes['steps'][step_index].graphics`."""
     raw = attrs.get("steps")
     if not isinstance(raw, list) or step_index < 0 or step_index >= len(raw):
         return None
@@ -668,14 +809,14 @@ def _step1_patch_from_explicit_steps(attrs: dict[str, Any]) -> dict[str, Any] | 
 def _apply_step_loss_to_unit(state: GameState, unit_id: str) -> GameState:
     """Apply one combat step loss: infantry drops combat/morale on first loss; then delete.
 
-    - **Infantry** (`unit_type` ``infantry``, case-insensitive): first loss sets
-      ``steps_lost`` to 1 and reduces ``combat`` and ``morale`` by 1 each (floor 0);
+    - **Infantry** (`unit_type` `infantry`, case-insensitive): first loss sets
+      `steps_lost` to 1 and reduces `combat` and `morale` by 1 each (floor 0);
       movement and other attributes are unchanged. A second loss applies
-      ``DeleteUnit`` (unit deactivated).
-    - **Other types**: first loss only sets ``steps_lost`` to 1; second loss applies
-      ``DeleteUnit`` (no automatic combat/morale change on the first loss).
-    - If ``attributes['steps'][1].graphics`` is set, first loss also updates
-      ``UnitState.graphics`` so clients swap ``[[unit_graphics]]`` templates.
+      `DeleteUnit` (unit deactivated).
+    - **Other types**: first loss only sets `steps_lost` to 1; second loss applies
+      `DeleteUnit` (no automatic combat/morale change on the first loss).
+    - If `attributes['steps'][1].graphics` is set, first loss also updates
+      `UnitState.graphics` so clients swap `[[unit_graphics]]` templates.
     """
     unit = state.board.units.get(unit_id)
     if unit is None or not unit.active:
@@ -707,11 +848,18 @@ def _apply_step_loss_to_unit(state: GameState, unit_id: str) -> GameState:
 
 
 class ApplyCombatEffects(StateAction):
-    """Apply title ``AttackResolution.effects`` after the core ``Attack`` state action."""
+    """Apply title `AttackResolution.effects` after the core `Attack` state action.
+
+    `effects` is normalized to a JSON-safe snapshot tree in `__init__` (nested
+    dataclasses expanded); titles should not call snapshot helpers themselves.
+    """
 
     def __init__(self, extension_key: str, effects: dict[str, Any]) -> None:
         self.extension_key = extension_key
-        self.effects = dict(effects)
+        self.effects = normalize_snapshot_mapping(effects)
+        assert_snapshot_json_serializable(
+            self.effects, context=" (ApplyCombatEffects.effects)"
+        )
         self._prev_extension_bucket: dict[str, Any] | None = None
 
     def apply(self, state: GameState) -> GameState:
@@ -754,13 +902,17 @@ class ApplyCombatEffects(StateAction):
                 for u in st.board.active_units_at_hex(u0.position):
                     if u.faction != u0.faction:
                         continue
-                    st = PatchUnitAttributes(
-                        str(u.unit_id), {"disrupted": True}
-                    ).apply(st)
+                    st = PatchUnitAttributes(str(u.unit_id), {"disrupted": True}).apply(
+                        st
+                    )
 
         ext = dict(st.extension)
         cur_hx = ext.get(self.extension_key)
-        hx = dict(cur_hx) if isinstance(cur_hx, dict) else dict(self._prev_extension_bucket)
+        hx = (
+            dict(cur_hx)
+            if isinstance(cur_hx, dict)
+            else dict(self._prev_extension_bucket)
+        )
 
         retreat_meta = eff.get("retreat")
         if isinstance(retreat_meta, dict) and retreat_meta.get("allow_disrupt_instead"):
@@ -863,8 +1015,8 @@ class Attack(StateAction):
     """Single attack action (attack_kind dispatches; title decides legality/outcome).
 
     Titles may resolve an attack against multiple attackers and/or defenders via
-    ``attacker_ids`` / ``defender_ids``. Defenders may occupy multiple hexes; extension
-    ``last_combat`` records both a primary ``defender_hex`` and ``defender_hexes``.
+    `attacker_ids` / `defender_ids`. Defenders may occupy multiple hexes; extension
+    `last_combat` records both a primary `defender_hex` and `defender_hexes`.
     """
 
     def __init__(
@@ -916,7 +1068,16 @@ class Attack(StateAction):
             self.defender_ids = tuple(norm) if norm else None
         self.retreat_distance = retreat_distance
         self.retreat_unit_id = str(retreat_unit_id) if retreat_unit_id else None
-        self.rng_entry = dict(rng_entry) if isinstance(rng_entry, dict) else None
+        if rng_entry is None:
+            self.rng_entry = None
+        else:
+            n = normalize_snapshot_value(rng_entry)
+            if not isinstance(n, dict):
+                raise TypeError(
+                    "rng_entry must be a mapping or a dataclass that normalizes to a dict"
+                )
+            assert_snapshot_json_serializable(n, context=" (Attack.rng_entry)")
+            self.rng_entry = n
         self._prev_extension_bucket: dict[str, Any] | None = None
         self._prev_rng_log: tuple[dict[str, Any], ...] | None = None
         self._deleted_unit_ids: tuple[str, ...] = ()
@@ -961,7 +1122,10 @@ class Attack(StateAction):
 
         outcome = str(self.outcome)
         retreat_distance = self.retreat_distance
-        if outcome in ("attacker_retreat", "defender_retreat") and retreat_distance is None:
+        if (
+            outcome in ("attacker_retreat", "defender_retreat")
+            and retreat_distance is None
+        ):
             raise ValueError("retreat_distance is required for retreat outcomes")
         if outcome not in (
             "none",
@@ -1022,10 +1186,12 @@ class Attack(StateAction):
             "defender_ids": [d.unit_id for d in defenders],
             "defender_hex": {"i": int(dpos0.i), "j": int(dpos0.j), "k": int(dpos0.k)},
             "defender_hexes": [
-                {"i": int(h.i), "j": int(h.j), "k": int(h.k)} for h in defender_hexes_sorted
+                {"i": int(h.i), "j": int(h.j), "k": int(h.k)}
+                for h in defender_hexes_sorted
             ],
             "attacker_hexes": [
-                {"i": int(h.i), "j": int(h.j), "k": int(h.k)} for h in attacker_hexes_sorted
+                {"i": int(h.i), "j": int(h.j), "k": int(h.k)}
+                for h in attacker_hexes_sorted
             ],
             "retreat_distance": retreat_distance,
             "retreat_unit_id": retreat_unit_id,
@@ -1056,7 +1222,9 @@ class Attack(StateAction):
             else {}
         )
         st = st.with_extension(ext)
-        return st.with_rng_log(self._prev_rng_log if self._prev_rng_log is not None else ())
+        return st.with_rng_log(
+            self._prev_rng_log if self._prev_rng_log is not None else ()
+        )
 
     def should_revert_prior(self) -> bool:
         return False

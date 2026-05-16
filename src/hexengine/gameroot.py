@@ -5,6 +5,10 @@ When no pack is specified, a games/<pack_id>/ tree next to an ancestor of this m
 (typical dev checkout) supplies the **default** scenario when that pack includes
 scenarios/default/scenario.toml (today: the bundled hexdemo pack).
 
+**Temporary:** defaulting to `games/hexdemo` is deliberate while we iterate on the
+authoring experience and need a stable pack to exercise it. Replace with neutral
+default-pack discovery (or require explicit `--game-root` / `--scenario-file`) later.
+
 Zip archives extract to a temporary directory for import compatibility.
 
 **Engine fallbacks removed (game-pack-first startup):**
@@ -25,8 +29,8 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import logging
 import shutil
-import sys
 import tempfile
 import zipfile
 from pathlib import Path
@@ -37,6 +41,7 @@ from .gamedef.builtin import (
     SequentialTwoFactionGameDefinition,
 )
 from .gamedef.protocol import GameDefinition
+from .gamedef.title_load import TitleLoadContext, TitleLoadResult
 
 
 def initial_turn_slot_for_game_definition(game: GameDefinition) -> dict[str, Any]:
@@ -113,6 +118,8 @@ def add_game_launch_arguments(parser: argparse.ArgumentParser) -> None:
             "--game-root when the hexdemo pack is found automatically)"
         ),
     )
+
+
 def resolve_scenario_path_with_game_root(
     *,
     scenario_file: str | Path | None = None,
@@ -197,6 +204,9 @@ def _find_bundled_hexdemo_game_root() -> Path | None:
 
     Used as the default pack so `hexserver` with no arguments loads hexdemo's
     `scenarios/default/scenario.toml` when the checkout includes `games/hexdemo`.
+
+    See module docstring: hexdemo-specific default is temporary; revisit when authoring
+    defaults no longer need a fixed reference pack.
     """
     for d in Path(__file__).resolve().parents:
         root = d / "games" / "hexdemo"
@@ -238,18 +248,20 @@ def cleanup_extracted_game_roots() -> None:
     _ZIP_EXTRACT_CACHE.clear()
 
 
-_pack_loaded_banner_printed: bool = False
+_title_load_server_logged: bool = False
 
 
-def reset_pack_loaded_banner_for_tests() -> None:
-    """Allow the pack loaded-banner hook to fire again (unit tests only)."""
-    global _pack_loaded_banner_printed
-    _pack_loaded_banner_printed = False
+def reset_title_load_hooks_for_tests() -> None:
+    """Reset one-shot server title-load hook (unit tests only)."""
+    global _title_load_server_logged
+    _title_load_server_logged = False
 
 
 def ensure_pack_import_path_for_scenario(scenario_path: str | Path) -> None:
     """Prepend the owning pack's sys.path prefix for scenario_path (see manifest)."""
-    from hexengine.game_packs.registry import ensure_pack_import_path_for_scenario as _ensure
+    from hexengine.game_packs.registry import (
+        ensure_pack_import_path_for_scenario as _ensure,
+    )
 
     try:
         _ensure(scenario_path)
@@ -257,33 +269,132 @@ def ensure_pack_import_path_for_scenario(scenario_path: str | Path) -> None:
         return
 
 
-def try_pack_loaded_banner(scenario_path: str | Path) -> None:
-    """
-    Once per process, call the owning pack's optional loaded-banner hook from the manifest.
-
-    Declared in hexengine_pack.toml as [hooks] loaded_banner_module /
-    loaded_banner_callable (default callable name print_loaded_banner).
-    """
-    global _pack_loaded_banner_printed
-    if _pack_loaded_banner_printed:
-        return
+def _title_load_hooks_for_scenario(
+    scenario_path: str | Path,
+) -> tuple[Any, Any] | None:
+    """Return `(pack_record, title_load_hooks)` or None if unset / unresolvable."""
     from hexengine.game_packs.registry import resolve_pack_for_scenario
 
     try:
         rec = resolve_pack_for_scenario(scenario_path)
     except ValueError:
-        return
-    mod_name = rec.manifest.hooks_loaded_banner_module
-    if not mod_name:
-        return
+        return None
+    tl = rec.manifest.hooks_title_load
+    if tl is None:
+        return None
     ensure_pack_import_path_for_scenario(scenario_path)
-    name = rec.manifest.hooks_loaded_banner_callable or "print_loaded_banner"
+    return rec, tl
+
+
+def _import_title_load_module(module_name: str) -> Any | None:
     try:
-        mod = importlib.import_module(mod_name)
-        fn = getattr(mod, name, None)
-        if not callable(fn):
-            return
-        fn()
+        return importlib.import_module(module_name)
     except ImportError:
+        logging.getLogger(__name__).debug(
+            "title_load module %r not importable", module_name, exc_info=True
+        )
+        return None
+
+
+def run_title_load_splash(scenario_path: str | Path) -> None:
+    """
+    Load splash HTML from the pack manifest and call `present_splash(html)`.
+
+    Declared in hexengine_pack.toml under `[hooks.title_load]`.
+    """
+    resolved = _title_load_hooks_for_scenario(scenario_path)
+    if resolved is None:
         return
-    _pack_loaded_banner_printed = True
+    rec, tl = resolved
+    from hexengine.game_packs.resources import read_pack_resource_text
+
+    html = read_pack_resource_text(rec.root, tl.splash_html)
+    if html is None:
+        logging.getLogger(__name__).warning(
+            "title_load splash_html %r missing under %s/resources",
+            tl.splash_html,
+            rec.root,
+        )
+        return
+    mod = _import_title_load_module(tl.module)
+    if mod is None:
+        return
+    fn = getattr(mod, tl.splash_callable, None)
+    if not callable(fn):
+        return
+    try:
+        fn(html)
+    except Exception:
+        logging.getLogger(__name__).debug(
+            "title_load %s.%s failed",
+            tl.module,
+            tl.splash_callable,
+            exc_info=True,
+        )
+
+
+def run_title_load_setup(scenario_path: str | Path) -> bool:
+    """
+    Call the pack setup hook before WebSocket connect.
+
+    Returns False when the hook sets `TitleLoadResult(continue_connect=False)`.
+    """
+    resolved = _title_load_hooks_for_scenario(scenario_path)
+    if resolved is None:
+        return True
+    rec, tl = resolved
+    mod = _import_title_load_module(tl.module)
+    if mod is None:
+        return True
+    fn = getattr(mod, tl.setup_callable, None)
+    if not callable(fn):
+        return True
+    ctx = TitleLoadContext(
+        pack_id=rec.manifest.pack_id,
+        pack_root=rec.root,
+        scenario_path=Path(scenario_path).expanduser().resolve(),
+    )
+    try:
+        out = fn(ctx)
+    except Exception:
+        logging.getLogger(__name__).debug(
+            "title_load %s.%s failed", tl.module, tl.setup_callable, exc_info=True
+        )
+        return True
+    if isinstance(out, TitleLoadResult):
+        return bool(out.continue_connect)
+    if isinstance(out, bool):
+        return out
+    return True
+
+
+def try_pack_title_load_server(scenario_path: str | Path) -> None:
+    """
+    Once per process, call the pack's server-side title-load hook (e.g. log line).
+
+    Invoked from hexserver after authoritative pack load.
+    """
+    global _title_load_server_logged
+    if _title_load_server_logged:
+        return
+    resolved = _title_load_hooks_for_scenario(scenario_path)
+    if resolved is None:
+        return
+    _rec, tl = resolved
+    mod = _import_title_load_module(tl.module)
+    if mod is None:
+        return
+    fn = getattr(mod, tl.server_loaded_callable, None)
+    if not callable(fn):
+        return
+    try:
+        fn()
+    except Exception:
+        logging.getLogger(__name__).debug(
+            "title_load %s.%s failed",
+            tl.module,
+            tl.server_loaded_callable,
+            exc_info=True,
+        )
+        return
+    _title_load_server_logged = True

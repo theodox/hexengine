@@ -4,9 +4,25 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..hooks import ENGINE_DEFAULT
+from ..hooks.attack import AttackHooks
+from ..hooks.title import TitleHooks
 from ..state import GameState
 from ..state.actions import NextPhase
+from .game_data import GameData
 from .protocol import GameDefinition
+
+
+def _builtin_static_attack_validate(_ctx: object) -> object:
+    """Placeholder hook so combat schedules pass `validate_title_contract`."""
+
+    return ENGINE_DEFAULT
+
+
+def _builtin_static_attack_resolve(_ctx: object) -> object:
+    """Placeholder hook so combat schedules pass `validate_title_contract`."""
+
+    return ENGINE_DEFAULT
 
 
 def _normalize_entries(
@@ -140,6 +156,34 @@ class StaticScheduleGameDefinition:
         self, state: GameState, unit_id: str, patch: dict[str, Any]
     ) -> None:
         _ = state, unit_id, patch
+
+    @property
+    def game_data(self) -> GameData:
+        """Title-owned wire knobs; default maps each schedule faction id to itself as the display label.
+
+        Titles that override `game_data` should use `GameData.replacing(...)` on `super().game_data`
+        so `faction_display_names` stays aligned with `available_factions()` unless intentionally
+        narrowed for contract tests.
+        """
+        facs = self.available_factions()
+        return GameData(
+            faction_display_names={str(f): str(f) for f in facs},
+        )
+
+    @property
+    def hooks(self) -> TitleHooks:
+        """Minimal `TitleHooks` so built-in combat schedules satisfy contract validation.
+
+        Attack callables return `ENGINE_DEFAULT`; the server rejects `Attack` actions
+        with the usual title message unless a subclass or wrapper overrides `hooks`.
+        """
+
+        return TitleHooks(
+            attack=AttackHooks(
+                validate_attack=_builtin_static_attack_validate,
+                resolve_attack=_builtin_static_attack_resolve,
+            ),
+        )
 
 
 class InterleavedTwoFactionGameDefinition(StaticScheduleGameDefinition):

@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .arcs.client_title_load import ClientTitleLoadConnectState
 
 from .. import dev_console
 from ..client import DisplayManager, LocalServerManager, UIState
@@ -13,7 +17,9 @@ from ..gamedef.builtin import (
     InterleavedTwoFactionGameDefinition,
     StaticScheduleGameDefinition,
 )
+from ..gamedef.client_title_data import ClientTitleData
 from ..gamedef.protocol import GameDefinition
+from ..hexes.types import Hex
 from ..map import Map
 from ..state import ActionManager, GameState
 from ..state.snapshot import SNAPSHOT_FORMAT_VERSION, game_state_to_wire_dict
@@ -21,7 +27,6 @@ from ..ui import MapOverlayManager, PopupManager
 from .board import GameBoard
 from .events import Hotkey, HotkeyHandlerMixin, Modifiers, MouseEventHandlerMixin
 from .history import GameHistoryMixin
-from .turn_strip import display_faction_name
 
 # Screen-space pan per arrow key when zoomed in; Shift multiplies step.
 _PAN_KEY_STEP = 48
@@ -108,6 +113,8 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.logger = logging.getLogger("game")
         self.logger.info(f"action_mgr created: {self.action_mgr}")
         self._engine_banner_message: dict[str, Any] | None = None
+        self._last_faction_display_contract_error: str | None = None
+        self._title_load_splash_dismissed: bool = False
 
         self.ui_state = UIState()
         self.display_mgr = DisplayManager(self.canvas, self.board)
@@ -123,10 +130,10 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.drag_start = (0, 0)
         self.drag_end = (0, 0)
         # --- Attack planning UX (client-side, no server sync) ---
-        self.attack_plan_target_hex: "Hex | None" = None
+        self.attack_plan_target_hex: Hex | None = None
         self.attack_plan_attacker_ids: set[str] = set()
         #: True after combat-phase attack-plan unit mousedown (enemy target pick or friendly
-        #: attacker toggle); suppresses bogus ``mouseup`` on map background retargeting.
+        #: attacker toggle); suppresses bogus `mouseup` on map background retargeting.
         self._attack_plan_suppress_bg_mouseup_retarget: bool = False
         self._attack_plan_target_overlay = None
         self._attack_plan_los_svg_group = None
@@ -199,6 +206,11 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             return self.action_mgr.current_state
         return None
 
+    def _client_title_data(self) -> ClientTitleData:
+        """Parsed `GameData` subset from the last `StateUpdate.turn_rules` (if any)."""
+        c = getattr(self, "client", None)
+        return ClientTitleData.from_turn_rules(c.turn_rules if c is not None else None)
+
     def _sync_attack_plan_after_state_update(self) -> None:
         """Keep attack planning UI in sync with server state (clears stale overlays)."""
         if self.attack_plan_target_hex is None and not self.attack_plan_attacker_ids:
@@ -208,7 +220,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         if st is None:
             self.cancel_attack_plan()
             return
-        phase_ok = _phase_allows_attack_planning(getattr(st.turn, "current_phase", None))
+        phase_ok = _phase_allows_attack_planning(
+            getattr(st.turn, "current_phase", None)
+        )
         my_turn = True
         client = getattr(self, "client", None)
         if client is not None and client.is_connected() and client.faction:
@@ -226,8 +240,8 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         """
         Create Confirm/Cancel UI for the attack planning flow.
 
-        Host is the same permanent shell as the advance-turn control (``#advance``),
-        outside ``#map-container``, so map mouse handlers never treat button clicks
+        Host is the same permanent shell as the advance-turn control (`#advance`),
+        outside `#map-container`, so map mouse handlers never treat button clicks
         as hex picks.
         """
         try:
@@ -245,13 +259,17 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             btn_cancel = js.document.createElement("button")
             btn_cancel.className = "hexengine-attack-controls__cancel"
             btn_cancel.textContent = "Cancel"
-            btn_cancel.onclick = create_proxy(lambda _evt=None: self.cancel_attack_plan())
+            btn_cancel.onclick = create_proxy(
+                lambda _evt=None: self.cancel_attack_plan()
+            )
 
             btn_confirm = js.document.createElement("button")
             btn_confirm.className = "hexengine-attack-controls__confirm"
             btn_confirm.textContent = "Confirm attack"
             btn_confirm.disabled = True
-            btn_confirm.onclick = create_proxy(lambda _evt=None: self.confirm_attack_plan())
+            btn_confirm.onclick = create_proxy(
+                lambda _evt=None: self.confirm_attack_plan()
+            )
 
             row.appendChild(btn_cancel)
             row.appendChild(btn_confirm)
@@ -319,7 +337,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
         Lines live on the **unit** SVG (same map-space size as hex highlights) so they
         paint above counters. The group is re-appended to the end of that SVG whenever
-        lines sync so it stays on top after ``DisplayManager`` reorders unit nodes.
+        lines sync so it stays on top after `DisplayManager` reorders unit nodes.
         """
         try:
             svg = self.canvas.unit_layer._svg
@@ -512,28 +530,32 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             elif tgt is None:
                 self._attack_controls_status.textContent = "Combat: pick a target hex."
             else:
-                self._attack_controls_status.textContent = (
-                    f"Target set. Selected attackers: {n_att}. Click units to add/remove."
-                )
+                self._attack_controls_status.textContent = f"Target set. Selected attackers: {n_att}. Click units to add/remove."
 
         if self._attack_controls_confirm is not None:
-            self._attack_controls_confirm.disabled = not (ok_phase and tgt is not None and n_att > 0)
+            self._attack_controls_confirm.disabled = not (
+                ok_phase and tgt is not None and n_att > 0
+            )
 
-    def _attack_target_hex_has_enemy(self, st: GameState, h: "Hex") -> bool:
+    def _attack_target_hex_has_enemy(self, st: GameState, h: Hex) -> bool:
         """True if the hex has at least one active non-current-faction unit (valid attack target)."""
         cur = st.turn.current_faction
         return any(u.faction != cur for u in st.board.active_units_at_hex(h))
 
-    def set_attack_plan_target_hex(self, h: "Hex | None") -> None:
+    def set_attack_plan_target_hex(self, h: Hex | None) -> None:
         if h is not None:
             st = self._interactive_game_state()
             if st is not None and not self._attack_target_hex_has_enemy(st, h):
                 try:
                     mx, my = self.canvas.hex_layout.hex_to_pixel(h)
                     cx, cy = self.canvas.map_space_to_container_pixel(mx, my)
-                    self.popup_manager.create_popup("No enemy unit on that hex", (cx, cy))
+                    self.popup_manager.create_popup(
+                        "No enemy unit on that hex", (cx, cy)
+                    )
                 except Exception:
-                    self.popup_manager.create_popup("No enemy unit on that hex", (32, 32))
+                    self.popup_manager.create_popup(
+                        "No enemy unit on that hex", (32, 32)
+                    )
                 return
         self.attack_plan_target_hex = h
         self.attack_plan_attacker_ids.clear()
@@ -565,8 +587,8 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             return False
         if u.faction != st.turn.current_faction:
             return False
-        from ..hexes.math import distance
         from ..hexes.los import has_line_of_sight
+        from ..hexes.math import distance
         from ..state.map_feature_queries import edges_block_los_predicate
 
         target_hex = self.attack_plan_target_hex
@@ -612,9 +634,11 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 if u is not None and tgt is not None:
                     ut = str(getattr(u, "unit_type", "")).lower()
                     if ut in ("artillery", "art"):
-                        from ..hexes.math import distance
                         from ..hexes.los import has_line_of_sight
-                        from ..state.map_feature_queries import edges_block_los_predicate
+                        from ..hexes.math import distance
+                        from ..state.map_feature_queries import (
+                            edges_block_los_predicate,
+                        )
 
                         d = distance(u.position, tgt)
                         try:
@@ -669,7 +693,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         ]
         if not defenders:
             try:
-                mx, my = self.canvas.hex_layout.hex_to_pixel(self.attack_plan_target_hex)
+                mx, my = self.canvas.hex_layout.hex_to_pixel(
+                    self.attack_plan_target_hex
+                )
                 cx, cy = self.canvas.map_space_to_container_pixel(mx, my)
                 self.popup_manager.create_popup("No enemy unit on target", (cx, cy))
             except Exception:
@@ -855,104 +881,144 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     # ===== SERVER SESSION (WebSocket) =====
 
+    # --- Client title-load arc (see game.arcs.client_title_load) ---
+
+    def title_load_reset_for_connect(self) -> None:
+        if self.client is not None:
+            self.client.disconnect()
+            self.client = None
+        self._title_game_definition = None
+        self._title_load_splash_dismissed = False
+
+    def title_load_resolve_scenario(self) -> Path | None:
+        from ..gameroot import resolve_scenario_path_with_game_root
+
+        try:
+            return Path(resolve_scenario_path_with_game_root()).resolve()
+        except (FileNotFoundError, ValueError, OSError):
+            return None
+
+    def title_load_invoke_splash_hook(self, scenario_path: Path) -> None:
+        from ..gameroot import run_title_load_splash
+
+        run_title_load_splash(scenario_path)
+
+    def title_load_invoke_setup_hook(self, scenario_path: Path) -> bool:
+        from ..gameroot import run_title_load_setup
+
+        return run_title_load_setup(scenario_path)
+
+    def title_load_boot_local_server(
+        self, scenario_path: Path, state: ClientTitleLoadConnectState
+    ) -> bool:
+        from ..gameroot import (
+            initial_turn_slot_for_game_definition,
+            load_game_definition_for_scenario,
+        )
+        from ..scenarios import load_scenario
+        from ..scenarios.loader import scenario_to_initial_state
+
+        self.logger.info("Starting local server...")
+        scenario_data = load_scenario(scenario_path)
+        game_def = load_game_definition_for_scenario(scenario_path)
+        self._local_game_definition = game_def
+        first = initial_turn_slot_for_game_definition(game_def)
+        state.preloaded_unit_graphics = scenario_data.unit_graphics_to_wire_dict()
+        state.preloaded_marker_graphics = getattr(
+            scenario_data, "marker_graphics_to_wire_dict", lambda: {}
+        )()
+        state.preloaded_markers = getattr(
+            scenario_data, "markers_to_wire_list", lambda: []
+        )()
+        initial_state = scenario_to_initial_state(
+            scenario_data,
+            initial_faction=first["faction"],
+            initial_phase=first["phase"],
+            phase_actions_remaining=int(first["max_actions"]),
+            schedule_index=0,
+            game_definition=game_def,
+        )
+        self.local_server = LocalServerManager(
+            initial_state=initial_state,
+            map_display=scenario_data.map_display.to_wire_dict(),
+            global_styles=scenario_data.global_styles.to_wire_dict(),
+            unit_graphics=state.preloaded_unit_graphics,
+            marker_graphics=state.preloaded_marker_graphics,
+            markers=state.preloaded_markers,
+            game_definition=game_def,
+        )
+        if not self.local_server.start():
+            self.logger.error("Failed to start local server")
+            return False
+        return True
+
+    def title_load_prepare_websocket_client(
+        self, state: ClientTitleLoadConnectState
+    ) -> None:
+        self.client = BrowserWebSocketClient(self.server_url)
+        self.client.on_state_update = self._handle_state_update
+        self.client.on_map_display = self._on_map_display
+        self.client.on_global_styles = self._on_global_styles
+        self.client.on_unit_graphics = self._on_unit_graphics
+        self.client.on_marker_graphics = self._on_marker_graphics
+        self.client.on_markers = self._on_markers
+        self.client.on_connection_change = self._handle_connection_change
+        self.client.on_error = self._handle_error
+        self.client.on_action_result = self._handle_action_result
+        self.client.on_ui_popup = self._handle_ui_popup
+        self.client.on_marker_preview = self._handle_marker_preview
+        self.client.on_unit_preview = self._handle_unit_preview
+
+    def title_load_begin_websocket_connect(
+        self, state: ClientTitleLoadConnectState
+    ) -> None:
+        if self.client is None:
+            raise RuntimeError("WebSocket client not prepared")
+        if state.preloaded_unit_graphics is not None:
+            self.display_mgr.apply_unit_graphics(state.preloaded_unit_graphics)
+            self.client._applied_unit_graphics_json = json.dumps(
+                state.preloaded_unit_graphics, sort_keys=True, ensure_ascii=True
+            )
+        if state.preloaded_marker_graphics is not None:
+            self.marker_mgr.apply_marker_graphics(state.preloaded_marker_graphics)
+            self.client._applied_marker_graphics_json = json.dumps(
+                state.preloaded_marker_graphics, sort_keys=True, ensure_ascii=True
+            )
+        if state.preloaded_markers is not None:
+            self.marker_mgr.sync_markers(state.preloaded_markers)
+        self.client.connect(
+            player_name=self.player_name, preferred_faction=self.preferred_faction
+        )
+        self.logger.info("Connection initiated...")
+
+    def title_load_on_connect_failed(self) -> None:
+        from .title_load_ui import force_hide_splash
+
+        force_hide_splash()
+
+    @property
+    def title_load_splash_dismissed(self) -> bool:
+        return self._title_load_splash_dismissed
+
+    def title_load_mark_splash_dismissed(self) -> None:
+        self._title_load_splash_dismissed = True
+
     def connect(self) -> bool:
         """
         Connect to the game server.
 
         Reconnecting the same client to the same match is supported; switching to a
         different title/scenario is assumed rare (full reload / prepared restart).
+
+        Runs the client title-load arc (splash/setup hooks, local server, WebSocket).
         """
+        from .arcs.client_title_load import execute_client_title_load_connect_arc
+
         try:
-            if self.client is not None:
-                self.client.disconnect()
-                self.client = None
-            self._title_game_definition = None
-
-            preloaded_unit_graphics: dict[str, Any] | None = None
-            preloaded_marker_graphics: dict[str, Any] | None = None
-            preloaded_markers: list[dict[str, Any]] | None = None
-
-            if self.use_local_server and not self.local_server:
-                self.logger.info("Starting local server...")
-                from ..gameroot import (
-                    initial_turn_slot_for_game_definition,
-                    load_game_definition_for_scenario,
-                    resolve_scenario_path_with_game_root,
-                )
-                from ..scenarios import load_scenario
-                from ..scenarios.loader import scenario_to_initial_state
-
-                scenario_path = resolve_scenario_path_with_game_root()
-                scenario_data = load_scenario(scenario_path)
-                game_def = load_game_definition_for_scenario(scenario_path)
-                self._local_game_definition = game_def
-                first = initial_turn_slot_for_game_definition(game_def)
-                preloaded_unit_graphics = scenario_data.unit_graphics_to_wire_dict()
-                preloaded_marker_graphics = getattr(
-                    scenario_data, "marker_graphics_to_wire_dict", lambda: {}
-                )()
-                preloaded_markers = getattr(
-                    scenario_data, "markers_to_wire_list", lambda: []
-                )()
-                initial_state = scenario_to_initial_state(
-                    scenario_data,
-                    initial_faction=first["faction"],
-                    initial_phase=first["phase"],
-                    phase_actions_remaining=int(first["max_actions"]),
-                    schedule_index=0,
-                    game_definition=game_def,
-                )
-                self.local_server = LocalServerManager(
-                    initial_state=initial_state,
-                    map_display=scenario_data.map_display.to_wire_dict(),
-                    global_styles=scenario_data.global_styles.to_wire_dict(),
-                    unit_graphics=preloaded_unit_graphics,
-                    marker_graphics=preloaded_marker_graphics,
-                    markers=preloaded_markers,
-                    game_definition=game_def,
-                )
-                if not self.local_server.start():
-                    self.logger.error("Failed to start local server")
-                    return False
-
-            self.client = BrowserWebSocketClient(self.server_url)
-
-            self.client.on_state_update = self._handle_state_update
-            self.client.on_map_display = self._on_map_display
-            self.client.on_global_styles = self._on_global_styles
-            self.client.on_unit_graphics = self._on_unit_graphics
-            self.client.on_marker_graphics = self._on_marker_graphics
-            self.client.on_markers = self._on_markers
-            self.client.on_connection_change = self._handle_connection_change
-            self.client.on_error = self._handle_error
-            self.client.on_action_result = self._handle_action_result
-            self.client.on_ui_popup = self._handle_ui_popup
-            self.client.on_marker_preview = self._handle_marker_preview
-            self.client.on_unit_preview = self._handle_unit_preview
-
-            if preloaded_unit_graphics is not None:
-                self.display_mgr.apply_unit_graphics(preloaded_unit_graphics)
-                self.client._applied_unit_graphics_json = json.dumps(
-                    preloaded_unit_graphics, sort_keys=True, ensure_ascii=True
-                )
-
-            if preloaded_marker_graphics is not None:
-                self.marker_mgr.apply_marker_graphics(preloaded_marker_graphics)
-                self.client._applied_marker_graphics_json = json.dumps(
-                    preloaded_marker_graphics, sort_keys=True, ensure_ascii=True
-                )
-            if preloaded_markers is not None:
-                self.marker_mgr.sync_markers(preloaded_markers)
-
-            self.client.connect(
-                player_name=self.player_name, preferred_faction=self.preferred_faction
-            )
-
-            self.logger.info("Connection initiated...")
-            return True
-
+            return execute_client_title_load_connect_arc(self)
         except Exception as e:
             self.logger.error(f"Connection failed: {e}")
+            self.title_load_on_connect_failed()
             return False
 
     def disconnect(self) -> None:
@@ -968,6 +1034,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self._title_game_definition = None
         self._local_game_definition = None
         self.connected = False
+        from .title_load_ui import force_hide_splash
+
+        force_hide_splash()
         self.logger.info("Disconnected")
 
     def execute_action(self, action) -> None:
@@ -1125,18 +1194,17 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     def _title_state_extension_key(self) -> str | None:
         """Pack bucket in GameState.extension for combat/retreat (server turn_rules)."""
-        client = getattr(self, "client", None)
-        if client is not None:
-            tr = getattr(client, "turn_rules", None)
-            if isinstance(tr, dict):
-                raw = tr.get("title_state_extension_key")
-                if isinstance(raw, str) and raw.strip():
-                    return raw.strip()
+        td = self._client_title_data()
+        if td.title_state_extension_key:
+            return td.title_state_extension_key
         gd = getattr(self, "_title_game_definition", None)
         if gd is not None:
-            k = getattr(gd, "title_state_extension_key", None)
-            if isinstance(k, str) and k.strip():
-                return k.strip()
+            try:
+                gk = gd.game_data.title_state_extension_key
+            except AttributeError:
+                gk = None
+            if isinstance(gk, str) and gk.strip():
+                return gk.strip()
         return None
 
     def _combat_disrupt_instead_available(self, st: GameState) -> bool:
@@ -1147,10 +1215,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         hx = st.extension.get(ek)
         if not isinstance(hx, dict):
             return False
-        if (
-            str(hx.get("combat_gate", "")).strip()
-            != "awaiting_retreat_or_disrupt"
-        ):
+        if str(hx.get("combat_gate", "")).strip() != "awaiting_retreat_or_disrupt":
             return False
         ro = hx.get("retreat_obligations")
         if not isinstance(ro, dict):
@@ -1166,11 +1231,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             except (TypeError, ValueError):
                 continue
             u = st.board.units.get(str(uid))
-            if (
-                u is not None
-                and u.active
-                and str(u.faction).strip() == my
-            ):
+            if u is not None and u.active and str(u.faction).strip() == my:
                 return True
         return False
 
@@ -1251,10 +1312,14 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.display_mgr.sync_from_state(new_state)
 
         self._sync_map_overlays()
+        self._sync_faction_display_contract_banner()
         self._sync_interaction_messages()
         self._sync_disrupt_instead_control()
         self._sync_advance_control()
         self._apply_title_faction_css()
+        from .arcs.client_title_load import execute_client_title_load_ready_segment
+
+        execute_client_title_load_ready_segment(self)
         self._apply_focus_unit_after_state_sync(new_state)
         self._sync_attack_plan_after_state_update()
 
@@ -1264,7 +1329,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
         client = self.client
         msgs = client.interaction_messages if client is not None else None
-        rows = [m for m in msgs if isinstance(m, dict)] if isinstance(msgs, list) else []
+        rows = (
+            [m for m in msgs if isinstance(m, dict)] if isinstance(msgs, list) else []
+        )
         if self._engine_banner_message is not None:
             rows = [*rows, dict(self._engine_banner_message)]
         if rows:
@@ -1387,6 +1454,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         text: str,
         ttl_ms: int | None,
         css_class: str | None = None,
+        dedupe_key: str = "engine",
     ) -> None:
         """Local-only banner message for engine/runtime failures (not title-controlled)."""
         from ..document import create_proxy, js
@@ -1396,7 +1464,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             "schema": 1,
             "kind": str(kind),
             "text": str(text),
-            "dedupe_key": "engine",
+            "dedupe_key": str(dedupe_key).strip() or "engine",
             "ttl_ms": ttl_ms,
             "css_class": str(css_class).strip()
             if isinstance(css_class, str) and css_class.strip()
@@ -1406,62 +1474,63 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         # If this message has a TTL, schedule a re-sync so it can disappear without
         # waiting for the next server StateUpdate.
         if isinstance(ttl_ms, int) and ttl_ms >= 0:
-            js.setTimeout(create_proxy(lambda: self._sync_interaction_messages()), ttl_ms + 50)
+            js.setTimeout(
+                create_proxy(lambda: self._sync_interaction_messages()), ttl_ms + 50
+            )
+
+    def _sync_faction_display_contract_banner(self) -> None:
+        """Surface faction label contract violations from turn_rules (local banner)."""
+        if self.client is None:
+            return
+        td = self._client_title_data()
+        err = td.faction_display_contract_error
+        if err == self._last_faction_display_contract_error:
+            return
+        self._last_faction_display_contract_error = err
+        if err:
+            self._set_engine_banner_message(
+                kind="error",
+                text=err,
+                ttl_ms=None,
+                css_class="interaction-msg--error",
+                dedupe_key="faction_display_contract",
+            )
+        else:
+            msg = self._engine_banner_message
+            if (
+                isinstance(msg, dict)
+                and msg.get("dedupe_key") == "faction_display_contract"
+            ):
+                self._engine_banner_message = None
 
     def _faction_ui_for(self, faction_id: str) -> tuple[str, str | None]:
-        """
-        Resolve (label, css_class) for faction_id from server turn_rules.
-
-        Falls back to display_faction_name and no explicit css class.
-        """
-        tr = self.client.turn_rules if self.client is not None else None
-        if isinstance(tr, dict):
-            ui = tr.get("faction_ui")
-            if isinstance(ui, dict):
-                facs = ui.get("factions")
-                if isinstance(facs, list):
-                    for row in facs:
-                        if not isinstance(row, dict):
-                            continue
-                        if str(row.get("id", "")) != str(faction_id):
-                            continue
-                        label = row.get("label")
-                        cssc = row.get("css_class")
-                        out_label = (
-                            str(label).strip()
-                            if isinstance(label, str) and label.strip()
-                            else display_faction_name(faction_id)
-                        )
-                        out_css = (
-                            str(cssc).strip()
-                            if isinstance(cssc, str) and cssc.strip()
-                            else None
-                        )
-                        return out_label, out_css
-        return display_faction_name(faction_id), None
+        """Resolve (label, css_class) for faction_id from server turn_rules."""
+        td = self._client_title_data()
+        if td.faction_display_contract_error:
+            return str(faction_id), None
+        fu = td.faction_ui
+        if fu is not None:
+            row = fu.row_for(faction_id)
+            if row is not None:
+                if row.label is not None:
+                    return row.label, row.css_class
+                return str(faction_id), row.css_class
+        return str(faction_id), None
 
     def _apply_title_faction_css(self) -> None:
         """Inject optional title CSS from turn_rules.faction_ui (inline + href)."""
         from ..document import js, jsnull
 
-        client = self.client
-        tr = client.turn_rules if client is not None else None
         css: str | None = None
         css_href: str | None = None
-        if isinstance(tr, dict):
-            ui = tr.get("faction_ui")
-            if isinstance(ui, dict):
-                raw = ui.get("css")
-                if isinstance(raw, str) and raw.strip():
-                    css = raw
-                rh = ui.get("css_href")
-                if isinstance(rh, str) and rh.strip():
-                    css_href = rh.strip()
+        fu = self._client_title_data().faction_ui
+        if fu is not None:
+            css = fu.css_inline
+            css_href = fu.css_href
         css_norm = css.strip() if isinstance(css, str) else ""
-        if (
-            getattr(self, "_applied_title_css", None) == css_norm
-            and getattr(self, "_applied_title_css_href", None) == (css_href or "")
-        ):
+        if getattr(self, "_applied_title_css", None) == css_norm and getattr(
+            self, "_applied_title_css_href", None
+        ) == (css_href or ""):
             return
         self._applied_title_css = css_norm
         self._applied_title_css_href = css_href or ""
@@ -1509,18 +1578,20 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         """
         import os
 
-        if os.getenv("HEXENGINE_STRICT_TITLE_SYNC", "").strip() not in ("1", "true", "yes"):
+        if os.getenv("HEXENGINE_STRICT_TITLE_SYNC", "").strip() not in (
+            "1",
+            "true",
+            "yes",
+        ):
             return
         c = self.client
-        if c is None or not isinstance(c.turn_rules, dict):
+        if c is None:
             return
-        cc = c.turn_rules.get("client_contract")
-        if not isinstance(cc, dict):
-            return
-        feats = cc.get("features")
-        if not isinstance(feats, list):
-            return
-        if "retreat_obligations" in feats and c.retreat_obligations is None:
+        td = self._client_title_data()
+        if (
+            "retreat_obligations" in td.client_contract_features
+            and c.retreat_obligations is None
+        ):
             if not getattr(self, "_warned_missing_retreat_obligations_wire", False):
                 self._warned_missing_retreat_obligations_wire = True
                 self.logger.warning(
@@ -1538,7 +1609,11 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             return
         uid = s.strip()
         u = state.board.units.get(uid)
-        if u is None or not u.active or (client.faction and u.faction != client.faction):
+        if (
+            u is None
+            or not u.active
+            or (client.faction and u.faction != client.faction)
+        ):
             return
         self.ui_state.select_unit(uid)
         gu = self.board.get_unit(uid)
@@ -1670,16 +1745,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     def _max_active_units_per_hex(self) -> int | None:
         """Optional stacking limit from server turn_rules (title-owned)."""
-        c = self.client
-        tr = c.turn_rules if c is not None else None
-        if not isinstance(tr, dict):
-            return None
-        raw = tr.get("max_active_units_per_hex")
-        try:
-            n = int(raw)
-        except (TypeError, ValueError):
-            return None
-        return n if n > 0 else None
+        return self._client_title_data().max_active_units_per_hex
 
     def advance_turn(self, _) -> None:
         """Send NextPhase derived from replicated schedule (same as server)."""
@@ -1819,7 +1885,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         if self.client is not None:
             self.client.send_unit_preview_request(unit_id)
             # The websocket client increments its own counter; capture the latest id.
-            self._unit_preview_request_id = str(getattr(self.client, "_preview_req_counter", ""))
+            self._unit_preview_request_id = str(
+                getattr(self.client, "_preview_req_counter", "")
+            )
         self.ui_state.set_constraints(set())
         self.display_mgr.clear_highlights()
 
@@ -1834,7 +1902,11 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         if str(self.ui_state.drag_preview.unit_id) != uid:
             return
         rid = payload.get("request_id")
-        if isinstance(rid, str) and self._unit_preview_request_id and rid != self._unit_preview_request_id:
+        if (
+            isinstance(rid, str)
+            and self._unit_preview_request_id
+            and rid != self._unit_preview_request_id
+        ):
             return
 
         rows = payload.get("hexes")
@@ -1858,15 +1930,14 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         if isinstance(raw_cc, str) and raw_cc.strip():
             cls = raw_cc.strip()
         else:
-            c = self.client
-            if c is not None and isinstance(c.turn_rules, dict):
-                ui = c.turn_rules.get("ui")
-                if isinstance(ui, dict):
-                    kind = str(payload.get("kind", "")).strip()
-                    key = "retreat_hex_class" if kind == "retreat" else "move_hex_class"
-                    raw = ui.get(key)
-                    if isinstance(raw, str) and raw.strip():
-                        cls = raw.strip()
+            hi = self._client_title_data().hex_highlights
+            kind = str(payload.get("kind", "")).strip()
+            if kind == "retreat":
+                raw = hi.retreat_hex_class
+            else:
+                raw = hi.move_hex_class
+            if isinstance(raw, str) and raw.strip():
+                cls = raw.strip()
 
         self.display_mgr.clear_highlights()
         # Retreat preview can include "through" hexes that are reachable but not endpoints.
@@ -1912,17 +1983,15 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         # Ask authoritative server for destination preview hexes so thin clients match.
         if self.client is not None:
             self.client.send_marker_preview_request(marker_id, display.unit_type)
-            self._marker_preview_request_id = str(getattr(self.client, "_preview_req_counter", ""))
+            self._marker_preview_request_id = str(
+                getattr(self.client, "_preview_req_counter", "")
+            )
         valid: set[Any] = set()
         self.ui_state.set_constraints(valid)
         cls = "highlight"
-        c = self.client
-        if c is not None and isinstance(c.turn_rules, dict):
-            ui = c.turn_rules.get("ui")
-            if isinstance(ui, dict):
-                raw = ui.get("marker_hex_class")
-                if isinstance(raw, str) and raw.strip():
-                    cls = raw.strip()
+        raw_m = self._client_title_data().hex_highlights.marker_hex_class
+        if isinstance(raw_m, str) and raw_m.strip():
+            cls = raw_m.strip()
         self.display_mgr.clear_highlights()
         self.display_mgr.highlight_hexes(set(), cls=cls)
 
@@ -1938,7 +2007,11 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         if str(self.ui_state.drag_preview.unit_id) != mid:
             return
         rid = payload.get("request_id")
-        if isinstance(rid, str) and self._marker_preview_request_id and rid != self._marker_preview_request_id:
+        if (
+            isinstance(rid, str)
+            and self._marker_preview_request_id
+            and rid != self._marker_preview_request_id
+        ):
             return
         rows = payload.get("hexes")
         if not isinstance(rows, list):
@@ -1959,13 +2032,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         if isinstance(raw_cc, str) and raw_cc.strip():
             cls = raw_cc.strip()
         else:
-            c = self.client
-            if c is not None and isinstance(c.turn_rules, dict):
-                ui = c.turn_rules.get("ui")
-                if isinstance(ui, dict):
-                    raw = ui.get("marker_hex_class")
-                    if isinstance(raw, str) and raw.strip():
-                        cls = raw.strip()
+            raw_m = self._client_title_data().hex_highlights.marker_hex_class
+            if isinstance(raw_m, str) and raw_m.strip():
+                cls = raw_m.strip()
         self.display_mgr.clear_highlights()
         self.display_mgr.highlight_hexes(valid, cls=cls)
 

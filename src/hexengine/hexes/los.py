@@ -3,8 +3,8 @@ Line-of-sight (LOS) helpers for hex grids.
 
 This module is intentionally **state-agnostic**: callers supply a `blocks(hex) -> bool`
 predicate describing what counts as LOS-blocking (terrain, units, smoke, etc.).
-Optionally, ``edges_block(h1, h2) -> bool`` marks grid steps whose crossed map edge
-blocks LOS (e.g. rivers on ``[[edge_features]]``).
+Optionally, `edges_block(h1, h2) -> bool` marks grid steps whose crossed map edge
+blocks LOS (e.g. rivers on `[[edge_features]]`).
 
 LOS rule supported:
 - A ray may trace along the edge of a single blocking hex (grazing is allowed).
@@ -19,7 +19,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from .constants import FLAT_TOP_AXIAL_TO_PLANE_X, FLAT_TOP_PLANE_TO_AXIAL_Q_SCALE, SQRT_THREE
+from .constants import (
+    FLAT_TOP_AXIAL_TO_PLANE_X,
+    FLAT_TOP_PLANE_TO_AXIAL_Q_SCALE,
+    SQRT_THREE,
+)
 from .math import cube_round, distance
 from .types import Hex
 
@@ -103,7 +107,7 @@ def _first_block_on_ray_path(
     blocks: Callable[[Hex], bool],
     edges_block: Callable[[Hex, Hex], bool] | None,
 ) -> Hex | None:
-    """First blocking hex along ``path`` (interior hexes, then edge steps), or None."""
+    """First blocking hex along `path` (interior hexes, then edge steps), or None."""
     for h in path[1:-1]:
         if blocks(h):
             return h
@@ -130,7 +134,7 @@ def has_line_of_sight(
 
     Endpoints `a` and `b` are *not* tested against `blocks` (only intermediate hexes).
 
-    When ``edges_block`` is set, it must return True if the undirected step between two
+    When `edges_block` is set, it must return True if the undirected step between two
     adjacent hexes on the ray (including sub-steps along the grid line) blocks LOS.
     """
     if a == b:
@@ -188,4 +192,3 @@ def first_blocking_hex(
 
 
 __all__ = ["has_line_of_sight", "first_blocking_hex"]
-

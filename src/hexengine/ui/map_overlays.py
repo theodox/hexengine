@@ -93,7 +93,9 @@ class MapOverlayManager:
         div.style.pointerEvents = "none"
         cc = row.get("css_class")
         if isinstance(cc, str) and cc.strip():
-            div.className = f"hexengine-map-overlay hexengine-map-overlay--glyph {cc.strip()}"
+            div.className = (
+                f"hexengine-map-overlay hexengine-map-overlay--glyph {cc.strip()}"
+            )
         else:
             div.className = "hexengine-map-overlay hexengine-map-overlay--glyph"
         div.textContent = str(row.get("text", ""))

@@ -34,9 +34,9 @@ class SVGLayer:
     def clear(self) -> None:
         # Snapshot nodes — childNodes is live; lambdas must capture each node, not loop var.
         for child in list(self._svg.childNodes):
-            if child.classList.contains(self.HIGHLIGHT_BASE_CLASS) or child.classList.contains(
-                "highlight"
-            ):
+            if child.classList.contains(
+                self.HIGHLIGHT_BASE_CLASS
+            ) or child.classList.contains("highlight"):
                 logging.info("Removing hex layer")
                 child.classList.add("fade-out")
                 js.setTimeout(

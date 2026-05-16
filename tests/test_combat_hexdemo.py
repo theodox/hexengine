@@ -6,17 +6,16 @@ import asyncio
 from unittest.mock import patch
 
 import pytest
+from games.hexdemo.game_config import default_match_config, game_definition_from_config
 
+from hexengine.gamedef.builtin import default_game_definition
 from hexengine.hexes.math import neighbors
 from hexengine.hexes.types import Hex
-from hexengine.gamedef.builtin import default_game_definition
 from hexengine.server.game_server import GameServer
 from hexengine.server.protocol import ActionRequest, CombatEventWire, PlayerInfo
 from hexengine.state import GameState
 from hexengine.state.actions import Attack, NextPhase
 from hexengine.state.game_state import BoardState, TurnState, UnitState
-
-from games.hexdemo.game_config import game_definition_from_config, default_match_config
 
 
 def _hexdemo_combat_state() -> GameState:
@@ -100,7 +99,7 @@ def _hexdemo_artillery_ranged_vs_infantry() -> GameState:
     """Union artillery at range 2 vs confederate infantry (melee on defender hex only)."""
     h_def = Hex(0, 0, 0)
     h_art = Hex(2, -1, -1)
-    # Second union unit avoids auto-advance clearing ``last_combat`` after one attack.
+    # Second union unit avoids auto-advance clearing `last_combat` after one attack.
     h_idle = Hex(5, -5, 0)
     board = BoardState(
         units={
@@ -241,7 +240,8 @@ def test_hexdemo_stacking_limit_rejects_move() -> None:
         await server.handle_message("p1", req.to_message())
         errors = [p.get("error") for p in out if isinstance(p, dict)]
         assert any(
-            isinstance(e, str) and ("stacking" in e.lower() or "active units" in e.lower())
+            isinstance(e, str)
+            and ("stacking" in e.lower() or "active units" in e.lower())
             for e in errors
         ), f"Expected stacking error, got: {errors!r}"
 
@@ -264,7 +264,9 @@ def test_hexdemo_move_can_pass_through_friendly_stack() -> None:
     )
     st = GameState(
         board=board,
-        turn=TurnState(current_faction="union", current_phase="Move", phase_actions_remaining=2),
+        turn=TurnState(
+            current_faction="union", current_phase="Move", phase_actions_remaining=2
+        ),
         extension={"hexdemo": {}},
         rng_log=(),
     )
@@ -286,7 +288,9 @@ def test_hexdemo_retreat_moves_entire_stack() -> None:
             "u2": UnitState("u2", "inf", "union", h0, active=True, stack_index=1),
         }
     )
-    turn = TurnState(current_faction="union", current_phase="Combat", phase_actions_remaining=2)
+    turn = TurnState(
+        current_faction="union", current_phase="Combat", phase_actions_remaining=2
+    )
     st = GameState(
         board=board,
         turn=turn,
@@ -325,7 +329,7 @@ def test_hexdemo_retreat_moves_entire_stack() -> None:
 
 
 def test_server_suggested_focus_unit_id_for_player(hexdemo_server: GameServer) -> None:
-    """``GameServer`` fills ``StateUpdate.suggested_focus_unit_id`` from the title hook."""
+    """`GameServer` fills `StateUpdate.suggested_focus_unit_id` from the title hook."""
     from hexengine.server.protocol import PlayerInfo
 
     st = hexdemo_server.action_manager.current_state
@@ -365,9 +369,11 @@ def hexdemo_server() -> GameServer:
     )
 
 
-def test_hexdemo_validate_attack_adjacent_and_once_per_unit(hexdemo_server: GameServer) -> None:
+def test_hexdemo_validate_attack_adjacent_and_once_per_unit(
+    hexdemo_server: GameServer,
+) -> None:
     st = hexdemo_server.action_manager.current_state
-    from hexengine.hooks import AttackContext
+    from hexengine.hooks.attack import AttackContext
 
     att_h = st.board.units["u_att"].position
     def_h = st.board.units["u_def"].position
@@ -620,8 +626,10 @@ def test_ranged_artillery_attack_suppresses_attacker_retreat() -> None:
     asyncio.run(run())
 
 
-def test_advance_opens_when_wire_primary_is_ranged_but_adjacent_infantry_in_party() -> None:
-    """Advance uses an adjacent stack from ``attacker_ids``, not only ``attacker_id``."""
+def test_advance_opens_when_wire_primary_is_ranged_but_adjacent_infantry_in_party() -> (
+    None
+):
+    """Advance uses an adjacent stack from `attacker_ids`, not only `attacker_id`."""
     from hexengine.server.protocol import JoinGameRequest
 
     h_def_orig = Hex(0, 0, 0)
@@ -675,7 +683,9 @@ def test_advance_opens_when_wire_primary_is_ranged_but_adjacent_infantry_in_part
             "defender_id": "u_def",
             "defender_ids": ["u_def"],
             "defender_hex": {"i": h_def_orig.i, "j": h_def_orig.j, "k": h_def_orig.k},
-            "defender_hexes": [{"i": h_def_orig.i, "j": h_def_orig.j, "k": h_def_orig.k}],
+            "defender_hexes": [
+                {"i": h_def_orig.i, "j": h_def_orig.j, "k": h_def_orig.k}
+            ],
             "attacker_hexes": [
                 {"i": h_art.i, "j": h_art.j, "k": h_art.k},
                 {"i": h_inf.i, "j": h_inf.j, "k": h_inf.k},
@@ -968,7 +978,9 @@ def test_clear_hexdemo_combat_on_next_phase(hexdemo_server: GameServer) -> None:
     assert "last_combat" not in hx
 
 
-def test_auto_advance_when_sole_attacker_has_attacked(hexdemo_server: GameServer) -> None:
+def test_auto_advance_when_sole_attacker_has_attacked(
+    hexdemo_server: GameServer,
+) -> None:
     server = hexdemo_server
     server.players["p_u"] = PlayerInfo(
         player_id="p_u", player_name="U", faction="union", connected=True
@@ -984,9 +996,9 @@ def test_auto_advance_when_sole_attacker_has_attacked(hexdemo_server: GameServer
             req = ActionRequest(
                 action_type="Attack",
                 params={
-                        "attack_kind": "combined",
+                    "attack_kind": "combined",
                     "attacker_id": "u_att",
-                        "attacker_ids": ["u_att"],
+                    "attacker_ids": ["u_att"],
                     "defender_id": "u_def",
                 },
                 player_id="p_u",
@@ -1035,7 +1047,9 @@ def test_no_auto_advance_while_retreat_pending(hexdemo_server: GameServer) -> No
 
 def test_two_union_units_require_two_attacks_before_advance() -> None:
     gd = game_definition_from_config(default_match_config())
-    server = GameServer(initial_state=_hexdemo_two_union_vs_one_def(), game_definition=gd)
+    server = GameServer(
+        initial_state=_hexdemo_two_union_vs_one_def(), game_definition=gd
+    )
     server.players["p_u"] = PlayerInfo(
         player_id="p_u", player_name="U", faction="union", connected=True
     )
@@ -1049,9 +1063,9 @@ def test_two_union_units_require_two_attacks_before_advance() -> None:
             req = ActionRequest(
                 action_type="Attack",
                 params={
-                        "attack_kind": "combined",
+                    "attack_kind": "combined",
                     "attacker_id": attacker,
-                        "attacker_ids": [attacker],
+                    "attacker_ids": [attacker],
                     "defender_id": "u_def",
                 },
                 player_id="p_u",

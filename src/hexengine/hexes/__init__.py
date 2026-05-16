@@ -2,6 +2,27 @@ from __future__ import annotations
 
 from importlib.metadata import PackageNotFoundError, version
 
+from .centerline import (
+    LinearFeaturePath,
+    consecutive_step_on_path,
+    linear_feature_path_around_hexes,
+    perimeter_hex_path,
+    silhouette_edge,
+    validate_linear_hex_path,
+)
+from .edges import (
+    EdgeKey,
+    direction_toward_neighbor,
+    edge_between,
+    edge_keys_along_hex_chain,
+    edge_keys_for_shape_path,
+    exterior_edge_keys_for_hexes,
+    incident_edge_keys_for_hexes,
+    incident_edge_keys_iter,
+    internal_edge_keys_for_hexes,
+    shared_edge_side_midpoint,
+)
+from .los import has_line_of_sight
 from .math import (
     Cartesian,
     add_cartesian_vectors,
@@ -42,27 +63,6 @@ from .shapes import (
     wedge_fill,
 )
 from .types import Hex, HexColRow
-from .centerline import (
-    LinearFeaturePath,
-    consecutive_step_on_path,
-    linear_feature_path_around_hexes,
-    perimeter_hex_path,
-    silhouette_edge,
-    validate_linear_hex_path,
-)
-from .edges import (
-    EdgeKey,
-    direction_toward_neighbor,
-    edge_between,
-    edge_keys_along_hex_chain,
-    edge_keys_for_shape_path,
-    exterior_edge_keys_for_hexes,
-    incident_edge_keys_for_hexes,
-    incident_edge_keys_iter,
-    internal_edge_keys_for_hexes,
-    shared_edge_side_midpoint,
-)
-from .los import has_line_of_sight
 from .vertices import (
     VertexKey,
     shortest_edge_key_path_within_vertex_a_star,

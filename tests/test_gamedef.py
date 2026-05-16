@@ -78,9 +78,7 @@ class TestGameDefinitions(unittest.TestCase):
         self.assertIsInstance(g, SequentialTwoFactionGameDefinition)
 
     def test_per_unit_movement_attribute_budget(self) -> None:
-        entries = (
-            {"faction": "Red", "phase": "Movement", "max_actions": 2},
-        )
+        entries = ({"faction": "Red", "phase": "Movement", "max_actions": 2},)
         g = StaticScheduleGameDefinition(
             entries,
             movement_budget=4.0,

@@ -14,7 +14,11 @@ export PYTHONPATH="/path/to/hexes/games:$PYTHONPATH"
 $env:PYTHONPATH = "D:\prj\hexes\games;$env:PYTHONPATH"
 ```
 
-When you run `hexserver` (or start the local WebSocket server) with a scenario under `games/hexdemo/scenarios/…`, the engine prepends `games` to `sys.path` if needed and logs **`welcome to hexdemo`** once after load at INFO on the `hexdemo.boot` logger (see `boot.py`).
+When you run `hexserver` (or start the local WebSocket server) with a scenario under `games/hexdemo/scenarios/…`, the engine prepends `games` to `sys.path` if needed. Title-load hooks in `hexengine_pack.toml` (`[hooks.title_load]`) drive:
+
+- **Browser splash** — `resources/splash.html` injected during the client title-load arc (`SPLASH` segment) via `hooks.title_load.present_splash`.
+- **Setup (v1)** — `hooks.title_load.run_setup` on the `SETUP` segment; returns immediately (`continue_connect=True`); reserved for future pre-game UI.
+- **Server log** — `hooks.title_load.on_server_loaded` logs **`welcome to hexdemo`** once at INFO after authoritative load.
 
 ## Game definitions and turn order
 
@@ -33,11 +37,15 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 
 ## Layout (model package)
 
-| Module | Purpose |
-|--------|---------|
-| `boot.py` | Console banner after authoritative load |
+| Path | Purpose |
+|------|---------|
+| `hooks/` | Title policy — see [`hooks/README.md`](hooks/README.md) (`TitleHooks`, title-load, turn schedule) |
+| `hooks/title_load.py` | Splash/setup/server-log (`[hooks.title_load]` in manifest) |
+| `hooks/turn_schedule.py` | Phase-entry callbacks from `HexdemoGameDefinition` |
+| `resources/splash.html` | HTML fragment for the client loading overlay |
 | `game_config.py` | **Match config** (`HexdemoMatchConfig`) and `GameDefinition` construction |
 | `registry.py` | `build_game_definition()` (uses `game_config`) |
+| `engine_entry.py` | Manifest `load_game_definition` entry |
 | `movement_rules.py` | Stubs for future `MovementRules` |
 | `marker_rules.py` | Optional `MarkerPlacementRule` hook |
 

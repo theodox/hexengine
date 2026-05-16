@@ -90,7 +90,7 @@ def _parse_unit_archetype_index(raw: object) -> dict[str, UnitArchetypeRow]:
 
 
 def _load_unit_archetypes(data: dict[str, Any]) -> dict[str, UnitArchetypeRow]:
-    """Merge ``[[unit_archetypes]]`` / ``[[unit_archetype]]`` into a name → row index."""
+    """Merge `[[unit_archetypes]]` / `[[unit_archetype]]` into a name → row index."""
     rows: list[Any] = []
     _u_arch = data.get("unit_archetypes")
     _u_arch1 = data.get("unit_archetype")
@@ -105,7 +105,7 @@ def _load_scenario_units(
     data: dict[str, Any],
     archetype_by_name: dict[str, UnitArchetypeRow],
 ) -> list[UnitRow]:
-    """Parse ``[[units]]`` and ``[[unit_placements]]`` into a flat unit list."""
+    """Parse `[[units]]` and `[[unit_placements]]` into a flat unit list."""
     units: list[UnitRow] = []
     used_unit_ids: set[str] = set()
     auto_unit_id_counters: dict[str, int] = {}

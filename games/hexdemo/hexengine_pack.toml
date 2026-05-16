@@ -11,6 +11,12 @@ path_add = ".."
 entry_module = "hexdemo.engine_entry"
 entry_callable = "load_game_definition"
 
-[hooks]
-loaded_banner_module = "hexdemo.boot"
-loaded_banner_callable = "print_loaded_banner"
+[gamedata]
+file = "resources/game_data.toml"
+
+[hooks.title_load]
+module = "hexdemo.hooks.title_load"
+splash_html = "splash.html"
+splash_callable = "present_splash"
+setup_callable = "run_setup"
+server_loaded_callable = "on_server_loaded"

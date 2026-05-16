@@ -1,10 +1,11 @@
 """
-Hexdemo map overlay specs (engine client renders DOM from ``StateUpdate.map_overlays``).
+Hexdemo map overlay specs (engine client renders DOM from `StateUpdate.map_overlays`).
 """
 
 from __future__ import annotations
 
-from hexengine.hooks import DEFAULT
+from hexengine.hooks.ui import ENGINE_DEFAULT, UIHook
+from hexengine.hooks.wiring import bind_title_hook
 from hexengine.state import GameState
 
 from ..constants import PACK_STATE_EXTENSION_KEY
@@ -22,6 +23,7 @@ def _glyph_row(hex_dict: dict) -> dict[str, object] | None:
     return {"i": hi, "j": hj, "k": hk}
 
 
+@bind_title_hook(UIHook.MAP_OVERLAYS)
 def map_overlays(
     state: GameState, _viewer_faction: str | None
 ) -> list[dict[str, object]] | object:
@@ -30,14 +32,14 @@ def map_overlays(
     """
     hx = state.extension.get(PACK_STATE_EXTENSION_KEY)
     if not isinstance(hx, dict):
-        return DEFAULT
+        return ENGINE_DEFAULT
     atk_n = 0
     prev_attacks = hx.get("attacks_this_phase")
     if isinstance(prev_attacks, list):
         atk_n = len(prev_attacks)
     lc = hx.get("last_combat")
     if not isinstance(lc, dict):
-        return DEFAULT
+        return ENGINE_DEFAULT
 
     rows = lc.get("defender_hexes")
     if isinstance(rows, list) and rows:
@@ -62,7 +64,7 @@ def map_overlays(
     dh = lc.get("defender_hex")
     hxw = _glyph_row(dh) if isinstance(dh, dict) else None
     if hxw is None:
-        return DEFAULT
+        return ENGINE_DEFAULT
     return [
         {
             "schema": 1,

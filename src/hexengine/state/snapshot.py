@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..wire_interop import wire_str
 from ..hexes.centerline import validate_linear_hex_path
 from ..hexes.edges import EdgeKey
 from ..hexes.types import Hex
+from ..wire_interop import wire_str
 from .game_state import (
     BoardEdgeFeature,
     BoardLinearFeature,
@@ -247,9 +247,7 @@ def game_state_from_wire_dict(state_dict: dict[str, Any]) -> GameState:
             sw = row.get("stroke_width")
             raw_sc = row.get("stroke_color")
             stroke_color = (
-                None
-                if raw_sc is None
-                else (s if (s := str(raw_sc).strip()) else None)
+                None if raw_sc is None else (s if (s := str(raw_sc).strip()) else None)
             )
             sd = row.get("stroke_dash")
             lz = row.get("layer_z")
@@ -275,16 +273,16 @@ def game_state_from_wire_dict(state_dict: dict[str, Any]) -> GameState:
                 raise ValueError(f"board.linear_features[{i}] must be an object")
             path_raw = row["path"]
             if not isinstance(path_raw, list) or len(path_raw) < 2:
-                raise ValueError(f"board.linear_features[{i}].path must have at least two hexes")
+                raise ValueError(
+                    f"board.linear_features[{i}].path must have at least two hexes"
+                )
             path_hexes = tuple(_parse_hex(p) for p in path_raw)
             raw_tags = row.get("tags", [])
             tags = tuple(str(x).strip() for x in raw_tags) if raw_tags else ()
             sw = row.get("stroke_width")
             raw_sc = row.get("stroke_color")
             stroke_color = (
-                None
-                if raw_sc is None
-                else (s if (s := str(raw_sc).strip()) else None)
+                None if raw_sc is None else (s if (s := str(raw_sc).strip()) else None)
             )
             sd = row.get("stroke_dash")
             lz = row.get("layer_z")
@@ -325,7 +323,9 @@ def game_state_from_wire_dict(state_dict: dict[str, Any]) -> GameState:
         for k, v in raw_em.items():
             tag = str(k).strip()
             if not tag:
-                raise ValueError("board.edge_movement_extra: empty tag key is not allowed")
+                raise ValueError(
+                    "board.edge_movement_extra: empty tag key is not allowed"
+                )
             if isinstance(v, str) and v.lower() == "inf":
                 em_merged[tag] = float("inf")
             else:
@@ -338,7 +338,9 @@ def game_state_from_wire_dict(state_dict: dict[str, Any]) -> GameState:
         for k, v in raw_elos.items():
             tag = str(k).strip()
             if not tag:
-                raise ValueError("board.edge_line_of_sight: empty tag key is not allowed")
+                raise ValueError(
+                    "board.edge_line_of_sight: empty tag key is not allowed"
+                )
             elos_merged[tag] = bool(v)
     edge_line_of_sight_by_tag = tuple(sorted(elos_merged.items(), key=lambda kv: kv[0]))
 
@@ -362,7 +364,9 @@ def game_state_from_wire_dict(state_dict: dict[str, Any]) -> GameState:
     fac_s = wire_str(turn_data["current_faction"]).strip()
     phase_s = wire_str(turn_data["current_phase"]).strip()
     if not fac_s or not phase_s:
-        raise ValueError("game_state.turn.current_faction and current_phase must be non-empty")
+        raise ValueError(
+            "game_state.turn.current_faction and current_phase must be non-empty"
+        )
     turn = TurnState(
         turn_number=int(turn_data.get("turn_number", 1)),
         current_faction=fac_s,

@@ -13,6 +13,7 @@
 ## Game state snapshot
 
 - `game_state_to_wire_dict` / `game_state_from_wire_dict` may include optional `extension` (object) and `rng_log` (array of objects). Older clients ignore unknown top-level keys if they use a tolerant JSON parser.
+- Stepwise movement **arc** state lives under extension key **`hexengine_movement_arc`** (not `hexengine_movement_flow`). Snapshots or clients using the old key need a one-time migration when upgrading.
 
 ## Game rules selection
 

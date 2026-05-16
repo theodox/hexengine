@@ -233,22 +233,47 @@
     }
 }
 
-#loading {
+.hexengine-map-stage > #loading {
+    --hexengine-splash-dismiss-delay-ms: 480ms;
+
     position: absolute;
-    width: 50%;
-    height: 25%;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: rgba(10, 38, 55, 0.425);
-    z-index: 200;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    top: auto;
+    left: auto;
+    transform: none;
+    margin: 0;
+    background-color: rgba(10, 38, 55, 0.72);
+    z-index: 2500;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 32px;
+    border-radius: 0;
     color: rgb(217, 217, 150);
     font-size: 24px;
     font-family: sans-serif;
+    pointer-events: auto;
+}
+
+#loading.hexengine-splash-active {
+    display: flex !important;
+}
+
+#loading.hexengine-splash-dismissing {
+    animation: hexengine-splash-fade-out 0.28s ease-out forwards;
+    pointer-events: none;
+}
+
+@keyframes hexengine-splash-fade-out {
+    from {
+        opacity: 1;
+        visibility: visible;
+    }
+    to {
+        opacity: 0;
+        visibility: hidden;
+    }
 }
 
 #ui-panel {

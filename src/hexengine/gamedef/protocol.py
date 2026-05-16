@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Protocol, runtime_checkable
 
 from ..state import GameState
+from .game_data import GameData
 
 
 @runtime_checkable
@@ -16,18 +17,26 @@ class GameDefinition(Protocol):
     per-match state on `self` (derive from `hexengine.state.game_state.GameState`
     or inject closures when a title needs session-scoped behavior).
 
-    Rule customization (movement/combat/stacking/ZOC/etc.) is provided via a hooks bundle:
+    Rule customization (movement/combat/ZOC/etc.) is provided via a hooks bundle:
 
     - `hexengine.hooks.TitleHooks`
     - Exposed by the game definition as either `hooks` (attribute) or `hooks()` (callable)
 
-    The engine uses only hooks (plus engine defaults when a hook returns `hooks.DEFAULT`).
+    Declarative wire knobs (stacking cap, faction labels, CSS paths, …) live on
+    `game_data` (`hexengine.gamedef.game_data.GameData`), not on movement hooks.
 
-    Optional: title_state_extension_key — class attribute or plain str on the
-    definition naming the GameState.extension bucket used for title-owned combat
-    and retreat data (for example the string hexdemo). When set, the server publishes it
-    in StateUpdate.turn_rules and runs phase/combat housekeeping against that key.
-    Built-in schedules omit it.
+    The engine uses only hooks (plus engine defaults when a hook returns `hooks.ENGINE_DEFAULT`).
+
+    On `GameServer` startup, `hexengine.hooks.internal.validate_title_contract` checks basic
+    consistency: when the schedule includes a combat-oriented phase, `TitleHooks` must
+    expose `validate_attack` and `resolve_attack`. Built-in static schedules supply
+    minimal attack stubs that return `ENGINE_DEFAULT` unless a title overrides
+    `hooks`.
+
+    Optional: title_state_extension_key — prefer `game_data.title_state_extension_key`
+    naming the `GameState.extension` bucket used for title-owned combat and retreat data
+    (for example the string hexdemo). When set, the server publishes it in StateUpdate.turn_rules
+    and runs phase/combat housekeeping against that key. Built-in schedules omit it.
 
     Phase auto-advance after combat is provided via `TitleHooks` (attack hooks).
 
@@ -67,4 +76,9 @@ class GameDefinition(Protocol):
         Return value includes `faction`, `phase`, `max_actions`, and
         `schedule_index` (the index of the next slot in `turn_order()`).
         """
+        ...
+
+    @property
+    def game_data(self) -> GameData:
+        """Title-owned declarative data (wire knobs); see `hexengine.gamedef.game_data`."""
         ...

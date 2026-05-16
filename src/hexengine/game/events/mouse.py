@@ -4,7 +4,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from ...document import create_proxy, js, jsnull
-from ...hexes.types import Hex, HexColRow
+from ...hexes.types import Hex
 from .handler import EventInfo, Modifiers
 
 if TYPE_CHECKING:
@@ -447,9 +447,7 @@ class MouseEventHandlerMixin:
 
         phase_ok = str(state.turn.current_phase).strip().lower() in ("combat", "attack")
         current_faction = state.turn.current_faction
-        retreating = (
-            self.retreat_obligation_hexes_remaining(state, unit_id) is not None
-        )
+        retreating = self.retreat_obligation_hexes_remaining(state, unit_id) is not None
 
         # Attack planning: treat unit mousedown as selection/toggle (not drag) during Combat.
         if phase_ok and self.is_my_turn() and not retreating:

@@ -1,4 +1,4 @@
-"""Title hooks around the turn schedule (Hexdemo)."""
+"""Turn-schedule lifecycle hooks (called from `HexdemoGameDefinition.after_phase_transition`)."""
 
 from __future__ import annotations
 

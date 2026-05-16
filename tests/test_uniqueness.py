@@ -24,7 +24,9 @@ def test_round_trip():
 
     if failures:
         sample = "; ".join(f"{o} -> {c} -> {b}" for o, c, b in failures[:10])
-        assert False, f"Found {len(failures)} round-trip failures (first 10): {sample}"
+        raise AssertionError(
+            f"Found {len(failures)} round-trip failures (first 10): {sample}"
+        )
     print("✓ All hex coordinates round-trip correctly!")
 
 
@@ -46,8 +48,12 @@ def test_cartesian_uniqueness():
                 cart_to_hex[cart] = hex_coord
 
     if collisions:
-        sample = "; ".join(f"{h1} and {h2} both -> {c}" for h1, h2, c in collisions[:10])
-        assert False, f"Found {len(collisions)} cartesian collisions (first 10): {sample}"
+        sample = "; ".join(
+            f"{h1} and {h2} both -> {c}" for h1, h2, c in collisions[:10]
+        )
+        raise AssertionError(
+            f"Found {len(collisions)} cartesian collisions (first 10): {sample}"
+        )
     print("\n✓ No collisions: each hex produces a unique cartesian coordinate!")
 
 
@@ -70,12 +76,11 @@ def test_arbitrary_cartesian():
 
     if inconsistencies:
         sample = "; ".join(
-            f"{ca} -> {h1} -> {c2} -> {h2b}"
-            for ca, h1, c2, h2b in inconsistencies[:10]
+            f"{ca} -> {h1} -> {c2} -> {h2b}" for ca, h1, c2, h2b in inconsistencies[:10]
         )
-        assert (
-            False
-        ), f"Found {len(inconsistencies)} arbitrary-cartesian inconsistencies (first 10): {sample}"
+        raise AssertionError(
+            f"Found {len(inconsistencies)} arbitrary-cartesian inconsistencies (first 10): {sample}"
+        )
     print("\n✓ Arbitrary cartesian coordinates are consistent!")
 
 

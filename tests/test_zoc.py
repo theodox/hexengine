@@ -4,13 +4,18 @@ from __future__ import annotations
 
 from hexengine.hexes.math import neighbors
 from hexengine.hexes.types import Hex
-from hexengine.state.game_state import BoardState, GameState, TurnState, UnitState
-from hexengine.state.game_state import LocationState
+from hexengine.state.game_state import (
+    BoardState,
+    GameState,
+    LocationState,
+    TurnState,
+    UnitState,
+)
 from hexengine.state.logic import (
     adjacent_enemy_zoc_hexes,
     adjacent_friendly_zoc_hexes,
-    compute_valid_moves,
     compute_retreat_destination_hexes,
+    compute_valid_moves,
     is_valid_move,
     retreat_impassable_enemy_zoc_hexes,
 )
@@ -154,7 +159,9 @@ def test_retreat_blocks_enemy_only_zoc_allows_overlap_with_friendly() -> None:
     mid = Hex(1, -1, 0)
     dest = Hex(2, -2, 0)  # two steps away via `mid`
     enemy = Hex(1, 0, -1)  # projects enemy ZOC onto `mid`
-    alt_mid = Hex(0, -1, 1)  # alternative path intermediate; make it impassable to force `mid`.
+    alt_mid = Hex(
+        0, -1, 1
+    )  # alternative path intermediate; make it impassable to force `mid`.
 
     board = BoardState(
         units={
@@ -186,7 +193,9 @@ def test_retreat_blocks_enemy_only_zoc_allows_overlap_with_friendly() -> None:
 
     # Add a friendly unit adjacent to `mid` so that `mid` is also in friendly ZOC.
     friend_adj_mid = Hex(2, -1, -1)
-    st2 = st.with_board(st.board.with_unit(UnitState("f", "inf", "union", friend_adj_mid, active=True)))
+    st2 = st.with_board(
+        st.board.with_unit(UnitState("f", "inf", "union", friend_adj_mid, active=True))
+    )
     enemy_zoc2 = adjacent_enemy_zoc_hexes(st2, "u")
     friendly_zoc2 = adjacent_friendly_zoc_hexes(st2, "u")
     assert mid in enemy_zoc2

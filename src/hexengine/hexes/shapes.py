@@ -84,10 +84,7 @@ def wedge(center: HexLike, rad_distance: int, direction: int) -> Iterable[Hex]:
     c = _as_hex(center)
     for r in radius(c, rad_distance):
         dir_hex = neighbor_hex(c, direction)
-        if (
-            distance(c, r) == rad_distance
-            and distance(c, r + dir_hex) < rad_distance
-        ):
+        if distance(c, r) == rad_distance and distance(c, r + dir_hex) < rad_distance:
             yield r
 
 
@@ -417,9 +414,7 @@ def convex_polygon(vertices: Sequence[HexLike]) -> set[Hex]:
             k = -i - j
             candidate = Hex(i, j, k)
 
-            if candidate not in boundary_hexes and _point_in_polygon(
-                candidate, verts
-            ):
+            if candidate not in boundary_hexes and _point_in_polygon(candidate, verts):
                 filled.add(candidate)
 
     return filled

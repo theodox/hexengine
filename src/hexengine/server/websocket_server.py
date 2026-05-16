@@ -202,7 +202,7 @@ async def main(
         initial_turn_slot_for_game_definition,
         load_game_definition_for_scenario,
         resolve_scenario_path_with_game_root,
-        try_pack_loaded_banner,
+        try_pack_title_load_server,
     )
     from ..scenarios import load_scenario
     from ..scenarios.loader import scenario_to_initial_state
@@ -237,7 +237,7 @@ async def main(
         game_definition=game_def,
         listen_ready_event=listen_ready_event,
     )
-    try_pack_loaded_banner(scenario_path)
+    try_pack_title_load_server(scenario_path)
     await server.start()
 
 

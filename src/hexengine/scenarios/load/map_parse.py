@@ -193,7 +193,7 @@ def _terrain_group_location_base(
 
 
 def _col_row_cell(cell: object, *, ctx: str) -> tuple[int, int]:
-    """One odd-q waypoint as ``[col, row]``."""
+    """One odd-q waypoint as `[col, row]`."""
     if not isinstance(cell, list | tuple) or len(cell) != 2:
         raise ValueError(f"{ctx} must be [col, row]")
     return (int(cell[0]), int(cell[1]))
@@ -648,7 +648,7 @@ def _load_scenario_map_pieces(
     scenario_toml: Path,
     static_root: Path,
 ) -> _ScenarioMapPieces:
-    """Terrain, locations, ``[map]`` / styles / graphics / markers / edge & linear features."""
+    """Terrain, locations, `[map]` / styles / graphics / markers / edge & linear features."""
     terrain_types = _parse_terrain_types(data.get("terrain_types"))
     terrain_by_type = {t.terrain_type: t for t in terrain_types}
 
@@ -715,7 +715,7 @@ def _merge_sparse_grid_hexes(
     locations: list[LocationRow],
     units: list[UnitRow],
 ) -> MapDisplayConfig:
-    """When ``[map]`` omits fixed dimensions, shrink the canvas to occupied odd-q hexes."""
+    """When `[map]` omits fixed dimensions, shrink the canvas to occupied odd-q hexes."""
     seen: set[tuple[int, int, int]] = set()
     ordered: list[tuple[int, int, int]] = []
     for loc in locations:

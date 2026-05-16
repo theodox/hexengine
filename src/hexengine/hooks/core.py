@@ -3,10 +3,13 @@ Core hook helpers and shared types.
 
 These utilities support the engine ↔ title boundary during turn resolution:
 
+A `Hook` is an engine customiztion point that titles can use or override. Hooks
+are marked with a `@hook` decorator that records contract metadata.
+
 - The authoritative server resolves a client action by consulting a `TitleHooks` bundle.
 - Hooks are expected to be pure with respect to match state: return data, or raise a
   `RuleViolation`/`ValueError` to reject an action.
-- Returning `DEFAULT` means "use engine default behavior for this hook point".
+- Returning `ENGINE_DEFAULT` means "use engine default behavior for this hook point".
 """
 
 from __future__ import annotations
@@ -16,7 +19,25 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, get_type_hints
 
-DEFAULT: object = object()
+ENGINE_DEFAULT: object = object()
+# Backward-compatible alias (same object identity as `ENGINE_DEFAULT`).
+RETURN_DEFAULT: object = ENGINE_DEFAULT
+
+# Bind-time contract modes (distinct from runtime return sentinel `ENGINE_DEFAULT`).
+REQUIRED: object = object()
+PRESET: object = object()
+SINGLE_DEFAULT: object = object()
+
+
+@dataclass(frozen=True, slots=True)
+class HookContractError(Exception):
+    """Hook registration or title binding violated an expected contract."""
+
+    message: str = ""
+    details: dict[str, Any] = field(default_factory=dict)
+
+    def __str__(self) -> str:
+        return self.message or "Hook contract error"
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,8 +106,10 @@ def implements_hook(
             hints = get_type_hints(target)
             ann = hints.get("return")
             if ann is None:
-                raise TypeError(f"{hook_id}: hook function must annotate its return type")
-            # We accept `DEFAULT` sentinel at runtime; annotation should still be the data type.
+                raise TypeError(
+                    f"{hook_id}: hook function must annotate its return type"
+                )
+            # We accept `ENGINE_DEFAULT` at runtime; annotation should still be the data type.
             if ann is not return_type:
                 raise TypeError(
                     f"{hook_id}: return annotated as {ann!r}, expected {return_type!r}"
@@ -97,5 +120,13 @@ def implements_hook(
     return deco
 
 
-__all__ = ["DEFAULT", "RuleViolation", "implements_hook"]
-
+__all__ = [
+    "ENGINE_DEFAULT",
+    "RETURN_DEFAULT",
+    "REQUIRED",
+    "PRESET",
+    "SINGLE_DEFAULT",
+    "HookContractError",
+    "RuleViolation",
+    "implements_hook",
+]

@@ -9,14 +9,6 @@ This re-exports the public protocol surface from:
 
 from __future__ import annotations
 
-from .internals import (
-    Message,
-    WireMessageType,
-    assert_wire_registry_covers_message_types,
-    registered_message_types,
-    client_message,
-    server_message,
-)
 from .client import (
     ActionRequest,
     InspectRequest,
@@ -24,9 +16,17 @@ from .client import (
     LeaveGameRequest,
     LoadSnapshotRequest,
     MarkerPreviewRequest,
-    UnitPreviewRequest,
     RedoRequest,
     UndoRequest,
+    UnitPreviewRequest,
+)
+from .internals import (
+    Message,
+    WireMessageType,
+    assert_wire_registry_covers_message_types,
+    client_message,
+    registered_message_types,
+    server_message,
 )
 from .server import (
     ActionResult,
@@ -38,8 +38,8 @@ from .server import (
     ServerError,
     ServerLogEvent,
     StateUpdate,
-    UnitPreviewWire,
     UIPopupWire,
+    UnitPreviewWire,
 )
 
 assert_wire_registry_covers_message_types()
@@ -74,4 +74,3 @@ __all__ = [
     "UnitPreviewWire",
     "UIPopupWire",
 ]
-

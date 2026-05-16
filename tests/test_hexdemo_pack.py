@@ -13,39 +13,46 @@ HEXDEMO_SCENARIO = (
 )
 
 
-def test_display_faction_name_hexdemo() -> None:
-    from hexengine.gamedef.faction_display import (
-        display_faction_name,
-        display_phase_name,
-    )
+def test_hexdemo_faction_display_names_in_game_data() -> None:
+    from hexengine.gamedef.game_data_toml import load_game_data_for_pack_root
 
-    assert display_faction_name("confederate") == "Confederate"
-    assert display_faction_name("union") == "Union"
-    assert display_faction_name("red") == "Red"
-    assert display_phase_name("attack") == "Attack"
-    assert display_phase_name("Movement") == "Movement"
+    root = REPO_ROOT / "games" / "hexdemo"
+    gd = load_game_data_for_pack_root(root)
+    assert gd.faction_display_names["union"] == "Union"
+    assert gd.faction_display_names["confederate"] == "Confederate"
 
 
-def test_hexdemo_manifest_declares_loaded_banner_hook() -> None:
+def test_hexdemo_manifest_declares_title_load_hooks() -> None:
     from hexengine.game_packs.registry import resolve_pack_for_scenario
+    from hexengine.game_packs.resources import read_pack_resource_text
 
     rec = resolve_pack_for_scenario(HEXDEMO_SCENARIO)
-    assert rec.manifest.hooks_loaded_banner_module == "hexdemo.boot"
-    assert rec.manifest.hooks_loaded_banner_callable == "print_loaded_banner"
+    tl = rec.manifest.hooks_title_load
+    assert tl is not None
+    assert tl.module == "hexdemo.hooks.title_load"
+    assert tl.splash_html == "splash.html"
+    assert tl.splash_callable == "present_splash"
+    assert tl.setup_callable == "run_setup"
+    assert tl.server_loaded_callable == "on_server_loaded"
+    splash = read_pack_resource_text(rec.root, tl.splash_html)
+    assert splash is not None
+    assert "Hexdemo" in splash
+    assert rec.game_data.max_active_units_per_hex == 3
+    assert rec.game_data.title_state_extension_key == "hexdemo"
 
 
-def test_try_hexdemo_loaded_banner_once(caplog: pytest.LogCaptureFixture) -> None:
+def test_try_hexdemo_title_load_server_once(caplog: pytest.LogCaptureFixture) -> None:
     from hexengine.gameroot import (
-        reset_pack_loaded_banner_for_tests,
-        try_pack_loaded_banner,
+        reset_title_load_hooks_for_tests,
+        try_pack_title_load_server,
     )
 
-    reset_pack_loaded_banner_for_tests()
-    with caplog.at_level(logging.INFO, logger="hexdemo.boot"):
-        try_pack_loaded_banner(HEXDEMO_SCENARIO)
-        try_pack_loaded_banner(HEXDEMO_SCENARIO)
+    reset_title_load_hooks_for_tests()
+    with caplog.at_level(logging.INFO, logger="hexdemo.hooks.title_load"):
+        try_pack_title_load_server(HEXDEMO_SCENARIO)
+        try_pack_title_load_server(HEXDEMO_SCENARIO)
 
-    boot_logs = [r for r in caplog.records if r.name == "hexdemo.boot"]
+    boot_logs = [r for r in caplog.records if r.name == "hexdemo.hooks.title_load"]
     assert len(boot_logs) == 1
     assert boot_logs[0].levelname == "INFO"
     assert boot_logs[0].message == "welcome to hexdemo"
@@ -101,7 +108,7 @@ def test_hexdemo_default_turn_order_four_phases() -> None:
 
 
 def test_hexdemo_game_config_matches_registry() -> None:
-    """``build_game_definition`` matches ``game_definition_from_config(default_match_config())``."""
+    """`build_game_definition` matches `game_definition_from_config(default_match_config())`."""
     import sys
 
     games = str(REPO_ROOT / "games")
@@ -127,6 +134,7 @@ def _ensure_games_on_path() -> None:
 def test_hexdemo_focus_unit_after_sync() -> None:
     _ensure_games_on_path()
     from hexdemo.focus import focus_unit_id_after_state_sync
+
     from hexengine.hexes.types import Hex
     from hexengine.state import GameState
     from hexengine.state.game_state import BoardState, TurnState, UnitState
@@ -160,5 +168,3 @@ def test_hexdemo_focus_unit_after_sync() -> None:
     assert focus_unit_id_after_state_sync(st, "union") == "only"
     assert focus_unit_id_after_state_sync(st, "confederate") is None
     assert focus_unit_id_after_state_sync(st, None) is None
-
-

@@ -11,8 +11,8 @@ from hexengine.hexes.edges import (
     edge_between,
     edge_keys_along_hex_chain,
     edge_keys_for_shape_path,
-    hex_chain_from_ordered_edge_keys,
     exterior_edge_keys_for_hexes,
+    hex_chain_from_ordered_edge_keys,
     incident_edge_keys_for_hexes,
     incident_edge_keys_iter,
     internal_edge_keys_for_hexes,
@@ -138,7 +138,9 @@ def test_exterior_edge_keys_for_hexes() -> None:
     assert len(exterior_edge_keys_for_hexes((a,))) == 6
     pair_inc = incident_edge_keys_for_hexes((a, b))
     pair_inn = internal_edge_keys_for_hexes((a, b))
-    assert len(exterior_edge_keys_for_hexes((a, b))) == len(pair_inc) - len(pair_inn) == 10
+    assert (
+        len(exterior_edge_keys_for_hexes((a, b))) == len(pair_inc) - len(pair_inn) == 10
+    )
 
 
 def test_shared_edge_side_midpoint_faces_neighbor_hex() -> None:

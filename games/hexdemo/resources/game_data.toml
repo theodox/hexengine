@@ -1,0 +1,23 @@
+# Declarative title data (mirrored into StateUpdate.turn_rules by the server).
+# Manifest: games/hexdemo/hexengine_pack.toml → [gamedata] file = this path.
+
+gamedata_schema = 1
+max_active_units_per_hex = 3
+movement_budget_attribute_key = "movement"
+title_state_extension_key = "hexdemo"
+title_css_file = "ui.css"
+
+[faction_display_names]
+union = "Union"
+confederate = "Confederate"
+
+[faction_css_classes]
+union = "union"
+confederate = "confederate"
+
+[hex_highlight_ui]
+schema = 1
+move_hex_class = "hexdemo-move-hex"
+retreat_hex_class = "hexdemo-retreat-hex"
+retreat_through_hex_class = "hexdemo-retreat-through-hex"
+marker_hex_class = "hexdemo-marker-hex"

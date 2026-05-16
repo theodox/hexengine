@@ -48,7 +48,9 @@ class PopupManager:
 
 
 class Popup:
-    def __init__(self, message: str, position: tuple[float, float], *, is_html: bool = False) -> None:
+    def __init__(
+        self, message: str, position: tuple[float, float], *, is_html: bool = False
+    ) -> None:
         self.message = message
         self.position = position
         self.is_html = bool(is_html)

@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Any
 
 from ..schema import ColorRow, ScenarioData
-from .color_palette import apply_scenario_color_constants
 from .coercion import coerce_movement_cost
+from .color_palette import apply_scenario_color_constants
 from .map_parse import (
     _load_scenario_map_pieces,
     _merge_sparse_grid_hexes,
@@ -97,7 +97,7 @@ def _canonical_linear_movement(
 
 def _parse_linear_movement(data: dict[str, Any]) -> tuple[tuple[str, float], ...]:
     """
-    ``[linear_movement]`` table (tag keys) and/or ``[[linear_movement]]`` rows.
+    `[linear_movement]` table (tag keys) and/or `[[linear_movement]]` rows.
 
     Omitted tags have no linear override; titles use the destination hex terrain cost.
     """
@@ -144,7 +144,7 @@ def _canonical_edge_movement_extra(
 
 def _parse_edge_movement_extra(data: dict[str, Any]) -> tuple[tuple[str, float], ...]:
     """
-    ``[edge_movement_extra]`` table (tag keys) and/or ``[[edge_movement_extra]]`` rows.
+    `[edge_movement_extra]` table (tag keys) and/or `[[edge_movement_extra]]` rows.
 
     Omitted tags add no extra cost when crossing an edge with that tag.
     """
@@ -173,7 +173,9 @@ def _parse_edge_movement_extra(data: dict[str, Any]) -> tuple[tuple[str, float],
             if tag in out:
                 raise ValueError(f"edge_movement_extra[{i}]: duplicate tag {tag!r}")
             if "movement_extra" not in row:
-                raise ValueError(f"edge_movement_extra[{i}] requires key 'movement_extra'")
+                raise ValueError(
+                    f"edge_movement_extra[{i}] requires key 'movement_extra'"
+                )
             out[tag] = coerce_movement_cost(row["movement_extra"])
     elif raw is not None:
         raise TypeError(
@@ -183,13 +185,15 @@ def _parse_edge_movement_extra(data: dict[str, Any]) -> tuple[tuple[str, float],
     return _canonical_edge_movement_extra(out)
 
 
-def _canonical_edge_line_of_sight(flags: dict[str, bool]) -> tuple[tuple[str, bool], ...]:
+def _canonical_edge_line_of_sight(
+    flags: dict[str, bool],
+) -> tuple[tuple[str, bool], ...]:
     return tuple(sorted(flags.items(), key=lambda kv: kv[0]))
 
 
 def _parse_edge_line_of_sight(data: dict[str, Any]) -> tuple[tuple[str, bool], ...]:
     """
-    ``[edge_line_of_sight]`` table (tag keys → bool) and/or ``[[edge_line_of_sight]]`` rows.
+    `[edge_line_of_sight]` table (tag keys → bool) and/or `[[edge_line_of_sight]]` rows.
 
     Only tags mapped to true block LOS when a sight line crosses an edge feature carrying
     that tag.
@@ -230,7 +234,7 @@ def _parse_edge_line_of_sight(data: dict[str, Any]) -> tuple[tuple[str, bool], .
 
 
 def _load_scenario_constants(data: dict[str, Any]) -> tuple[ColorRow, ...]:
-    """Expand `@color` placeholders in raw TOML values; return parsed ``[[colors]]`` rows."""
+    """Expand `@color` placeholders in raw TOML values; return parsed `[[colors]]` rows."""
     apply_scenario_color_constants(data)
     return _parse_colors_table(data.get("colors"))
 

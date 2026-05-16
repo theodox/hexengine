@@ -53,7 +53,7 @@ class UnitState:
         return replace(self, active=is_active)
 
     def with_graphics(self, graphics: str | None) -> UnitState:
-        """Return a new UnitState with ``graphics`` (``[[unit_graphics]]`` template key)."""
+        """Return a new UnitState with `graphics` (`[[unit_graphics]]` template key)."""
         return replace(self, graphics=graphics)
 
     def with_attributes(
@@ -141,9 +141,9 @@ class BoardState:
     unset_defaults: UnsetTerrainDefaults | None = None
     edge_features: tuple[BoardEdgeFeature, ...] = ()
     linear_features: tuple[BoardLinearFeature, ...] = ()
-    #: Per-tag hex-step cost on ``[[linear_features]]`` (scenario TOML); sorted by tag.
+    #: Per-tag hex-step cost on `[[linear_features]]` (scenario TOML); sorted by tag.
     linear_movement_by_tag: tuple[tuple[str, float], ...] = ()
-    #: Per-tag extra movement cost when a step crosses an ``[[edge_features]]`` primitive
+    #: Per-tag extra movement cost when a step crosses an `[[edge_features]]` primitive
     #: with that tag (summed per tag occurrence on overlays on that edge). Sorted by tag.
     edge_movement_extra_by_tag: tuple[tuple[str, float], ...] = ()
     #: Per-tag whether crossing an edge with that tag blocks line-of-sight (sorted by tag).
@@ -178,7 +178,9 @@ class BoardState:
         found.sort(key=lambda u: (u.stack_index, u.unit_id))
         return tuple(found)
 
-    def next_stack_index_at_hex(self, position: Hex, *, exclude_unit_id: str | None = None) -> int:
+    def next_stack_index_at_hex(
+        self, position: Hex, *, exclude_unit_id: str | None = None
+    ) -> int:
         """Next free stack_index at this hex (max existing + 1 among counted units)."""
         idxs = [
             u.stack_index

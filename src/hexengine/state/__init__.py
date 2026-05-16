@@ -14,7 +14,10 @@ from .actions import (
     NextPhase,
     PatchUnitAttributes,
     RemoveMarker,
+    ResolvePassMovementInterrupt,
+    SetTurnState,
     SpendAction,
+    WriteHexengineMovementArc,
 )
 from .game_state import (
     BoardEdgeFeature,
@@ -25,15 +28,6 @@ from .game_state import (
     TurnState,
     UnitState,
     UnsetTerrainDefaults,
-)
-from .map_feature_queries import (
-    board_edge_features_along_hex_line,
-    edge_keys_along_hex_line,
-    edge_line_of_sight_blocks_hex_line,
-    edge_movement_extra_for_neighbor_step,
-    edges_block_los_predicate,
-    linear_features_on_neighbor_step,
-    min_linear_movement_cost_for_tags,
 )
 from .logic import (
     DEFAULT_MOVEMENT_BUDGET,
@@ -47,6 +41,16 @@ from .logic import (
     is_valid_move,
     los_visible_hexes_in_cone,
     retreat_impassable_enemy_zoc_hexes,
+    shortest_move_path,
+)
+from .map_feature_queries import (
+    board_edge_features_along_hex_line,
+    edge_keys_along_hex_line,
+    edge_line_of_sight_blocks_hex_line,
+    edge_movement_extra_for_neighbor_step,
+    edges_block_los_predicate,
+    linear_features_on_neighbor_step,
+    min_linear_movement_cost_for_tags,
 )
 from .marker_placement import (
     MarkerPlacementRule,
@@ -80,11 +84,14 @@ __all__ = [
     "MoveMarker",
     "AddMarker",
     "RemoveMarker",
+    "ResolvePassMovementInterrupt",
     "DeleteUnit",
     "AddUnit",
     "SpendAction",
     "NextPhase",
     "PatchUnitAttributes",
+    "SetTurnState",
+    "WriteHexengineMovementArc",
     "DEFAULT_MOVEMENT_BUDGET",
     "adjacent_enemy_zoc_hexes",
     "adjacent_friendly_zoc_hexes",
@@ -96,6 +103,7 @@ __all__ = [
     "compute_retreat_destination_hexes",
     "los_visible_hexes_in_cone",
     "retreat_impassable_enemy_zoc_hexes",
+    "shortest_move_path",
     "MarkerPlacementRule",
     "default_marker_destination_allowed",
     "marker_destination_hexes_for_preview",

@@ -6,20 +6,25 @@ The engine calls `hexdemo.registry.build_game_definition`, which builds a
 
 Typical changes:
 
+- **Declarative wire** (stack cap, faction labels, highlight CSS, …) —
+  `resources/game_data.toml`, referenced from `hexengine_pack.toml` `[gamedata]`.
 - **Faction order** — `HEXDEMO_FACTIONS` in `hexdemo.constants` (first side opens
   the round; see `hexengine.gameroot.initial_turn_slot_for_game_definition`).
-- **Turn rota** — edit ``hexdemo_four_phase_entries`` (or replace the
-  ``StaticScheduleGameDefinition`` built in ``game_definition_from_config``).
+- **Turn rota** — edit `hexdemo_four_phase_entries` (or replace the
+  `StaticScheduleGameDefinition` built in `game_definition_from_config`).
 - **Movement preview budget** — set `movement_budget` to match scenario feel.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from hexengine.gamedef import unit_attributes as unit_attr_helpers
 from hexengine.gamedef.builtin import StaticScheduleGameDefinition
+from hexengine.gamedef.game_data import GameData
+from hexengine.gamedef.game_data_toml import load_game_data_for_pack_root
 from hexengine.gamedef.protocol import GameDefinition
 from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
@@ -29,6 +34,8 @@ from hexengine.state.phase_rules import phase_allows_unit_move
 
 from . import combat
 from .constants import HEXDEMO_FACTIONS, PACK_STATE_EXTENSION_KEY
+
+_HEXDEMO_PACK_ROOT = Path(__file__).resolve().parent
 
 
 def hexdemo_four_phase_entries(
@@ -55,40 +62,13 @@ class HexdemoGameDefinition:
 
     __slots__ = ("_base",)
 
-    #: Published in `StateUpdate.turn_rules` so thin clients match per-unit budgets.
-    movement_budget_attribute_key = "movement"
-
-    #: Published in ``StateUpdate.turn_rules`` for local ``Attack`` / extension reads.
-    title_state_extension_key = PACK_STATE_EXTENSION_KEY
-
-    #: Turn-strip label and styling metadata (published in ``StateUpdate.turn_rules``).
-    faction_display_names = {
-        "union": "Union",
-        "confederate": "Confederate",
-    }
-    faction_css_classes = {
-        "union": "union",
-        "confederate": "confederate",
-    }
-    title_css_file = "ui.css"
-
-    #: Optional preview highlight class names for thin clients. These are applied to the
-    #: SVG group drawn for valid move/retreat hexes during drag preview.
-    hex_highlight_ui = {
-        "schema": 1,
-        "move_hex_class": "hexdemo-move-hex",
-        "retreat_hex_class": "hexdemo-retreat-hex",
-        "retreat_through_hex_class": "hexdemo-retreat-through-hex",
-        "marker_hex_class": "hexdemo-marker-hex",
-    }
-
-    #: Title rule: max number of *active* units allowed on a single hex.
-    #: Used by the server for authoritative MoveUnit validation and by thin clients
-    #: for drag-preview constraints.
-    max_active_units_per_hex = 3
-
     def __init__(self, base: GameDefinition) -> None:
         self._base = base
+
+    @property
+    def game_data(self) -> GameData:
+        """Wire-facing title data from `resources/game_data.toml` (see `hexengine_pack.toml`)."""
+        return load_game_data_for_pack_root(_HEXDEMO_PACK_ROOT)
 
     @property
     def hooks(self):
@@ -132,7 +112,7 @@ class HexdemoGameDefinition:
         params: dict[str, Any],
     ) -> None:
         """
-        Title rules for ``Attack`` (adjacency and combat phase); not encoded in ``phase_rules``.
+        Title rules for `Attack` (adjacency and combat phase); not encoded in `phase_rules`.
         """
         if attack_kind not in ("combined",):
             raise ValueError(f"Unknown attack_kind for hexdemo: {attack_kind!r}")
@@ -211,19 +191,23 @@ class HexdemoGameDefinition:
                 ):
                     raise ValueError("No line of sight to target")
             else:
-                raise ValueError(f"Unit type {ut!r} cannot participate in combined attacks")
+                raise ValueError(
+                    f"Unit type {ut!r} cannot participate in combined attacks"
+                )
         hx = state.extension.get(PACK_STATE_EXTENSION_KEY)
         if isinstance(hx, dict):
             prev = hx.get("attacks_this_phase")
             if isinstance(prev, list):
                 for aid in attacker_ids:
                     if aid in prev:
-                        raise ValueError("That unit has already attacked this combat phase")
+                        raise ValueError(
+                            "That unit has already attacked this combat phase"
+                        )
 
     def retreat_obligation_hexes_remaining(
         self, state: GameState, unit_id: str
     ) -> int | None:
-        """Optional ``GameDefinition`` hook: read mandatory retreat steps from hexdemo state."""
+        """Optional `GameDefinition` hook: read mandatory retreat steps from hexdemo state."""
         return combat.retreat_hexes_remaining(state, unit_id)
 
     def any_retreat_obligation_pending(self, state: GameState) -> bool:
@@ -233,7 +217,7 @@ class HexdemoGameDefinition:
     def faction_has_pending_retreat_obligation(
         self, state: GameState, faction: str
     ) -> bool:
-        """Optional hook: ``faction`` still owes a retreat fulfillment."""
+        """Optional hook: `faction` still owes a retreat fulfillment."""
         return combat.faction_has_pending_retreat(state, faction)
 
     def focus_unit_id_after_state_sync(
@@ -248,9 +232,7 @@ class HexdemoGameDefinition:
         fn = getattr(self._base, "default_attributes_for_unit_type", None)
         if callable(fn):
             return dict(fn(unit_type))
-        return unit_attr_helpers.default_attributes_for_unit_type(
-            self._base, unit_type
-        )
+        return unit_attr_helpers.default_attributes_for_unit_type(self._base, unit_type)
 
     def merge_spawn_attributes(
         self,
@@ -281,9 +263,9 @@ class HexdemoGameDefinition:
         Called by the server after each `NextPhase` is applied.
 
         Combat bookkeeping in the hexdemo extension bucket is cleared by the engine
-        (``GameServer`` runs ``ClearTitleCombatExtension`` after every phase advance).
+        (`GameServer` runs `ClearTitleCombatExtension` after every phase advance).
         """
-        from .turn_hooks import before_union_move
+        from .hooks.turn_schedule import before_union_move
 
         t = state.turn
         if t.current_faction == "union" and phase_allows_unit_move(t.current_phase):

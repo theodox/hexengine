@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import pytest
+from games.hexdemo.hooks.movement import movement_step_cost_for_unit
 
 from hexengine.hexes.edges import (
     edge_between,
     edge_keys_along_hex_chain,
-    edge_keys_for_shape_path,
     shortest_edge_key_path_for_hex_spine,
 )
 from hexengine.hexes.types import Hex, HexColRow
@@ -30,7 +30,6 @@ from hexengine.state.game_state import (
     TurnState,
     UnsetTerrainDefaults,
 )
-from games.hexdemo.hooks.movement import movement_step_cost_for_unit
 
 
 def test_edge_keys_along_hex_line_matches_steps() -> None:
@@ -182,11 +181,7 @@ def test_parse_edge_feature_end_edge_extends_last_hex(tmp_path) -> None:
     )
     assert keys_stitch is not None and keys_vertex is not None
     # Matches loader: shorter of stitched spine vs vertex corridor when both exist.
-    exp = (
-        keys_vertex
-        if len(keys_vertex) <= len(keys_stitch)
-        else keys_stitch
-    )
+    exp = keys_vertex if len(keys_vertex) <= len(keys_stitch) else keys_stitch
     assert len(gs.board.edge_features) == len(exp)
     assert tuple(f.edge_key for f in gs.board.edge_features) == exp
 
@@ -463,7 +458,7 @@ def test_parse_linear_feature_perimeter_of_resolves_outline(tmp_path) -> None:
                 'terrain = "plain"',
                 "default = true",
                 "[[linear_features]]",
-                "feature_id = \"ring\"",
+                'feature_id = "ring"',
                 # 2x2 parallelogram in odd-q (same block as centerline tests)
                 "perimeter_of = [ [0, 0], [1, 0], [0, 1], [1, 1] ]",
                 'tags = ["trail"]',

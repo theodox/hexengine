@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 
 def _optional_nonempty_str(raw: dict, key: str) -> str | None:
     """TOML value as stripped string, or None if missing / blank."""

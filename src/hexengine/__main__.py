@@ -4,7 +4,7 @@ import logging
 from urllib.parse import parse_qs, urlparse
 
 from . import dev_console
-from .document import element, js
+from .document import js
 from .excepthook import install_exception_hook
 from .game import Game
 
@@ -43,9 +43,6 @@ def parse_url_params():
 
 
 def async_main() -> None:
-    loading = element("loading")
-    loading.style.display = "none"
-
     dev_console.initialize("", globals())
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
@@ -82,8 +79,8 @@ def async_main() -> None:
         _g = globals()
         _g["save_snapshot_json"] = lambda: GAME.save_snapshot_json()
         _g["load_snapshot_json"] = lambda s: GAME.load_snapshot_json(s)
-        _g["set_terrain_overlay"] = (
-            lambda visible: GAME.canvas.set_terrain_overlay_visible(bool(visible))
+        _g["set_terrain_overlay"] = lambda visible: (
+            GAME.canvas.set_terrain_overlay_visible(bool(visible))
         )
         _g["terrain_overlay_visible"] = lambda: GAME.canvas.terrain_overlay_visible
 

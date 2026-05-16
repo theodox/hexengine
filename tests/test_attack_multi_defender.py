@@ -109,7 +109,7 @@ def test_infantry_second_step_loss_removes_unit() -> None:
 
 
 def test_step_loss_sets_graphics_from_steps_table() -> None:
-    """First step loss switches ``UnitState.graphics`` to ``steps[1].graphics`` when set."""
+    """First step loss switches `UnitState.graphics` to `steps[1].graphics` when set."""
     st = GameState.create_empty()
     h = Hex(0, 0, 0)
     st = AddUnit(
@@ -155,4 +155,3 @@ def test_artillery_step_loss_does_not_auto_reduce_combat() -> None:
     assert u.attributes.get("steps_lost") == 1
     assert u.attributes.get("combat") == 3
     assert u.attributes.get("morale") == 6
-

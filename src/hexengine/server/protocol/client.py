@@ -56,6 +56,7 @@ class JoinGameRequest:
 @dataclass
 class LeaveGameRequest:
     """Client request to leave the game session."""
+
     pass
 
 
@@ -85,4 +86,3 @@ class UnitPreviewRequest:
 
     unit_id: str
     request_id: str = ""
-

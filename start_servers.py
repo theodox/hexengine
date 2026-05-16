@@ -83,6 +83,7 @@ def main():
         except Exception as e:
             server_error = e
             traceback.print_exc()
+
     server_thread = threading.Thread(target=run_websocket_server, daemon=True)
     server_thread.start()
 

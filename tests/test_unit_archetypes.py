@@ -120,7 +120,7 @@ def test_unit_archetype_graphics_and_squad_override(tmp_path: Path) -> None:
 
 
 def test_unit_placements_block_attributes_override_archetype(tmp_path: Path) -> None:
-    """Squad-level ``attributes`` (sibling of ``positions``) merges over archetype."""
+    """Squad-level `attributes` (sibling of `positions`) merges over archetype."""
     p = _write_scenario(
         tmp_path,
         """
@@ -147,7 +147,7 @@ def test_unit_placements_block_attributes_override_archetype(tmp_path: Path) -> 
 
 
 def test_unit_archetype_flat_keys_fold_into_attributes(tmp_path: Path) -> None:
-    """Flat keys on ``[[unit_archetypes]]`` rows become ``UnitArchetypeRow.attributes``."""
+    """Flat keys on `[[unit_archetypes]]` rows become `UnitArchetypeRow.attributes`."""
     p = _write_scenario(
         tmp_path,
         """

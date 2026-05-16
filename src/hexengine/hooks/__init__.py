@@ -1,36 +1,30 @@
 """
-Engine hook surface for title-authored rules.
+Hook surface for title-authored rules (`hexengine.hooks`).
 
-Role in turn resolution:
+**Titles:** import by area — `hexengine.hooks.movement`, `.attack`, `.ui`, `.title`,
+`.wiring`, `.core`.
 
-- The authoritative server is the only component that executes hooks.
-- A title supplies a `TitleHooks` bundle (attribute `hooks` or callable `hooks()` on the
-  game definition object).
-- During action validation/resolution, the server consults `TitleHooks` and then applies
-  deterministic engine state actions.
+**Wiring workflow**
 
-Titles can return `hooks.DEFAULT` from a hook to request engine default behavior.
+1. Import hook **types** and the area **slot enum** from the matching module:
+   `MovementHook` / `AttackHook` / `UIHook` (values match `MovementHooks` /
+   `AttackHooks` / `UIHooks` field names).
+2. Import `bind_title_hook` from `hexengine.hooks.wiring`.
+3. Decorate each implementation with `@bind_title_hook(MovementHook.SOME_FIELD)` (etc.)
+   so call sites are **not** stringly-typed. Legacy `\"bundle.field\"` strings still work.
+4. Build `TitleHooks` with `assemble_title_hooks` from your hook modules (unchanged).
+
+This package root exposes a **small convenience**: `ENGINE_DEFAULT` and `TitleHooks`.
+
+**Engine-only:** `hexengine.hooks.internal` (catalog, `@hook`, `validate_title_contract`,
+movement budget catalog entry, combat-advance default).
+
+**Roadmap:** stricter contracts and author tooling for all hooks — `docs/PACK_HOOK_CONTRACTS.md`.
 """
 
 from __future__ import annotations
 
-from .attack import AttackContext, AttackHooks, AttackResolution
-from .core import DEFAULT, RuleViolation, implements_hook
-from .movement import MoveContext, MovementHooks, StackingPolicy
+from .core import ENGINE_DEFAULT
 from .title import TitleHooks
-from .ui import UIHooks
 
-__all__ = [
-    "DEFAULT",
-    "RuleViolation",
-    "implements_hook",
-    "MovementHooks",
-    "MoveContext",
-    "StackingPolicy",
-    "AttackHooks",
-    "AttackContext",
-    "AttackResolution",
-    "TitleHooks",
-    "UIHooks",
-]
-
+__all__ = ["ENGINE_DEFAULT", "TitleHooks"]

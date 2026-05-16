@@ -7,6 +7,7 @@ from collections import defaultdict, deque
 from dataclasses import dataclass
 
 from .constants import HEX_SIDE_COUNT
+from .edges import EdgeKey
 from .types import Hex
 
 _DEFAULT_QUANT_SCALE = 1_000_000
@@ -41,7 +42,7 @@ class VertexKey:
 
 
 def vertex_key_pair_for_edge_key(
-    layout: object, ek: "EdgeKey", *, scale: int = _DEFAULT_QUANT_SCALE
+    layout: object, ek: EdgeKey, *, scale: int = _DEFAULT_QUANT_SCALE
 ) -> tuple[VertexKey, VertexKey]:
     """Endpoints of ek's shared side as VertexKeys (unordered)."""
     from .edges import shared_edge_side_midpoint
@@ -60,10 +61,10 @@ def _canonical_vertex_pair(a: VertexKey, b: VertexKey) -> tuple[VertexKey, Verte
 
 
 def _vertex_graph_from_allowed(
-    layout: object, cand: frozenset["EdgeKey"], *, scale: int = _DEFAULT_QUANT_SCALE
-) -> tuple[dict[tuple[VertexKey, VertexKey], "EdgeKey"], dict[VertexKey, list[VertexKey]]]:
-    from .edges import EdgeKey
-
+    layout: object, cand: frozenset[EdgeKey], *, scale: int = _DEFAULT_QUANT_SCALE
+) -> tuple[
+    dict[tuple[VertexKey, VertexKey], EdgeKey], dict[VertexKey, list[VertexKey]]
+]:
     pair_to_ek: dict[tuple[VertexKey, VertexKey], EdgeKey] = {}
     adj: dict[VertexKey, list[VertexKey]] = defaultdict(list)
     for ek in cand:
@@ -78,18 +79,16 @@ def _vertex_graph_from_allowed(
 
 
 def _vertex_bfs_directed_start(
-    pair_to_ek: dict[tuple[VertexKey, VertexKey], "EdgeKey"],
+    pair_to_ek: dict[tuple[VertexKey, VertexKey], EdgeKey],
     adj: dict[VertexKey, list[VertexKey]],
     seed: VertexKey,
     from_v: VertexKey,
-    start_ek: "EdgeKey",
-    goal_ek: "EdgeKey",
+    start_ek: EdgeKey,
+    goal_ek: EdgeKey,
     goal_a: VertexKey,
     goal_b: VertexKey,
-) -> tuple["EdgeKey", ...] | None:
+) -> tuple[EdgeKey, ...] | None:
     """BFS from seed (dist 1) having crossed start_ek from from_v -> seed."""
-    from .edges import EdgeKey
-
     if pair_to_ek.get(_canonical_vertex_pair(from_v, seed)) != start_ek:
         return None
     dist: dict[VertexKey, int] = {seed: 1}
@@ -161,20 +160,19 @@ def _vertex_bfs_directed_start(
 def shortest_edge_key_path_hex_corridor_vertex_space(
     cells: tuple[Hex, ...],
     layout: object | None,
-    start_ek: "EdgeKey",
-    goal_ek: "EdgeKey",
+    start_ek: EdgeKey,
+    goal_ek: EdgeKey,
     *,
     scale: int = _DEFAULT_QUANT_SCALE,
-) -> tuple["EdgeKey", ...] | None:
+) -> tuple[EdgeKey, ...] | None:
     """
     Shortest edge walk along borders of path hexes: vertex BFS on
     incident_edge_keys_for_hexes(cells), first edge start_ek, last edge goal_ek.
     """
     from .edges import (
-        EdgeKey,
+        _topology_layout_for_incident_edge_graph,
         edge_key_sort_tuple,
         incident_edge_keys_for_hexes,
-        _topology_layout_for_incident_edge_graph,
     )
 
     lay = layout if layout is not None else _topology_layout_for_incident_edge_graph()
@@ -202,17 +200,19 @@ def shortest_edge_key_path_hex_corridor_vertex_space(
     candidates = [x for x in out if x is not None]
     if not candidates:
         return None
-    return min(candidates, key=lambda t: (len(t), tuple(edge_key_sort_tuple(e) for e in t)))
+    return min(
+        candidates, key=lambda t: (len(t), tuple(edge_key_sort_tuple(e) for e in t))
+    )
 
 
 def vertex_to_incident_edge_keys(
-    layout: object, allowed: frozenset["EdgeKey"] | set["EdgeKey"]
-) -> dict[VertexKey, list["EdgeKey"]]:
+    layout: object, allowed: frozenset[EdgeKey] | set[EdgeKey]
+) -> dict[VertexKey, list[EdgeKey]]:
     """Vertex -> incident edges from allowed; each list sorted for stable BFS."""
     from .edges import edge_key_sort_tuple
 
     cand = frozenset(allowed)
-    vm: dict[VertexKey, list["EdgeKey"]] = defaultdict(list)
+    vm: dict[VertexKey, list[EdgeKey]] = defaultdict(list)
     for ek in cand:
         a, b = vertex_key_pair_for_edge_key(layout, ek)
         vm[a].append(ek)
@@ -224,13 +224,11 @@ def vertex_to_incident_edge_keys(
 
 def _neighbors_edge(
     layout: object,
-    ek: "EdgeKey",
-    vm: dict[VertexKey, list["EdgeKey"]],
+    ek: EdgeKey,
+    vm: dict[VertexKey, list[EdgeKey]],
     *,
     scale: int = _DEFAULT_QUANT_SCALE,
-) -> list["EdgeKey"]:
-    from .edges import EdgeKey
-
+) -> list[EdgeKey]:
     a, b = vertex_key_pair_for_edge_key(layout, ek, scale=scale)
     seen: set[EdgeKey] = set()
     out_n: list[EdgeKey] = []
@@ -244,16 +242,14 @@ def _neighbors_edge(
 
 
 def shortest_edge_key_path_within_vertex_bfs(
-    allowed: frozenset["EdgeKey"] | set["EdgeKey"],
+    allowed: frozenset[EdgeKey] | set[EdgeKey],
     layout: object,
-    start: "EdgeKey",
-    goal: "EdgeKey",
+    start: EdgeKey,
+    goal: EdgeKey,
     *,
     scale: int = _DEFAULT_QUANT_SCALE,
-) -> tuple["EdgeKey", ...] | None:
+) -> tuple[EdgeKey, ...] | None:
     """Fewest EdgeKey steps between start and goal in the allowed line graph (BFS)."""
-    from .edges import EdgeKey
-
     cand = frozenset(allowed)
     if start not in cand or goal not in cand:
         return None
@@ -286,16 +282,14 @@ def shortest_edge_key_path_within_vertex_bfs(
 
 
 def shortest_edge_key_path_within_vertex_a_star(
-    allowed: frozenset["EdgeKey"] | set["EdgeKey"],
+    allowed: frozenset[EdgeKey] | set[EdgeKey],
     layout: object,
-    start: "EdgeKey",
-    goal: "EdgeKey",
+    start: EdgeKey,
+    goal: EdgeKey,
     *,
     scale: int = _DEFAULT_QUANT_SCALE,
-) -> tuple["EdgeKey", ...] | None:
+) -> tuple[EdgeKey, ...] | None:
     """Same path as BFS; A* uses exact hop distance to goal from a backward BFS."""
-    from .edges import EdgeKey
-
     cand = frozenset(allowed)
     if start not in cand or goal not in cand:
         return None

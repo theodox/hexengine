@@ -7,14 +7,15 @@ from enum import Enum, auto
 from hexengine.hexes.los import has_line_of_sight
 from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
-from hexengine.hooks import AttackContext, AttackResolution
+from hexengine.hooks.attack import AttackContext, AttackHook, AttackResolution
+from hexengine.hooks.wiring import bind_title_hook
 from hexengine.state import UnitState, edges_block_los_predicate
 
 from .. import combat
 from ..constants import PACK_STATE_EXTENSION_KEY
 
 # When the board has no explicit or unset-default terrain for a hex, CRT math still
-# needs a stable type (matches legacy tests and minimal ``BoardState`` fixtures).
+# needs a stable type (matches legacy tests and minimal `BoardState` fixtures).
 _DEFAULT_TERRAIN_TYPE = "plain"
 
 
@@ -42,7 +43,7 @@ def _los_edges_block(ctx: AttackContext):
 
 
 def _expected_enemy_defender_ids(ctx: AttackContext) -> tuple[str, ...]:
-    """Every active enemy unit on any ``ctx.defender_hexes`` cell."""
+    """Every active enemy unit on any `ctx.defender_hexes` cell."""
     attacker = ctx.state.board.units.get(ctx.attacker_unit_id)
     if attacker is None or not attacker.active:
         return ()
@@ -90,6 +91,7 @@ def _artillery_can_hit_any_defender_hex(
     return False
 
 
+@bind_title_hook(AttackHook.VALIDATE_ATTACK)
 def validate_attack(ctx: AttackContext) -> None:
     if ctx.attack_kind not in ("combined",):
         raise ValueError(f"Unknown attack_kind for hexdemo: {ctx.attack_kind!r}")
@@ -101,7 +103,10 @@ def validate_attack(ctx: AttackContext) -> None:
     if combat.any_retreat_obligation_pending(ctx.state):
         raise ValueError("Resolve retreat before issuing another attack")
     hx = ctx.state.extension.get(PACK_STATE_EXTENSION_KEY)
-    if isinstance(hx, dict) and str(hx.get("combat_gate", "")).strip() == "awaiting_advance":
+    if (
+        isinstance(hx, dict)
+        and str(hx.get("combat_gate", "")).strip() == "awaiting_advance"
+    ):
         raise ValueError("Resolve combat advance before issuing another attack")
 
     att_primary = ctx.state.board.units.get(ctx.attacker_unit_id)
@@ -196,7 +201,6 @@ def get_combat_factor(
     return raw_value * mult
 
 
-
 class CombatOutcome(Enum):
     NO_EFFECT = auto()
     RETREAT = auto()
@@ -205,25 +209,37 @@ class CombatOutcome(Enum):
     ROUT = auto()
     LOSS = auto()
 
+
 @dataclass
 class CombatResult:
     side: str
     passed: CombatOutcome
     failed: CombatOutcome
 
-AX  = CombatResult(side='a', passed=CombatOutcome.LOSS, failed=CombatOutcome.DISRUPT)
-AR  = CombatResult(side='a', passed=CombatOutcome.RETREAT, failed=None)
-AC_NE = CombatResult(side='a', passed=CombatOutcome.NO_EFFECT, failed=CombatOutcome.RETREAT)
-AC_EX = CombatResult(side='a', passed=CombatOutcome.EXCHANGE,failed=CombatOutcome.RETREAT)
-AM_R = CombatResult(side='a', passed=CombatOutcome.RETREAT, failed=CombatOutcome.ROUT)
-DX  = CombatResult(side='d', passed=CombatOutcome.LOSS, failed=CombatOutcome.DISRUPT)
-DR  = CombatResult(side='d', passed=CombatOutcome.RETREAT, failed=None)
-DC_NE = CombatResult(side='d', passed=CombatOutcome.NO_EFFECT, failed=CombatOutcome.RETREAT)
-DC_DR = CombatResult(side='d', passed=CombatOutcome.RETREAT, failed=CombatOutcome.DISRUPT)
-DC_DX = CombatResult(side='d', passed=CombatOutcome.LOSS, failed=CombatOutcome.ROUT)
-DC_EX = CombatResult(side='d', passed=CombatOutcome.EXCHANGE,failed=CombatOutcome.RETREAT)
-DM_R = CombatResult(side='d', passed=CombatOutcome.RETREAT, failed=CombatOutcome.ROUT)
-DM_X = CombatResult(side='d', passed=CombatOutcome.LOSS, failed=CombatOutcome.ROUT)
+
+AX = CombatResult(side="a", passed=CombatOutcome.LOSS, failed=CombatOutcome.DISRUPT)
+AR = CombatResult(side="a", passed=CombatOutcome.RETREAT, failed=None)
+AC_NE = CombatResult(
+    side="a", passed=CombatOutcome.NO_EFFECT, failed=CombatOutcome.RETREAT
+)
+AC_EX = CombatResult(
+    side="a", passed=CombatOutcome.EXCHANGE, failed=CombatOutcome.RETREAT
+)
+AM_R = CombatResult(side="a", passed=CombatOutcome.RETREAT, failed=CombatOutcome.ROUT)
+DX = CombatResult(side="d", passed=CombatOutcome.LOSS, failed=CombatOutcome.DISRUPT)
+DR = CombatResult(side="d", passed=CombatOutcome.RETREAT, failed=None)
+DC_NE = CombatResult(
+    side="d", passed=CombatOutcome.NO_EFFECT, failed=CombatOutcome.RETREAT
+)
+DC_DR = CombatResult(
+    side="d", passed=CombatOutcome.RETREAT, failed=CombatOutcome.DISRUPT
+)
+DC_DX = CombatResult(side="d", passed=CombatOutcome.LOSS, failed=CombatOutcome.ROUT)
+DC_EX = CombatResult(
+    side="d", passed=CombatOutcome.EXCHANGE, failed=CombatOutcome.RETREAT
+)
+DM_R = CombatResult(side="d", passed=CombatOutcome.RETREAT, failed=CombatOutcome.ROUT)
+DM_X = CombatResult(side="d", passed=CombatOutcome.LOSS, failed=CombatOutcome.ROUT)
 
 
 def check_morale(unit: UnitState) -> bool:
@@ -274,7 +290,7 @@ def _stack_unit_ids(state, anchor_unit_id: str) -> tuple[str, ...]:
 
 
 def _attack_includes_adjacent_infantry(ctx: AttackContext) -> bool:
-    """True if any participating attacker is infantry (must be adjacent per ``validate_attack``)."""
+    """True if any participating attacker is infantry (must be adjacent per `validate_attack`)."""
     for aid in ctx.attacker_ids:
         a = ctx.state.board.units.get(aid)
         if a is None or not a.active:
@@ -285,6 +301,7 @@ def _attack_includes_adjacent_infantry(ctx: AttackContext) -> bool:
     return False
 
 
+@bind_title_hook(AttackHook.RESOLVE_ATTACK)
 def resolve_attack(ctx: AttackContext) -> AttackResolution:
     if ctx.attack_kind not in ("combined",):
         raise ValueError(f"Unknown attack_kind for hexdemo: {ctx.attack_kind!r}")
@@ -478,6 +495,7 @@ def resolve_attack(ctx: AttackContext) -> AttackResolution:
     )
 
 
+@bind_title_hook(AttackHook.AUTO_ADVANCE_PHASE_AFTER_ATTACK)
 def auto_advance_phase_after_attack(state) -> bool:
     """
     Advance the schedule when every active unit of the current faction has attacked

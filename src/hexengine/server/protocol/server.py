@@ -193,7 +193,9 @@ class CombatEventWire:
     retreat_distance: int | None = None
 
 
-@server_message("ui_popup", omit_if_none=frozenset({"text", "html", "ttl_ms", "css_class"}))
+@server_message(
+    "ui_popup", omit_if_none=frozenset({"text", "html", "ttl_ms", "css_class"})
+)
 @dataclass
 class UIPopupWire:
     """Per-recipient informational popup anchored to a board hex."""
@@ -236,4 +238,3 @@ class UnitPreviewWire:
     through_hexes: list[dict[str, int]] | None = None
     through_css_class: str | None = None
     request_id: str = ""
-

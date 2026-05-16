@@ -82,7 +82,7 @@ def test_load_game_definition_via_manifest_entry(tmp_path: Path) -> None:
 
     (root / "hexengine_pack.toml").write_text(
         textwrap.dedent(
-            f"""
+            """
             manifest_version = 1
             [pack]
             id = "minipack"

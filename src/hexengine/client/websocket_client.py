@@ -19,11 +19,10 @@ from ..server.protocol import (
     ActionResult,
     CombatEventWire,
     InspectRequest,
-    MarkerPreviewWire,
-    UnitPreviewWire,
     JoinGameRequest,
     LeaveGameRequest,
     LoadSnapshotRequest,
+    MarkerPreviewWire,
     Message,
     PlayerInfo,
     PlayerJoinedWire,
@@ -32,6 +31,7 @@ from ..server.protocol import (
     ServerLogEvent,
     StateUpdate,
     UIPopupWire,
+    UnitPreviewWire,
 )
 from ..state import GameState
 
@@ -355,9 +355,7 @@ class BrowserWebSocketClient:
             if callable(to_py):
                 raw_msgs = to_py()
         self.interaction_messages = (
-            [dict(m) for m in raw_msgs]
-            if isinstance(raw_msgs, list)
-            else None
+            [dict(m) for m in raw_msgs] if isinstance(raw_msgs, list) else None
         )
         if isinstance(self.interaction_messages, list):
             now_ms = int(js.Date.now())
@@ -489,9 +487,7 @@ class BrowserWebSocketClient:
     def _handle_combat_event(self, message: Message) -> None:
         """Combat resolution / retreat obligation (per-player instruction)."""
         evt = CombatEventWire.from_message(message)
-        line = (
-            f"combat [{evt.instruction}] {evt.attack_kind} → {evt.outcome}: {evt.message}"
-        )
+        line = f"combat [{evt.instruction}] {evt.attack_kind} → {evt.outcome}: {evt.message}"
         if evt.retreat_unit_id and evt.retreat_hexes_remaining is not None:
             line += (
                 f" (unit {evt.retreat_unit_id}, {evt.retreat_hexes_remaining} hexes)"

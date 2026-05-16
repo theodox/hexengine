@@ -125,13 +125,17 @@ def assert_wire_registry_covers_message_types() -> None:
     # With enums removed, treat "coverage" as:
     # - every registered wire type has a direction
     # - no empty registry after import side-effects
-    missing_dir = [t for t in _WIRE_MESSAGE_REGISTRY if t not in _WIRE_MESSAGE_DIRECTION]
+    missing_dir = [
+        t for t in _WIRE_MESSAGE_REGISTRY if t not in _WIRE_MESSAGE_DIRECTION
+    ]
     if missing_dir:
         raise RuntimeError(
             "wire_message registry missing direction for: " + ", ".join(missing_dir)
         )
     if not _WIRE_MESSAGE_REGISTRY:
-        raise RuntimeError("wire_message registry is empty (protocol modules not imported?)")
+        raise RuntimeError(
+            "wire_message registry is empty (protocol modules not imported?)"
+        )
 
 
 @dataclass
@@ -167,4 +171,3 @@ class Message:
         if not isinstance(p, dict):
             p = {}
         return cls(type=t, payload=p)
-

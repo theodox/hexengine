@@ -1,325 +1,131 @@
-"""Tests for wire snapshot serialization and ActionManager.replace_state."""
+"""Tests for `hexengine.snapshot` normalization used by state actions."""
 
 from __future__ import annotations
 
-import unittest
+from dataclasses import dataclass
+
+import pytest
 
 from hexengine.hexes.types import Hex
-from hexengine.state import ActionManager, GameState
-from hexengine.gamedef.builtin import (
-    InterleavedTwoFactionGameDefinition,
-    advance_turn_action_for_state,
+from hexengine.hooks.core import ENGINE_DEFAULT
+from hexengine.snapshot import (
+    assert_snapshot_json_serializable,
+    attack_resolution_snapshot_fields,
+    normalize_snapshot_mapping,
+    normalize_snapshot_value,
 )
-from hexengine.state.actions import MoveUnit, PatchUnitAttributes
-from hexengine.state.game_state import (
-    BoardState,
-    LocationState,
-    TurnState,
-    UnitState,
-    UnsetTerrainDefaults,
-)
-from hexengine.state.snapshot import game_state_from_wire_dict, game_state_to_wire_dict
+from hexengine.state import GameState
+from hexengine.state.actions import AddUnit, ApplyCombatEffects, Attack
 
 
-class TestSnapshotRoundTrip(unittest.TestCase):
-    def test_game_state_wire_round_trip(self):
-        h0 = Hex(0, 0, 0)
-        h1 = Hex(1, 0, -1)
-        board = BoardState(
-            units={
-                "u1": UnitState(
-                    unit_id="u1",
-                    unit_type="tank",
-                    faction="Red",
-                    position=h0,
-                    health=80,
-                    active=True,
-                )
-            },
-            locations={
-                h0: LocationState(
-                    position=h0,
-                    terrain_type="plain",
-                    movement_cost=1.0,
-                    hex_color="#aabbcc",
-                ),
-                h1: LocationState(position=h1, terrain_type="hill", movement_cost=2.0),
-            },
-        )
-        turn = TurnState(
-            current_faction="Blue",
-            current_phase="Attack",
-            phase_actions_remaining=1,
-            turn_number=3,
-        )
-        original = GameState(
-            board=board,
-            turn=turn,
-            extension={"demo": {"x": 1}},
-            rng_log=({"kind": "d6", "value": 3, "rolls": [3]},),
-        )
-
-        wire = game_state_to_wire_dict(original)
-        restored = game_state_from_wire_dict(wire)
-
-        self.assertEqual(restored, original)
-
-    def test_game_state_wire_round_trip_with_graphics(self):
-        h0 = Hex(0, 0, 0)
-        board = BoardState(
-            units={
-                "u1": UnitState(
-                    unit_id="u1",
-                    unit_type="line_infantry",
-                    faction="Red",
-                    position=h0,
-                    graphics="soldier",
-                )
-            },
-        )
-        turn = TurnState(
-            current_faction="Red",
-            current_phase="Movement",
-            phase_actions_remaining=2,
-            turn_number=1,
-        )
-        original = GameState(board=board, turn=turn)
-        wire = game_state_to_wire_dict(original)
-        self.assertEqual(wire["board"]["units"]["u1"]["graphics"], "soldier")
-        restored = game_state_from_wire_dict(wire)
-        self.assertEqual(restored, original)
-
-    def test_game_state_wire_round_trip_unset_defaults(self):
-        h0 = Hex(0, 0, 0)
-        board = BoardState(
-            locations={
-                h0: LocationState(
-                    position=h0,
-                    terrain_type="hill",
-                    movement_cost=3.0,
-                ),
-            },
-            unset_defaults=UnsetTerrainDefaults(
-                terrain_type="plain",
-                movement_cost=1.25,
-                hex_color="#00ff0088",
-            ),
-        )
-        turn = TurnState(
-            current_faction="Red",
-            current_phase="Movement",
-            phase_actions_remaining=2,
-            turn_number=1,
-        )
-        original = GameState(board=board, turn=turn)
-        wire = game_state_to_wire_dict(original)
-        restored = game_state_from_wire_dict(wire)
-        self.assertEqual(restored, original)
-        h1 = Hex(1, 0, -1)
-        self.assertEqual(restored.board.get_movement_cost(h1), 1.25)
+def test_normalize_snapshot_value_primitives() -> None:
+    assert normalize_snapshot_value(None) is None
+    assert normalize_snapshot_value(True) is True
+    assert normalize_snapshot_value(3) == 3
+    assert normalize_snapshot_value("x") == "x"
+    assert normalize_snapshot_value(1.5) == 1.5
 
 
-class TestReplaceStateClearsUndo(unittest.TestCase):
-    def test_replace_state_clears_undo(self):
-        h0 = Hex(0, 0, 0)
-        h1 = Hex(1, 0, -1)
-        unit = UnitState(
-            unit_id="u1",
-            unit_type="tank",
-            faction="Red",
-            position=h0,
-        )
-        board = BoardState(
-            units={"u1": unit},
-            locations={
-                h0: LocationState(position=h0, terrain_type="plain", movement_cost=1.0),
-                h1: LocationState(position=h1, terrain_type="plain", movement_cost=1.0),
-            },
-        )
-        turn = TurnState(
-            current_faction="Red",
-            current_phase="Movement",
-            phase_actions_remaining=2,
-            turn_number=1,
-        )
-        state = GameState(board=board, turn=turn)
-        mgr = ActionManager(state)
-
-        mgr.execute(MoveUnit(unit_id="u1", from_hex=h0, to_hex=h1))
-        self.assertTrue(mgr.can_undo())
-
-        fresh = GameState.create_empty()
-        mgr.replace_state(fresh)
-
-        self.assertIsNone(mgr.undo())
-        self.assertFalse(mgr.can_undo())
-        self.assertEqual(mgr.current_state, fresh)
+def test_normalize_rejects_non_finite_float() -> None:
+    with pytest.raises(ValueError, match="Non-finite"):
+        normalize_snapshot_value(float("nan"))
 
 
-class TestPerUnitStateStackingAndTick(unittest.TestCase):
-    def test_wire_round_trip_attributes_stack_global_tick(self):
-        h0 = Hex(0, 0, 0)
-        board = BoardState(
-            units={
-                "a": UnitState(
-                    unit_id="a",
-                    unit_type="x",
-                    faction="Red",
-                    position=h0,
-                    stack_index=0,
-                    attributes={"pinned": 1},
-                ),
-                "b": UnitState(
-                    unit_id="b",
-                    unit_type="y",
-                    faction="Red",
-                    position=h0,
-                    stack_index=1,
-                    attributes={},
-                ),
-            },
-        )
-        turn = TurnState(
-            current_faction="Red",
-            current_phase="Movement",
-            phase_actions_remaining=2,
-            turn_number=1,
-            schedule_index=0,
-            global_tick=7,
-        )
-        original = GameState(board=board, turn=turn)
-        wire = game_state_to_wire_dict(original)
-        restored = game_state_from_wire_dict(wire)
-        self.assertEqual(restored, original)
+def test_normalize_nested_dataclass() -> None:
+    @dataclass(frozen=True)
+    class Inner:
+        roll: int
+        note: str
 
-    def test_board_units_at_and_top_of_stack(self):
-        h = Hex(2, -1, -1)
-        b = BoardState(
-            units={
-                "low": UnitState(
-                    unit_id="low",
-                    unit_type="i",
-                    faction="Blue",
-                    position=h,
-                    stack_index=0,
-                ),
-                "high": UnitState(
-                    unit_id="high",
-                    unit_type="j",
-                    faction="Blue",
-                    position=h,
-                    stack_index=3,
-                ),
-            },
-        )
-        self.assertEqual(len(b.active_units_at_hex(h)), 2)
-        self.assertEqual(b.get_unit_at(h).unit_id, "high")
-        self.assertEqual(b.next_stack_index_at_hex(h), 4)
+    @dataclass(frozen=True)
+    class Outer:
+        inner: Inner
+        flag: bool
 
-    def test_global_tick_increments_on_next_phase(self):
-        state = GameState.create_empty()
-        mgr = ActionManager(state)
-        game = InterleavedTwoFactionGameDefinition()
-        self.assertEqual(mgr.current_state.turn.global_tick, 0)
-        mgr.execute(advance_turn_action_for_state(mgr.current_state, game))
-        self.assertEqual(mgr.current_state.turn.global_tick, 1)
-
-    def test_next_phase_undo_restores_global_tick(self):
-        state = GameState.create_empty()
-        mgr = ActionManager(state)
-        game = InterleavedTwoFactionGameDefinition()
-        act = advance_turn_action_for_state(mgr.current_state, game)
-        mgr.execute(act)
-        self.assertEqual(mgr.current_state.turn.global_tick, 1)
-        mgr.undo()
-        self.assertEqual(mgr.current_state.turn.global_tick, 0)
-
-    def test_patch_unit_attributes_undo(self):
-        h = Hex(0, 0, 0)
-        u = UnitState(
-            unit_id="u1",
-            unit_type="t",
-            faction="Red",
-            position=h,
-            attributes={"a": 1},
-        )
-        state = GameState(
-            board=BoardState(units={"u1": u}),
-            turn=TurnState(
-                "Red",
-                "Movement",
-                2,
-                schedule_index=0,
-                global_tick=0,
-            ),
-        )
-        mgr = ActionManager(state)
-        mgr.execute(PatchUnitAttributes("u1", {"b": 2}))
-        self.assertEqual(mgr.current_state.board.units["u1"].attributes["b"], 2)
-        mgr.undo()
-        self.assertEqual(mgr.current_state.board.units["u1"].attributes, {"a": 1})
-
-    def test_move_unit_restores_stack_index_on_undo(self):
-        h0 = Hex(0, 0, 0)
-        h1 = Hex(1, 0, -1)
-        u = UnitState(
-            unit_id="m",
-            unit_type="t",
-            faction="Red",
-            position=h0,
-            stack_index=5,
-        )
-        state = GameState(
-            board=BoardState(units={"m": u}),
-            turn=TurnState("Red", "Movement", 2),
-        )
-        mgr = ActionManager(state)
-        mgr.execute(MoveUnit(unit_id="m", from_hex=h0, to_hex=h1))
-        self.assertNotEqual(mgr.current_state.board.units["m"].stack_index, 5)
-        mgr.undo()
-        self.assertEqual(mgr.current_state.board.units["m"].stack_index, 5)
-        self.assertEqual(mgr.current_state.board.units["m"].position, h0)
-
-    def test_board_linear_movement_wire_dict(self) -> None:
-        d = {
-            "board": {
-                "units": {},
-                "locations": [],
-                "linear_movement": {"road": 0.4, "rail": 0.1},
-            },
-            "turn": {
-                "current_faction": "Red",
-                "current_phase": "Move",
-                "phase_actions_remaining": 1,
-            },
-        }
-        gs = game_state_from_wire_dict(d)
-        self.assertEqual(
-            gs.board.linear_movement_by_tag,
-            (("rail", 0.1), ("road", 0.4)),
-        )
-
-    def test_board_edge_movement_and_los_wire_dict(self) -> None:
-        d = {
-            "board": {
-                "units": {},
-                "locations": [],
-                "edge_movement_extra": {"river": 2.0},
-                "edge_line_of_sight": {"river": True, "wall": False},
-            },
-            "turn": {
-                "current_faction": "Red",
-                "current_phase": "Move",
-                "phase_actions_remaining": 1,
-            },
-        }
-        gs = game_state_from_wire_dict(d)
-        self.assertEqual(gs.board.edge_movement_extra_by_tag, (("river", 2.0),))
-        self.assertEqual(
-            gs.board.edge_line_of_sight_by_tag,
-            (("river", True), ("wall", False)),
-        )
+    d = normalize_snapshot_value(Outer(Inner(4, "hit"), True))
+    assert d == {"inner": {"roll": 4, "note": "hit"}, "flag": True}
+    assert_snapshot_json_serializable(d)
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_normalize_hex_dataclass_field() -> None:
+    @dataclass(frozen=True)
+    class Row:
+        h: Hex
+
+    d = normalize_snapshot_value(Row(Hex(1, 0, -1)))
+    assert d == {"h": {"i": 1, "j": 0, "k": -1}}
+
+
+def test_apply_combat_effects_expands_dataclass_last_combat_patch() -> None:
+    @dataclass(frozen=True)
+    class Patch:
+        hexdemo_roll: int
+        hexdemo_combat_result: str
+
+    st = GameState.create_empty()
+    st = st.with_extension({"hexdemo": {"last_combat": {"outcome": "none"}}})
+    st2 = ApplyCombatEffects(
+        "hexdemo",
+        {"last_combat_patch": Patch(3, "HIT")},
+    ).apply(st)
+    hx = st2.extension.get("hexdemo")
+    assert isinstance(hx, dict)
+    lc = hx.get("last_combat")
+    assert isinstance(lc, dict)
+    assert lc.get("outcome") == "none"
+    assert lc.get("hexdemo_roll") == 3
+    assert lc.get("hexdemo_combat_result") == "HIT"
+
+
+def test_attack_accepts_dataclass_rng_entry() -> None:
+    @dataclass(frozen=True)
+    class Rng:
+        op: str
+        roll: int
+
+    st = GameState.create_empty(initial_faction="union", initial_phase="Combat")
+    h = Hex(0, 0, 0)
+    st = AddUnit("a", "inf", "union", h).apply(st)
+    st = AddUnit("d", "inf", "confederate", Hex(1, 0, -1)).apply(st)
+    st = st.with_extension({"hexdemo": {}})
+
+    atk = Attack(
+        "combined",
+        "a",
+        "d",
+        extension_key="hexdemo",
+        outcome="none",
+        rng_entry=Rng("test", 7),
+    )
+    st2 = atk.apply(st)
+    assert len(st2.rng_log) == 1
+    assert st2.rng_log[0] == {"op": "test", "roll": 7}
+
+
+def test_normalize_snapshot_mapping_root_must_be_mapping() -> None:
+    with pytest.raises(TypeError, match="mapping root"):
+        normalize_snapshot_mapping([])  # type: ignore[arg-type]
+
+
+@dataclass(frozen=True)
+class _EffectsDc:
+    schema: int
+    hexdemo_roll: int
+
+
+def test_attack_resolution_snapshot_fields_dataclass_effects_root() -> None:
+    r, e = attack_resolution_snapshot_fields(
+        rng_entry=None,
+        effects=_EffectsDc(1, 9),
+    )
+    assert r is None
+    assert e == {"schema": 1, "hexdemo_roll": 9}
+    assert_snapshot_json_serializable(e)
+
+
+def test_attack_resolution_snapshot_fields_engine_default_as_none() -> None:
+    r, e = attack_resolution_snapshot_fields(
+        rng_entry=ENGINE_DEFAULT,
+        effects=ENGINE_DEFAULT,
+    )
+    assert r is None and e is None

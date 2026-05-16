@@ -265,6 +265,8 @@ on_state_update(new_state):
 
 ## Security Considerations
 
+Pack Python runs in the **same process** as the server when using `hexserver` or an in-process local server — titles *can* monkeypatch `hexengine` modules; that is unsupported and equivalent to trusting the author with server privileges. See **[`PACK_TRUST_MODEL.md`](PACK_TRUST_MODEL.md)** (client sandbox vs server trust, good-faith extension vs hosted limits).
+
 Current implementation is basic. For production:
 
 - [ ] Add authentication/authorization

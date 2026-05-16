@@ -9,6 +9,6 @@ from __future__ import annotations
 
 __version__ = "0.1.0"
 
-from . import boot, constants, game_config, registry
+from . import constants, game_config, hooks, registry
 
-__all__ = ["__version__", "boot", "constants", "game_config", "registry"]
+__all__ = ["__version__", "constants", "game_config", "hooks", "registry"]

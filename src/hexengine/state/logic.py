@@ -10,10 +10,9 @@ from __future__ import annotations
 import heapq
 from collections.abc import Callable
 
-from ..hexes.math import distance, neighbors
-from ..hexes.shapes import angular_sector_hexes
-from ..hexes.shapes import hex_line_segment
 from ..hexes.constants import PI_OVER_6
+from ..hexes.math import distance, neighbors
+from ..hexes.shapes import angular_sector_hexes, hex_line_segment
 from ..hexes.types import Hex
 from ..state.game_state import GameState
 from .map_feature_queries import edge_line_of_sight_blocks_hex_line
@@ -257,6 +256,117 @@ def compute_reachable_hexes(
                 heapq.heappush(heap, (new_cost, counter, neighbor))
 
     return costs
+
+
+def shortest_move_path(
+    state: GameState,
+    unit_id: str,
+    target_hex: Hex,
+    movement_budget: float,
+    *,
+    zoc_hexes: frozenset[Hex] | None = None,
+    blocked_hexes: frozenset[Hex] | None = None,
+    max_active_units_per_hex: int | None = None,
+    step_cost: Callable[[GameState, Hex, Hex, float], float] | None = None,
+) -> tuple[Hex, ...] | None:
+    """Minimum-cost path for a unit to `target_hex` under `compute_reachable_hexes` rules.
+
+    Returns start-to-target hex tuples inclusive, or `None` if unreachable within budget.
+    Tie-breaking matches Dijkstra's first-found minimal cost per hex.
+    """
+    unit = state.board.units.get(unit_id)
+    if unit is None or not unit.active:
+        return None
+    start_hex = unit.position
+    if start_hex == target_hex:
+        return (start_hex,)
+
+    moving_faction = unit.faction
+    costs: dict[Hex, float] = {start_hex: 0.0}
+    came_from: dict[Hex, Hex | None] = {start_hex: None}
+
+    counter = 0
+    heap: list[tuple[float, int, Hex]] = [(0.0, counter, start_hex)]
+
+    while heap:
+        current_cost, _, current_hex = heapq.heappop(heap)
+
+        if current_cost > costs.get(current_hex, float("inf")):
+            continue
+
+        if (
+            blocked_hexes is not None
+            and current_hex in blocked_hexes
+            and current_hex != start_hex
+        ):
+            continue
+
+        if (
+            zoc_hexes is not None
+            and current_hex in zoc_hexes
+            and current_hex != start_hex
+        ):
+            continue
+
+        for neighbor in neighbors(current_hex):
+            if (
+                blocked_hexes is not None
+                and neighbor in blocked_hexes
+                and neighbor != start_hex
+            ):
+                continue
+            neighbor_terrain_cost = state.board.get_movement_cost(neighbor)
+            if neighbor_terrain_cost == float("inf"):
+                continue
+
+            if step_cost is None:
+                step_total = neighbor_terrain_cost
+            else:
+                step_total = float(
+                    step_cost(state, current_hex, neighbor, neighbor_terrain_cost)
+                )
+            if step_total == float("inf"):
+                continue
+
+            new_cost = current_cost + step_total
+            if new_cost > movement_budget:
+                continue
+
+            occ = state.board.active_units_at_hex(neighbor)
+            if occ:
+                if max_active_units_per_hex is None:
+                    continue
+                if any(u.faction != moving_faction for u in occ):
+                    continue
+            if new_cost < costs.get(neighbor, float("inf")):
+                costs[neighbor] = new_cost
+                came_from[neighbor] = current_hex
+                counter += 1
+                heapq.heappush(heap, (new_cost, counter, neighbor))
+
+    if target_hex not in costs:
+        return None
+
+    out: list[Hex] = []
+    cur: Hex | None = target_hex
+    while cur is not None:
+        out.append(cur)
+        cur = came_from.get(cur)
+    out.reverse()
+    if not out or out[0] != start_hex:
+        return None
+    if max_active_units_per_hex is not None:
+        try:
+            lim = int(max_active_units_per_hex)
+        except (TypeError, ValueError):
+            lim = 0
+        if (
+            lim > 0
+            and target_hex != start_hex
+            and len(state.board.active_units_at_hex(target_hex)) >= lim
+        ):
+            return None
+    return tuple(out)
 
 
 def compute_valid_moves(

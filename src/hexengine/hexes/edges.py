@@ -168,7 +168,10 @@ def _segment_endpoints_quantized(
     layout: object, ek: EdgeKey, *, scale: int = 1_000_000
 ) -> tuple[tuple[int, int], tuple[int, int]]:
     (x0, y0), (x1, y1) = shared_edge_side_midpoint(layout, ek)
-    return (round(x0 * scale), round(y0 * scale)), (round(x1 * scale), round(y1 * scale))
+    return (round(x0 * scale), round(y0 * scale)), (
+        round(x1 * scale),
+        round(y1 * scale),
+    )
 
 
 def edges_share_tiling_vertex(layout: object, a: EdgeKey, b: EdgeKey) -> bool:
@@ -184,9 +187,7 @@ def common_hex_of_adjacent_spine_edges(prev_e: EdgeKey, nxt_e: EdgeKey) -> Hex:
     """The shared hex between consecutive spine edges (center path)."""
     s = {prev_e.hex_low, prev_e.hex_high} & {nxt_e.hex_low, nxt_e.hex_high}
     if len(s) != 1:
-        raise ValueError(
-            f"spine edges do not share one hex: {prev_e!r} then {nxt_e!r}"
-        )
+        raise ValueError(f"spine edges do not share one hex: {prev_e!r} then {nxt_e!r}")
     return next(iter(s))
 
 
@@ -224,14 +225,14 @@ def exterior_edge_keys_for_hexes(hexes: Iterable[Hex]) -> frozenset[EdgeKey]:
     region = frozenset(hexes)
     all_touching = frozenset(incident_edge_keys_iter(region))
     inside = frozenset(
-        ek
-        for ek in all_touching
-        if ek.hex_low in region and ek.hex_high in region
+        ek for ek in all_touching if ek.hex_low in region and ek.hex_high in region
     )
     return frozenset(all_touching - inside)
 
 
-def edge_key_sort_tuple(ek: EdgeKey) -> tuple[tuple[int, int, int], tuple[int, int, int]]:
+def edge_key_sort_tuple(
+    ek: EdgeKey,
+) -> tuple[tuple[int, int, int], tuple[int, int, int]]:
     """Stable sort key for EdgeKey lists."""
     return (_hex_sort_tuple(ek.hex_low), _hex_sort_tuple(ek.hex_high))
 

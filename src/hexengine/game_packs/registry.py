@@ -14,6 +14,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from hexengine.gamedef.game_data import GameData
+from hexengine.gamedef.game_data_toml import (
+    game_data_from_mapping,
+    merged_gamedata_dict_from_manifest,
+)
 from hexengine.gamedef.protocol import GameDefinition
 
 _MANIFEST_NAME = "hexengine_pack.toml"
@@ -27,13 +32,28 @@ class PackPythonSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class PackTitleLoadHooks:
+    """
+    Browser/client hooks from `[hooks.title_load]` in hexengine_pack.toml.
+
+    Enabling this block wires title-load; missing callables are not validated at
+    parse time (see `docs/TITLE_LOAD_HOOKS.md`).
+    """
+
+    module: str
+    splash_html: str
+    splash_callable: str = "present_splash"
+    setup_callable: str = "run_setup"
+    server_loaded_callable: str = "on_server_loaded"
+
+
+@dataclass(frozen=True, slots=True)
 class PackManifest:
     manifest_version: int
     pack_id: str
     title: str
     python: PackPythonSpec
-    hooks_loaded_banner_module: str | None = None
-    hooks_loaded_banner_callable: str | None = None
+    hooks_title_load: PackTitleLoadHooks | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +62,8 @@ class PackRecord:
 
     root: Path
     manifest: PackManifest
+    #: Declarative title data from `[gamedata]` in the manifest (optional file + overrides).
+    game_data: GameData
 
 
 _records: list[PackRecord] = []
@@ -93,16 +115,26 @@ def _parse_manifest(pack_root: Path, raw: dict[str, Any]) -> PackManifest:
         raise ValueError(
             f"python.entry_module and python.entry_callable required in manifest under {pack_root}"
         )
+    hooks_title_load: PackTitleLoadHooks | None = None
     hooks = raw.get("hooks")
-    loaded_banner_module: str | None = None
-    loaded_banner_callable: str | None = None
     if isinstance(hooks, dict):
-        raw_mod = hooks.get("loaded_banner_module")
-        if isinstance(raw_mod, str) and raw_mod.strip():
-            loaded_banner_module = raw_mod.strip()
-        raw_call = hooks.get("loaded_banner_callable")
-        if isinstance(raw_call, str) and raw_call.strip():
-            loaded_banner_callable = raw_call.strip()
+        tl = hooks.get("title_load")
+        if isinstance(tl, dict):
+            mod = str(tl.get("module", "")).strip()
+            splash = str(tl.get("splash_html", "")).strip()
+            if mod and splash:
+                splash_fn = str(tl.get("splash_callable", "present_splash")).strip()
+                setup_fn = str(tl.get("setup_callable", "run_setup")).strip()
+                server_fn = str(
+                    tl.get("server_loaded_callable", "on_server_loaded")
+                ).strip()
+                hooks_title_load = PackTitleLoadHooks(
+                    module=mod,
+                    splash_html=splash,
+                    splash_callable=splash_fn or "present_splash",
+                    setup_callable=setup_fn or "run_setup",
+                    server_loaded_callable=server_fn or "on_server_loaded",
+                )
     return PackManifest(
         manifest_version=1,
         pack_id=pack_id,
@@ -112,8 +144,7 @@ def _parse_manifest(pack_root: Path, raw: dict[str, Any]) -> PackManifest:
             entry_module=entry_module,
             entry_callable=entry_callable,
         ),
-        hooks_loaded_banner_module=loaded_banner_module,
-        hooks_loaded_banner_callable=loaded_banner_callable,
+        hooks_title_load=hooks_title_load,
     )
 
 
@@ -121,7 +152,9 @@ def _load_pack_record(pack_root: Path) -> PackRecord:
     mf = pack_root / _MANIFEST_NAME
     data = tomllib.loads(mf.read_text(encoding="utf-8"))
     manifest = _parse_manifest(pack_root, data)
-    return PackRecord(root=pack_root.resolve(), manifest=manifest)
+    merged = merged_gamedata_dict_from_manifest(pack_root.resolve(), data)
+    game_data = game_data_from_mapping(merged)
+    return PackRecord(root=pack_root.resolve(), manifest=manifest, game_data=game_data)
 
 
 def discover_game_packs(*, force: bool = False) -> None:

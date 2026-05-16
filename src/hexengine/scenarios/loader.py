@@ -9,16 +9,19 @@ from __future__ import annotations
 
 from ..gamedef.protocol import GameDefinition
 from ..gamedef.unit_attributes import merge_spawn_attributes
-from ..hexes.centerline import linear_feature_path_around_hexes, validate_linear_hex_path
+from ..hexes.centerline import (
+    linear_feature_path_around_hexes,
+    validate_linear_hex_path,
+)
 from ..hexes.edges import (
     edge_between,
     edge_keys_along_hex_chain,
     shortest_edge_key_path_for_hex_spine,
 )
-from ..hexes.vertices import shortest_edge_key_path_hex_corridor_vertex_space
 from ..hexes.math import distance, neighbor_hex
 from ..hexes.shapes import path as hex_grid_path
 from ..hexes.types import Hex, HexColRow
+from ..hexes.vertices import shortest_edge_key_path_hex_corridor_vertex_space
 from ..state import GameState
 from ..state.game_state import (
     BoardEdgeFeature,
@@ -46,7 +49,9 @@ def _hex(pos: tuple[int, int]) -> Hex:
     return Hex.from_hex_col_row(HexColRow(col=pos[0], row=pos[1]))
 
 
-def _ordered_hex_pair(endpoint: EdgeEndpointSpec, ctx: str) -> tuple[tuple[int, int], tuple[int, int]]:
+def _ordered_hex_pair(
+    endpoint: EdgeEndpointSpec, ctx: str
+) -> tuple[tuple[int, int], tuple[int, int]]:
     if endpoint.between is not None:
         (c0, r0), (c1, r1) = endpoint.between
         a = Hex.from_hex_col_row(HexColRow(col=c0, row=r0))
@@ -56,7 +61,9 @@ def _ordered_hex_pair(endpoint: EdgeEndpointSpec, ctx: str) -> tuple[tuple[int, 
         return ((c0, r0), (c1, r1))
     if endpoint.position is None or endpoint.direction is None:
         raise ValueError(f"{ctx}: need between or position + direction")
-    a = Hex.from_hex_col_row(HexColRow(col=endpoint.position[0], row=endpoint.position[1]))
+    a = Hex.from_hex_col_row(
+        HexColRow(col=endpoint.position[0], row=endpoint.position[1])
+    )
     b = neighbor_hex(a, endpoint.direction)
     cr = HexColRow.offset_from_axial(b.i, b.j)
     return (endpoint.position, (cr.col, cr.row))
@@ -95,7 +102,10 @@ def _extend_cells_for_end_edge(
 def _edge_features_from_spec(spec: EdgeFeatureSpec) -> tuple[BoardEdgeFeature, ...]:
     ctx = f"edge_features {spec.feature_id!r}"
     p0, p1 = _ordered_hex_pair(spec.start_edge, f"{ctx}.start_edge")
-    steps: list[HexColRow] = [HexColRow(col=p0[0], row=p0[1]), HexColRow(col=p1[0], row=p1[1])]
+    steps: list[HexColRow] = [
+        HexColRow(col=p0[0], row=p0[1]),
+        HexColRow(col=p1[0], row=p1[1]),
+    ]
     steps.extend(HexColRow(col=c, row=r) for c, r in spec.waypoints)
     cells = _dedupe_consecutive_hexes(list(hex_grid_path(tuple(steps))))
     if spec.end_edge is not None:
@@ -166,9 +176,7 @@ def _edge_features_from_spec(spec: EdgeFeatureSpec) -> tuple[BoardEdgeFeature, .
         )
 
     if keys_vertex is not None and keys_stitch is not None:
-        keys_opt = (
-            keys_vertex if len(keys_vertex) <= len(keys_stitch) else keys_stitch
-        )
+        keys_opt = keys_vertex if len(keys_vertex) <= len(keys_stitch) else keys_stitch
     elif keys_stitch is not None:
         keys_opt = keys_stitch
     else:
@@ -208,9 +216,7 @@ def _edge_features_from_spec(spec: EdgeFeatureSpec) -> tuple[BoardEdgeFeature, .
 
 def _linear_feature_from_spec(spec: LinearFeatureSpec) -> BoardLinearFeature:
     modes = sum(
-        1
-        for x in (spec.path, spec.perimeter_of, spec.waypoints)
-        if x is not None
+        1 for x in (spec.path, spec.perimeter_of, spec.waypoints) if x is not None
     )
     if modes != 1:
         raise ValueError(
@@ -284,11 +290,11 @@ def scenario_to_initial_state(
     board = BoardState(
         unset_defaults=_unset_defaults_from_terrain_types(data.terrain_types),
         edge_features=tuple(
-            f
-            for s in data.edge_features
-            for f in _edge_features_from_spec(s)
+            f for s in data.edge_features for f in _edge_features_from_spec(s)
         ),
-        linear_features=tuple(_linear_feature_from_spec(s) for s in data.linear_features),
+        linear_features=tuple(
+            _linear_feature_from_spec(s) for s in data.linear_features
+        ),
         linear_movement_by_tag=data.linear_movement_by_tag,
         edge_movement_extra_by_tag=data.edge_movement_extra_by_tag,
         edge_line_of_sight_by_tag=data.edge_line_of_sight_by_tag,

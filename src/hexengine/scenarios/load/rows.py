@@ -25,9 +25,7 @@ def coerce_unit_attributes(raw: object) -> dict[str, Any]:
     if raw is None:
         return {}
     if not isinstance(raw, dict):
-        raise TypeError(
-            f"attributes must be a TOML table, got {type(raw).__name__}"
-        )
+        raise TypeError(f"attributes must be a TOML table, got {type(raw).__name__}")
     return {str(k): v for k, v in raw.items()}
 
 

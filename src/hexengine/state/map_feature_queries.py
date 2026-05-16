@@ -44,15 +44,15 @@ def linear_features_on_neighbor_step(
 
 
 def edge_los_blocking_tags(board: BoardState) -> frozenset[str]:
-    """Tags for which ``edge_line_of_sight_by_tag`` is true (LOS blocked on crossing)."""
+    """Tags for which `edge_line_of_sight_by_tag` is true (LOS blocked on crossing)."""
     return frozenset(t for t, v in board.edge_line_of_sight_by_tag if v)
 
 
 def edges_block_los_predicate(board: BoardState) -> Callable[[Hex, Hex], bool] | None:
-    """Return ``(h1, h2) -> True`` when the grid step h1→h2 crosses a LOS-blocking edge.
+    """Return `(h1, h2) -> True` when the grid step h1→h2 crosses a LOS-blocking edge.
 
-    Expands non-adjacent ``h1``/``h2`` along ``hex_line_segment``. Returns ``None`` when
-    no edge tags block LOS (callers may omit ``edges_block`` on LOS helpers).
+    Expands non-adjacent `h1`/`h2` along `hex_line_segment`. Returns `None` when
+    no edge tags block LOS (callers may omit `edges_block` on LOS helpers).
     """
     blocking = edge_los_blocking_tags(board)
     if not blocking:
@@ -74,7 +74,7 @@ def edges_block_los_predicate(board: BoardState) -> Callable[[Hex, Hex], bool] |
 
 
 def edge_line_of_sight_blocks_hex_line(board: BoardState, a: Hex, b: Hex) -> bool:
-    """True if any edge crossed by the straight hex-grid segment ``a``→``b`` blocks LOS."""
+    """True if any edge crossed by the straight hex-grid segment `a`→`b` blocks LOS."""
     pred = edges_block_los_predicate(board)
     if pred is None:
         return False
@@ -88,7 +88,7 @@ def edge_line_of_sight_blocks_hex_line(board: BoardState, a: Hex, b: Hex) -> boo
 def edge_movement_extra_for_neighbor_step(
     board: BoardState, from_hex: Hex, to_hex: Hex
 ) -> float:
-    """Sum configured extras for each tag on ``[[edge_features]]`` along this neighbor step."""
+    """Sum configured extras for each tag on `[[edge_features]]` along this neighbor step."""
     if not board.edge_movement_extra_by_tag:
         return 0.0
     table = dict(board.edge_movement_extra_by_tag)
@@ -105,11 +105,12 @@ def edge_movement_extra_for_neighbor_step(
 
 
 def min_linear_movement_cost_for_tags(
-    board: BoardState, tags: Iterable[str],
+    board: BoardState,
+    tags: Iterable[str],
 ) -> float | None:
-    """Smallest configured per-tag linear step cost among ``tags``.
+    """Smallest configured per-tag linear step cost among `tags`.
 
-    Returns ``None`` when no tag has an entry (caller should use destination terrain cost).
+    Returns `None` when no tag has an entry (caller should use destination terrain cost).
     """
     if not board.linear_movement_by_tag:
         return None

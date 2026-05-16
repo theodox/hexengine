@@ -260,9 +260,9 @@ class MapDisplayConfig:
             self,
             omit_none=True,
             value_transforms={
-                "grid_hexes": lambda gh: [list(t) for t in gh]
-                if gh is not None
-                else None,
+                "grid_hexes": lambda gh: (
+                    [list(t) for t in gh] if gh is not None else None
+                ),
             },
         )
 
@@ -455,11 +455,11 @@ class ScenarioData:
     edge_features: tuple[EdgeFeatureSpec, ...] = ()
     #: Centerline primitives (roads, hedgerow spines, …).
     linear_features: tuple[LinearFeatureSpec, ...] = ()
-    #: Per-tag movement cost for a hex step along a ``[[linear_features]]`` path
-    #: (e.g. ``road`` vs ``rail``). Canonical order: sorted by tag. Empty when no
+    #: Per-tag movement cost for a hex step along a `[[linear_features]]` path
+    #: (e.g. `road` vs `rail`). Canonical order: sorted by tag. Empty when no
     #: linear overrides; titles use destination terrain cost for those steps.
     linear_movement_by_tag: tuple[tuple[str, float], ...] = ()
-    #: Per-tag extra cost when crossing ``[[edge_features]]`` with that tag (e.g. river).
+    #: Per-tag extra cost when crossing `[[edge_features]]` with that tag (e.g. river).
     edge_movement_extra_by_tag: tuple[tuple[str, float], ...] = ()
     #: Per-tag LOS blocking when a sight line crosses an edge with that tag.
     edge_line_of_sight_by_tag: tuple[tuple[str, bool], ...] = ()

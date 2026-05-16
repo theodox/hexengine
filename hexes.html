@@ -1,3 +1,9 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Hexes</title>
+</head>
 <body>
 
   <script src="https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js" , crossorigin="anonymous"></script>
@@ -16,7 +22,7 @@
       await pyodide.loadPackage("micropip");
       const micropip = pyodide.pyimport("micropip");
       // Cache-bust so Pyodide fetches the latest wheel after rebuilds (bump when you change package code)
-      await micropip.install("../dist/hexes-0.1.4-py3-none-any.whl?v=7");
+      await micropip.install("../dist/hexes-0.1.4-py3-none-any.whl?v=9");
 
       let hexes = pyodide.pyimport("hexengine.__main__");
       console.log(hexes.__version__);
@@ -41,15 +47,14 @@
         <svg id="map-units"></svg>
       </div>
 
-      <!--- loading screen -->
-      <div id="loading">
-        <b>Loading...</b>
-      </div>
-
       <!--- ui overlay --->
       <div id="ui-panel">
       </div>
     </div>
+
+      <div id="loading" class="hexengine-splash-active">
+        <b>Loading...</b>
+      </div>
 
       <div id="advance" class="hexengine-primary-actions" title="Turn and combat choices">
         <button id="advance-button" type="button">Advance Turn</button>
@@ -78,3 +83,4 @@
 
   </div>
 </body>
+</html>

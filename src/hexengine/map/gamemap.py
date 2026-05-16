@@ -292,7 +292,9 @@ class Map:
             keys = tuple(f.edge_key for f in group)
             pts = polyline_vertices_for_vertex_adjacent_edge_keys(layout, keys)
             if len(pts) >= 2:
-                poly = js.document.createElementNS("http://www.w3.org/2000/svg", "polyline")
+                poly = js.document.createElementNS(
+                    "http://www.w3.org/2000/svg", "polyline"
+                )
                 poly.setAttribute(
                     "points",
                     " ".join(f"{float(x)},{float(y)}" for x, y in pts),
@@ -308,7 +310,9 @@ class Map:
                 g.appendChild(poly)
             else:
                 for feat in group:
-                    (x0, y0), (x1, y1) = shared_edge_side_midpoint(layout, feat.edge_key)
+                    (x0, y0), (x1, y1) = shared_edge_side_midpoint(
+                        layout, feat.edge_key
+                    )
                     line = js.document.createElementNS(
                         "http://www.w3.org/2000/svg", "line"
                     )

@@ -10,8 +10,16 @@ import asyncio
 import unittest
 
 from hexengine.gamedef.builtin import InterleavedTwoFactionGameDefinition
+from hexengine.gamedef.game_data import GameData
 from hexengine.hexes.math import neighbors
 from hexengine.hexes.types import Hex, HexColRow
+from hexengine.hooks.attack import (
+    AttackHooks,
+    AttackResolution,
+    attack_hooks_unsupported,
+)
+from hexengine.hooks.movement import MovementHooks
+from hexengine.hooks.title import TitleHooks
 from hexengine.server import (
     ActionRequest,
     GameServer,
@@ -22,7 +30,6 @@ from hexengine.state import GameState
 from hexengine.state.actions import MoveUnit
 from hexengine.state.game_state import BoardState, TurnState, UnitState
 from hexengine.state.snapshot import game_state_to_wire_dict
-from hexengine.hooks import AttackHooks, MovementHooks, StackingPolicy, TitleHooks
 
 
 def _hex_wire(h: Hex) -> dict[str, int]:
@@ -306,7 +313,7 @@ class TestGameServer(unittest.TestCase):
 
         asyncio.run(run())
 
-    def test_hooks_stacking_policy_overrides_game_definition_attr(self) -> None:
+    def test_game_data_max_stack_enforces_move(self) -> None:
         async def run() -> None:
             start = Hex.from_hex_col_row(HexColRow(0, 0))
             dest = next(iter(neighbors(start)))
@@ -337,18 +344,20 @@ class TestGameServer(unittest.TestCase):
             state = GameState(board=board, turn=turn)
 
             class _GD(InterleavedTwoFactionGameDefinition):
-                # Legacy attr would allow stacking, but hook below forbids it.
-                max_active_units_per_hex = 3
+                @property
+                def game_data(self) -> GameData:
+                    return super().game_data.replacing(max_active_units_per_hex=1)
 
-                def movement_budget_for_unit(self, _state: GameState, _unit_id: str) -> float:
+                def movement_budget_for_unit(
+                    self, _state: GameState, _unit_id: str
+                ) -> float:
                     return 10.0
 
                 @property
                 def hooks(self) -> TitleHooks:
                     return TitleHooks(
-                        movement=MovementHooks(
-                            stacking_policy_for_unit=lambda _s, _uid: StackingPolicy(limit=1)
-                        )
+                        movement=MovementHooks(),
+                        attack=attack_hooks_unsupported(),
                     )
 
             server = GameServer(state, game_definition=_GD())
@@ -409,14 +418,21 @@ class TestGameServer(unittest.TestCase):
             state = GameState(board=board, turn=turn, extension={"t": {}}, rng_log=())
 
             class _GD(InterleavedTwoFactionGameDefinition):
-                title_state_extension_key = "t"
+                @property
+                def game_data(self) -> GameData:
+                    return super().game_data.replacing(title_state_extension_key="t")
 
                 @property
                 def hooks(self) -> TitleHooks:
                     def _reject(_ctx):
                         raise ValueError("nope")
 
-                    return TitleHooks(attack=AttackHooks(validate_attack=_reject))
+                    return TitleHooks(
+                        attack=AttackHooks(
+                            validate_attack=_reject,
+                            resolve_attack=lambda _c: AttackResolution(outcome="miss"),
+                        )
+                    )
 
             server = GameServer(state, game_definition=_GD())
             errors: list[str] = []
@@ -485,13 +501,15 @@ class TestGameServer(unittest.TestCase):
             state = GameState(board=board, turn=turn, extension={"t": {}}, rng_log=())
 
             class _GD(InterleavedTwoFactionGameDefinition):
-                title_state_extension_key = "t"
+                @property
+                def game_data(self) -> GameData:
+                    return super().game_data.replacing(title_state_extension_key="t")
 
                 @property
                 def hooks(self) -> TitleHooks:
                     def resolve(_ctx):
                         # Force attacker retreat, but choose a2 as the retreat owner.
-                        from hexengine.hooks import AttackResolution
+                        from hexengine.hooks.attack import AttackResolution
 
                         return AttackResolution(
                             outcome="attacker_retreat",
@@ -500,7 +518,11 @@ class TestGameServer(unittest.TestCase):
                             rng_entry={"op": "test"},
                         )
 
-                    return TitleHooks(attack=AttackHooks(validate_attack=lambda _c: None, resolve_attack=resolve))
+                    return TitleHooks(
+                        attack=AttackHooks(
+                            validate_attack=lambda _c: None, resolve_attack=resolve
+                        )
+                    )
 
             server = GameServer(state, game_definition=_GD())
             errors: list[str] = []
@@ -563,18 +585,23 @@ class TestGameServer(unittest.TestCase):
             )
 
             class _GD(InterleavedTwoFactionGameDefinition):
-                title_state_extension_key = "t"
+                @property
+                def game_data(self) -> GameData:
+                    return super().game_data.replacing(title_state_extension_key="t")
 
                 @property
                 def hooks(self) -> TitleHooks:
                     return TitleHooks(
                         movement=MovementHooks(
-                            retreat_obligation_hexes_remaining=lambda st, uid: 1
-                            if uid == "u"
-                            else None,
-                            faction_has_pending_retreat_obligation=lambda _st, fac: fac == "Blue",
+                            retreat_obligation_hexes_remaining=lambda st, uid: (
+                                1 if uid == "u" else None
+                            ),
+                            faction_has_pending_retreat_obligation=lambda _st, fac: (
+                                fac == "Blue"
+                            ),
                             retreat_blocked_hexes=lambda _st, _uid: frozenset({h1}),
-                        )
+                        ),
+                        attack=attack_hooks_unsupported(),
                     )
 
             server = GameServer(state, game_definition=_GD())
@@ -634,7 +661,9 @@ class TestGameServer(unittest.TestCase):
             )
 
             class _GD(InterleavedTwoFactionGameDefinition):
-                title_state_extension_key = "t"
+                @property
+                def game_data(self) -> GameData:
+                    return super().game_data.replacing(title_state_extension_key="t")
 
                 @property
                 def hooks(self) -> TitleHooks:
@@ -643,12 +672,15 @@ class TestGameServer(unittest.TestCase):
 
                     return TitleHooks(
                         movement=MovementHooks(
-                            retreat_obligation_hexes_remaining=lambda _st, uid: 2
-                            if uid == "u"
-                            else None,
-                            faction_has_pending_retreat_obligation=lambda _st, fac: fac == "Blue",
+                            retreat_obligation_hexes_remaining=lambda _st, uid: (
+                                2 if uid == "u" else None
+                            ),
+                            faction_has_pending_retreat_obligation=lambda _st, fac: (
+                                fac == "Blue"
+                            ),
                             validate_retreat_move=allow_any_distance,
-                        )
+                        ),
+                        attack=attack_hooks_unsupported(),
                     )
 
             server = GameServer(state, game_definition=_GD())
@@ -828,6 +860,36 @@ class TestGameServer(unittest.TestCase):
         tr = server._turn_rules_wire()
         self.assertNotIn("title_state_extension_key", tr)
 
+    def test_turn_rules_wire_builtin_includes_faction_ui_labels(self) -> None:
+        server = GameServer(self.initial_state, game_definition=_test_game_definition())
+        tr = server._turn_rules_wire()
+        self.assertNotIn("faction_display_contract_error", tr)
+        fu = tr.get("faction_ui")
+        self.assertIsInstance(fu, dict)
+        rows = fu.get("factions")
+        self.assertIsInstance(rows, list)
+        self.assertGreater(len(rows), 0)
+        by_id = {str(r["id"]): r for r in rows}
+        self.assertEqual(by_id["Red"]["label"], "Red")
+        self.assertEqual(by_id["Blue"]["label"], "Blue")
+
+    def test_turn_rules_wire_faction_display_contract_error_without_labels(
+        self,
+    ) -> None:
+        class _NoFactionLabels(InterleavedTwoFactionGameDefinition):
+            @property
+            def game_data(self) -> GameData:
+                return GameData()
+
+        server = GameServer(self.initial_state, game_definition=_NoFactionLabels())
+        tr = server._turn_rules_wire()
+        self.assertIn("faction_display_contract_error", tr)
+        self.assertNotIn("faction_ui", tr)
+        err = tr["faction_display_contract_error"]
+        self.assertIsInstance(err, dict)
+        self.assertIn("Red", err.get("missing_faction_ids", []))
+        self.assertIn("Blue", err.get("missing_faction_ids", []))
+
     def test_turn_rules_wire_hexdemo_includes_title_state_extension_key(self) -> None:
         from games.hexdemo.game_config import (
             HexdemoGameDefinition,
@@ -843,7 +905,7 @@ class TestGameServer(unittest.TestCase):
         self.assertEqual(tr.get("max_active_units_per_hex"), 3)
 
     def test_after_next_phase_builtin_skips_title_combat_extension_clear(self) -> None:
-        """Built-in ``GameDefinition`` has no ``title_state_extension_key``; do not mutate."""
+        """Built-in `GameDefinition` has no `title_state_extension_key`; do not mutate."""
         server = GameServer(self.initial_state, game_definition=_test_game_definition())
         ext = {
             "hexdemo": {"attacks_this_phase": ["x"], "last_combat": {"outcome": "none"}}
