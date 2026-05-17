@@ -113,6 +113,7 @@ def make_counter_graphics_creator(
             glyph_el = js.document.createElementNS(_SVG_NS, "text")
             glyph_el.setAttribute("x", "50")
             glyph_el.setAttribute("y", "33")
+            glyph_el.setAttribute("font-size", "48")
             glyph_el.classList.add("unit-counter-glyph")
             glyph_el.textContent = g0
             glyph_el.setAttribute("data-unit", display_unit.unit_id)
@@ -121,6 +122,7 @@ def make_counter_graphics_creator(
             cap_el = js.document.createElementNS(_SVG_NS, "text")
             cap_el.setAttribute("x", "50")
             cap_el.setAttribute("y", "83")
+            cap_el.setAttribute("font-size", "28")
             cap_el.classList.add("unit-counter-caption")
             cap_el.textContent = c0
             cap_el.setAttribute("data-unit", display_unit.unit_id)

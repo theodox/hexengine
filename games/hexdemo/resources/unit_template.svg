@@ -30,7 +30,7 @@
   - With render = "image", the SVG is drawn via <image href="...">; external CSS does
     not reach shapes inside the file—set fills/strokes in the SVG, or use inline + css.
   - Avoid bare <rect> for the main body (unless you override in css): global hexes.css
-    applies .unit rect { x/y/width/height } from --unit-* and can break nested art.
+    applies .unit > rect { x/y/width/height } from --unit-* and can break nested art.
     This template uses a <path> for the chassis.
 
   See resources/default/unit_template.css for rules that work with render = "inline".

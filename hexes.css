@@ -538,8 +538,8 @@ Generic unit styles
     opacity: 1;
 }
 
-/* all unit rects share this style */
-.unit rect {
+/* Direct-child rects only (nested counter/viewBox art uses its own frame). */
+.unit > rect {
     stroke-width: 2px;
     filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.66));
     rx: 6px;
