@@ -1652,7 +1652,12 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             css_class="interaction-msg--error",
         )
         self._sync_interaction_messages()
-        self.display_mgr.refresh_unit_positions()
+        # Re-snap visuals to committed state (e.g. rejected move left preview transform).
+        st = self._interactive_game_state()
+        if st is not None:
+            self.display_mgr.sync_from_state(st)
+        else:
+            self.display_mgr.refresh_unit_positions()
 
     def _handle_action_result(self, success: bool, error_msg: str | None) -> None:
         if success:
@@ -1866,7 +1871,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     def start_drag_preview(self, unit_id: str):
         """Start drag preview for a unit."""
-        state = self.action_mgr.current_state
+        state = self._interactive_game_state()
+        if state is None:
+            return
         unit_state = state.board.units.get(unit_id)
         if not unit_state:
             return

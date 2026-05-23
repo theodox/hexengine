@@ -50,6 +50,10 @@ class AuthorityCombatCleanupHost(Protocol):
         self, state: GameState, unit_id: str
     ) -> int | None: ...
 
+    def _max_active_units_per_hex(
+        self, state: GameState, unit_id: str
+    ) -> int | None: ...
+
     def _maybe_open_combat_advance_after_retreat(self, extension_key: str) -> None: ...
 
 
@@ -193,6 +197,72 @@ async def handle_combat_advance_rpc(
     await _reply_ok_broadcast(host, player_id)
 
 
+def retreat_stack_unit_ids(
+    host: AuthorityCombatCleanupHost,
+    st_before: GameState,
+    from_hex: Hex,
+    player: PlayerInfo,
+    uid_for_move: str,
+) -> list[str]:
+    """Unit ids that must retreat together from `from_hex` (includes `uid_for_move`)."""
+
+    to_move: list[str] = []
+    for u in st_before.board.active_units_at_hex(from_hex):
+        if u.faction != player.faction:
+            continue
+        if host._retreat_obligation_hexes_remaining(st_before, u.unit_id) is None:
+            continue
+        to_move.append(u.unit_id)
+    if uid_for_move not in to_move:
+        to_move = [uid_for_move]
+    return to_move
+
+
+def validate_retreat_fulfillment_stack(
+    host: AuthorityCombatCleanupHost,
+    *,
+    st_before: GameState,
+    uid_for_move: str,
+    player: PlayerInfo,
+    request: ActionRequest,
+) -> None:
+    """
+    Validate the full stacked retreat before any `MoveUnit` executes.
+
+    Without this, the primary unit can move and stackmate validation can fail later,
+    leaving server state ahead of clients (no broadcast) and causing stale `from_hex`
+    on the next drag.
+    """
+
+    fh, th = request.params.get("from_hex"), request.params.get("to_hex")
+    if not isinstance(fh, dict) or not isinstance(th, dict):
+        raise ValueError("MoveUnit requires from_hex and to_hex")
+    from_hex = Hex(**fh)
+    to_hex = Hex(**th)
+    to_move = retreat_stack_unit_ids(
+        host, st_before, from_hex, player, uid_for_move
+    )
+    for uid in to_move:
+        host._validate_move_unit_request(
+            st_before,
+            {
+                "unit_id": uid,
+                "from_hex": fh,
+                "to_hex": th,
+            },
+            player,
+            is_retreat_fulfillment=True,
+        )
+    max_stack = host._max_active_units_per_hex(st_before, uid_for_move)
+    if max_stack is not None:
+        dest_count = len(st_before.board.active_units_at_hex(to_hex))
+        if dest_count + len(to_move) > max_stack:
+            raise ValueError(
+                f"Destination hex already has {dest_count} active units; "
+                f"cannot retreat {len(to_move)} more (stacking limit {max_stack})"
+            )
+
+
 async def handle_move_unit_combat_advance_resolution(
     host: AuthorityCombatCleanupHost,
     player_id: str,
@@ -245,28 +315,12 @@ def finalize_retreat_fulfillment_stack(
         to_hex = None
     to_move: list[str] = []
     if from_hex is not None and to_hex is not None:
-        for u in st_before.board.active_units_at_hex(from_hex):
-            if u.faction != player.faction:
-                continue
-            if host._retreat_obligation_hexes_remaining(st_before, u.unit_id) is None:
-                continue
-            to_move.append(u.unit_id)
-    if uid_for_move not in to_move:
-        to_move = [uid_for_move]
-    if from_hex is not None and to_hex is not None:
+        to_move = retreat_stack_unit_ids(
+            host, st_before, from_hex, player, uid_for_move
+        )
         for other_uid in to_move:
             if other_uid == uid_for_move:
                 continue
-            host._validate_move_unit_request(
-                host.action_manager.current_state,
-                {
-                    "unit_id": other_uid,
-                    "from_hex": fh,
-                    "to_hex": th,
-                },
-                player,
-                is_retreat_fulfillment=True,
-            )
             host.action_manager.execute(
                 MoveUnit(other_uid, from_hex=from_hex, to_hex=to_hex)
             )
@@ -283,4 +337,6 @@ __all__ = [
     "handle_combat_disrupt_instead_of_retreat",
     "handle_move_unit_combat_advance_resolution",
     "move_unit_is_combat_advance_fulfillment",
+    "retreat_stack_unit_ids",
+    "validate_retreat_fulfillment_stack",
 ]

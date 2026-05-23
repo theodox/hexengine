@@ -82,6 +82,8 @@ from .arcs import (
     handle_move_unit_combat_advance_resolution,
     move_unit_is_combat_advance_fulfillment,
     read_movement_arc,
+    retreat_stack_unit_ids,
+    validate_retreat_fulfillment_stack,
 )
 from .protocol import (
     ActionRequest,
@@ -1273,6 +1275,14 @@ class GameServer:
                     player,
                     is_retreat_fulfillment=is_retreat_fulfillment,
                 )
+                if is_retreat_fulfillment and uid_for_move is not None:
+                    validate_retreat_fulfillment_stack(
+                        self,
+                        st_before=current_state,
+                        uid_for_move=uid_for_move,
+                        player=player,
+                        request=request,
+                    )
             except ValueError as e:
                 await self._send_error(player_id, str(e))
                 return
@@ -1298,6 +1308,22 @@ class GameServer:
             return
 
         # Execute action
+        retreat_stack_ids: list[str] = []
+        if request.action_type == "MoveUnit" and is_retreat_fulfillment:
+            fh = request.params.get("from_hex")
+            if isinstance(fh, dict) and uid_for_move is not None:
+                try:
+                    from_hex = Hex(**fh)
+                    retreat_stack_ids = retreat_stack_unit_ids(
+                        self,
+                        current_state,
+                        from_hex,
+                        player,
+                        uid_for_move,
+                    )
+                except Exception:
+                    retreat_stack_ids = [uid_for_move]
+
         try:
             self.action_manager.execute(action)
             self.logger.info(
@@ -1333,6 +1359,10 @@ class GameServer:
             await self._broadcast_state_update()
 
         except Exception as e:
+            if request.action_type == "MoveUnit" and is_retreat_fulfillment:
+                self._rollback_retreat_fulfillment_attempt(
+                    current_state, retreat_stack_ids
+                )
             self.logger.error(f"Action execution failed: {e}")
             await self._send_error(player_id, f"Action failed: {e}")
 
@@ -1890,6 +1920,36 @@ class GameServer:
             self.logger.info(
                 f"Advanced to {next_phase_info['faction']}-{next_phase_info['phase']}"
             )
+
+    def _rollback_retreat_fulfillment_attempt(
+        self,
+        snapshot: GameState,
+        unit_ids: list[str],
+        *,
+        max_undo: int = 32,
+    ) -> None:
+        """Undo partial retreat moves so server state matches clients after a failed stack."""
+
+        def positions_match() -> bool:
+            st = self.action_manager.current_state
+            for uid in unit_ids:
+                a = st.board.units.get(uid)
+                b = snapshot.board.units.get(uid)
+                if a is None or b is None or a.position != b.position:
+                    return False
+            return True
+
+        for _ in range(max_undo):
+            if positions_match():
+                return
+            if not self.action_manager.can_undo():
+                break
+            self.action_manager.undo()
+        if not positions_match():
+            self.logger.error(
+                "Retreat rollback incomplete; restoring pre-request snapshot"
+            )
+            self.action_manager.replace_state(snapshot)
 
     def _validate_move_unit_request(
         self,

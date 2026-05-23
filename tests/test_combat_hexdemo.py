@@ -328,6 +328,59 @@ def test_hexdemo_retreat_moves_entire_stack() -> None:
     asyncio.run(run())
 
 
+def test_retreat_stack_rejected_before_partial_move() -> None:
+    """Stack retreat must not move the lead unit if the full stack cannot fit at destination."""
+    from hexengine.server.protocol import ActionRequest, JoinGameRequest
+
+    h0 = Hex(0, 0, 0)
+    h_dest = next(neighbors(h0))
+    board = BoardState(
+        units={
+            "u1": UnitState("u1", "inf", "union", h0, active=True, stack_index=0),
+            "u2": UnitState("u2", "inf", "union", h0, active=True, stack_index=1),
+            "u3": UnitState("u3", "inf", "union", h_dest, active=True, stack_index=0),
+            "u4": UnitState("u4", "inf", "union", h_dest, active=True, stack_index=1),
+        }
+    )
+    turn = TurnState(
+        current_faction="union", current_phase="Combat", phase_actions_remaining=2
+    )
+    st = GameState(
+        board=board,
+        turn=turn,
+        extension={"hexdemo": {"retreat_obligations": {"u1": 1, "u2": 1}}},
+        rng_log=(),
+    )
+    gd = game_definition_from_config(default_match_config())
+    server = GameServer(initial_state=st, game_definition=gd)
+
+    async def run() -> None:
+        out: list[dict] = []
+        server.add_message_handler(lambda _pid, msg: out.append(msg.payload))
+        await server.handle_message(
+            "p1", JoinGameRequest(player_name="Alice", faction="union").to_message()
+        )
+        req = ActionRequest(
+            action_type="MoveUnit",
+            params={
+                "unit_id": "u1",
+                "from_hex": {"i": h0.i, "j": h0.j, "k": h0.k},
+                "to_hex": {"i": h_dest.i, "j": h_dest.j, "k": h_dest.k},
+            },
+            player_id="p1",
+        )
+        await server.handle_message("p1", req.to_message())
+        errors = [p.get("error") for p in out if isinstance(p, dict)]
+        assert any(
+            isinstance(e, str) and "stacking" in e.lower() for e in errors
+        ), f"Expected stacking rejection, got: {errors!r}"
+        after = server.action_manager.current_state
+        assert after.board.units["u1"].position == h0
+        assert after.board.units["u2"].position == h0
+
+    asyncio.run(run())
+
+
 def test_server_suggested_focus_unit_id_for_player(hexdemo_server: GameServer) -> None:
     """`GameServer` fills `StateUpdate.suggested_focus_unit_id` from the title hook."""
     from hexengine.server.protocol import PlayerInfo

@@ -30,6 +30,8 @@ from .authority_attack import (
 from .authority_combat_cleanup import (
     AuthorityCombatCleanupHost,
     finalize_retreat_fulfillment_stack,
+    retreat_stack_unit_ids,
+    validate_retreat_fulfillment_stack,
     handle_combat_advance_rpc,
     handle_combat_disrupt_instead_of_retreat,
     handle_move_unit_combat_advance_resolution,
@@ -55,6 +57,8 @@ __all__ = [
     "dedupe_wire_id_list",
     "execute_authority_attack_request",
     "finalize_retreat_fulfillment_stack",
+    "retreat_stack_unit_ids",
+    "validate_retreat_fulfillment_stack",
     "handle_authority_move_unit_normal",
     "handle_combat_advance_rpc",
     "handle_combat_disrupt_instead_of_retreat",
