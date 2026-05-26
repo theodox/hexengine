@@ -112,6 +112,20 @@ def test_validate_title_contract_passes_builtin_combat_schedule() -> None:
     validate_title_contract(InterleavedTwoFactionGameDefinition())
 
 
+def test_validate_title_contract_requires_turn_action_dock_when_extension_key() -> None:
+    from hexengine.gamedef.game_data import GameData
+
+    class PackWithExtension:
+        @property
+        def game_data(self) -> GameData:
+            return GameData.empty().replacing(title_state_extension_key="pack")
+
+        hooks = TitleHooks()
+
+    with pytest.raises(HookContractError, match="turn_action_dock_for_viewer"):
+        validate_title_contract(PackWithExtension())
+
+
 def test_engine_catalog_has_movement_budget_default() -> None:
     fn = get_engine_catalog_hook("movement.movement_budget_for_unit")
     assert fn is movement_budget_for_unit_engine_default
@@ -183,6 +197,51 @@ def test_hexdemo_build_hooks_wires_all_marked() -> None:
     assert th.movement.zoc_hexes_for_unit is not None
     assert th.attack.validate_attack is not None
     assert th.ui.popup_message is not None
+    assert th.ui.phase_banner_text_for_viewer is not None
+    assert th.ui.phase_banner_html_for_viewer is not None
+    assert th.ui.combat_instruction_for_viewer is not None
+    assert th.ui.advance_gate_banners_for_viewer is not None
+    assert th.ui.turn_action_dock_for_viewer is not None
+
+
+def test_default_primary_actions_disrupt_row() -> None:
+    from hexengine.hooks.ui import PrimaryActionsContext
+    from hexengine.hooks.ui_primary_actions import default_primary_actions_for_viewer
+    from hexengine.state import GameState
+
+    st = GameState.create_empty()
+    ext = {
+        "hexdemo": {
+            "combat_gate": "awaiting_retreat_or_disrupt",
+            "retreat_obligations": {"u_def": 1},
+        }
+    }
+    from hexengine.hexes.types import Hex
+    from hexengine.state.game_state import BoardState, UnitState
+
+    board = BoardState(
+        units={
+            "u_def": UnitState(
+                unit_id="u_def",
+                unit_type="inf",
+                faction="confederate",
+                position=Hex(0, 0, 0),
+                health=100,
+                active=True,
+            ),
+        }
+    )
+    st = GameState(board=board, turn=st.turn, extension=ext, rng_log=())
+    ctx = PrimaryActionsContext(
+        state=st,
+        viewer_faction="confederate",
+        extension_key="hexdemo",
+        shell_ui={},
+    )
+    rows = default_primary_actions_for_viewer(ctx)
+    assert len(rows) == 1
+    assert rows[0]["id"] == "combat_disrupt_instead"
+    assert rows[0]["action_type"] == "CombatDisruptInsteadOfRetreat"
 
 
 def test_movement_budget_catalog_default_matches_engine_constant() -> None:

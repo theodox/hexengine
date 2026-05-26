@@ -152,6 +152,12 @@ class MouseEventHandlerMixin:
         mgr = getattr(self, "marker_mgr", None)
         if mgr is None or not mgr.has_display(mid):
             return
+        if (
+            Modifiers.SHIFT in eventInfo.modifiers
+            and getattr(self, "_client_has_place_marker_selection", lambda: False)()
+        ):
+            self.begin_place_marker_relocate(mid)
+            return
         self.start_drag_preview_marker(mid)
         self.hex_path.clear()
         disp = mgr.get_display(mid)
@@ -295,7 +301,24 @@ class MouseEventHandlerMixin:
                         if state is not None
                         else ""
                     )
-                    if state and phase in ("combat", "attack") and self.is_my_turn():
+                    if (
+                        state
+                        and getattr(self, "_place_marker_relocate_active", lambda: False)()
+                        and eventInfo.hex is not None
+                    ):
+                        self.set_place_marker_hex(eventInfo.hex)
+                    elif (
+                        state
+                        and getattr(self, "_retreat_path_active", lambda: False)()
+                        and eventInfo.hex is not None
+                    ):
+                        self.append_retreat_path_hex(eventInfo.hex)
+                    elif (
+                        state
+                        and self._client_has_attack_planning_ui()
+                        and self._phase_allows_attack_planning(phase)
+                        and self.is_my_turn()
+                    ):
                         # Mousedown on a unit often ends with mouseup on the background (no
                         # unit_id). Do not retarget to that hex or we flash "No enemy unit on
                         # that hex" and wipe the real LOS/range feedback from attacker toggles.
@@ -445,9 +468,19 @@ class MouseEventHandlerMixin:
         if not unit_state:
             return
 
-        phase_ok = str(state.turn.current_phase).strip().lower() in ("combat", "attack")
+        phase = str(state.turn.current_phase).strip().lower()
+        phase_ok = self._client_has_attack_planning_ui() and self._phase_allows_attack_planning(
+            phase
+        )
         current_faction = state.turn.current_faction
         retreating = self.retreat_obligation_hexes_remaining(state, unit_id) is not None
+
+        if (
+            retreating
+            and getattr(self, "_client_has_retreat_path_selection", lambda: False)()
+        ):
+            self.begin_retreat_path_for_unit(str(unit_id))
+            return
 
         # Attack planning: treat unit mousedown as selection/toggle (not drag) during Combat.
         if phase_ok and self.is_my_turn() and not retreating:
@@ -479,6 +512,11 @@ class MouseEventHandlerMixin:
             self.logger.warning(
                 f"Cannot select unit {unit_id} of faction {unit_state.faction} during {current_faction}'s turn"
             )
+            return
+
+        if retreating and getattr(
+            self, "_client_has_retreat_path_selection", lambda: False
+        )():
             return
 
         # Start drag preview

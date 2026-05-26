@@ -12,7 +12,6 @@ The server:
 from __future__ import annotations
 
 import hashlib
-import inspect
 import json
 import logging
 import uuid
@@ -22,12 +21,18 @@ from pathlib import Path
 from typing import Any
 
 from ..game_log import GameLogger, game_logger_scope
+from ..game_packs.resources import (
+    infer_pack_id_from_root,
+    infer_pack_root_from_definition,
+    pack_asset_base_url,
+    pack_asset_url,
+)
 from ..gamedef.protocol import GameDefinition
 from ..gamedef.unit_attributes import (
     merge_spawn_attributes,
     validate_unit_attributes_patch,
 )
-from ..hexes.math import distance, neighbors
+from ..hexes.math import distance
 from ..hexes.types import Hex, HexColRow
 from ..hooks.core import ENGINE_DEFAULT
 from ..hooks.internal import (
@@ -35,12 +40,15 @@ from ..hooks.internal import (
     get_engine_catalog_hook,
     validate_title_contract,
 )
+from ..hooks.map_selection_registry import bound_map_selection_kinds
 from ..hooks.movement import MoveContext
 from ..hooks.title import TitleHooks, read_title_hooks_from_definition
+from ..hooks.inform_popup import InformPopupContext, default_inform_popup_for_viewer
 from ..hooks.ui import (
     AdvanceGateInteractionContext,
     CombatInteractionContext,
     PhaseBannerContext,
+    TurnActionDockContext,
     default_advance_gate_banners_for_viewer,
     default_combat_instruction_for_viewer,
     default_phase_banner_text_for_viewer,
@@ -73,10 +81,13 @@ from ..state.phase_rules import (
     phase_allows_unit_move,
 )
 from ..state.snapshot import game_state_from_wire_dict, game_state_to_wire_dict
+from .map_selection import compute_map_selection_preview
+from .preview import compute_marker_drag_preview, compute_unit_drag_preview
 from .arcs import (
     execute_authority_attack_request,
     finalize_retreat_fulfillment_stack,
     handle_authority_move_unit_normal,
+    handle_authority_retreat_path_move_unit,
     handle_combat_advance_rpc,
     handle_combat_disrupt_instead_of_retreat,
     handle_move_unit_combat_advance_resolution,
@@ -93,6 +104,8 @@ from .protocol import (
     JoinGameRequest,
     LeaveGameRequest,
     LoadSnapshotRequest,
+    MapSelectionPreviewRequest,
+    MapSelectionPreviewWire,
     MarkerPreviewRequest,
     MarkerPreviewWire,
     Message,
@@ -115,12 +128,18 @@ def _turn_rules_rota_id(entries: list[dict[str, Any]]) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
-def _resolve_title_resource_href(game_definition: Any, rel: str) -> str | None:
+def _resolve_title_resource_href(
+    game_definition: Any,
+    rel: str,
+    *,
+    pack_root: Path | None,
+    asset_base_url: str | None,
+) -> str | None:
     """
-    Resolve a title resource reference to a static-server href.
+    Resolve a title resource reference to a browser URL.
 
-    Convention: a title package can keep assets under `<title>/resources/` and refer
-    to them by simple relative paths (no `..` segments), similar to scenario assets.
+    Pack-relative paths (no ``..``) map to ``asset_base_url`` when set; absolute
+    paths and http(s) URLs pass through unchanged.
     """
     raw = (rel or "").strip()
     if not raw:
@@ -128,21 +147,19 @@ def _resolve_title_resource_href(game_definition: Any, rel: str) -> str | None:
     p = Path(raw)
     if p.is_absolute() or ".." in p.parts:
         return raw.replace("\\", "/")
-
-    mod = inspect.getmodule(game_definition.__class__)
-    mod_file = getattr(mod, "__file__", None) if mod is not None else None
-    if not isinstance(mod_file, str) or not mod_file:
+    if raw.startswith(("http://", "https://", "/")):
+        return raw.replace("\\", "/")
+    root = pack_root
+    if root is None:
+        root = infer_pack_root_from_definition(game_definition)
+    if root is None:
         return None
-
-    try:
-        pack_dir = Path(mod_file).resolve().parent
-        candidate = (pack_dir / "resources" / p).resolve()
-        if not candidate.is_file():
-            return None
-        repo_root = Path(__file__).resolve().parents[3]
-        return candidate.relative_to(repo_root).as_posix()
-    except Exception:
-        return None
+    return pack_asset_url(
+        root,
+        raw,
+        asset_base_url=asset_base_url,
+        static_root=None,
+    )
 
 
 class GameServer:
@@ -165,6 +182,8 @@ class GameServer:
         marker_placement_rule: MarkerPlacementRule | None = None,
         *,
         game_definition: GameDefinition,
+        pack_id: str | None = None,
+        pack_root: Path | str | None = None,
     ) -> None:
         """
         Initialize the game server.
@@ -177,6 +196,8 @@ class GameServer:
             marker_placement_rule: Optional `(state, marker_wire_dict, to_hex) -> bool`
                 for marker moves/adds; if omitted, uses empty-hex rule (board hex, no unit).
             game_definition: Turn schedule and factions (required).
+            pack_id: Owning pack id for ``/pack/<id>/`` asset URLs (optional).
+            pack_root: Pack directory (``games/<id>/``); inferred when omitted.
         """
         init_state = initial_state or GameState.create_empty()
         self.action_manager = ActionManager(init_state)
@@ -194,6 +215,11 @@ class GameServer:
                 self._marker_placement_rule = gd_rule
         self._server_package_version = hexes_package_version()
         self._game_definition = game_definition
+        self._pack_id = (pack_id or "").strip() or None
+        self._pack_root = (
+            Path(pack_root).resolve() if pack_root is not None else None
+        )
+        self._pack_context_ready = False
         self.hooks = self._bind_title_hooks()
         self.game_data = self._game_definition.game_data
         validate_title_contract(game_definition)
@@ -235,6 +261,30 @@ class GameServer:
         """
 
         return read_title_hooks_from_definition(self._game_definition)
+
+    def _ensure_pack_context(self) -> None:
+        if self._pack_context_ready:
+            return
+        if self._pack_root is None:
+            self._pack_root = infer_pack_root_from_definition(self._game_definition)
+        if self._pack_id is None and self._pack_root is not None:
+            self._pack_id = infer_pack_id_from_root(self._pack_root)
+        self._pack_context_ready = True
+
+    def _pack_asset_base_url(self) -> str | None:
+        self._ensure_pack_context()
+        if not self._pack_id:
+            return None
+        return pack_asset_base_url(self._pack_id)
+
+    def _resolve_pack_resource_href(self, rel: str) -> str | None:
+        self._ensure_pack_context()
+        return _resolve_title_resource_href(
+            self._game_definition,
+            rel,
+            pack_root=self._pack_root,
+            asset_base_url=self._pack_asset_base_url(),
+        )
 
     def _call(
         self,
@@ -456,9 +506,7 @@ class GameServer:
                 css_href: str | None = None
                 tfile = gd.title_css_file
                 if isinstance(tfile, str) and tfile.strip():
-                    css_href = _resolve_title_resource_href(
-                        self._game_definition, tfile.strip()
-                    )
+                    css_href = self._resolve_pack_resource_href(tfile.strip())
                 else:
                     css_file_raw = getattr(
                         self._game_definition, "title_css_file", None
@@ -467,15 +515,11 @@ class GameServer:
                         try:
                             v = css_file_raw()
                             if isinstance(v, str) and v.strip():
-                                css_href = _resolve_title_resource_href(
-                                    self._game_definition, v
-                                )
+                                css_href = self._resolve_pack_resource_href(v)
                         except Exception:
                             css_href = None
                     elif isinstance(css_file_raw, str) and css_file_raw.strip():
-                        css_href = _resolve_title_resource_href(
-                            self._game_definition, css_file_raw
-                        )
+                        css_href = self._resolve_pack_resource_href(css_file_raw)
                 if css_href:
                     out["faction_ui"]["css_href"] = css_href
         # Optional title-provided highlight styling for move/retreat/marker previews.
@@ -494,12 +538,32 @@ class GameServer:
                     out_ui[k] = raw.strip()
             if len(out_ui) > 1:
                 out["ui"] = out_ui
+        shell = dict(gd.shell_ui) if gd.shell_ui else None
+        if shell:
+            out_shell: dict[str, Any] = {"schema": 1}
+            for k, v in shell.items():
+                if k == "attack_planning_phases" and isinstance(v, list):
+                    out_shell[k] = [str(p).strip() for p in v if str(p).strip()]
+                elif isinstance(v, str) and v.strip():
+                    out_shell[k] = v.strip()
+            if len(out_shell) > 1:
+                out["shell_ui"] = out_shell
+        kind_styles = dict(gd.interaction_kind_styles) if gd.interaction_kind_styles else None
+        if kind_styles:
+            out["interaction_kind_styles"] = {
+                str(k).strip(): str(v).strip()
+                for k, v in kind_styles.items()
+                if str(k).strip() and isinstance(v, str) and str(v).strip()
+            }
         tek = self._title_extension_key()
         if tek:
             out["title_state_extension_key"] = tek
         attr_key = gd.movement_budget_attribute_key
         if isinstance(attr_key, str) and attr_key.strip():
             out["movement_budget_attribute"] = attr_key.strip()
+        asset_base = self._pack_asset_base_url()
+        if asset_base:
+            out["asset_base_url"] = asset_base
         out["client_contract"] = {
             "schema": 1,
             "features": sorted(
@@ -522,6 +586,17 @@ class GameServer:
                     "zoc_hexes_for_unit"
                     if getattr(self.hooks.movement, "zoc_hexes_for_unit", None)
                     is not None
+                    else None,
+                    "attack_planning_ui"
+                    if (
+                        getattr(self.hooks.attack, "validate_attack", None) is not None
+                        and getattr(self.hooks.attack, "resolve_attack", None)
+                        is not None
+                    )
+                    else None,
+                    "server_drag_previews",
+                    "map_selection_previews"
+                    if bound_map_selection_kinds(self.hooks)
                     else None,
                 )
                 if f is not None
@@ -823,6 +898,30 @@ class GameServer:
             "hooks.ui.phase_banner_text_for_viewer must return str or hooks.ENGINE_DEFAULT"
         )
 
+    def _phase_interaction_banner_html(
+        self, state: GameState, viewer_faction: str | None
+    ) -> str | None:
+        """Optional HTML for the default phase interaction row (None when unset)."""
+
+        t = state.turn
+        ctx = PhaseBannerContext(
+            state=state,
+            viewer_faction=viewer_faction,
+            current_faction=str(t.current_faction),
+            current_phase=str(t.current_phase),
+            schedule_index=int(t.schedule_index),
+            phase_actions_remaining=int(t.phase_actions_remaining),
+        )
+        raw = self.hooks.ui.phase_banner_html(ctx)
+        if raw is ENGINE_DEFAULT:
+            return None
+        if isinstance(raw, str):
+            html = raw.strip()
+            return html or None
+        raise TypeError(
+            "hooks.ui.phase_banner_html_for_viewer must return str or hooks.ENGINE_DEFAULT"
+        )
+
     def _interaction_messages_for_player_id(
         self, player_id: str
     ) -> list[dict[str, Any]] | None:
@@ -830,7 +929,8 @@ class GameServer:
         Per-recipient transient UI messages delivered via `StateUpdate`.
 
         Schema (each entry): {"schema": 1, "kind": str, "text": str} plus optional
-        dedupe_key/ttl_ms/css_class for client-side lifecycle and styling.
+        html/dedupe_key/ttl_ms/css_class for client-side lifecycle and styling.
+        When `html` is present the client renders it instead of `text`.
         """
         player = self.players.get(player_id)
         if player is None or not player.connected:
@@ -848,17 +948,19 @@ class GameServer:
         # Phase/turn transition banner (deduped client-side).
         schedule_index = int(st.turn.schedule_index)
         phase_line = self._phase_interaction_banner_text(st, viewer_faction)
-        out.append(
-            {
-                "schema": 1,
-                "kind": "phase",
-                "dedupe_key": f"phase:{schedule_index}",
-                # No ttl: turn/phase is persistent until the next StateUpdate replaces it.
-                "ttl_ms": None,
-                "css_class": "interaction-msg--phase",
-                "text": phase_line,
-            }
-        )
+        phase_html = self._phase_interaction_banner_html(st, viewer_faction)
+        phase_row: dict[str, Any] = {
+            "schema": 1,
+            "kind": "phase",
+            "dedupe_key": f"phase:{schedule_index}",
+            # No ttl: turn/phase is persistent until the next StateUpdate replaces it.
+            "ttl_ms": None,
+            "css_class": "interaction-msg--phase",
+            "text": phase_line,
+        }
+        if phase_html:
+            phase_row["html"] = phase_html
+        out.append(phase_row)
 
         # Combat/retreat prompt (per viewer) based on last_combat + retreat owner.
         ek = self._title_extension_key()
@@ -952,6 +1054,79 @@ class GameServer:
                             )
 
         return out or None
+
+    def _shell_ui_label(self, key: str, default: str) -> str:
+        su = self.game_data.shell_ui
+        if isinstance(su, dict):
+            raw = su.get(key)
+            if isinstance(raw, str) and raw.strip():
+                return raw.strip()
+        return default
+
+    def _turn_action_dock_context_for_player_id(
+        self, player_id: str
+    ) -> TurnActionDockContext | None:
+        player = self.players.get(player_id)
+        if player is None or not player.connected:
+            return None
+        st = self.action_manager.current_state
+        viewer_faction = str(player.faction).strip() if player.faction else ""
+        if not viewer_faction:
+            return None
+        turn = st.turn
+        current_faction = str(turn.current_faction).strip()
+        features = frozenset()
+        tr = self._turn_rules_wire()
+        cc = tr.get("client_contract")
+        if isinstance(cc, dict):
+            raw_feats = cc.get("features")
+            if isinstance(raw_feats, list):
+                features = frozenset(
+                    str(x).strip() for x in raw_feats if str(x).strip()
+                )
+        return TurnActionDockContext(
+            state=st,
+            viewer_faction=viewer_faction,
+            extension_key=self._title_extension_key(),
+            shell_ui=dict(self.game_data.shell_ui),
+            schedule_index=int(turn.schedule_index),
+            current_faction=current_faction,
+            current_phase=str(turn.current_phase).strip(),
+            phase_actions_remaining=int(turn.phase_actions_remaining),
+            viewer_is_turn_owner=viewer_faction == current_faction,
+            client_contract_features=features,
+        )
+
+    def _turn_action_dock_for_player_id(
+        self, player_id: str
+    ) -> list[dict[str, Any]] | None:
+        """Per-recipient turn action dock (ENGINE_DEFAULT → engine catalog)."""
+        ctx = self._turn_action_dock_context_for_player_id(player_id)
+        if ctx is None:
+            return None
+        raw = self.hooks.ui.turn_action_dock(ctx)
+        if raw is ENGINE_DEFAULT:
+            catalog = get_engine_catalog_hook("ui.turn_action_dock_for_viewer")
+            if catalog is None:
+                raise NotImplementedError(
+                    "ui.turn_action_dock_for_viewer: no title hook and no engine "
+                    "catalog default"
+                )
+            raw = catalog(ctx)
+        if not isinstance(raw, list):
+            raise TypeError(
+                "hooks.ui.turn_action_dock_for_viewer must return "
+                "list[dict] or hooks.ENGINE_DEFAULT"
+            )
+        return raw or None
+
+    def _interaction_panels_for_player_id(
+        self, player_id: str
+    ) -> list[dict[str, Any]] | None:
+        """Per-recipient turn action dock via ``TURN_ACTION_DOCK_FOR_VIEWER``."""
+        if self.hooks.ui.turn_action_dock_for_viewer is None:
+            return None
+        return self._turn_action_dock_for_player_id(player_id)
 
     def _map_overlays_for_player_id(self, player_id: str) -> list[dict[str, Any]]:
         """
@@ -1263,6 +1438,22 @@ class GameServer:
             return
 
         if request.action_type == "MoveUnit":
+            retreat_rem_steps: int | None = None
+            if is_retreat_fulfillment and uid_for_move is not None:
+                retreat_rem_steps = self._retreat_obligation_hexes_remaining(
+                    current_state, uid_for_move
+                )
+                if retreat_rem_steps is not None:
+                    if await handle_authority_retreat_path_move_unit(
+                        self,
+                        player_id,
+                        player,
+                        request,
+                        current_state,
+                        retreat_remaining=int(retreat_rem_steps),
+                        uid_for_move=uid_for_move,
+                    ):
+                        return
             if not is_retreat_fulfillment:
                 if await handle_authority_move_unit_normal(
                     self, player_id, player, request, current_state
@@ -1366,53 +1557,66 @@ class GameServer:
             self.logger.error(f"Action execution failed: {e}")
             await self._send_error(player_id, f"Action failed: {e}")
 
-    async def _handle_inspect_request(self, player_id: str, message: Message) -> None:
-        req = InspectRequest.from_message(message)
-        player = self.players.get(player_id)
-        if not player or not player.connected:
-            return
+    def _hex_from_wire_dict(self, raw: Any) -> Hex | None:
+        if not isinstance(raw, dict):
+            return None
+        try:
+            return Hex(int(raw["i"]), int(raw["j"]), int(raw["k"]))
+        except (KeyError, TypeError, ValueError):
+            return None
 
-        state = self.action_manager.current_state
-        viewer_faction = player.faction
-        target_kind = str(req.target_kind)
-        target_id = str(req.target_id)
+    def _marker_anchor_hex(self, marker_id: str) -> Hex | None:
+        for m in self.markers:
+            if str(m.get("id", "")).strip() != str(marker_id).strip():
+                continue
+            hx = m.get("hex")
+            if isinstance(hx, dict):
+                parsed = self._hex_from_wire_dict(hx)
+                if parsed is not None:
+                    return parsed
+            pos = m.get("position")
+            if isinstance(pos, list | tuple) and len(pos) == 2:
+                try:
+                    return Hex.from_hex_col_row(
+                        HexColRow(col=int(pos[0]), row=int(pos[1]))
+                    )
+                except (TypeError, ValueError):
+                    return None
+        return None
 
-        # Anchor to a board hex when possible.
-        anchor_hex: Any | None = None
-        if target_kind == "unit":
-            u = state.board.units.get(target_id)
-            if u is not None:
-                anchor_hex = u.position
-        elif target_kind == "marker":
-            for m in self.markers:
-                if str(m.get("id", "")) == target_id:
-                    anchor_hex = m.get("hex")
-                    break
+    def _resolve_inspect_anchor_hex(
+        self,
+        *,
+        state: GameState,
+        target_kind: str,
+        target_id: str,
+        context: dict[str, Any] | None,
+    ) -> Hex | None:
+        k = str(target_kind or "").strip()
+        ctx = context if isinstance(context, dict) else {}
+        if k == "unit":
+            u = state.board.units.get(str(target_id).strip())
+            return u.position if u is not None else None
+        if k == "marker":
+            return self._marker_anchor_hex(target_id)
+        if k == "inform":
+            hx = self._hex_from_wire_dict(ctx.get("hex"))
+            if hx is not None:
+                return hx
+            uid = str(ctx.get("unit_id", "")).strip()
+            if uid:
+                u = state.board.units.get(uid)
+                if u is not None:
+                    return u.position
+        return None
 
-        if anchor_hex is None:
-            return
-
-        pm = self.hooks.ui.popup(state, viewer_faction, target_kind, target_id)
-        if pm is ENGINE_DEFAULT or pm is None:
-            # Engine defaults are intentionally minimal (mostly for local debugging).
-            if target_kind == "unit":
-                u = state.board.units.get(target_id)
-                txt = f"{target_id}" if u is None else f"{target_id} @ {u.faction}"
-            else:
-                txt = f"{target_kind} {target_id}"
-            popup = UIPopupWire(
-                text=txt,
-                hex={
-                    "i": int(anchor_hex.i),
-                    "j": int(anchor_hex.j),
-                    "k": int(anchor_hex.k),
-                },
-            )
-            await self._send_message(player_id, popup.to_message())
-            return
-
-        if not isinstance(pm, dict):
-            return
+    async def _send_ui_popup_to_player(
+        self,
+        player_id: str,
+        *,
+        anchor_hex: Hex,
+        pm: dict[str, Any],
+    ) -> None:
         raw_text = pm.get("text")
         raw_html = pm.get("html")
         txt = "" if raw_text is None else str(raw_text).strip()
@@ -1438,6 +1642,75 @@ class GameServer:
         )
         await self._send_message(player_id, popup.to_message())
 
+    async def _handle_inspect_request(self, player_id: str, message: Message) -> None:
+        req = InspectRequest.from_message(message)
+        player = self.players.get(player_id)
+        if not player or not player.connected:
+            return
+
+        state = self.action_manager.current_state
+        viewer_faction = player.faction
+        target_kind = str(req.target_kind).strip()
+        target_id = str(req.target_id).strip()
+        ctx = req.context if isinstance(req.context, dict) else None
+
+        anchor_hex = self._resolve_inspect_anchor_hex(
+            state=state,
+            target_kind=target_kind,
+            target_id=target_id,
+            context=ctx,
+        )
+        if anchor_hex is None:
+            return
+
+        if target_kind == "inform":
+            inform_kind = ""
+            unit_id: str | None = None
+            if isinstance(ctx, dict):
+                inform_kind = str(ctx.get("inform_kind", "")).strip()
+                uid_raw = ctx.get("unit_id")
+                if uid_raw is not None and str(uid_raw).strip():
+                    unit_id = str(uid_raw).strip()
+            shell = dict(self.game_data.shell_ui) if self.game_data.shell_ui else {}
+            ip_ctx = InformPopupContext(
+                state=state,
+                viewer_faction=viewer_faction,
+                inform_kind=inform_kind,
+                reason=target_id,
+                anchor_hex=anchor_hex,
+                unit_id=unit_id,
+                shell_ui=shell,
+            )
+            pm = self.hooks.ui.inform_popup_for(ip_ctx)
+            if pm is ENGINE_DEFAULT or pm is None:
+                pm = default_inform_popup_for_viewer(ip_ctx)
+            if not isinstance(pm, dict):
+                return
+            await self._send_ui_popup_to_player(
+                player_id, anchor_hex=anchor_hex, pm=pm
+            )
+            return
+
+        pm = self.hooks.ui.popup(state, viewer_faction, target_kind, target_id)
+        if pm is ENGINE_DEFAULT or pm is None:
+            if target_kind == "unit":
+                u = state.board.units.get(target_id)
+                txt = f"{target_id}" if u is None else f"{target_id} @ {u.faction}"
+            else:
+                txt = f"{target_kind} {target_id}"
+            await self._send_ui_popup_to_player(
+                player_id,
+                anchor_hex=anchor_hex,
+                pm={"text": txt, "kind": "info", "ttl_ms": 800},
+            )
+            return
+
+        if not isinstance(pm, dict):
+            return
+        await self._send_ui_popup_to_player(
+            player_id, anchor_hex=anchor_hex, pm=pm
+        )
+
     async def _handle_marker_preview_request(
         self, player_id: str, message: Message
     ) -> None:
@@ -1451,10 +1724,12 @@ class GameServer:
         request_id = str(getattr(req, "request_id", "") or "")
         marker_wire = {"id": marker_id, "type": marker_type}
 
-        hexes: list[dict[str, int]] = []
-        for h in self._iter_board_hexes(state):
-            if self._marker_destination_allowed(state, marker_wire, h):
-                hexes.append({"i": int(h.i), "j": int(h.j), "k": int(h.k)})
+        hexes = compute_marker_drag_preview(
+            state=state,
+            marker_wire=marker_wire,
+            board_hexes=self._iter_board_hexes(state),
+            destination_allowed=self._marker_destination_allowed,
+        )
 
         # Optional title CSS class from turn_rules.ui.marker_hex_class (client already
         # falls back to "highlight" when absent).
@@ -1493,107 +1768,23 @@ class GameServer:
         if u is None or not u.active:
             return
 
-        # Decide whether this preview is a normal move or a mandatory retreat fulfillment.
-        rem = self._retreat_obligation_hexes_remaining(state, unit_id)
-        kind = "retreat" if rem is not None else "move"
-
-        # Mirror server validation gates: if a normal move is not allowed right now,
-        # return empty.
-        through_hexes: list[dict[str, int]] | None = None
+        preview = compute_unit_drag_preview(
+            state=state,
+            unit_id=unit_id,
+            player_faction=str(player.faction),
+            board_hexes=self._iter_board_hexes(state),
+            retreat_hexes_remaining=self._retreat_obligation_hexes_remaining,
+            faction_has_pending_retreat=self._faction_has_pending_retreat,
+            movement_budget_for_unit=self._movement_budget_for_unit,
+            zoc_hexes_for_unit=self._zoc_hexes_for_unit,
+            max_active_units_per_hex=self._max_active_units_per_hex,
+            movement_step_cost_fn=self._movement_step_cost_fn,
+            retreat_blocked_hexes=self.hooks.movement.retreat_blocked,
+        )
+        kind = preview.kind
+        out_hexes = preview.hexes
+        through_hexes = preview.through_hexes
         through_css_class: str | None = None
-
-        if rem is None:
-            if self._faction_has_pending_retreat(state, player.faction):
-                out_hexes: list[dict[str, int]] = []
-            elif not phase_allows_unit_move(state.turn.current_phase):
-                out_hexes = []
-            else:
-                budget = self._movement_budget_for_unit(state, unit_id)
-                zoc = self._zoc_hexes_for_unit(state, unit_id)
-                max_stack = self._max_active_units_per_hex(state, unit_id)
-                step_fn = self._movement_step_cost_fn(unit_id)
-                valid = compute_valid_moves(
-                    state,
-                    unit_id,
-                    budget,
-                    zoc_hexes=zoc,
-                    blocked_hexes=None,
-                    max_active_units_per_hex=max_stack,
-                    step_cost=step_fn,
-                )
-                # Middle-ground footprint: declared board hexes plus start and immediate
-                # neighbors (covers sparse grid lists that omit a legal adjacent cell).
-                start_h = u.position
-                footprint = (
-                    frozenset(self._iter_board_hexes(state))
-                    | {start_h}
-                    | frozenset(neighbors(start_h))
-                )
-                out_hexes = [
-                    {"i": int(h.i), "j": int(h.j), "k": int(h.k)}
-                    for h in sorted(valid, key=lambda x: (x.i, x.j, x.k))
-                    if h in footprint
-                ]
-        else:
-            # Retreat preview: legal endpoints exactly at retreat distance, obeying terrain,
-            # blocked hexes, and stacking/enemy occupancy checks.
-            from ..state.logic import compute_reachable_hexes
-
-            budget = float(rem)
-            blocked = self.hooks.movement.retreat_blocked(state, unit_id)
-            if blocked is ENGINE_DEFAULT or blocked is None:
-                blocked_hexes = None
-            else:
-                blocked_hexes = (
-                    blocked if isinstance(blocked, frozenset) else frozenset(blocked)
-                )
-            max_stack = self._max_active_units_per_hex(state, unit_id)
-            step_fn = self._movement_step_cost_fn(unit_id)
-
-            start = u.position
-            reachable = compute_reachable_hexes(
-                state,
-                start,
-                budget,
-                moving_faction=u.faction,
-                zoc_hexes=None,
-                blocked_hexes=blocked_hexes,
-                max_active_units_per_hex=max_stack,
-                step_cost=step_fn,
-            )
-
-            end_set: list[dict[str, int]] = []
-            through_set: list[dict[str, int]] = []
-            for h in reachable.keys():
-                # never highlight enemy-occupied hexes as retreat options
-                if any(
-                    x.faction != player.faction
-                    for x in state.board.active_units_at_hex(h)
-                ):
-                    continue
-                if (
-                    max_stack is not None
-                    and len(state.board.active_units_at_hex(h)) >= max_stack
-                ):
-                    continue
-                if h != start:
-                    through_set.append({"i": int(h.i), "j": int(h.j), "k": int(h.k)})
-                if distance(start, h) != rem:
-                    continue
-                if is_valid_move(
-                    state,
-                    unit_id,
-                    h,
-                    budget,
-                    zoc_hexes=None,
-                    blocked_hexes=blocked_hexes,
-                    max_active_units_per_hex=max_stack,
-                    step_cost=step_fn,
-                ):
-                    end_set.append({"i": int(h.i), "j": int(h.j), "k": int(h.k)})
-
-            out_hexes = end_set
-            through_hexes = through_set
 
         css_class: str | None = None
         try:
@@ -1620,6 +1811,46 @@ class GameServer:
                 through_hexes=through_hexes,
                 through_css_class=through_css_class,
                 request_id=request_id,
+            ).to_message(),
+        )
+
+    async def _handle_map_selection_preview_request(
+        self, player_id: str, message: Message
+    ) -> None:
+        req = MapSelectionPreviewRequest.from_message(message)
+        player = self.players.get(player_id)
+        if not player or not player.connected:
+            return
+
+        state = self.action_manager.current_state
+        kind = str(req.kind or "").strip()
+        draft = dict(req.draft) if isinstance(req.draft, dict) else {}
+        request_id = str(getattr(req, "request_id", "") or "")
+        shell = dict(self.game_data.shell_ui) if self.game_data.shell_ui else {}
+        raw = compute_map_selection_preview(
+            state=state,
+            player_faction=str(player.faction),
+            kind=kind,
+            draft=draft,
+            shell_ui=shell,
+            board_hexes=self._iter_board_hexes(state),
+            hooks=self.hooks,
+            markers=[dict(m) for m in self.markers if isinstance(m, dict)],
+        )
+        await self._send_message(
+            player_id,
+            MapSelectionPreviewWire(
+                kind=str(raw.get("kind", kind)),
+                status_text=str(raw.get("status_text", "")),
+                confirm_enabled=bool(raw.get("confirm_enabled", False)),
+                request_id=request_id,
+                valid_target_hexes=raw.get("valid_target_hexes"),
+                eligible_attacker_ids=raw.get("eligible_attacker_ids"),
+                commit_payload=raw.get("commit_payload"),
+                panel_actions=raw.get("panel_actions"),
+                legal_next_hexes=raw.get("legal_next_hexes"),
+                preview_path_hexes=raw.get("preview_path_hexes"),
+                through_hexes=raw.get("through_hexes"),
             ).to_message(),
         )
 
@@ -2197,6 +2428,7 @@ class GameServer:
             retreat_obligations=self._retreat_obligations_for_player_id(player_id),
             interaction_messages=self._interaction_messages_for_player_id(player_id),
             map_overlays=self._map_overlays_for_player_id(player_id),
+            interaction_panels=self._interaction_panels_for_player_id(player_id),
         )
         await self._send_message(player_id, update.to_message())
 
@@ -2227,6 +2459,7 @@ class GameServer:
                         player_id
                     ),
                     map_overlays=self._map_overlays_for_player_id(player_id),
+                    interaction_panels=self._interaction_panels_for_player_id(player_id),
                 )
                 await self._send_message(player_id, update.to_message())
 
@@ -2285,6 +2518,7 @@ _CLIENT_INBOUND_HANDLERS: dict[str, _ClientInboundHandler] = {
     InspectRequest.wire_type: GameServer._handle_inspect_request,
     MarkerPreviewRequest.wire_type: GameServer._handle_marker_preview_request,
     UnitPreviewRequest.wire_type: GameServer._handle_unit_preview_request,
+    MapSelectionPreviewRequest.wire_type: GameServer._handle_map_selection_preview_request,
     UndoRequest.wire_type: GameServer._handle_undo_request,
     RedoRequest.wire_type: GameServer._handle_redo_request,
     LeaveGameRequest.wire_type: _dispatch_leave_game,

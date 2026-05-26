@@ -22,6 +22,7 @@ from ..server.protocol import (
     JoinGameRequest,
     LeaveGameRequest,
     LoadSnapshotRequest,
+    MapSelectionPreviewWire,
     MarkerPreviewWire,
     Message,
     PlayerInfo,
@@ -91,6 +92,10 @@ class BrowserWebSocketClient:
         self.interaction_messages: list[dict[str, Any]] | None = None
         #: Last StateUpdate.map_overlays (per-viewer map-space overlay specs).
         self.map_overlays: list[dict[str, Any]] = []
+        #: Last StateUpdate.primary_actions (per-viewer combat action buttons).
+        self.primary_actions: list[dict[str, Any]] | None = None
+        #: Last StateUpdate.interaction_panels (HTML shell + wired actions/inputs).
+        self.interaction_panels: list[dict[str, Any]] | None = None
 
         # Last applied scenario map_display JSON (avoid reset_view on every state tick)
         self._applied_map_display_json: str | None = None
@@ -114,6 +119,7 @@ class BrowserWebSocketClient:
         self.on_ui_popup: Callable[[dict[str, Any]], None] | None = None
         self.on_marker_preview: Callable[[dict[str, Any]], None] | None = None
         self.on_unit_preview: Callable[[dict[str, Any]], None] | None = None
+        self.on_map_selection_preview: Callable[[dict[str, Any]], None] | None = None
 
         self.logger = logging.getLogger("websocket_client")
         self._health_check_interval_id: Any = None
@@ -242,11 +248,37 @@ class BrowserWebSocketClient:
         self._send_message(request.to_message())
         self.logger.debug("Sent load_snapshot request to server")
 
-    def send_inspect(self, target_kind: str, target_id: str) -> None:
+    def send_inspect(
+        self,
+        target_kind: str,
+        target_id: str,
+        *,
+        context: dict[str, Any] | None = None,
+    ) -> None:
         if not self.is_connected():
             return
-        request = InspectRequest(target_kind=str(target_kind), target_id=str(target_id))
+        request = InspectRequest(
+            target_kind=str(target_kind),
+            target_id=str(target_id),
+            context=dict(context) if isinstance(context, dict) else None,
+        )
         self._send_message(request.to_message())
+
+    def send_inform_popup(
+        self,
+        inform_kind: str,
+        reason: str,
+        *,
+        hex_wire: dict[str, int] | None = None,
+        unit_id: str | None = None,
+    ) -> None:
+        """INFORM lane: title ``inform_popup`` hook → ``ui_popup`` callout."""
+        ctx: dict[str, Any] = {"inform_kind": str(inform_kind).strip()}
+        if isinstance(hex_wire, dict):
+            ctx["hex"] = dict(hex_wire)
+        if unit_id is not None and str(unit_id).strip():
+            ctx["unit_id"] = str(unit_id).strip()
+        self.send_inspect("inform", str(reason).strip(), context=ctx)
 
     def send_marker_preview_request(self, marker_id: str, marker_type: str) -> None:
         if not self.is_connected():
@@ -271,6 +303,25 @@ class BrowserWebSocketClient:
             request_id=str(getattr(self, "_preview_req_counter", 0) + 1),
         )
         self._preview_req_counter = int(req.request_id)
+        self._send_message(req.to_message())
+
+    def send_map_selection_preview_request(
+        self,
+        kind: str,
+        draft: dict[str, Any],
+        *,
+        request_id: str = "",
+    ) -> None:
+        if not self.is_connected():
+            return
+        from ..server.protocol import MapSelectionPreviewRequest
+
+        req = MapSelectionPreviewRequest(
+            kind=str(kind),
+            draft=dict(draft),
+            request_id=request_id or str(getattr(self, "_preview_req_counter", 0) + 1),
+        )
+        self._preview_req_counter = int(req.request_id) if req.request_id.isdigit() else 0
         self._send_message(req.to_message())
 
     def is_connected(self) -> bool:
@@ -368,6 +419,20 @@ class BrowserWebSocketClient:
         else:
             self.map_overlays = [
                 dict(m) for m in update.map_overlays if isinstance(m, dict)
+            ]
+
+        if update.primary_actions is None:
+            self.primary_actions = None
+        else:
+            self.primary_actions = [
+                dict(m) for m in update.primary_actions if isinstance(m, dict)
+            ]
+
+        if update.interaction_panels is None:
+            self.interaction_panels = None
+        else:
+            self.interaction_panels = [
+                dict(m) for m in update.interaction_panels if isinstance(m, dict)
             ]
 
         # Update sequence number
@@ -561,6 +626,54 @@ class BrowserWebSocketClient:
         if self.on_unit_preview:
             self.on_unit_preview(payload)
 
+    def _handle_map_selection_preview(self, message: Message) -> None:
+        from ..server.protocol import MapSelectionPreviewWire
+
+        wire = MapSelectionPreviewWire.from_message(message)
+        payload = {
+            "kind": str(wire.kind),
+            "status_text": str(wire.status_text),
+            "confirm_enabled": bool(wire.confirm_enabled),
+            "request_id": str(getattr(wire, "request_id", "") or ""),
+            "valid_target_hexes": (
+                list(wire.valid_target_hexes)
+                if isinstance(wire.valid_target_hexes, list)
+                else None
+            ),
+            "eligible_attacker_ids": (
+                list(wire.eligible_attacker_ids)
+                if isinstance(wire.eligible_attacker_ids, list)
+                else None
+            ),
+            "commit_payload": (
+                dict(wire.commit_payload)
+                if isinstance(wire.commit_payload, dict)
+                else None
+            ),
+            "panel_actions": (
+                list(wire.panel_actions)
+                if isinstance(wire.panel_actions, list)
+                else None
+            ),
+            "legal_next_hexes": (
+                list(wire.legal_next_hexes)
+                if isinstance(getattr(wire, "legal_next_hexes", None), list)
+                else None
+            ),
+            "preview_path_hexes": (
+                list(wire.preview_path_hexes)
+                if isinstance(getattr(wire, "preview_path_hexes", None), list)
+                else None
+            ),
+            "through_hexes": (
+                list(wire.through_hexes)
+                if isinstance(getattr(wire, "through_hexes", None), list)
+                else None
+            ),
+        }
+        if self.on_map_selection_preview:
+            self.on_map_selection_preview(payload)
+
     def _handle_server_error(self, message: Message) -> None:
         """Handle an error message from the server."""
         error = ServerError.from_message(message).error
@@ -675,4 +788,5 @@ _SERVER_INBOUND_HANDLERS: dict[str, _ServerInboundHandler] = {
     UIPopupWire.wire_type: BrowserWebSocketClient._handle_ui_popup,
     MarkerPreviewWire.wire_type: BrowserWebSocketClient._handle_marker_preview,
     UnitPreviewWire.wire_type: BrowserWebSocketClient._handle_unit_preview,
+    MapSelectionPreviewWire.wire_type: BrowserWebSocketClient._handle_map_selection_preview,
 }

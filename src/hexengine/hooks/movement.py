@@ -14,9 +14,10 @@ Role in turn resolution:
   interrupt segments via `MovementInterrupt` and `PassMovementInterrupt`. Stepwise
   behavior is off unless a title implements the matching hooks below.
 
-Thin clients do not execute these hooks; they receive a small subset of movement policy
-via `StateUpdate.turn_rules` (e.g. stacking limit from `GameData`) and per-viewer fields
-(e.g. retreat obligations) to drive UI previews.
+Thin clients do not execute these hooks. Drag previews use `unit_preview_request` /
+`marker_preview_request` RPCs; the server runs these hooks when building legal hex sets
+(see `hexengine.server.preview`). Clients read `turn_rules.movement_budget` only to rebuild
+a thin `GameDefinition` for advance-turn UI, not to compute move highlights locally.
 
 **Title wiring:** import `MovementHook` and `hexengine.hooks.wiring.bind_title_hook`.
 Use `@bind_title_hook(MovementHook.MOVEMENT_BUDGET_FOR_UNIT)` (and siblings) so hook
@@ -28,6 +29,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Any
 
 from ..hexes.types import Hex
 from ..state import GameState
@@ -44,6 +46,16 @@ class MoveContext:
     to_hex: Hex
     player_faction: str
     is_retreat_fulfillment: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class RetreatPathPreviewContext:
+    """Inputs for ``map_selection_preview`` when ``kind`` is ``retreat_path``."""
+
+    state: GameState
+    player_faction: str
+    draft: dict[str, Any]
+    shell_ui: dict[str, Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +105,9 @@ class MovementHooks:
     resolve_move_as_steps: Callable[[MoveContext], bool | object] | None = None
     movement_interrupt_factions_after_step: (
         Callable[[MovementStepContext], tuple[str, ...] | object] | None
+    ) = None
+    retreat_path_preview: (
+        Callable[[RetreatPathPreviewContext], dict[str, Any] | object] | None
     ) = None
 
     def budget(self, state: GameState, unit_id: str) -> float | object:
@@ -161,6 +176,13 @@ class MovementHooks:
             return ENGINE_DEFAULT
         return self.movement_interrupt_factions_after_step(ctx)
 
+    def retreat_path_preview_for(
+        self, ctx: RetreatPathPreviewContext
+    ) -> dict[str, Any] | object:
+        if self.retreat_path_preview is None:
+            return ENGINE_DEFAULT
+        return self.retreat_path_preview(ctx)
+
 
 class MovementHook(StrEnum):
     """Stable slot ids for `bind_title_hook` (values match `MovementHooks` field names)."""
@@ -177,6 +199,7 @@ class MovementHook(StrEnum):
     MOVEMENT_STEP_COST_FOR_UNIT = "movement_step_cost_for_unit"
     RESOLVE_MOVE_AS_STEPS = "resolve_move_as_steps"
     MOVEMENT_INTERRUPT_FACTIONS_AFTER_STEP = "movement_interrupt_factions_after_step"
+    RETREAT_PATH_PREVIEW = "retreat_path_preview"
 
 
 MovementHook._hexengine_hook_bundle = "movement"
@@ -188,5 +211,6 @@ __all__ = [
     "MovementHook",
     "MovementHooks",
     "MovementStepContext",
+    "RetreatPathPreviewContext",
     "RuleViolation",
 ]

@@ -42,6 +42,7 @@ from .authority_movement import (
     continue_stepwise_move_unit,
     dedupe_faction_ids,
     handle_authority_move_unit_normal,
+    handle_authority_retreat_path_move_unit,
     path_tuple_from_movement_arc,
     read_movement_arc,
 )
@@ -60,6 +61,7 @@ __all__ = [
     "retreat_stack_unit_ids",
     "validate_retreat_fulfillment_stack",
     "handle_authority_move_unit_normal",
+    "handle_authority_retreat_path_move_unit",
     "handle_combat_advance_rpc",
     "handle_combat_disrupt_instead_of_retreat",
     "handle_move_unit_combat_advance_resolution",

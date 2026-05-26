@@ -28,4 +28,17 @@ def safe_remove_child(parent: Any, child: Any) -> bool:
         return False
 
 
-__all__ = ["safe_remove_child"]
+def apply_css_classes(element: Any, class_str: str | None, *, base: str = "") -> None:
+    """Set ``base`` class then add each token from ``class_str`` (space-separated)."""
+    if js_nullish(element):
+        return
+    element.className = str(base).strip() if base else ""
+    raw = "" if class_str is None else str(class_str).strip()
+    if not raw:
+        return
+    for token in raw.split():
+        if token:
+            element.classList.add(token)
+
+
+__all__ = ["apply_css_classes", "safe_remove_child"]

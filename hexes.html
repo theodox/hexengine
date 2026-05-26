@@ -22,7 +22,7 @@
       await pyodide.loadPackage("micropip");
       const micropip = pyodide.pyimport("micropip");
       // Cache-bust so Pyodide fetches the latest wheel after rebuilds (bump when you change package code)
-      await micropip.install("../dist/hexes-0.1.4-py3-none-any.whl?v=9");
+      await micropip.install("../dist/hexes-0.1.4-py3-none-any.whl?v=22");
 
       let hexes = pyodide.pyimport("hexengine.__main__");
       console.log(hexes.__version__);
@@ -56,9 +56,7 @@
         <b>Loading...</b>
       </div>
 
-      <div id="advance" class="hexengine-primary-actions" title="Turn and combat choices">
-        <button id="advance-button" type="button">Advance Turn</button>
-      </div>
+      <div id="user-controls" class="hexengine-primary-actions" title="Turn and combat choices"></div>
     </div>
     <!--- end map stage --->
 

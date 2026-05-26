@@ -2,6 +2,10 @@
 
 Authoritative layout: `scenarios/<id>/scenario.toml`, `resources/`, and Python title code in this package (`import hexdemo`).
 
+**Title authoring:** [`docs/TITLE_AUTHORING.md`](../../docs/TITLE_AUTHORING.md) (start here — summaries + API index). This pack is the reference implementation cited there.
+
+**Also:** [`docs/SKINNING_AFFORDANCES_PLAN.md`](../../docs/SKINNING_AFFORDANCES_PLAN.md) (roadmap/status), [`docs/SKINNING_CLIENT_INVENTORY.md`](../../docs/SKINNING_CLIENT_INVENTORY.md) (client modules).
+
 ## Importing the title package
 
 Add the repository’s `games` directory to `PYTHONPATH` so `hexdemo` resolves:
@@ -43,6 +47,9 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `hooks/title_load.py` | Splash/setup/server-log (`[hooks.title_load]` in manifest) |
 | `hooks/turn_schedule.py` | Phase-entry callbacks from `HexdemoGameDefinition` |
 | `resources/splash.html` | HTML fragment for the client loading overlay |
+| `resources/flags/` | Example faction flag SVGs (turn banner + unit art) |
+| `resources/templates/` | HTML shells for phase banner, inspect popup, panels |
+| `ui_markup.py` | Template render helpers + flag URLs (skinning tier 2–3; see `docs/SKINNING_AFFORDANCES_PLAN.md`) |
 | `game_config.py` | **Match config** (`HexdemoMatchConfig`) and `GameDefinition` construction |
 | `registry.py` | `build_game_definition()` (uses `game_config`) |
 | `engine_entry.py` | Manifest `load_game_definition` entry |

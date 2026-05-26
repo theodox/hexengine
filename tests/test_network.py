@@ -20,6 +20,8 @@ from hexengine.hooks.attack import (
 )
 from hexengine.hooks.movement import MovementHooks
 from hexengine.hooks.title import TitleHooks
+from hexengine.hooks.ui import UIHooks
+from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer
 from hexengine.server import (
     ActionRequest,
     GameServer,
@@ -34,6 +36,11 @@ from hexengine.state.snapshot import game_state_to_wire_dict
 
 def _hex_wire(h: Hex) -> dict[str, int]:
     return {"i": h.i, "j": h.j, "k": h.k}
+
+
+_TEST_TITLE_DOCK_UI = UIHooks(
+    turn_action_dock_for_viewer=empty_turn_action_dock_for_viewer,
+)
 
 
 def _test_game_definition() -> InterleavedTwoFactionGameDefinition:
@@ -428,10 +435,11 @@ class TestGameServer(unittest.TestCase):
                         raise ValueError("nope")
 
                     return TitleHooks(
+                        ui=_TEST_TITLE_DOCK_UI,
                         attack=AttackHooks(
                             validate_attack=_reject,
                             resolve_attack=lambda _c: AttackResolution(outcome="miss"),
-                        )
+                        ),
                     )
 
             server = GameServer(state, game_definition=_GD())
@@ -519,9 +527,10 @@ class TestGameServer(unittest.TestCase):
                         )
 
                     return TitleHooks(
+                        ui=_TEST_TITLE_DOCK_UI,
                         attack=AttackHooks(
                             validate_attack=lambda _c: None, resolve_attack=resolve
-                        )
+                        ),
                     )
 
             server = GameServer(state, game_definition=_GD())
@@ -592,6 +601,7 @@ class TestGameServer(unittest.TestCase):
                 @property
                 def hooks(self) -> TitleHooks:
                     return TitleHooks(
+                        ui=_TEST_TITLE_DOCK_UI,
                         movement=MovementHooks(
                             retreat_obligation_hexes_remaining=lambda st, uid: (
                                 1 if uid == "u" else None
@@ -671,6 +681,7 @@ class TestGameServer(unittest.TestCase):
                         return None
 
                     return TitleHooks(
+                        ui=_TEST_TITLE_DOCK_UI,
                         movement=MovementHooks(
                             retreat_obligation_hexes_remaining=lambda _st, uid: (
                                 2 if uid == "u" else None
@@ -903,6 +914,13 @@ class TestGameServer(unittest.TestCase):
         tr = server._turn_rules_wire()
         self.assertEqual(tr.get("title_state_extension_key"), "hexdemo")
         self.assertEqual(tr.get("max_active_units_per_hex"), 3)
+        su = tr.get("shell_ui")
+        self.assertIsInstance(su, dict)
+        self.assertEqual(su.get("advance_turn_button_label"), "End Phase")
+        self.assertEqual(su.get("attack_confirm_label"), "Confirm attack")
+        kinds = tr.get("interaction_kind_styles")
+        self.assertIsInstance(kinds, dict)
+        self.assertEqual(kinds.get("phase"), "interaction-msg--phase")
 
     def test_after_next_phase_builtin_skips_title_combat_extension_clear(self) -> None:
         """Built-in `GameDefinition` has no `title_state_extension_key`; do not mutate."""
@@ -1048,6 +1066,7 @@ def test_wire_message_registry_covers_all_message_types() -> None:
             "inspect",
             "marker_preview_request",
             "unit_preview_request",
+            "map_selection_preview_request",
             # server -> client
             "state_update",
             "action_result",
@@ -1059,6 +1078,7 @@ def test_wire_message_registry_covers_all_message_types() -> None:
             "ui_popup",
             "marker_preview",
             "unit_preview",
+            "map_selection_preview",
         }
     )
 

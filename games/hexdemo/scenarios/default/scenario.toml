@@ -355,13 +355,8 @@ counter_fill_hilite = "@rebel_counter_hilite"
 
 [[unit_graphics]]
 type = "confederate_leader"
-render = "counter"
-css_file = "unit_counter.css"
-glyph = "⚑"
-caption = ""
-counter_fill = "@rebel_counter"
-counter_fill_hover = "@rebel_counter_hover"
-counter_fill_hilite = "@rebel_counter_hilite"
+render = "image"
+svg_file = "flags/confederate_battle.svg"
 
 [[unit_graphics]]
 type = "union_infantry"
@@ -405,13 +400,8 @@ counter_fill_hilite = "@union_counter_hilite"
 
 [[unit_graphics]]
 type = "union_leader"
-render = "counter"
-css_file = "unit_counter.css"
-glyph = "⚑"
-caption = ""
-counter_fill = "@union_counter"
-counter_fill_hover = "@union_counter_hover"
-counter_fill_hilite = "@union_counter_hilite"
+render = "image"
+svg_file = "flags/union_34star.svg"
 
 [[marker_graphics]]
 type = "union_supply"

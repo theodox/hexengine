@@ -422,6 +422,25 @@ def hexdemo_server() -> GameServer:
     )
 
 
+def test_hexdemo_phase_interaction_banner_includes_html(
+    hexdemo_server: GameServer,
+) -> None:
+    server = hexdemo_server
+    server.players["p_u"] = PlayerInfo(
+        player_id="p_u", player_name="U", faction="union", connected=True
+    )
+    msgs = server._interaction_messages_for_player_id("p_u")
+    assert msgs is not None
+    phase_rows = [m for m in msgs if m.get("kind") == "phase"]
+    assert phase_rows
+    row = phase_rows[0]
+    assert isinstance(row.get("text"), str) and row["text"]
+    assert row["text"].startswith("Union:")
+    html = row.get("html")
+    assert isinstance(html, str)
+    assert "hexdemo-turn-banner__flag--union" in html
+
+
 def test_hexdemo_validate_attack_adjacent_and_once_per_unit(
     hexdemo_server: GameServer,
 ) -> None:
@@ -583,9 +602,20 @@ def test_combat_event_fanout_retreat_vs_wait(hexdemo_server: GameServer) -> None
     assert state_msgs
     su_by_pid = {pid: payload for pid, _, payload in state_msgs}
     assert su_by_pid["p_u"]["interaction_messages"][-1]["kind"] == "wait"
-    assert "Waiting" in su_by_pid["p_u"]["interaction_messages"][-1]["text"]
+    assert "Hold" in su_by_pid["p_u"]["interaction_messages"][-1]["text"]
     assert su_by_pid["p_c"]["interaction_messages"][-1]["kind"] == "retreat"
-    assert "retreat" in su_by_pid["p_c"]["interaction_messages"][-1]["text"].lower()
+    assert "Mandatory retreat" in su_by_pid["p_c"]["interaction_messages"][-1]["text"]
+
+    assert su_by_pid["p_c"].get("primary_actions") is None
+    assert su_by_pid["p_u"].get("primary_actions") is None
+
+    panels_c = su_by_pid["p_c"].get("interaction_panels") or []
+    assert len(panels_c) == 1
+    assert panels_c[0]["id"] == "turn_actions"
+    panel_action_ids = {
+        row.get("id") for row in (panels_c[0].get("actions") or []) if isinstance(row, dict)
+    }
+    assert "combat_disrupt_instead" in panel_action_ids
 
 
 def test_combat_disrupt_instead_of_retreat(hexdemo_server: GameServer) -> None:
@@ -831,6 +861,13 @@ def test_combat_advance_after_defender_retreat(hexdemo_server: GameServer) -> No
         adv = hx.get("advance")
         assert isinstance(adv, dict)
         assert adv.get("faction") == "union"
+
+        panels_u = server._interaction_panels_for_player_id("p_u")
+        assert panels_u is not None and len(panels_u) == 1
+        assert panels_u[0]["id"] == "turn_actions"
+        assert panels_u[0]["dock_arc"] == "advance_gate"
+        action_ids = {a["id"] for a in panels_u[0].get("actions") or []}
+        assert "combat_advance" in action_ids
 
         # Attacker advances into the vacated defender hex.
         adv_req = ActionRequest(

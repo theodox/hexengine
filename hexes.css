@@ -344,26 +344,6 @@
     pointer-events: auto;
 }
 
-#advance-button {
-    font-size: 14px;
-    background-color: rgb(45, 43, 43);
-    color: rgb(255, 255, 255);
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    width: 100px;
-    height: 40px;
-    z-index: 500;
-    box-shadow: 0 8px 8px rgba(0, 0, 0, 0.4);
-}
-
-#advance-button:disabled {
-    background-color: rgb(136, 133, 133);
-    cursor: not-allowed;
-    box-shadow: none;
-}
-
-
 #loading b {
     animation: pulse 1.5s ease-in-out infinite;
 }
@@ -437,56 +417,68 @@ Popup styles — callout: root anchors tail tip; bubble is the main rect; tail i
     user-select: none;
 }
 
-/* Client-side attack planning controls (in #advance / .hexengine-primary-actions). */
-.hexengine-attack-controls {
-    position: static;
-    z-index: auto;
+/* Turn action dock panels on #user-controls (column-reverse stack). */
+.hexengine-interaction-panel {
     display: flex;
     flex-direction: column;
+    align-items: flex-end;
     gap: 8px;
     padding: 10px 12px;
-    background: rgba(245, 245, 245, 0.9);
+    background: rgba(245, 245, 245, 0.92);
     border: 1px solid rgba(0, 0, 0, 0.25);
     border-radius: 10px;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
     font-family: sans-serif;
+    max-width: min(360px, calc(100vw - 64px));
 }
 
-.hexengine-attack-controls__row {
+.hexengine-panel__headline {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.hexengine-panel__headline:empty {
+  display: none;
+}
+
+.hexengine-panel__html:empty {
+    display: none;
+}
+
+.hexengine-panel__actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
-    align-items: center;
     justify-content: flex-end;
 }
 
-.hexengine-attack-controls__status {
+.hexengine-panel__actions .hexengine-primary-action {
     font-size: 12px;
-    color: rgb(30, 30, 30);
-    max-width: 320px;
-    text-align: right;
-}
-
-.hexengine-attack-controls button {
-    font-size: 12px;
-    padding: 6px 10px;
+    padding: 6px 12px;
     border-radius: 8px;
     border: 1px solid rgba(0, 0, 0, 0.3);
     background: rgb(255, 255, 255);
     cursor: pointer;
 }
 
-.hexengine-attack-controls button:disabled {
+.hexengine-panel__actions .hexengine-primary-action:disabled {
     opacity: 0.55;
     cursor: default;
 }
 
-.hexengine-attack-controls button.hexengine-attack-controls__confirm {
-    background: rgba(42, 111, 155, 0.12);
-    border-color: rgba(42, 111, 155, 0.6);
+.hexengine-panel__inputs {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
 }
 
-.hexengine-attack-controls button.hexengine-attack-controls__cancel {
-    background: rgba(0, 0, 0, 0.06);
+.hexengine-panel-input {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    font-size: 12px;
 }
 
 /* Attack planning: ranged-unit LOS preview lines (SVG, map-space). */
@@ -504,6 +496,15 @@ Popup styles — callout: root anchors tail tip; bubble is the main rect; tail i
     stroke: rgba(229, 62, 62, 0.72);
     stroke-dasharray: 6 5;
     opacity: 0.85;
+}
+
+.hexengine-retreat-path-line {
+    fill: none;
+    stroke: rgba(229, 62, 62, 0.85);
+    stroke-width: 3px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    pointer-events: none;
 }
 
 .fade-out {

@@ -21,9 +21,14 @@ from ..gamedef.client_title_data import ClientTitleData
 from ..gamedef.protocol import GameDefinition
 from ..hexes.types import Hex
 from ..map import Map
-from ..state import ActionManager, GameState
+from ..state import ActionManager, DEFAULT_MOVEMENT_BUDGET, GameState
 from ..state.snapshot import SNAPSHOT_FORMAT_VERSION, game_state_to_wire_dict
 from ..ui import MapOverlayManager, PopupManager
+from ..ui.dom import apply_css_classes
+from .arcs.client_combat import ClientCombatMixin
+from .arcs.client_interaction_panels import ClientInteractionPanelsMixin
+from .arcs.client_place_marker import ClientPlaceMarkerMixin
+from .arcs.client_retreat_path import ClientRetreatPathMixin
 from .board import GameBoard
 from .events import Hotkey, HotkeyHandlerMixin, Modifiers, MouseEventHandlerMixin
 from .history import GameHistoryMixin
@@ -31,12 +36,6 @@ from .history import GameHistoryMixin
 # Screen-space pan per arrow key when zoomed in; Shift multiplies step.
 _PAN_KEY_STEP = 48
 _PAN_KEY_SHIFT_MULT = 3
-
-
-def _phase_allows_attack_planning(phase: str | None) -> bool:
-    """True when the committed turn phase should allow declaring attacks (client UX)."""
-    p = str(phase or "").strip().lower()
-    return p in ("combat", "attack")
 
 
 def _game_definition_from_turn_rules_wire(wire: dict[str, Any]) -> GameDefinition:
@@ -48,7 +47,7 @@ def _game_definition_from_turn_rules_wire(wire: dict[str, Any]) -> GameDefinitio
 
     raw_entries = wire.get("entries")
     if isinstance(raw_entries, list) and raw_entries:
-        budget = float(wire.get("movement_budget", 4.0))
+        budget = float(wire.get("movement_budget", DEFAULT_MOVEMENT_BUDGET))
         entries: list[dict[str, Any]] = []
         for row in raw_entries:
             if not isinstance(row, dict):
@@ -68,13 +67,21 @@ def _game_definition_from_turn_rules_wire(wire: dict[str, Any]) -> GameDefinitio
     if not isinstance(raw, list) or not raw:
         raise ValueError("turn_rules must include entries or legacy factions list")
     factions = tuple(str(f) for f in raw)
-    budget = float(wire.get("movement_budget", 4.0))
+    budget = float(wire.get("movement_budget", DEFAULT_MOVEMENT_BUDGET))
     return InterleavedTwoFactionGameDefinition(
         factions=factions, movement_budget=budget, **per_kw
     )
 
 
-class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
+class Game(
+    MouseEventHandlerMixin,
+    HotkeyHandlerMixin,
+    GameHistoryMixin,
+    ClientPlaceMarkerMixin,
+    ClientRetreatPathMixin,
+    ClientCombatMixin,
+    ClientInteractionPanelsMixin,
+):
     """
     Browser session: map, units, UI, and a WebSocket client to an authoritative server.
 
@@ -96,8 +103,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         svg = element("map-svg")
         markers = element("map-markers")
         units = element("map-units")
-        action_button = element("advance-button")
-        action_button.onclick = self.advance_turn
         self.popup_manager = PopupManager(container)
 
         assert map is not None, "Map canvas element not found"
@@ -129,22 +134,34 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.last_click_time = 0
         self.drag_start = (0, 0)
         self.drag_end = (0, 0)
-        # --- Attack planning UX (client-side, no server sync) ---
-        self.attack_plan_target_hex: Hex | None = None
+        # Attack planning (optional; see ClientCombatMixin + attack_planning_ui feature)
+        self.attack_plan_target_hex = None
         self.attack_plan_attacker_ids: set[str] = set()
-        #: True after combat-phase attack-plan unit mousedown (enemy target pick or friendly
-        #: attacker toggle); suppresses bogus `mouseup` on map background retargeting.
-        self._attack_plan_suppress_bg_mouseup_retarget: bool = False
+        self._attack_plan_suppress_bg_mouseup_retarget = False
         self._attack_plan_target_overlay = None
         self._attack_plan_los_svg_group = None
-        self._attack_plan_los_lines: dict[str, Any] = {}
-        self._attack_controls_root = None
-        self._attack_controls_status = None
-        self._attack_controls_confirm = None
-        self._attack_controls_cancel = None
-        self._disrupt_instead_btn = None
-        self._advance_btn = None
-        self._init_attack_controls(element("advance"))
+        self._attack_plan_los_lines = {}
+        self._map_selection_preview = None
+        self._map_selection_preview_request_id = ""
+        self._map_selection_preview_pending = False
+        self.retreat_path_unit_id = None
+        self.retreat_path_hexes = []
+        self.retreat_path_committed = None
+        self.retreat_path_continue_index = 0
+        self.place_marker_id = None
+        self.place_marker_from_hex = None
+        self.place_marker_to_hex = None
+        # Mirror INFORM ``ui_popup`` copy on ``#status-line`` when dev console is up.
+        self.repeat_ui_popup_to_dev_console = True
+        self._retreat_path_svg_group = None
+        self._retreat_path_polyline_el = None
+        self._interaction_panel_roots: dict[str, Any] = {}
+        self._interaction_panel_action_buttons: dict[str, dict[str, Any]] = {}
+        self._interaction_panel_input_elements: dict[str, dict[str, Any]] = {}
+        self._interaction_panel_wire_specs: dict[str, dict[str, Any]] = {}
+        from .arcs.client_interaction_panels import _remove_legacy_advance_button
+
+        _remove_legacy_advance_button()
 
         self.logger = logging.getLogger("game")
         self.logger.info("Game initialized")
@@ -210,533 +227,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         """Parsed `GameData` subset from the last `StateUpdate.turn_rules` (if any)."""
         c = getattr(self, "client", None)
         return ClientTitleData.from_turn_rules(c.turn_rules if c is not None else None)
-
-    def _sync_attack_plan_after_state_update(self) -> None:
-        """Keep attack planning UI in sync with server state (clears stale overlays)."""
-        if self.attack_plan_target_hex is None and not self.attack_plan_attacker_ids:
-            self._sync_attack_plan_ui()
-            return
-        st = self._interactive_game_state()
-        if st is None:
-            self.cancel_attack_plan()
-            return
-        phase_ok = _phase_allows_attack_planning(
-            getattr(st.turn, "current_phase", None)
-        )
-        my_turn = True
-        client = getattr(self, "client", None)
-        if client is not None and client.is_connected() and client.faction:
-            my_turn = self.is_my_turn()
-        if not phase_ok or not my_turn:
-            self.cancel_attack_plan()
-            return
-        tgt = self.attack_plan_target_hex
-        if tgt is not None and not self._attack_target_hex_has_enemy(st, tgt):
-            self.cancel_attack_plan()
-            return
-        self._sync_attack_plan_ui()
-
-    def _init_attack_controls(self, primary_actions_host) -> None:
-        """
-        Create Confirm/Cancel UI for the attack planning flow.
-
-        Host is the same permanent shell as the advance-turn control (`#advance`),
-        outside `#map-container`, so map mouse handlers never treat button clicks
-        as hex picks.
-        """
-        try:
-            root = js.document.createElement("div")
-            root.className = "hexengine-attack-controls"
-
-            status = js.document.createElement("div")
-            status.className = "hexengine-attack-controls__status"
-            status.textContent = "Combat: pick a target hex."
-            root.appendChild(status)
-
-            row = js.document.createElement("div")
-            row.className = "hexengine-attack-controls__row"
-
-            btn_cancel = js.document.createElement("button")
-            btn_cancel.className = "hexengine-attack-controls__cancel"
-            btn_cancel.textContent = "Cancel"
-            btn_cancel.onclick = create_proxy(
-                lambda _evt=None: self.cancel_attack_plan()
-            )
-
-            btn_confirm = js.document.createElement("button")
-            btn_confirm.className = "hexengine-attack-controls__confirm"
-            btn_confirm.textContent = "Confirm attack"
-            btn_confirm.disabled = True
-            btn_confirm.onclick = create_proxy(
-                lambda _evt=None: self.confirm_attack_plan()
-            )
-
-            row.appendChild(btn_cancel)
-            row.appendChild(btn_confirm)
-            root.appendChild(row)
-
-            row_alt = js.document.createElement("div")
-            row_alt.className = "hexengine-attack-controls__row"
-            btn_disrupt = js.document.createElement("button")
-            btn_disrupt.className = "hexengine-attack-controls__disrupt-instead"
-            btn_disrupt.textContent = "Disrupt instead of retreat"
-            btn_disrupt.title = (
-                "Take disruption on your retreating stack and waive the mandatory retreat "
-                "(when the title allows)."
-            )
-            btn_disrupt.style.display = "none"
-            btn_disrupt.disabled = True
-            btn_disrupt.onclick = create_proxy(
-                lambda _evt=None: self.execute_action_request(
-                    "CombatDisruptInsteadOfRetreat", {}
-                )
-            )
-            row_alt.appendChild(btn_disrupt)
-
-            btn_advance = js.document.createElement("button")
-            btn_advance.className = "hexengine-attack-controls__advance"
-            btn_advance.textContent = "Advance"
-            btn_advance.title = "Advance after opponent retreats (when allowed)."
-            btn_advance.style.display = "none"
-            btn_advance.disabled = True
-            btn_advance.onclick = create_proxy(
-                lambda _evt=None: self.execute_action_request("CombatAdvance", {})
-            )
-            row_alt.appendChild(btn_advance)
-            root.appendChild(row_alt)
-
-            primary_actions_host.appendChild(root)
-            self._attack_controls_root = root
-            self._attack_controls_status = status
-            self._attack_controls_confirm = btn_confirm
-            self._attack_controls_cancel = btn_cancel
-            self._disrupt_instead_btn = btn_disrupt
-            self._advance_btn = btn_advance
-        except Exception:
-            self.logger.debug("attack controls init failed", exc_info=True)
-
-    def _ensure_attack_target_overlay(self):
-        layer = self.canvas.ensure_overlay_layer()
-        if layer is None:
-            return None
-        if self._attack_plan_target_overlay is None:
-            div = js.document.createElement("div")
-            div.className = "hexengine-map-overlay hexengine-map-overlay--glyph"
-            div.style.pointerEvents = "none"
-            div.style.position = "absolute"
-            div.style.transform = "translate(-50%, -50%)"
-            div.style.zIndex = "450"
-            div.textContent = "⊕"
-            layer.appendChild(div)
-            self._attack_plan_target_overlay = div
-        return self._attack_plan_target_overlay
-
-    def _ensure_attack_los_svg_group(self):
-        """
-        Ensure an SVG group exists for attack-plan LOS lines.
-
-        Lines live on the **unit** SVG (same map-space size as hex highlights) so they
-        paint above counters. The group is re-appended to the end of that SVG whenever
-        lines sync so it stays on top after `DisplayManager` reorders unit nodes.
-        """
-        try:
-            svg = self.canvas.unit_layer._svg
-        except Exception:
-            return None
-        if svg is None:
-            return None
-        g = self._attack_plan_los_svg_group
-        if g is not None:
-            try:
-                if getattr(g, "parentNode", None) is not svg:
-                    try:
-                        g.remove()
-                    except Exception:
-                        pass
-                    self._attack_plan_los_svg_group = None
-            except Exception:
-                self._attack_plan_los_svg_group = None
-        if self._attack_plan_los_svg_group is None:
-            g = js.document.createElementNS("http://www.w3.org/2000/svg", "g")
-            g.classList.add("hexengine-attack-los-layer")
-            g.style.pointerEvents = "none"
-            svg.appendChild(g)
-            self._attack_plan_los_svg_group = g
-        return self._attack_plan_los_svg_group
-
-    def _clear_attack_los_lines(self) -> None:
-        for _uid, node in list(self._attack_plan_los_lines.items()):
-            try:
-                node.remove()
-            except Exception:
-                pass
-        self._attack_plan_los_lines.clear()
-
-    def _segment_intersection_with_polygon(
-        self,
-        x1: float,
-        y1: float,
-        x2: float,
-        y2: float,
-        poly: list[tuple[float, float]],
-    ) -> tuple[float, float] | None:
-        """
-        Return nearest intersection point between segment (x1,y1)-(x2,y2) and polygon edges.
-
-        Polygon is provided as a list of vertices in order (closed implicitly).
-        """
-
-        def cross(ax: float, ay: float, bx: float, by: float) -> float:
-            return ax * by - ay * bx
-
-        rx, ry = (x2 - x1), (y2 - y1)
-        best_t: float | None = None
-        best_pt: tuple[float, float] | None = None
-        n = len(poly)
-        if n < 3:
-            return None
-        for i in range(n):
-            (px, py) = poly[i]
-            (qx, qy) = poly[(i + 1) % n]
-            sx, sy = (qx - px), (qy - py)
-            denom = cross(rx, ry, sx, sy)
-            if abs(denom) < 1e-9:
-                continue  # Parallel or collinear; ignore.
-            qpx, qpy = (px - x1), (py - y1)
-            t = cross(qpx, qpy, sx, sy) / denom
-            u = cross(qpx, qpy, rx, ry) / denom
-            if 0.0 <= t <= 1.0 and 0.0 <= u <= 1.0:
-                if best_t is None or t < best_t:
-                    best_t = t
-                    best_pt = (x1 + rx * t, y1 + ry * t)
-        return best_pt
-
-    def _sync_attack_plan_los_lines(self, st: GameState | None) -> None:
-        """Render LOS lines for ranged attackers toward the current target hex."""
-        if st is None or self.attack_plan_target_hex is None:
-            self._clear_attack_los_lines()
-            return
-        tgt = self.attack_plan_target_hex
-        g = self._ensure_attack_los_svg_group()
-        if g is None:
-            return
-
-        tx, ty = self.canvas.hex_layout.hex_to_pixel(tgt)
-
-        from ..hexes.los import first_blocking_hex
-        from ..state.map_feature_queries import edges_block_los_predicate
-
-        def blocks(h):
-            loc = st.board.effective_location(h)
-            if loc is None:
-                return False
-            return bool(getattr(loc, "block_los", False))
-
-        edges_block = edges_block_los_predicate(st.board)
-
-        keep: set[str] = set()
-        for uid in sorted(self.attack_plan_attacker_ids):
-            u = st.board.units.get(uid)
-            if u is None or not u.active:
-                continue
-            ut = str(getattr(u, "unit_type", "")).lower()
-            if ut not in ("artillery", "art"):
-                continue
-            try:
-                atk_range = int(u.attributes.get("range", 0))
-            except Exception:
-                atk_range = 0
-            if atk_range <= 1:
-                continue
-
-            ax, ay = self.canvas.hex_layout.hex_to_pixel(u.position)
-            endx, endy = (tx, ty)
-            blocked_hex = first_blocking_hex(
-                u.position, tgt, blocks=blocks, edges_block=edges_block
-            )
-            is_blocked = blocked_hex is not None
-            if blocked_hex is not None:
-                try:
-                    corners = self.canvas.hex_layout.hex_corners(blocked_hex)
-                    hit = self._segment_intersection_with_polygon(
-                        ax, ay, tx, ty, [(float(x), float(y)) for x, y in corners]
-                    )
-                    if hit is not None:
-                        endx, endy = hit
-                except Exception:
-                    pass
-
-            line = self._attack_plan_los_lines.get(uid)
-            if line is None:
-                line = js.document.createElementNS("http://www.w3.org/2000/svg", "line")
-                line.classList.add("hexengine-attack-los-line")
-                line.setAttribute("data-unit", str(uid))
-                g.appendChild(line)
-                self._attack_plan_los_lines[uid] = line
-            line.setAttribute("x1", str(float(ax)))
-            line.setAttribute("y1", str(float(ay)))
-            line.setAttribute("x2", str(float(endx)))
-            line.setAttribute("y2", str(float(endy)))
-            if is_blocked:
-                line.classList.add("hexengine-attack-los-line--blocked")
-            else:
-                line.classList.remove("hexengine-attack-los-line--blocked")
-            keep.add(uid)
-
-        # Remove stale lines.
-        for uid in list(self._attack_plan_los_lines.keys()):
-            if uid not in keep:
-                try:
-                    self._attack_plan_los_lines[uid].remove()
-                except Exception:
-                    pass
-                self._attack_plan_los_lines.pop(uid, None)
-
-        # Keep the LOS layer after all unit `<g>` nodes so strokes paint on top.
-        try:
-            self.canvas.unit_layer._svg.appendChild(g)
-        except Exception:
-            pass
-
-    def _sync_attack_plan_ui(self) -> None:
-        st = self._interactive_game_state()
-        ok_phase = _phase_allows_attack_planning(
-            str(getattr(getattr(st, "turn", None), "current_phase", "")) if st else ""
-        )
-
-        tgt = self.attack_plan_target_hex
-        n_att = len(self.attack_plan_attacker_ids)
-
-        # Secondary selection visuals: selected attackers + all units on the target hex.
-        attacker_ids = set(self.attack_plan_attacker_ids)
-        target_unit_ids: set[str] = set()
-        if st is not None and tgt is not None:
-            try:
-                for u in st.board.active_units_at_hex(tgt):
-                    target_unit_ids.add(str(u.unit_id))
-            except Exception:
-                target_unit_ids = set()
-        self.ui_state.set_secondary_selected_units(attacker_ids)
-        self.ui_state.set_secondary_target_units(target_unit_ids)
-        self.display_mgr.sync_secondary_selection(
-            attacker_ids,
-            target_unit_ids=target_unit_ids,
-        )
-        self._sync_attack_plan_los_lines(st)
-
-        if self._attack_controls_status is not None:
-            if not ok_phase:
-                self._attack_controls_status.textContent = "Not in Combat phase."
-            elif tgt is None:
-                self._attack_controls_status.textContent = "Combat: pick a target hex."
-            else:
-                self._attack_controls_status.textContent = f"Target set. Selected attackers: {n_att}. Click units to add/remove."
-
-        if self._attack_controls_confirm is not None:
-            self._attack_controls_confirm.disabled = not (
-                ok_phase and tgt is not None and n_att > 0
-            )
-
-    def _attack_target_hex_has_enemy(self, st: GameState, h: Hex) -> bool:
-        """True if the hex has at least one active non-current-faction unit (valid attack target)."""
-        cur = st.turn.current_faction
-        return any(u.faction != cur for u in st.board.active_units_at_hex(h))
-
-    def set_attack_plan_target_hex(self, h: Hex | None) -> None:
-        if h is not None:
-            st = self._interactive_game_state()
-            if st is not None and not self._attack_target_hex_has_enemy(st, h):
-                try:
-                    mx, my = self.canvas.hex_layout.hex_to_pixel(h)
-                    cx, cy = self.canvas.map_space_to_container_pixel(mx, my)
-                    self.popup_manager.create_popup(
-                        "No enemy unit on that hex", (cx, cy)
-                    )
-                except Exception:
-                    self.popup_manager.create_popup(
-                        "No enemy unit on that hex", (32, 32)
-                    )
-                return
-        self.attack_plan_target_hex = h
-        self.attack_plan_attacker_ids.clear()
-
-        ov = self._ensure_attack_target_overlay()
-        if ov is not None and h is not None:
-            mx, my = self.canvas.hex_layout.hex_to_pixel(h)
-            ov.style.left = f"{mx}px"
-            ov.style.top = f"{my}px"
-            ov.style.display = "block"
-        elif ov is not None:
-            ov.style.display = "none"
-
-        self._sync_attack_plan_ui()
-
-    def cancel_attack_plan(self) -> None:
-        self.set_attack_plan_target_hex(None)
-        self.ui_state.clear_secondary_selection()
-        self.display_mgr.clear_secondary_selection()
-        self._clear_attack_los_lines()
-
-    def _attack_unit_is_eligible(self, st, unit_id: str) -> bool:
-        if st is None or self.attack_plan_target_hex is None:
-            return False
-        if not self._attack_target_hex_has_enemy(st, self.attack_plan_target_hex):
-            return False
-        u = st.board.units.get(unit_id)
-        if u is None or not u.active:
-            return False
-        if u.faction != st.turn.current_faction:
-            return False
-        from ..hexes.los import has_line_of_sight
-        from ..hexes.math import distance
-        from ..state.map_feature_queries import edges_block_los_predicate
-
-        target_hex = self.attack_plan_target_hex
-        ut = str(u.unit_type).lower()
-        d = distance(u.position, target_hex)
-        if ut in ("infantry", "inf"):
-            return d == 1
-        if ut in ("artillery", "art"):
-            try:
-                atk_range = int(u.attributes.get("range", 0))
-            except Exception:
-                atk_range = 0
-            if not (atk_range > 1 and d > 1 and d <= atk_range):
-                return False
-
-            def blocks(h):
-                loc = st.board.effective_location(h)
-                if loc is None:
-                    return False
-                return bool(getattr(loc, "block_los", False))
-
-            edges_block = edges_block_los_predicate(st.board)
-            return has_line_of_sight(
-                u.position, target_hex, blocks=blocks, edges_block=edges_block
-            )
-        return False
-
-    def toggle_attack_plan_attacker(self, unit_id: str) -> None:
-        st = self._interactive_game_state()
-        if self.attack_plan_target_hex is None or st is None:
-            return
-        if unit_id in self.attack_plan_attacker_ids:
-            self.attack_plan_attacker_ids.remove(unit_id)
-            self._sync_attack_plan_ui()
-            return
-        if self._attack_unit_is_eligible(st, unit_id):
-            self.attack_plan_attacker_ids.add(unit_id)
-        else:
-            msg = "Cannot attack target"
-            try:
-                u = st.board.units.get(unit_id)
-                tgt = self.attack_plan_target_hex
-                if u is not None and tgt is not None:
-                    ut = str(getattr(u, "unit_type", "")).lower()
-                    if ut in ("artillery", "art"):
-                        from ..hexes.los import has_line_of_sight
-                        from ..hexes.math import distance
-                        from ..state.map_feature_queries import (
-                            edges_block_los_predicate,
-                        )
-
-                        d = distance(u.position, tgt)
-                        try:
-                            atk_range = int(u.attributes.get("range", 0))
-                        except Exception:
-                            atk_range = 0
-                        if atk_range <= 1:
-                            msg = "No ranged capability"
-                        elif d <= 1:
-                            msg = "Target too close for ranged fire"
-                        elif d > atk_range:
-                            msg = "Target out of range"
-                        else:
-                            # In distance band (not adjacent, within max range); check LOS.
-                            def blocks(h):
-                                loc = st.board.effective_location(h)
-                                if loc is None:
-                                    return False
-                                return bool(getattr(loc, "block_los", False))
-
-                            eb = edges_block_los_predicate(st.board)
-                            if not has_line_of_sight(
-                                u.position, tgt, blocks=blocks, edges_block=eb
-                            ):
-                                msg = "No line of sight"
-            except Exception:
-                pass
-            # Show a short callout near the unit (fall back to generic if missing display).
-            try:
-                disp = self.display_mgr.get_display(unit_id)
-                if disp is not None:
-                    mx, my = self.canvas.hex_layout.hex_to_pixel(disp.position)
-                    cx, cy = self.canvas.map_space_to_container_pixel(mx, my)
-                    self.popup_manager.create_popup(msg, (cx, cy))
-                else:
-                    self.popup_manager.create_popup(msg, (32, 32))
-            except Exception:
-                self.popup_manager.create_popup(msg, (32, 32))
-        self._sync_attack_plan_ui()
-
-    def confirm_attack_plan(self) -> None:
-        st = self._interactive_game_state()
-        if st is None or self.attack_plan_target_hex is None:
-            return
-        if not self.attack_plan_attacker_ids:
-            return
-
-        defenders = [
-            u
-            for u in st.board.active_units_at_hex(self.attack_plan_target_hex)
-            if u.faction != st.turn.current_faction
-        ]
-        if not defenders:
-            try:
-                mx, my = self.canvas.hex_layout.hex_to_pixel(
-                    self.attack_plan_target_hex
-                )
-                cx, cy = self.canvas.map_space_to_container_pixel(mx, my)
-                self.popup_manager.create_popup("No enemy unit on target", (cx, cy))
-            except Exception:
-                self.popup_manager.create_popup("No enemy unit on target", (32, 32))
-            return
-        defender_id = defenders[-1].unit_id
-        defender_ids = sorted(str(u.unit_id) for u in defenders)
-
-        attacker_ids = sorted(self.attack_plan_attacker_ids)
-        primary_attacker_id = attacker_ids[0]
-
-        tgt = self.attack_plan_target_hex
-        seen_att: set[tuple[int, int, int]] = set()
-        attacker_hexes_wire: list[dict[str, int]] = []
-        for uid in attacker_ids:
-            u = st.board.units.get(uid)
-            if u is None or not u.active:
-                continue
-            t = (int(u.position.i), int(u.position.j), int(u.position.k))
-            if t in seen_att:
-                continue
-            seen_att.add(t)
-            attacker_hexes_wire.append({"i": t[0], "j": t[1], "k": t[2]})
-        attacker_hexes_wire.sort(key=lambda d: (d["i"], d["j"], d["k"]))
-        defender_hexes_wire = [
-            {"i": int(tgt.i), "j": int(tgt.j), "k": int(tgt.k)},
-        ]
-
-        self.execute_action_request(
-            "Attack",
-            {
-                "attack_kind": "combined",
-                "attacker_id": primary_attacker_id,
-                "attacker_ids": attacker_ids,
-                "defender_id": defender_id,
-                "defender_ids": defender_ids,
-                "attacker_hexes": attacker_hexes_wire,
-                "defender_hexes": defender_hexes_wire,
-            },
-        )
-        self.cancel_attack_plan()
 
     def _handle_resize(self, event) -> None:
         """
@@ -968,6 +458,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self.client.on_ui_popup = self._handle_ui_popup
         self.client.on_marker_preview = self._handle_marker_preview
         self.client.on_unit_preview = self._handle_unit_preview
+        self.client.on_map_selection_preview = self._handle_map_selection_preview
 
     def title_load_begin_websocket_connect(
         self, state: ClientTitleLoadConnectState
@@ -1072,6 +563,9 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
     def execute_action_request(self, action_type: str, params: dict[str, Any]) -> None:
         """Send an already-serialized action request to the server."""
+        if str(action_type).strip() == "AttackPlanCancel":
+            self.cancel_attack_plan()
+            return
         if not self.client or not self.connected:
             self.logger.warning("Cannot execute action: not connected to server")
             return
@@ -1207,74 +701,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 return gk.strip()
         return None
 
-    def _combat_disrupt_instead_available(self, st: GameState) -> bool:
-        """True when title extension allows waiving retreat for disruption (hexdemo CRT)."""
-        ek = self._title_state_extension_key()
-        if not ek:
-            return False
-        hx = st.extension.get(ek)
-        if not isinstance(hx, dict):
-            return False
-        if str(hx.get("combat_gate", "")).strip() != "awaiting_retreat_or_disrupt":
-            return False
-        ro = hx.get("retreat_obligations")
-        if not isinstance(ro, dict):
-            return False
-        client = self.client
-        my = str(client.faction).strip() if client and client.faction else ""
-        if not my:
-            return False
-        for uid, raw in ro.items():
-            try:
-                if int(raw) <= 0:
-                    continue
-            except (TypeError, ValueError):
-                continue
-            u = st.board.units.get(str(uid))
-            if u is not None and u.active and str(u.faction).strip() == my:
-                return True
-        return False
-
-    def _combat_advance_available(self, st: GameState) -> bool:
-        ek = self._title_state_extension_key()
-        if not ek:
-            return False
-        hx = st.extension.get(ek)
-        if not isinstance(hx, dict):
-            return False
-        if str(hx.get("combat_gate", "")).strip() != "awaiting_advance":
-            return False
-        adv = hx.get("advance")
-        if not isinstance(adv, dict):
-            return False
-        client = self.client
-        my = str(client.faction).strip() if client and client.faction else ""
-        return bool(my) and str(adv.get("faction", "")).strip() == my
-
-    def _sync_disrupt_instead_control(self) -> None:
-        btn = self._disrupt_instead_btn
-        if btn is None:
-            return
-        try:
-            st = self.action_mgr.current_state
-            show = st is not None and self._combat_disrupt_instead_available(st)
-            btn.style.display = "" if show else "none"
-            btn.disabled = not show
-        except Exception:
-            self.logger.debug("disrupt-instead control sync failed", exc_info=True)
-
-    def _sync_advance_control(self) -> None:
-        btn = self._advance_btn
-        if btn is None:
-            return
-        try:
-            st = self.action_mgr.current_state
-            show = st is not None and self._combat_advance_available(st)
-            btn.style.display = "" if show else "none"
-            btn.disabled = not show
-        except Exception:
-            self.logger.debug("advance control sync failed", exc_info=True)
-
     def _handle_state_update(self, new_state: GameState) -> None:
         if (
             self.client is not None
@@ -1314,14 +740,45 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         self._sync_map_overlays()
         self._sync_faction_display_contract_banner()
         self._sync_interaction_messages()
-        self._sync_disrupt_instead_control()
-        self._sync_advance_control()
+        self._sync_interaction_panels()
         self._apply_title_faction_css()
         from .arcs.client_title_load import execute_client_title_load_ready_segment
 
         execute_client_title_load_ready_segment(self)
         self._apply_focus_unit_after_state_sync(new_state)
         self._sync_attack_plan_after_state_update()
+        self._sync_retreat_path_after_state_update(new_state)
+        self._maybe_continue_retreat_path()
+
+    def _sync_retreat_path_after_state_update(self, new_state) -> None:
+        if not self._client_has_retreat_path_selection():
+            if getattr(self, "retreat_path_unit_id", None):
+                self.cancel_retreat_path()
+            return
+
+        active_uid = getattr(self, "retreat_path_unit_id", None)
+        if isinstance(active_uid, str) and active_uid.strip():
+            local = [h for h in self.retreat_path_hexes if isinstance(h, Hex)]
+            if len(local) >= 2:
+                self._sync_retreat_path_polyline(local)
+            # Keep an extended draft across state sync churn.
+            if len(local) > 1 or self._retreat_path_active():
+                return
+
+        uid = self.ui_state.selected_unit_id
+        if uid is None:
+            return
+        uid_s = str(uid).strip()
+        if self.retreat_obligation_hexes_remaining(new_state, uid_s) is None:
+            if getattr(self, "retreat_path_committed", None) is None:
+                self.cancel_retreat_path()
+            return
+        if getattr(self, "retreat_path_unit_id", None) != uid_s:
+            local_len = len(
+                [h for h in getattr(self, "retreat_path_hexes", []) if isinstance(h, Hex)]
+            )
+            if local_len <= 1:
+                self.begin_retreat_path_for_unit(uid_s)
 
     def _sync_interaction_messages(self) -> None:
         """Render per-recipient `StateUpdate.interaction_messages` as a small banner."""
@@ -1356,7 +813,11 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             rows = [*passthrough, *deduped.values()]
 
         def paint_interaction_banner(
-            text: str, base: str, extra_cls: str = "", fac: str | None = None
+            text: str,
+            html: str,
+            base: str,
+            extra_cls: str = "",
+            fac: str | None = None,
         ) -> None:
             if fac is None:
                 st = self.action_mgr.current_state
@@ -1368,7 +829,10 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 banner_el = js.document.createElement("div")
                 banner_el.id = "interaction-banner"
                 ui.appendChild(banner_el)
-            banner_el.innerText = text
+            if html:
+                banner_el.innerHTML = html
+            else:
+                banner_el.innerText = text
             banner_el.className = " ".join(
                 c for c in (base, extra_cls, faction_cls or "") if c
             ).strip()
@@ -1377,6 +841,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
             el = js.document.getElementById("interaction-banner")
             if el is not None and el is not jsnull:
                 el.innerText = ""
+                el.innerHTML = ""
                 el.className = ""
 
         if not rows:
@@ -1389,7 +854,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                     f"{wire_str(t.current_faction)}: {wire_str(t.current_phase)} "
                     f"(actions: {t.phase_actions_remaining})"
                 )
-                paint_interaction_banner(text_fb, "interaction-msg--phase")
+                paint_interaction_banner(text_fb, "", "interaction-msg--phase")
                 return
             clear_interaction_banner()
             return
@@ -1408,7 +873,8 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         best_p = -1
         for r in rows:
             t = wire_str(r.get("text")).strip()
-            if not t:
+            h = wire_str(r.get("html")).strip()
+            if not t and not h:
                 continue
             kraw = r.get("kind")
             k = wire_str(kraw).strip()
@@ -1424,11 +890,14 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                     f"{wire_str(t.current_faction)}: {wire_str(t.current_phase)} "
                     f"(actions: {t.phase_actions_remaining})"
                 )
-                paint_interaction_banner(text_fb, "interaction-msg--phase")
+                paint_interaction_banner(text_fb, "", "interaction-msg--phase")
             return
         text = wire_str(best.get("text")).strip()
+        html = wire_str(best.get("html")).strip()
         kind = wire_str(best.get("kind")).strip()
         extra_cls = wire_str(best.get("css_class")).strip()
+        if not extra_cls:
+            extra_cls = self._client_title_data().css_class_for_interaction_kind(kind)
 
         base = (
             "interaction-msg--retreat"
@@ -1445,7 +914,7 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
         st = self.action_mgr.current_state
         if st is not None:
             fac = wire_str(st.turn.current_faction)
-        paint_interaction_banner(text, base, extra_cls, fac)
+        paint_interaction_banner(text, html, base, extra_cls, fac)
 
     def _set_engine_banner_message(
         self,
@@ -1675,12 +1144,37 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
                 self._sync_interaction_messages()
             self.display_mgr.refresh_unit_positions()
 
+    def show_inform_popup(
+        self,
+        inform_kind: str,
+        reason: str,
+        *,
+        hex: Hex | None = None,
+        unit_id: str | None = None,
+    ) -> None:
+        """
+        INFORM lane: server title hook formats copy; client renders ``ui_popup``.
+
+        Replaces direct ``popup_manager.create_popup`` for title-authored feedback.
+        """
+        client = self.client
+        if client is None or not client.is_connected():
+            return
+        hex_wire: dict[str, int] | None = None
+        if isinstance(hex, Hex):
+            hex_wire = {"i": int(hex.i), "j": int(hex.j), "k": int(hex.k)}
+        client.send_inform_popup(
+            inform_kind,
+            reason,
+            hex_wire=hex_wire,
+            unit_id=unit_id,
+        )
+
     def _handle_ui_popup(self, payload: dict[str, Any]) -> None:
         """
-        Title-formatted informational popup.
+        Title-formatted informational popup (INFORM / ``ui_popup`` wire).
 
-        This is separate from the interaction banner. It is meant for lightweight
-        inspection UX (unit/marker), and can be overridden by title hooks.
+        Used for unit/marker inspect and ``inform`` map callouts from the server.
         """
         if not isinstance(payload, dict):
             return
@@ -1703,10 +1197,30 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
 
         mx, my = self.layout.hex_to_pixel(Hex(i, j, k))
         pos = self.canvas.map_space_to_container_pixel(mx, my)
+        ttl_ms: int | None = None
+        raw_ttl = payload.get("ttl_ms")
+        if raw_ttl is not None:
+            try:
+                ttl_ms = max(0, int(raw_ttl))
+            except (TypeError, ValueError):
+                ttl_ms = None
+        raw_class = payload.get("css_class")
+        css_class = (
+            str(raw_class).strip()
+            if isinstance(raw_class, str) and str(raw_class).strip()
+            else None
+        )
+        popup_kw = {
+            "timeout_ms": ttl_ms,
+            "css_class": css_class,
+            "auto_dismiss": ttl_ms is not None,
+        }
         if html:
-            self.popup_manager.create_popup_html(html, pos)
+            self.popup_manager.create_popup_html(html, pos, **popup_kw)
         else:
-            self.popup_manager.create_popup(text, pos)
+            self.popup_manager.create_popup(text, pos, **popup_kw)
+        if getattr(self, "repeat_ui_popup_to_dev_console", False):
+            dev_console.repeat_ui_popup_to_status(payload)
 
     def _sync_map_overlays(self) -> None:
         """Apply StateUpdate.map_overlays via MapOverlayManager."""
@@ -1751,30 +1265,6 @@ class Game(MouseEventHandlerMixin, HotkeyHandlerMixin, GameHistoryMixin):
     def _max_active_units_per_hex(self) -> int | None:
         """Optional stacking limit from server turn_rules (title-owned)."""
         return self._client_title_data().max_active_units_per_hex
-
-    def advance_turn(self, _) -> None:
-        """Send NextPhase derived from replicated schedule (same as server)."""
-        from ..gamedef.builtin import advance_turn_action_for_state
-
-        current_state = self.action_mgr.current_state
-        if current_state is None:
-            self.logger.warning("Cannot advance turn: no current state")
-            return
-
-        gd = self._title_game_definition
-        if gd is None:
-            self.logger.error(
-                "Advance turn before turn schedule is known (missing StateUpdate.turn_rules); "
-                "reconnect after the server has sent state."
-            )
-            dev_console.set_status("Advance turn: wait for sync, then try again.")
-            return
-
-        np = advance_turn_action_for_state(current_state, gd)
-        self.logger.info(f"Advance turn: {np}")
-        self._clear_drag_and_highlights()
-        self.selection = None
-        self.execute_action(np)
 
     def undo(self) -> None:
         if not self.client or not self.connected:

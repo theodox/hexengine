@@ -92,6 +92,10 @@ def test_load_game_data_for_pack_root_hexdemo() -> None:
     assert gd.title_state_extension_key == "hexdemo"
     assert "union" in gd.faction_display_names
     assert gd.hex_highlight_ui.get("move_hex_class") == "hexdemo-move-hex"
+    assert gd.shell_ui.get("advance_turn_button_label") == "End Phase"
+    assert gd.shell_ui.get("attack_confirm_label") == "Confirm attack"
+    assert "Combat" in gd.shell_ui.get("attack_planning_phases", [])
+    assert gd.interaction_kind_styles.get("retreat") == "interaction-msg--retreat"
 
 
 def test_load_pack_record_includes_game_data(tmp_path: Path) -> None:

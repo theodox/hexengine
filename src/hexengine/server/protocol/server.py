@@ -20,6 +20,8 @@ _STATE_UPDATE_OMIT_IF_NONE = frozenset(
         "retreat_obligations",
         "interaction_messages",
         "map_overlays",
+        "primary_actions",
+        "interaction_panels",
     }
 )
 
@@ -51,7 +53,9 @@ class StateUpdate:
     #: Each entry is a dict with:
     #: - schema: 1
     #: - kind: short semantic kind (e.g. "phase", "retreat", "wait", "info", "error")
-    #: - text: display text
+    #: - text: plain-text fallback (also used when `html` is absent)
+    #: - html (optional): HTML fragment for rich banner content (images, flags, etc.);
+    #:   client prefers `html` over `text` when both are set
     #: - dedupe_key (optional): client replaces prior message with same key
     #: - ttl_ms (optional): client expires message locally after this many ms
     #: - css_class (optional): extra CSS class name for title styling
@@ -66,6 +70,29 @@ class StateUpdate:
     #: - text: string for glyph kind
     #: - css_class (optional): extra classes for title CSS
     map_overlays: list[dict[str, Any]] | None = None
+    #: Per-recipient primary action buttons (combat advance, disrupt-instead, etc.).
+    #:
+    #: Each entry is a dict with:
+    #: - schema: 1
+    #: - id: stable string (replace prior button with same id)
+    #: - action_type: server RPC name (e.g. CombatAdvance)
+    #: - label: button text
+    #: - title (optional): tooltip
+    #: - payload (optional): dict sent as action params (default {})
+    #: - css_class (optional): extra CSS class on the button
+    #: - enabled: bool — when false, button is shown disabled
+    primary_actions: list[dict[str, Any]] | None = None
+    #: Per-recipient rich interaction panels (HTML shell + engine-wired actions/inputs).
+    #:
+    #: Each entry is a dict with:
+    #: - schema: 1
+    #: - id: stable string (replace prior panel with same id on the same host)
+    #: - host: DOM element id (default ``advance``)
+    #: - html (optional): decorative HTML fragment (no inline handlers)
+    #: - css_class (optional): extra class on the panel root
+    #: - actions: list of primary-action-shaped dicts (engine builds buttons)
+    #: - inputs (optional): list of input specs (``id``, ``kind``, ``label``, ``name``, …)
+    interaction_panels: list[dict[str, Any]] | None = None
 
 
 @server_message("action_result")
@@ -238,3 +265,37 @@ class UnitPreviewWire:
     through_hexes: list[dict[str, int]] | None = None
     through_css_class: str | None = None
     request_id: str = ""
+
+
+_MAP_SELECTION_PREVIEW_OMIT = frozenset(
+    {
+        "valid_target_hexes",
+        "eligible_attacker_ids",
+        "commit_payload",
+        "panel_actions",
+        "legal_next_hexes",
+        "preview_path_hexes",
+        "through_hexes",
+    }
+)
+
+
+@server_message(
+    "map_selection_preview",
+    omit_if_none=_MAP_SELECTION_PREVIEW_OMIT,
+)
+@dataclass
+class MapSelectionPreviewWire:
+    """Per-recipient map-selection preview (draft legality + optional commit payload)."""
+
+    kind: str
+    status_text: str
+    confirm_enabled: bool
+    request_id: str = ""
+    valid_target_hexes: list[dict[str, int]] | None = None
+    eligible_attacker_ids: list[str] | None = None
+    commit_payload: dict[str, Any] | None = None
+    panel_actions: list[dict[str, Any]] | None = None
+    legal_next_hexes: list[dict[str, int]] | None = None
+    preview_path_hexes: list[dict[str, int]] | None = None
+    through_hexes: list[dict[str, int]] | None = None

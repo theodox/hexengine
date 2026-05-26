@@ -10,3 +10,5 @@ class InteractionKind(StrEnum):
 
     INSPECT_UNIT = "inspect_unit"
     PLACE_MARKER = "place_marker"
+    ATTACK_PLAN = "attack_plan"
+    RETREAT_PATH = "retreat_path"

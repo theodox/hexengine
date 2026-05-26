@@ -28,6 +28,11 @@ from ...state.movement_arc import (
     turn_state_to_movement_arc_snapshot,
 )
 from ..protocol import ActionRequest, PlayerInfo
+from ...retreat_path import parse_wire_path, validate_retreat_path
+from .authority_combat_cleanup import (
+    finalize_retreat_fulfillment_stack,
+    validate_retreat_fulfillment_stack,
+)
 
 
 def dedupe_faction_ids(items: tuple[str, ...]) -> tuple[str, ...]:
@@ -181,10 +186,27 @@ async def continue_stepwise_move_unit(
     new_idx = idx + 1
     if new_idx >= len(path) - 1:
         host.action_manager.execute(WriteHexengineMovementArc(None))
-        try:
-            host._spend_action_after_normal_move_unit()
-        except Exception as e:
-            host.logger.error(f"Error in turn advancement: {e}", exc_info=True)
+        if flow.get("retreat_fulfillment"):
+            fin = flow.get("finalize_request")
+            if isinstance(fin, dict):
+                uid = str(flow.get("unit_id", "")).strip()
+                fin_req = ActionRequest(
+                    action_type="MoveUnit",
+                    player_id=player_id,
+                    params=dict(fin),
+                )
+                finalize_retreat_fulfillment_stack(
+                    host,
+                    uid_for_move=uid,
+                    player=player,
+                    request=fin_req,
+                    st_before=current_state,
+                )
+        else:
+            try:
+                host._spend_action_after_normal_move_unit()
+            except Exception as e:
+                host.logger.error(f"Error in turn advancement: {e}", exc_info=True)
         await host._send_move_unit_success_and_broadcast(player_id)
         return True
 
@@ -358,11 +380,135 @@ async def handle_authority_move_unit_normal(
     return True
 
 
+async def handle_authority_retreat_path_move_unit(
+    host: AuthorityMovementHost,
+    player_id: str,
+    player: PlayerInfo,
+    request: ActionRequest,
+    current_state: GameState,
+    *,
+    retreat_remaining: int,
+    uid_for_move: str,
+) -> bool:
+    """
+    Start or continue a stepwise retreat along a client-built ``path`` wire list.
+
+    Returns True when this handler fully processed the request.
+    """
+    flow = read_movement_arc(current_state)
+    if flow and flow.get("retreat_fulfillment"):
+        gate = str(flow.get("gate", ""))
+        if gate == MOVEMENT_ARC_GATE_AWAITING_CONTINUE:
+            return await continue_stepwise_move_unit(
+                host, player_id, player, request, current_state, flow
+            )
+        await host._send_error(player_id, "Retreat path move is not awaiting continuation")
+        return True
+
+    wire_path = request.params.get("path")
+    path = parse_wire_path(wire_path)
+    if len(path) < 2:
+        return False
+
+    rem = int(retreat_remaining)
+    blocked_raw = host.hooks.movement.retreat_blocked(current_state, uid_for_move)
+    if blocked_raw is ENGINE_DEFAULT or blocked_raw is None:
+        blocked_hexes = None
+    else:
+        blocked_hexes = (
+            blocked_raw if isinstance(blocked_raw, frozenset) else frozenset(blocked_raw)
+        )
+    max_stack = host._max_active_units_per_hex(current_state, uid_for_move)
+    step_fn = host._movement_step_cost_fn(uid_for_move)
+
+    def _validate_endpoint(
+        state: GameState,
+        unit_id: str,
+        from_hex: Hex,
+        to_hex: Hex,
+        hexes_remaining: int,
+    ) -> None:
+        host._validate_move_unit_request(
+            state,
+            {
+                "unit_id": unit_id,
+                "from_hex": {"i": from_hex.i, "j": from_hex.j, "k": from_hex.k},
+                "to_hex": {"i": to_hex.i, "j": to_hex.j, "k": to_hex.k},
+            },
+            player,
+            is_retreat_fulfillment=True,
+        )
+
+    try:
+        validate_retreat_path(
+            state=current_state,
+            unit_id=uid_for_move,
+            path=path,
+            obligation=rem,
+            blocked_hexes=blocked_hexes,
+            max_active_units_per_hex=max_stack,
+            step_cost=step_fn,
+            validate_endpoint=_validate_endpoint,
+        )
+        validate_retreat_fulfillment_stack(
+            host,
+            st_before=current_state,
+            uid_for_move=uid_for_move,
+            player=player,
+            request=request,
+        )
+    except ValueError as e:
+        await host._send_error(player_id, str(e))
+        return True
+
+    if len(path) == 2:
+        return False
+
+    unit = current_state.board.units.get(uid_for_move)
+    if unit is None:
+        await host._send_error(player_id, "Unknown unit")
+        return True
+    first_from, first_to = path[0], path[1]
+    if unit.position != first_from:
+        await host._send_error(player_id, "Unit position does not match retreat path")
+        return True
+
+    try:
+        host.action_manager.execute(MoveUnit(uid_for_move, first_from, first_to))
+    except Exception as e:
+        await host._send_error(player_id, f"Action failed: {e}")
+        return True
+
+    st1 = host.action_manager.current_state
+    wire_path_out = [{"i": int(h.i), "j": int(h.j), "k": int(h.k)} for h in path]
+    base_flow: dict[str, Any] = {
+        "schema": MOVEMENT_ARC_SCHEMA,
+        "unit_id": uid_for_move,
+        "path": wire_path_out,
+        "step_index": 1,
+        "moving_faction": str(player.faction),
+        "budget_remaining": float(rem),
+        "retreat_fulfillment": True,
+        "gate": MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
+        "interrupt_queue": [],
+        "saved_turn": None,
+        "finalize_request": {
+            "unit_id": uid_for_move,
+            "from_hex": wire_path_out[0],
+            "to_hex": wire_path_out[-1],
+        },
+    }
+    host.action_manager.execute(WriteHexengineMovementArc(base_flow))
+    await host._send_move_unit_success_and_broadcast(player_id)
+    return True
+
+
 __all__ = [
     "AuthorityMovementHost",
     "continue_stepwise_move_unit",
     "dedupe_faction_ids",
     "handle_authority_move_unit_normal",
+    "handle_authority_retreat_path_move_unit",
     "path_tuple_from_movement_arc",
     "read_movement_arc",
 ]

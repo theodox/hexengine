@@ -102,6 +102,16 @@ class AttackContext:
 
 
 @dataclass(frozen=True, slots=True)
+class AttackPlanPreviewContext:
+    """Inputs for server map-selection preview while drafting an attack plan."""
+
+    state: GameState
+    player_faction: str
+    draft: dict[str, Any]
+    shell_ui: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
 class AttackResolution:
     """
     Deterministic resolution returned by a title for a single attack.
@@ -145,6 +155,9 @@ class AttackHooks:
     maybe_open_combat_advance_after_retreat: (
         Callable[[GameState, str], OpenCombatAdvance | None | object] | None
     ) = None
+    attack_plan_preview: (
+        Callable[[AttackPlanPreviewContext], dict[str, Any] | object] | None
+    ) = None
 
     def validate(self, ctx: AttackContext) -> None | object:
         if self.validate_attack is None:
@@ -178,6 +191,7 @@ class AttackHook(StrEnum):
     RESOLVE_ATTACK = "resolve_attack"
     AUTO_ADVANCE_PHASE_AFTER_ATTACK = "auto_advance_phase_after_attack"
     MAYBE_OPEN_COMBAT_ADVANCE_AFTER_RETREAT = "maybe_open_combat_advance_after_retreat"
+    ATTACK_PLAN_PREVIEW = "attack_plan_preview"
 
 
 AttackHook._hexengine_hook_bundle = "attack"
@@ -204,6 +218,7 @@ __all__ = [
     "AttackContext",
     "AttackHook",
     "AttackHooks",
+    "AttackPlanPreviewContext",
     "AttackResolution",
     "ENGINE_DEFAULT",
     "RuleViolation",

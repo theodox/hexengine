@@ -60,6 +60,65 @@ class ClientHexHighlightUi:
 
 
 @dataclass(frozen=True, slots=True)
+class ClientShellUi:
+    """Optional shell chrome from `turn_rules.shell_ui` (title `GameData.shell_ui`)."""
+
+    advance_turn_button_label: str | None = None
+    disrupt_instead_label: str | None = None
+    disrupt_instead_title: str | None = None
+    combat_advance_label: str | None = None
+    combat_advance_title: str | None = None
+    attack_pick_target_status: str | None = None
+    attack_not_in_phase_status: str | None = None
+    attack_target_set_status: str | None = None
+    attack_confirm_label: str | None = None
+    attack_cancel_label: str | None = None
+    attack_planning_phases: tuple[str, ...] = ()
+
+    @staticmethod
+    def from_wire_dict(raw: Any) -> ClientShellUi:
+        if not isinstance(raw, dict):
+            return ClientShellUi()
+        phases: tuple[str, ...] = ()
+        pl = raw.get("attack_planning_phases")
+        if isinstance(pl, list):
+            phases = tuple(str(p).strip() for p in pl if str(p).strip())
+        return ClientShellUi(
+            advance_turn_button_label=_strip_str(raw.get("advance_turn_button_label")),
+            disrupt_instead_label=_strip_str(raw.get("disrupt_instead_label")),
+            disrupt_instead_title=_strip_str(raw.get("disrupt_instead_title")),
+            combat_advance_label=_strip_str(raw.get("combat_advance_label")),
+            combat_advance_title=_strip_str(raw.get("combat_advance_title")),
+            attack_pick_target_status=_strip_str(raw.get("attack_pick_target_status")),
+            attack_not_in_phase_status=_strip_str(
+                raw.get("attack_not_in_phase_status")
+            ),
+            attack_target_set_status=_strip_str(raw.get("attack_target_set_status")),
+            attack_confirm_label=_strip_str(raw.get("attack_confirm_label")),
+            attack_cancel_label=_strip_str(raw.get("attack_cancel_label")),
+            attack_planning_phases=phases,
+        )
+
+    def phase_allows_attack_planning(self, phase: str | None) -> bool:
+        p = str(phase or "").strip().lower()
+        if not p:
+            return False
+        if self.attack_planning_phases:
+            return p in {str(x).strip().lower() for x in self.attack_planning_phases}
+        return p in ("combat", "attack")
+
+
+_DEFAULT_INTERACTION_KIND_STYLES: dict[str, str] = {
+    "error": "interaction-msg--error",
+    "retreat": "interaction-msg--retreat",
+    "advance": "interaction-msg--advance",
+    "wait": "interaction-msg--wait",
+    "phase": "interaction-msg--phase",
+    "info": "interaction-msg--info",
+}
+
+
+@dataclass(frozen=True, slots=True)
 class ClientTitleData:
     """
     Thin-client view of title declarative data carried in `StateUpdate.turn_rules`.
@@ -77,6 +136,14 @@ class ClientTitleData:
     faction_ui: ClientFactionUi | None
     faction_display_contract_error: str | None
     client_contract_features: frozenset[str]
+    shell_ui: ClientShellUi
+    interaction_kind_styles: dict[str, str]
+
+    def css_class_for_interaction_kind(self, kind: str) -> str:
+        k = str(kind or "").strip()
+        if k and k in self.interaction_kind_styles:
+            return self.interaction_kind_styles[k]
+        return _DEFAULT_INTERACTION_KIND_STYLES.get(k, "")
 
     @staticmethod
     def empty() -> ClientTitleData:
@@ -88,6 +155,8 @@ class ClientTitleData:
             faction_ui=None,
             faction_display_contract_error=None,
             client_contract_features=frozenset(),
+            shell_ui=ClientShellUi(),
+            interaction_kind_styles=dict(_DEFAULT_INTERACTION_KIND_STYLES),
         )
 
     @staticmethod
@@ -164,12 +233,29 @@ class ClientTitleData:
             faction_ui=faction_ui,
             faction_display_contract_error=fd_err,
             client_contract_features=feats,
+            shell_ui=ClientShellUi.from_wire_dict(wire.get("shell_ui")),
+            interaction_kind_styles=_interaction_kind_styles_from_wire(
+                wire.get("interaction_kind_styles")
+            ),
         )
+
+
+def _interaction_kind_styles_from_wire(raw: Any) -> dict[str, str]:
+    merged = dict(_DEFAULT_INTERACTION_KIND_STYLES)
+    if not isinstance(raw, dict):
+        return merged
+    for k, v in raw.items():
+        sk = str(k).strip()
+        if not sk or not isinstance(v, str) or not v.strip():
+            continue
+        merged[sk] = v.strip()
+    return merged
 
 
 __all__ = [
     "ClientFactionUi",
     "ClientHexHighlightUi",
+    "ClientShellUi",
     "ClientTitleData",
     "FactionUiRow",
 ]

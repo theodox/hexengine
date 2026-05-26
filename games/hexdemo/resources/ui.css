@@ -5,12 +5,62 @@
   --hexengine-splash-dismiss-delay-ms: 2200ms;
 }
 
+
+
 /* Interaction-banner faction colors (applied via css_class). */
+
+
 #interaction-banner.union {
   background-color: rgba(33, 52, 120, 0.82);
 }
 #interaction-banner.confederate {
-  background-color: rgba(88, 66, 40, 0.82);
+  background-color: rgba(112, 104, 93, 0.82);
+}
+
+/* Rich turn banner: faction flag + label (via interaction_messages html).
+   Tune flag size via --hexdemo-turn-banner-flag-* (mirrored on <img> in ui_markup.py). */
+#interaction-banner .hexdemo-turn-banner {
+  --hexdemo-turn-banner-flag-w: 44px;
+  --hexdemo-turn-banner-flag-h: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  vertical-align: middle;
+  min-height: 64px;
+  padding: 0 0.35em;
+  border-radius: 16px;
+}
+
+#interaction-banner .hexdemo-turn-banner__flag {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+#interaction-banner .hexdemo-turn-banner__flag-img {
+  display: block;
+  width: var(--hexdemo-turn-banner-flag-w);
+  height: var(--hexdemo-turn-banner-flag-h);
+  max-width: var(--hexdemo-turn-banner-flag-w);
+  max-height: var(--hexdemo-turn-banner-flag-h);
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid rgba(25, 25, 25, 0.5);
+  border-radius: 2px;
+  background-color: rgba(0, 0, 0, 0.12);
+}
+
+#interaction-banner .hexdemo-turn-banner__flag--neutral {
+  display: inline-block;
+  width: var(--hexdemo-turn-banner-flag-w);
+  height: var(--hexdemo-turn-banner-flag-h);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 2px;
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+#interaction-banner .hexdemo-turn-banner__label {
+  font-weight: 600;
 }
 
 /* Callout chrome: set bubble fill (tail uses same CSS variable). */
@@ -73,21 +123,21 @@
 .hexengine-hex-highlight.hexdemo-retreat-hex polygon {
   fill: rgba(229, 62, 62, 0.14);
   stroke: rgba(229, 62, 62, 0.7);
-  stroke-width: 2;
+  stroke-width: 3;
   stroke-dasharray: 6 4;
 }
 
 .hexengine-hex-highlight.hexdemo-retreat-through-hex polygon {
   fill: rgba(229, 62, 62, 0.06);
   stroke: rgba(229, 62, 62, 0.35);
-  stroke-width: 2;
+  stroke-width: 3;
   stroke-dasharray: 4 6;
 }
 
 .hexengine-hex-highlight.hexdemo-marker-hex polygon {
   fill: rgba(72, 187, 120, 0.14);
   stroke: rgba(72, 187, 120, 0.7);
-  stroke-width: 2;
+  stroke-width: 3;
 }
 
 /* Hexdemo override: ranged LOS preview lines during attack planning. */
@@ -99,4 +149,46 @@
 .hexengine-attack-los-line.hexengine-attack-los-line--blocked {
   stroke: rgba(229, 62, 62, 0.78);
   stroke-dasharray: 8 6;
+}
+
+.hexengine-retreat-path-line {
+  stroke: rgba(229, 62, 62, 0.88);
+  stroke-width: 3.5px;
+}
+
+/* User controls panel */
+#user-controls{
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  bottom: 0%;
+  z-index: 1000;
+  display: flex;
+  justify-content: stretch
+}
+
+.hexdemo-turn-dock{
+  background-color: rgba(223, 223, 223, 0.562);
+  drop-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  width: 100%;
+  align-items: stretch;
+  max-width: none;
+  }
+
+/* Turn action dock SEQUENCE steps (client ``dock_arc`` overrides). */
+.hexdemo-turn-dock--attack_draft .hexengine-panel__headline,
+.hexdemo-turn-dock--retreat_path_draft .hexengine-panel__headline,
+.hexdemo-turn-dock--place_marker_draft .hexengine-panel__headline {
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.35;
+  max-width: 320px;
+  text-align: left;
+}
+
+.hexdemo-turn-dock--attack_ready .hexengine-panel__headline {
+  font-size: 0.85rem;
+  line-height: 1.35;
+  max-width: 320px;
+  text-align: left;
 }

@@ -45,6 +45,8 @@ class WebSocketGameServer:
         marker_placement_rule=None,
         *,
         game_definition: GameDefinition,
+        pack_id: str | None = None,
+        pack_root: Path | str | None = None,
         listen_ready_event: threading.Event | None = None,
     ) -> None:
         """
@@ -69,6 +71,8 @@ class WebSocketGameServer:
             markers=markers,
             marker_placement_rule=marker_placement_rule,
             game_definition=game_definition,
+            pack_id=pack_id,
+            pack_root=pack_root,
         )
         self._listen_ready_event = listen_ready_event
 
@@ -212,6 +216,9 @@ async def main(
         game_root=game_root,
         scenario_id=scenario_id,
     )
+    from ..game_packs.registry import resolve_pack_for_scenario
+
+    pack_rec = resolve_pack_for_scenario(scenario_path)
     scenario_data = load_scenario(scenario_path)
     game_def = load_game_definition_for_scenario(scenario_path)
     first = initial_turn_slot_for_game_definition(game_def)
@@ -235,6 +242,8 @@ async def main(
         marker_graphics=scenario_data.marker_graphics_to_wire_dict(),
         markers=scenario_data.markers_to_wire_list(),
         game_definition=game_def,
+        pack_id=pack_rec.manifest.pack_id,
+        pack_root=pack_rec.root,
         listen_ready_event=listen_ready_event,
     )
     try_pack_title_load_server(scenario_path)

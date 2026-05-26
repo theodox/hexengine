@@ -7,9 +7,18 @@ from enum import Enum, auto
 from hexengine.hexes.los import has_line_of_sight
 from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
-from hexengine.hooks.attack import AttackContext, AttackHook, AttackResolution
+from typing import Any
+
+from hexengine.hooks.attack import (
+    AttackContext,
+    AttackHook,
+    AttackHooks,
+    AttackPlanPreviewContext,
+    AttackResolution,
+)
 from hexengine.hooks.wiring import bind_title_hook
-from hexengine.state import UnitState, edges_block_los_predicate
+from hexengine.state import UnitState
+from hexengine.state.map_feature_queries import edges_block_los_predicate
 
 from .. import combat
 from ..constants import PACK_STATE_EXTENSION_KEY
@@ -528,3 +537,41 @@ def auto_advance_phase_after_attack(state) -> bool:
         if u is not None and u.active and u.faction == faction:
             attacked.add(uid)
     return active_ids <= attacked
+
+
+@bind_title_hook(AttackHook.ATTACK_PLAN_PREVIEW)
+def attack_plan_preview(ctx: AttackPlanPreviewContext) -> dict[str, Any]:
+    from ..combat_planning import compute_attack_plan_preview
+    from hexengine.hexes.types import Hex
+
+    st = ctx.state
+    seen: set[tuple[int, int, int]] = set()
+    board_hexes: list[Hex] = []
+    for u in st.board.units.values():
+        if not u.active:
+            continue
+        t = (int(u.position.i), int(u.position.j), int(u.position.k))
+        if t not in seen:
+            seen.add(t)
+            board_hexes.append(u.position)
+    for loc in st.board.locations.values():
+        h = loc.position
+        t = (int(h.i), int(h.j), int(h.k))
+        if t not in seen:
+            seen.add(t)
+            board_hexes.append(h)
+
+    pack_attack = AttackHooks(
+        validate_attack=validate_attack,
+        resolve_attack=resolve_attack,
+        auto_advance_phase_after_attack=auto_advance_phase_after_attack,
+        attack_plan_preview=attack_plan_preview,
+    )
+    return compute_attack_plan_preview(
+        st,
+        player_faction=ctx.player_faction,
+        draft=ctx.draft,
+        shell_ui=ctx.shell_ui,
+        board_hexes=board_hexes,
+        attack_hooks=pack_attack,
+    )

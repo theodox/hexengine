@@ -77,6 +77,12 @@ class HexdemoGameDefinition:
         return build_hooks()
 
     @property
+    def marker_placement_rule(self):
+        from .marker_rules import default_marker_placement_rule
+
+        return default_marker_placement_rule()
+
+    @property
     def _movement_budget(self) -> float:
         """Scalar schedule budget on the inner definition (used by server `turn_rules` wire)."""
         return float(self._base._movement_budget)

@@ -22,6 +22,10 @@ class GameData:
     title_css_file: str | None = None
     title_css: str | None = None
     hex_highlight_ui: dict[str, Any] = field(default_factory=dict)
+    #: Optional shell chrome: button labels, attack-planning phase names, status copy.
+    shell_ui: dict[str, Any] = field(default_factory=dict)
+    #: Map interaction message `kind` -> CSS class (overrides engine defaults on client).
+    interaction_kind_styles: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -29,6 +33,10 @@ class GameData:
         )
         object.__setattr__(self, "faction_css_classes", dict(self.faction_css_classes))
         object.__setattr__(self, "hex_highlight_ui", dict(self.hex_highlight_ui))
+        object.__setattr__(self, "shell_ui", dict(self.shell_ui))
+        object.__setattr__(
+            self, "interaction_kind_styles", dict(self.interaction_kind_styles)
+        )
 
     @staticmethod
     def empty() -> GameData:

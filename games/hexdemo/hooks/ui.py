@@ -1,15 +1,74 @@
 """
 Hexdemo UI hooks.
 
-This is title-authored UI policy for small inspection popups (Enter / double-click).
+Thin adapters over ``hexdemo.ui_markup`` templates and copy constants.
 """
 
 from __future__ import annotations
 
-from hexengine.hexes.types import HexColRow
-from hexengine.hooks.ui import ENGINE_DEFAULT, UIHook
+from hexengine.hooks.ui import (
+    AdvanceGateInteractionContext,
+    CombatInteractionContext,
+    ENGINE_DEFAULT,
+    PhaseBannerContext,
+    UIHook,
+)
 from hexengine.hooks.wiring import bind_title_hook
 from hexengine.state import GameState
+
+from ..inform_popups import inform_popup
+from ..ui_markup import (
+    phase_banner_label,
+    render_phase_banner_html,
+    unit_inspect_popup,
+)
+
+
+@bind_title_hook(UIHook.PHASE_BANNER_TEXT_FOR_VIEWER)
+def phase_banner_text_for_viewer(ctx: PhaseBannerContext) -> str:
+    return phase_banner_label(ctx)
+
+
+@bind_title_hook(UIHook.PHASE_BANNER_HTML_FOR_VIEWER)
+def phase_banner_html_for_viewer(ctx: PhaseBannerContext) -> str:
+    return render_phase_banner_html(ctx)
+
+
+@bind_title_hook(UIHook.COMBAT_INSTRUCTION_FOR_VIEWER)
+def combat_instruction_for_viewer(
+    ctx: CombatInteractionContext,
+) -> tuple[str, str]:
+    recipient = str(ctx.viewer_faction).strip() if ctx.viewer_faction else ""
+    outcome = ctx.outcome
+    retreat_owner = ctx.retreat_owner_faction
+
+    match (outcome, retreat_owner, recipient):
+        case ("defender_destroyed", _, _):
+            return "resolved", "Defender destroyed."
+        case ("none", _, _):
+            return "resolved", "Combat resolved with no effect."
+        case (_, None, _):
+            return "resolved", "Combat resolved."
+        case (_, ro, rec) if rec == ro:
+            return (
+                "retreat_required",
+                "Mandatory retreat: move the unit one hex (exact distance).",
+            )
+        case _:
+            return (
+                "wait",
+                "Hold — waiting for the opponent's mandatory retreat.",
+            )
+
+
+@bind_title_hook(UIHook.ADVANCE_GATE_BANNERS_FOR_VIEWER)
+def advance_gate_banners_for_viewer(
+    _ctx: AdvanceGateInteractionContext,
+) -> tuple[str, str]:
+    return (
+        "You may advance (click Advance).",
+        "Waiting for the opponent to advance.",
+    )
 
 
 @bind_title_hook(UIHook.POPUP_MESSAGE)
@@ -19,45 +78,32 @@ def popup_message(
     target_kind: str,
     target_id: str,
 ) -> dict[str, object] | object:
-    """
-    Return a small popup descriptor dict for the given inspect target.
-
-    Keys:
-    - text (required): popup label
-    - kind (optional): "info" | "error" | ...
-    - ttl_ms (optional): client-side lifetime
-    - css_class (optional): extra CSS class name
-    """
     tk = str(target_kind)
     tid = str(target_id)
 
     if tk == "unit":
-        u = state.board.units.get(tid)
-        if u is None:
-            return {"text": f"{tid} (missing)", "kind": "error", "ttl_ms": 1200}
-
-        cr = HexColRow.from_hex(u.position)
-        pos_s = f"[{cr.col}, {cr.row}]"
-        # Keep it compact; this is a tiny hover-ish utility, not a full inspector panel.
-        parts: list[str] = [f"{u.unit_id}", f"{u.unit_type}", f"{u.faction}", pos_s]
-        own = viewer_faction is not None and viewer_faction == u.faction
-        hp_s = f"{int(u.health)}" if own else "?"
-        html = (
-            "<div class='hexdemo-inspect'>"
-            f"<div><b>{u.unit_id}</b> <span class='hexdemo-inspect__type'>{u.unit_type}</span></div>"
-            f"<div>Faction: <span class='hexdemo-inspect__faction'>{u.faction}</span></div>"
-            f"<div>Hex: <span class='hexdemo-inspect__pos'>{pos_s}</span></div>"
-            f"<div>HP: <span class='hexdemo-inspect__hp'>{hp_s}</span></div>"
-            "</div>"
-        )
-        # Provide both; client prefers html when present.
-        return {"text": " | ".join(parts), "html": html, "kind": "info", "ttl_ms": 1500}
+        return unit_inspect_popup(state, viewer_faction, tid)
 
     if tk == "marker":
-        # Markers are not in GameState; server provides anchoring separately.
         return {"text": f"marker {tid}", "kind": "info", "ttl_ms": 1200}
 
     return ENGINE_DEFAULT
 
 
-__all__ = ["popup_message"]
+@bind_title_hook(UIHook.INFORM_POPUP)
+def inform_popup_for_viewer(ctx):
+    from hexengine.hooks.inform_popup import InformPopupContext
+
+    if not isinstance(ctx, InformPopupContext):
+        return {"text": "", "kind": "info", "ttl_ms": 800}
+    return inform_popup(ctx)
+
+
+__all__ = [
+    "advance_gate_banners_for_viewer",
+    "combat_instruction_for_viewer",
+    "phase_banner_html_for_viewer",
+    "phase_banner_text_for_viewer",
+    "popup_message",
+    "inform_popup_for_viewer",
+]

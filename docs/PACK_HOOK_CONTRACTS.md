@@ -2,6 +2,8 @@
 
 Long-term direction for **all** title integration hooks: clearer author intent, **early validation** (pack discovery, server startup, and static typing where possible), and less silent best-effort behavior.
 
+**Title authors:** start at [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) for high-level summaries and API entry points; use **this document** for wire field tables and hook inventory detail.
+
 Title-load is the first manifest-driven hook surface; gameplay hooks already use a separate, stricter Python model. This document is the umbrella for converging them over time.
 
 ## Two hook systems today
@@ -12,6 +14,236 @@ Title-load is the first manifest-driven hook surface; gameplay hooks already use
 | **Manifest hooks** (`[hooks.title_load]`, future TOML tables) | `hexengine_pack.toml` names module + callables + resources | Minimal — enabling the block wires integration; missing callables/resources are skipped or logged | Connect/load continues; easy to ship an incomplete pack |
 
 Gameplay hooks are **typed in Python** (`MovementHook`, `AttackHook`, `UIHook`, …) and wired without stringly dispatch at call sites. Manifest hooks are still **string names + tolerant runtime** (see [`TITLE_LOAD_HOOKS.md`](TITLE_LOAD_HOOKS.md)).
+
+**Skinning and affordances** (wire fields, UI hooks, dual **data-first / code-first** `GameData` authoring, **HTML snippet/template ladder**, current client inventory): see [`SKINNING_AFFORDANCES_PLAN.md`](SKINNING_AFFORDANCES_PLAN.md) and [`SKINNING_CLIENT_INVENTORY.md`](SKINNING_CLIENT_INVENTORY.md).
+
+**Authoritative wire schemas and UI hook inventory (v1):** see [UI affordances — wire schemas and hooks](#ui-affordances--wire-schemas-and-hooks-v1) below.
+
+**Turn action dock (commit UI):** [`TURN_ACTION_DOCK_CONTRACT.md`](TURN_ACTION_DOCK_CONTRACT.md) — hexdemo binds `TURN_ACTION_DOCK_FOR_VIEWER`. Player primitives (INFORM / SELECT / DECIDE / SEQUENCE): same doc + § Map selection preview below.
+
+## UI affordances — wire schemas and hooks (v1)
+
+Per-recipient UI payloads travel on **`StateUpdate`** (banner messages, turn action dock panels, map overlays) or as standalone server messages (**`ui_popup`**). Titles customize copy and affordances through **`UIHook`** callables bound with `@bind_title_hook`; return **`ENGINE_DEFAULT`** to request engine composition or catalog defaults.
+
+Code references: [`StateUpdate`](../src/hexengine/server/protocol/server.py), [`UIPopupWire`](../src/hexengine/server/protocol/server.py), [`UIHooks` / `UIHook`](../src/hexengine/hooks/ui.py), server builders in [`game_server.py`](../src/hexengine/server/game_server.py), client renderers in [`game.py`](../src/hexengine/game/game.py).
+
+### Dual-field rule (text + optional html)
+
+Every rich message should ship **plain `text` plus optional `html`**:
+
+| Field | Role |
+|-------|------|
+| **`text`** | Required on `interaction_messages` rows; fallback when `html` is absent; accessibility; tests and logs |
+| **`html`** | Optional HTML **fragment** (not a full document); client prefers `html` over `text` when both are non-empty |
+
+Same rule applies to **`POPUP_MESSAGE`** hook results and **`ui_popup`** wire payloads. Do **not** put player actions in HTML (`onclick`, forms); use the **turn action dock** (`interaction_panels` `actions[]`) + `action_request`.
+
+HTML is **trusted title content** — the client uses `innerHTML` without sanitization. **Escape dynamic values** before interpolation (see [HTML authoring ladder](#html-authoring-ladder-v1)).
+
+### `StateUpdate.interaction_messages`
+
+Transient turn banner rows. Omitted from wire when `None`. Client shows **one** row: highest-priority `kind` among non-expired rows (`error` > `retreat` > `advance` > `wait` > `phase` > `info`).
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `schema` | `int` | yes | Always **`1`** |
+| `kind` | `str` | yes | Semantic kind; drives client priority and default CSS. Common: `phase`, `retreat`, `wait`, `advance`, `info`, `error` |
+| `text` | `str` | yes* | Plain-text body (*required unless `html` alone suffices for your tests; engine defaults always set `text`) |
+| `html` | `str` | no | Rich fragment; client renders via `innerHTML` when set |
+| `dedupe_key` | `str` | no | Client replaces prior row with same key (e.g. `phase:{schedule_index}`, `combat_prompt`) |
+| `ttl_ms` | `int \| null` | no | Local expiry in ms; `null` = persistent until next `StateUpdate` |
+| `css_class` | `str` | no | Extra class on `#interaction-banner`; if omitted, client uses `GameData.interaction_kind_styles` via `css_class_for_interaction_kind(kind)` |
+
+**Server composition:** unless `UIHook.INTERACTION_MESSAGES` returns a full list, the server merges partial hooks into a default list:
+
+1. **Phase row** — `PHASE_BANNER_TEXT_FOR_VIEWER` → `text`; optional `PHASE_BANNER_HTML_FOR_VIEWER` → `html`
+2. **Combat/retreat row** — from `last_combat` + `COMBAT_INSTRUCTION_FOR_VIEWER` (`instruction` ∈ `resolved`, `retreat_required`, `wait`)
+3. **Advance gate rows** — when `combat_gate == awaiting_advance`, `ADVANCE_GATE_BANNERS_FOR_VIEWER` → advancing faction gets `kind: advance`, others `kind: wait`
+
+**Full override:** `INTERACTION_MESSAGES(state, viewer_faction)` → `list[dict]` replaces the entire default list. Partial hooks are ignored when this hook is bound and does not return `ENGINE_DEFAULT`.
+
+Example phase row (engine-shaped):
+
+```json
+{
+  "schema": 1,
+  "kind": "phase",
+  "dedupe_key": "phase:3",
+  "ttl_ms": null,
+  "css_class": "interaction-msg--phase",
+  "text": "Union: movement (actions: 2)",
+  "html": "<span class=\"hexdemo-turn-banner\">…</span>"
+}
+```
+
+### `StateUpdate.interaction_panels` (turn action dock)
+
+Commit UI on host `#user-controls`. Full panel and action schemas: [`TURN_ACTION_DOCK_CONTRACT.md`](TURN_ACTION_DOCK_CONTRACT.md).
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `schema` | `int` | yes | **`1`** |
+| `id` | `str` | yes | Stable id (convention: `turn_actions`) |
+| `host` | `str` | yes | DOM element id (default `advance`) |
+| `dock_arc` | `str` | no | Title-defined skin key (opaque to engine) |
+| `headline` | `str` | no | Short dock title |
+| `html` | `str` | no | Decorative fragment only (no inline handlers) |
+| `css_class` | `str` | no | Panel root class |
+| `actions` | `list` | yes | Action rows (schema below) |
+| `inputs` | `list` | no | `{id, kind, label, name, default?, options?}` — merged into action `payload` on click |
+
+**Dispatch:** `TURN_ACTION_DOCK_FOR_VIEWER(ctx)` → `list[dict]` or `ENGINE_DEFAULT` → [`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py). Hexdemo: [`games/hexdemo/hooks/turn_action_dock.py`](../games/hexdemo/hooks/turn_action_dock.py).
+
+When `title_state_extension_key` is set, **`TURN_ACTION_DOCK_FOR_VIEWER` is required**; the server never emits **`StateUpdate.primary_actions`** ([`ClientInteractionPanelsMixin`](../src/hexengine/game/arcs/client_interaction_panels.py)).
+
+### Action row schema (shared)
+
+Used in dock `actions[]` and in `map_selection_preview.panel_actions`.
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `schema` | `int` | yes | **`1`** |
+| `id` | `str` | yes | Stable id; client upserts by `id` |
+| `action_type` | `str` | yes | Server RPC name (e.g. `NextPhase`, `CombatAdvance`, `Attack`) |
+| `label` | `str` | yes | Button label |
+| `title` | `str` | no | Tooltip |
+| `payload` | `object` | no | Action params (default `{}`) |
+| `css_class` | `str` | no | Extra button class |
+| `enabled` | `bool` | yes | When `false`, button is shown disabled |
+| `group` | `str` | no | Layout hint: `primary`, `secondary`, `danger` |
+| `order` | `int` | no | Optional sort within panel |
+
+### `StateUpdate.primary_actions` (removed from wire)
+
+The flat `primary_actions` list is no longer sent on `StateUpdate`. Gate rows (disrupt, advance, end phase) are composed inside the turn action dock via `TURN_ACTION_DOCK_FOR_VIEWER` (catalog default or title hook). [`default_primary_actions_for_viewer`](../src/hexengine/hooks/ui_primary_actions.py) remains an internal helper for the engine dock catalog only.
+
+### `StateUpdate.map_overlays`
+
+Map-space DOM overlays under `#map-world`. See inline doc on [`StateUpdate`](../src/hexengine/server/protocol/server.py). Built from `UIHook.MAP_OVERLAYS` or engine default (empty list).
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `schema` | `int` | yes | **`1`** |
+| `id` | `str` | yes | Stable id; replace prior overlay with same id |
+| `kind` | `str` | yes | e.g. `glyph` |
+| `hex` | `{i,j,k}` | yes | Map anchor |
+| `text` | `str` | kind-specific | Glyph text |
+| `css_class` | `str` | no | Title CSS hook |
+
+### `ui_popup` (standalone message)
+
+Sent on **`InspectRequest`**, not embedded in `StateUpdate`. Two hooks, one wire:
+
+| `target_kind` | Hook | When |
+|---------------|------|------|
+| `unit`, `marker` | **`POPUP_MESSAGE`** | Double-click inspect, Enter on selection |
+| `inform` | **`INFORM_POPUP`** | Map callouts (`context.inform_kind`, `target_id` = reason, optional `hex` / `unit_id`) |
+
+Client entry point for inform: `Game.show_inform_popup(...)` → `send_inform_popup` on the WebSocket client.
+
+**Wire type:** [`UIPopupWire`](../src/hexengine/server/protocol/server.py) (`wire_type: ui_popup`).
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `hex` | `{i,j,k}` | yes | Callout anchor (server sets from target position) |
+| `kind` | `str` | no | Default `info` |
+| `text` | `str` | one of text/html | Plain fallback |
+| `html` | `str` | one of text/html | Rich fragment; client prefers over `text` |
+| `ttl_ms` | `int \| null` | no | Auto-dismiss after ms; default **800** on wire when hook omits |
+| `css_class` | `str` | no | Extra class on popup root |
+
+**Hook return dict** (server adds `hex`): same fields except `hex`. At least one of `text` or `html` required.
+
+Example from hexdemo [`unit_inspect_popup`](../games/hexdemo/ui_markup.py):
+
+```python
+{
+    "text": "u1 | infantry | union | [3, 4]",
+    "html": "<div class=\"hexdemo-unit-inspect\">…</div>",  # from templates/unit_inspect.html
+    "kind": "info",
+    "ttl_ms": 1500,
+}
+```
+
+Use **`text` + `html`** together; the server forwards `ttl_ms` and optional `css_class` to the client popup.
+
+### Map selection preview (`map_selection_preview_request` / `map_selection_preview`)
+
+SELECT drafts (map/unit picks before commit) use one RPC pair. The server dispatches by **`kind`** ([`InteractionKind`](../src/hexengine/gamedef/interactions.py)) through [`map_selection_registry`](../src/hexengine/hooks/map_selection_registry.py). Full primitive model: [`TURN_ACTION_DOCK_CONTRACT.md`](TURN_ACTION_DOCK_CONTRACT.md#player-interaction-primitives).
+
+**Client request:** [`MapSelectionPreviewRequest`](../src/hexengine/server/protocol/client.py) — `kind`, `draft` object, optional `request_id`.
+
+**Server response:** [`MapSelectionPreviewWire`](../src/hexengine/server/protocol/server.py) — `kind`, `status_text`, `confirm_enabled`, optional `valid_target_hexes`, `eligible_attacker_ids`, `commit_payload`, `panel_actions` (same action row schema as the turn action dock).
+
+**Feature flag:** `turn_rules.client_contract.features` includes **`map_selection_previews`** when [`bound_map_selection_kinds`](../src/hexengine/hooks/map_selection_registry.py) is non-empty for the title.
+
+#### Kind → hook binding (registry)
+
+| `InteractionKind` | Title hook | Draft / notes |
+|-------------------|------------|---------------|
+| `attack_plan` | `AttackHook.ATTACK_PLAN_PREVIEW` → `hooks.attack.attack_plan_preview` | `target_hex`, `attacker_ids`; returns `panel_actions` (hexdemo) |
+| `retreat_path` | `MovementHook.RETREAT_PATH_PREVIEW` → `hooks.movement.retreat_path_preview` | `unit_id`, `path[]`; `legal_next_hexes`, stepwise `commit_payload` (hexdemo) |
+| `inspect_unit` | — | Inspect uses `POPUP_MESSAGE` (INFORM), not map-selection preview |
+| `place_marker` | `UIHook.PLACE_MARKER_PREVIEW` → `hooks.ui.place_marker_preview` | `marker_id`, `to_hex`; legal destinations from title rule; `MoveMarker` commit (hexdemo). Shift+click marker to start; drag unchanged. |
+
+To add a kind: extend `InteractionKind`, register a row in [`map_selection_registry.py`](../src/hexengine/hooks/map_selection_registry.py), bind a title hook, add a client apply row in [`client_map_selection_registry.py`](../src/hexengine/game/arcs/client_map_selection_registry.py) (`_MAP_SELECTION_APPLY_METHODS`), optionally add panel-action routes in [`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py), and document draft/response fields in the title pack.
+
+### UI hook inventory
+
+Bind with `@bind_title_hook(UIHook.…)` in the title hooks package. Values match [`UIHook`](../src/hexengine/hooks/ui.py) enum names.
+
+| Hook | When invoked | Signature | Return | `ENGINE_DEFAULT` behavior |
+|------|--------------|-----------|--------|---------------------------|
+| **`INTERACTION_MESSAGES`** | Every per-player `StateUpdate` | `(state, viewer_faction)` | `list[dict]` | Server builds default list (phase + combat + advance rows) |
+| **`PHASE_BANNER_TEXT_FOR_VIEWER`** | Default message composition | `(ctx: PhaseBannerContext)` | `str` | [`default_phase_banner_text_for_viewer`](../src/hexengine/hooks/ui.py) |
+| **`PHASE_BANNER_HTML_FOR_VIEWER`** | Default message composition | `(ctx: PhaseBannerContext)` | `str` | Omitted — phase row is text-only |
+| **`COMBAT_INSTRUCTION_FOR_VIEWER`** | After combat with retreat context | `(ctx: CombatInteractionContext)` | `(instruction, message)` | [`default_combat_instruction_for_viewer`](../src/hexengine/hooks/ui.py) |
+| **`ADVANCE_GATE_BANNERS_FOR_VIEWER`** | `combat_gate == awaiting_advance` | `(ctx: AdvanceGateInteractionContext)` | `(text_advancing, text_other)` | [`default_advance_gate_banners_for_viewer`](../src/hexengine/hooks/ui.py) |
+| **`POPUP_MESSAGE`** | `InspectRequest` (`unit` / `marker`) | `(state, viewer_faction, target_kind, target_id)` | `dict` | Minimal debug text |
+| **`INFORM_POPUP`** | `InspectRequest` (`inform`) | `(ctx: InformPopupContext)` | `dict` | [`default_inform_popup_for_viewer`](../src/hexengine/hooks/inform_popup.py) |
+| **`MAP_OVERLAYS`** | Every per-player `StateUpdate` | `(state, viewer_faction)` | `list[dict]` | `[]` |
+| **`TURN_ACTION_DOCK_FOR_VIEWER`** | Every per-player `StateUpdate` | `(ctx: TurnActionDockContext)` | `list[dict]` panels | Engine catalog ([`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py)) |
+| **`PRIMARY_ACTIONS_FOR_VIEWER`** | When dock hook not bound | `(ctx: PrimaryActionsContext)` | `list[dict]` | Engine catalog ([`ui_primary_actions`](../src/hexengine/hooks/ui_primary_actions.py)) |
+| **`INTERACTION_PANELS_FOR_VIEWER`** | When dock hook not bound | `(ctx: InteractionPanelsContext)` | `list[dict]` | Engine catalog ([`ui_interaction_panels`](../src/hexengine/hooks/ui_interaction_panels.py)) |
+
+**Partial vs full message hooks**
+
+- **Partial** — customize one slice; server merges into the default `interaction_messages` list.
+- **Full** — `INTERACTION_MESSAGES` replaces the entire list; do not rely on partial hooks when the full hook is bound.
+- **Phase banner** — always provide sensible `text` via `PHASE_BANNER_TEXT_FOR_VIEWER` even when `PHASE_BANNER_HTML_FOR_VIEWER` supplies display HTML.
+
+Context dataclasses: [`CombatInteractionContext`](../src/hexengine/hooks/ui.py), [`AdvanceGateInteractionContext`](../src/hexengine/hooks/ui.py), [`PhaseBannerContext`](../src/hexengine/hooks/ui.py), [`TurnActionDockContext`](../src/hexengine/hooks/ui_turn_action_dock.py), [`PrimaryActionsContext`](../src/hexengine/hooks/ui_primary_actions.py).
+
+**Reference pack:** [`games/hexdemo/hooks/`](../games/hexdemo/hooks/) (`turn_action_dock.py`, message hooks in `ui.py`); markup in [`games/hexdemo/ui_markup.py`](../games/hexdemo/ui_markup.py); assets in [`games/hexdemo/resources/`](../games/hexdemo/resources/) (`templates/`, `flags/`, `ui.css`). Inventory: [`SKINNING_CLIENT_INVENTORY.md`](SKINNING_CLIENT_INVENTORY.md).
+
+### Client contract features (not wire rows)
+
+Optional UX is gated via `StateUpdate.turn_rules.client_contract.features` (e.g. **`attack_planning_ui`**, **`map_selection_previews`**). Attack-plan confirm/cancel come from **`map_selection_preview.panel_actions`** merged into the turn action dock; `AttackPlanCancel` is client-local (no RPC). See [`client_map_selection.py`](../src/hexengine/game/arcs/client_map_selection.py), [`client_combat.py`](../src/hexengine/game/arcs/client_combat.py).
+
+### HTML authoring ladder (v1)
+
+Tiered approach for title HTML without arbitrary inline JS. Expanded narrative and hexdemo walkthrough: [`SKINNING_AFFORDANCES_PLAN.md` § Authoring](SKINNING_AFFORDANCES_PLAN.md#authoring).
+
+| Tier | Mechanism | Best for |
+|------|-----------|----------|
+| **1 — CSS-first** | `GameData` + `resources/ui.css`; return `text` + `css_class` / faction classes on `#interaction-banner` | Bar colors, typography, layout chrome |
+| **2 — Static templates** | `resources/templates/*.html` loaded with `read_pack_resource_text`; `{placeholders}` with **`html.escape`** on dynamic values | Designer-editable layout shells |
+| **3 — Pack helpers** | Title module (e.g. `ui_markup.py`) wrapping templates + escape | Repeated patterns within one pack |
+| **4 — Engine helpers** | [`hexengine.ui.display`](../src/hexengine/ui/display.py): `escape`, `interaction_message`, `InteractionMessage`, `load_html_template`, `render_html_template`, `pack_asset_href` | Shared API across packs |
+| **5 — Full hook override** | `INTERACTION_MESSAGES` returns complete `list[dict]` with `html` per row | Total control over banner composition |
+
+**Wire surfaces that accept `html` (v1)**
+
+| Surface | Hook / field | Display-only |
+|---------|--------------|--------------|
+| Turn banner | `interaction_messages[].html`, `PHASE_BANNER_HTML_FOR_VIEWER` | Yes |
+| Inspect popup | `POPUP_MESSAGE` → `ui_popup.html` | Yes |
+| Title-load splash | `[hooks.title_load]` splash resource | Yes |
+| Turn action dock | `interaction_panels[].headline`, `html` (display); `actions[]` commit | `actions[]` → `action_request` |
+
+**Do not:** raw f-string HTML without escape; inline `onclick`; Jinja in v1; live `GameState` copy in static TOML.
+
+---
 
 ## Target model (not fully implemented)
 
@@ -70,7 +302,7 @@ Align naming and validation rules with `TitleHooks` contract sentinels (`REQUIRE
 |------|-------------|-------------------|--------|
 | Movement | `TitleHooks.movement` | Server movement arc; hook catalog | `MovementHook` enum + `bind_title_hook` |
 | Attack | `TitleHooks.attack` | `authority_attack` pipeline; `validate_title_contract` if schedule has combat | Required callables when schedule implies combat |
-| UI | `TitleHooks.ui` | Client/server UI hook points | Overlays, popups, etc. |
+| UI | `TitleHooks.ui` | Client/server UI hook points | Per-viewer wire: [`interaction_messages`](#stateupdateinteraction_messages), [`interaction_panels`](#stateupdateinteraction_panels-turn-action-dock), [`ui_popup`](#ui-popup-standalone-message); see [UI affordances](#ui-affordances--wire-schemas-and-hooks-v1) |
 | Title-load (client) | `[hooks.title_load]` | Client title-load arc; tolerant dispatch in `gameroot` | See [`TITLE_LOAD_HOOKS.md`](TITLE_LOAD_HOOKS.md) |
 | Title-load (server) | same manifest | `try_pack_title_load_server` | One-shot log hook today |
 | Game definition | `[python].entry_*` | Required for pack load | Already hard-required |

@@ -87,6 +87,34 @@ def set_status(message: str) -> None:
         pass
 
 
+def ui_popup_plain_line(payload: dict[str, Any]) -> str:
+    """Plain-text line for an INFORM ``ui_popup`` wire dict (for logging / status repeat)."""
+    if not isinstance(payload, dict):
+        return ""
+    text = payload.get("text")
+    if isinstance(text, str) and text.strip():
+        return text.strip()
+    html = payload.get("html")
+    if isinstance(html, str) and html.strip():
+        return "(rich html popup)"
+    return ""
+
+
+def repeat_ui_popup_to_status(payload: dict[str, Any]) -> None:
+    """
+    Optional dev repeater: mirror conventional map popups on ``#status-line``.
+
+    Does not replace the on-map callout; duplicates copy for debugging only.
+    """
+    line = ui_popup_plain_line(payload)
+    if not line:
+        return
+    kind = str(payload.get("kind", "")).strip()
+    if kind and kind != "info":
+        line = f"[{kind}] {line}"
+    set_status(line)
+
+
 class TextAreaWriter:
     ACTIVE_LEVEL = logging.DEBUG
     INSTANCE = None

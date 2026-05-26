@@ -74,6 +74,15 @@ def _schedule_expects_attack_hooks(game_definition: Any) -> bool:
     return False
 
 
+def _title_requires_turn_action_dock(game_definition: Any) -> bool:
+    """Title packs with combat extension state must bind the turn action dock."""
+    gd = getattr(game_definition, "game_data", None)
+    if gd is None:
+        return False
+    key = getattr(gd, "title_state_extension_key", None)
+    return bool(str(key or "").strip())
+
+
 def validate_title_contract(game_definition: Any) -> None:
     """Validate title hook contracts against the game definition.
 
@@ -82,11 +91,25 @@ def validate_title_contract(game_definition: Any) -> None:
     `validate_attack` and `resolve_attack` callables. Implementations may return
     `ENGINE_DEFAULT` from those callables to decline attacks at action time.
 
+    When `GameData.title_state_extension_key` is set (title combat extension bucket),
+    `TitleHooks.ui.turn_action_dock_for_viewer` must be bound. Commit UI is delivered
+    only via ``interaction_panels`` (no ``primary_actions`` fallback).
+
     Raises:
         HookContractError: When an attack-capable schedule has incomplete attack hooks.
     """
 
     bundle = read_title_hooks_from_definition(game_definition)
+    if _title_requires_turn_action_dock(game_definition):
+        if bundle.ui.turn_action_dock_for_viewer is None:
+            raise HookContractError(
+                message=(
+                    "title_state_extension_key is set but "
+                    "TitleHooks.ui.turn_action_dock_for_viewer is not bound. "
+                    "Wire UIHook.TURN_ACTION_DOCK_FOR_VIEWER in the title hooks package."
+                ),
+                details={"requires_turn_action_dock": True},
+            )
     if not _schedule_expects_attack_hooks(game_definition):
         return
     a = bundle.attack

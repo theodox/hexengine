@@ -47,11 +47,18 @@ def main():
     print("=" * 60)
     print()
 
-    # Start HTTP server for static files
+    # Start HTTP server for static files (includes /pack/<pack_id>/ asset routing)
     print("Starting HTTP server on http://localhost:8000")
     http_process = subprocess.Popen(
-        [sys.executable, "-m", "http.server", "8000"],
-        cwd=Path(__file__).parent,
+        [
+            sys.executable,
+            "-m",
+            "hexengine.dev.static_server",
+            "--directory",
+            str(Path(__file__).parent),
+            "--port",
+            "8000",
+        ],
     )
 
     if not _wait_tcp_port("127.0.0.1", 8000, timeout_s=15.0):

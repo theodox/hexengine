@@ -60,13 +60,14 @@ class LeaveGameRequest:
     pass
 
 
-@client_message("inspect")
+@client_message("inspect", omit_if_none=frozenset({"context"}))
 @dataclass
 class InspectRequest:
-    """Request a title-formatted informational popup for a target."""
+    """Request a title-formatted informational popup (INFORM / ``ui_popup``)."""
 
-    target_kind: str  # e.g. "unit" | "marker"
-    target_id: str
+    target_kind: str  # "unit" | "marker" | "inform"
+    target_id: str  # unit/marker id, or inform ``reason`` when kind is inform
+    context: dict[str, Any] | None = None  # inform: inform_kind, hex, unit_id
 
 
 @client_message("marker_preview_request")
@@ -85,4 +86,18 @@ class UnitPreviewRequest:
     """Request allowed destination hexes for a unit drag preview (move or retreat)."""
 
     unit_id: str
+    request_id: str = ""
+
+
+@client_message("map_selection_preview_request")
+@dataclass
+class MapSelectionPreviewRequest:
+    """
+    Request preview for a map-selection draft (e.g. attack plan target + attackers).
+
+    ``kind`` matches ``InteractionKind`` values such as ``attack_plan``.
+    """
+
+    kind: str
+    draft: dict[str, Any]
     request_id: str = ""

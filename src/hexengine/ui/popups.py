@@ -31,19 +31,47 @@ class PopupManager:
             p.delete(self.canvas)
         self.popups = []
 
-    def create_popup(self, message: str, position: tuple[float, float]) -> Popup:
+    def create_popup(
+        self,
+        message: str,
+        position: tuple[float, float],
+        *,
+        timeout_ms: int | None = None,
+        css_class: str | None = None,
+        auto_dismiss: bool = False,
+    ) -> Popup:
         self.clear()
         popup = Popup(message, position)
         logging.info(f"Creating popup with message: {message} at position: {position}")
         self.add_popup(popup)
-        popup.display(self.canvas)
+        timeout = 500 if timeout_ms is None else max(0, int(timeout_ms))
+        popup.display(
+            self.canvas,
+            timeout=timeout,
+            css_class=css_class,
+            auto_dismiss=auto_dismiss,
+        )
         return popup
 
-    def create_popup_html(self, html: str, position: tuple[float, float]) -> Popup:
+    def create_popup_html(
+        self,
+        html: str,
+        position: tuple[float, float],
+        *,
+        timeout_ms: int | None = None,
+        css_class: str | None = None,
+        auto_dismiss: bool = False,
+    ) -> Popup:
         self.clear()
         popup = Popup(html, position, is_html=True)
         self.add_popup(popup)
-        popup.display(self.canvas)
+        timeout = 500 if timeout_ms is None else max(0, int(timeout_ms))
+        popup.display(
+            self.canvas,
+            timeout=timeout,
+            css_class=css_class,
+            auto_dismiss=auto_dismiss,
+        )
         return popup
 
 
@@ -59,13 +87,23 @@ class Popup:
         self.faded = False
         self.timeout = 0
 
-    def display(self, canvas, timeout: int = 500) -> None:
+    def display(
+        self,
+        canvas,
+        timeout: int = 500,
+        *,
+        css_class: str | None = None,
+        auto_dismiss: bool = False,
+    ) -> None:
         # Root is the callout anchor: (left, top) is the map pixel under the tail tip
         # (e.g. unit center). Bubble sits above; tail points down to that point.
         # @TODO: position popups as close to screen center as possible,
         # including below the mouse cursor if position would clip the screen
         root = js.document.createElement("div")
-        root.className = "popup popup--callout"
+        extra = str(css_class).strip() if css_class is not None else ""
+        root.className = (
+            f"popup popup--callout {extra}".strip() if extra else "popup popup--callout"
+        )
 
         bubble = js.document.createElement("div")
         bubble.className = "popup-bubble"
@@ -93,9 +131,12 @@ class Popup:
         self.timeout = timeout
 
         if self.timeout:
-            self.element.addEventListener(
-                "mouseleave", create_proxy(lambda _: self.do_fade())
-            )
+            if auto_dismiss:
+                js.setTimeout(create_proxy(lambda _: self.do_fade()), self.timeout)
+            else:
+                self.element.addEventListener(
+                    "mouseleave", create_proxy(lambda _: self.do_fade())
+                )
 
     def delete(self, *_) -> None:
         LOGGER.info(f"Removing popup with message: {self.message}")

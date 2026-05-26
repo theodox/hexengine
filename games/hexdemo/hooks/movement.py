@@ -84,3 +84,10 @@ def validate_retreat_move(ctx, hexes_remaining: int) -> None:
         raise ValueError(
             f"Retreat move must cover exactly {int(hexes_remaining)} hexes (cube distance); got {leg}"
         )
+
+
+@bind_title_hook(MovementHook.RETREAT_PATH_PREVIEW)
+def retreat_path_preview_for_viewer(ctx):
+    from ..retreat_path_preview import retreat_path_preview
+
+    return retreat_path_preview(ctx)

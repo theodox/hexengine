@@ -1,6 +1,8 @@
 # Hexdemo hooks
 
-This folder is where **title policy** lives. The engine calls it through different wiring paths; this README is a working map (not exhaustive — it will grow with stricter contracts and templates; see `docs/PACK_HOOK_CONTRACTS.md`).
+This folder is where **title policy** lives. The engine calls it through different wiring paths.
+
+**Start:** [`docs/TITLE_AUTHORING.md`](../../../docs/TITLE_AUTHORING.md) (author hub). This README is a **pack-local map**; wire detail is in [`docs/PACK_HOOK_CONTRACTS.md`](../../../docs/PACK_HOOK_CONTRACTS.md) and [`docs/TURN_ACTION_DOCK_CONTRACT.md`](../../../docs/TURN_ACTION_DOCK_CONTRACT.md).
 
 ## Three lanes
 
@@ -51,7 +53,13 @@ Longer term, the engine may offer **composable rule pieces** (ZOC, terrain, mora
 |--------|------|-----------|
 | `movement.py` | Step cost, ZoC, retreat obligations, … | `@bind_title_hook(MovementHook.…)` |
 | `attack.py` | Validate/resolve combat, CRT helpers | `@bind_title_hook(AttackHook.…)` |
-| `ui.py` | Popups, inspect, interaction chrome | `@bind_title_hook(UIHook.…)` |
+| `ui.py` | Banners, inspect (`POPUP_MESSAGE`), inform callouts (`INFORM_POPUP`) | `@bind_title_hook(UIHook.…)` |
+| `../inform_popups.py` | Copy for `inform` inspect reasons (attack-plan feedback) | Used by `ui.inform_popup_for_viewer` |
+| `turn_action_dock.py` | Commit dock (`TURN_ACTION_DOCK_FOR_VIEWER`) | `@bind_title_hook(UIHook.TURN_ACTION_DOCK_FOR_VIEWER)` |
+| `markers.py` | Place-marker map-selection preview | `@bind_title_hook(UIHook.PLACE_MARKER_PREVIEW)` |
+| `../ui_markup.py` | HTML templates + flag URLs (tier 2–3; `hexengine.ui.display`) | Imported by `ui.py`, `turn_action_dock.py` |
+| `../resources/templates/` | `phase_banner.html`, `unit_inspect.html`, `dock_gate.html` | Loaded by `ui_markup` |
+| `../resources/flags/` | Example faction SVGs (banner `<img>`, optional `unit_graphics`) | See `flags/README.md` |
 | `overlays.py` | Map overlay glyphs | UI hooks |
 
 Implementations may return `hexengine.hooks.ENGINE_DEFAULT` to defer to engine catalog defaults. Combat schedules that include an attack/combat phase need `validate_attack` and `resolve_attack` present (see `validate_title_contract`).
@@ -81,6 +89,7 @@ Optional future layout: `hexdemo/rules/` for policy modules and `hexdemo/hooks/`
 
 ## See also
 
+- Author hub: [`docs/TITLE_AUTHORING.md`](../../../docs/TITLE_AUTHORING.md)
 - Pack overview: `../README.md`
 - Policy stubs: `../movement_rules.py`, `../marker_rules.py`, `../combat.py`
 - Boundary matrix (movement legality): `docs/engine_game_boundary_matrix.md`

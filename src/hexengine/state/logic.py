@@ -17,8 +17,9 @@ from ..hexes.types import Hex
 from ..state.game_state import GameState
 from .map_feature_queries import edge_line_of_sight_blocks_hex_line
 
-# Default path-cost budget when hexengine.gamedef.protocol.GameDefinition
-# does not implement movement_budget_for_unit.
+# Fallback schedule budget on the wire and in engine catalog when a title omits
+# movement_budget_for_unit. Authoritative move previews and validation use server hooks,
+# not this constant on the browser client.
 DEFAULT_MOVEMENT_BUDGET = 4.0
 
 

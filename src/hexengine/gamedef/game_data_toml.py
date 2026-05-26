@@ -117,6 +117,8 @@ def game_data_from_mapping(data: Mapping[str, Any]) -> GameData:
     fd = _str_dict(data.get("faction_display_names"))
     fc = _str_dict(data.get("faction_css_classes"))
     hi = _highlight_dict(data.get("hex_highlight_ui"))
+    shell = _shell_ui_dict(data.get("shell_ui"))
+    kind_styles = _str_dict(data.get("interaction_kind_styles"))
 
     return GameData(
         gamedata_schema=1,
@@ -128,6 +130,8 @@ def game_data_from_mapping(data: Mapping[str, Any]) -> GameData:
         title_css_file=title_file,
         title_css=title_css,
         hex_highlight_ui=hi,
+        shell_ui=shell,
+        interaction_kind_styles=kind_styles,
     )
 
 
@@ -172,6 +176,41 @@ def _highlight_dict(v: Any) -> dict[str, Any]:
             continue
         if isinstance(raw, str) and raw.strip():
             out[k] = raw.strip()
+    return out
+
+
+def _shell_ui_dict(v: Any) -> dict[str, Any]:
+    if not isinstance(v, dict):
+        return {}
+    allowed_str = (
+        "advance_turn_button_label",
+        "disrupt_instead_label",
+        "disrupt_instead_title",
+        "combat_advance_label",
+        "combat_advance_title",
+        "attack_pick_target_status",
+        "attack_not_in_phase_status",
+        "attack_target_set_status",
+        "attack_confirm_label",
+        "attack_cancel_label",
+        "dock_gate_panel_hint",
+        "retreat_path_confirm_label",
+        "retreat_path_cancel_label",
+        "retreat_path_undo_label",
+        "retreat_path_pick_hex_status",
+        "retreat_path_ready_status",
+        "retreat_path_confirm_title",
+    )
+    out: dict[str, Any] = {}
+    for k in allowed_str:
+        raw = v.get(k)
+        if isinstance(raw, str) and raw.strip():
+            out[k] = raw.strip()
+    phases = v.get("attack_planning_phases")
+    if isinstance(phases, list):
+        cleaned = [str(p).strip() for p in phases if str(p).strip()]
+        if cleaned:
+            out["attack_planning_phases"] = cleaned
     return out
 
 
