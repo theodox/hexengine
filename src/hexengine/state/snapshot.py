@@ -150,8 +150,12 @@ def game_state_to_wire_dict(state: GameState) -> dict[str, Any]:
             "global_tick": state.turn.global_tick,
         },
     }
-    if state.extension:
-        out["extension"] = dict(state.extension)
+    if state.title_state:
+        out["title_state"] = dict(state.title_state)
+    if state.engine_state:
+        out["engine_state"] = dict(state.engine_state)
+    if state.title_bucket_key:
+        out["title_bucket_key"] = state.title_bucket_key
     if state.rng_log:
         out["rng_log"] = list(state.rng_log)
     return out
@@ -376,8 +380,14 @@ def game_state_from_wire_dict(state_dict: dict[str, Any]) -> GameState:
         global_tick=int(turn_data.get("global_tick", 0)),
     )
 
-    ext = state_dict.get("extension")
-    extension: dict[str, Any] = dict(ext) if isinstance(ext, dict) else {}
+    raw_ts = state_dict.get("title_state")
+    raw_es = state_dict.get("engine_state")
+    raw_key = state_dict.get("title_bucket_key")
+    title_state: dict[str, Any] = dict(raw_ts) if isinstance(raw_ts, dict) else {}
+    engine_state: dict[str, Any] = dict(raw_es) if isinstance(raw_es, dict) else {}
+    title_bucket_key: str | None = None
+    if isinstance(raw_key, str) and raw_key.strip():
+        title_bucket_key = raw_key.strip()
 
     raw_rng = state_dict.get("rng_log", [])
     if isinstance(raw_rng, dict):
@@ -388,4 +398,11 @@ def game_state_from_wire_dict(state_dict: dict[str, Any]) -> GameState:
         dict(x) for x in raw_iter_rng if isinstance(x, dict)
     )
 
-    return GameState(board=board, turn=turn, extension=extension, rng_log=rng_log)
+    return GameState(
+        board=board,
+        turn=turn,
+        title_state=title_state,
+        engine_state=engine_state,
+        title_bucket_key=title_bucket_key,
+        rng_log=rng_log,
+    )

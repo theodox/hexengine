@@ -346,4 +346,4 @@ def scenario_to_initial_state(
             )
         )
 
-    return GameState(board=board, turn=turn, extension={}, rng_log=())
+    return GameState(board=board, turn=turn, rng_log=())

@@ -29,6 +29,7 @@ from hexengine.server import (
 )
 from hexengine.server.protocol import JoinGameRequest, StateUpdate
 from hexengine.state import GameState
+from hexengine.state.title_extension import title_bucket
 from hexengine.state.actions import MoveUnit
 from hexengine.state.game_state import BoardState, TurnState, UnitState
 from hexengine.state.snapshot import game_state_to_wire_dict
@@ -422,7 +423,7 @@ class TestGameServer(unittest.TestCase):
                 phase_actions_remaining=2,
                 schedule_index=1,
             )
-            state = GameState(board=board, turn=turn, extension={"t": {}}, rng_log=())
+            state = GameState(board=board, turn=turn, title_state={}, title_bucket_key="t", rng_log=())
 
             class _GD(InterleavedTwoFactionGameDefinition):
                 @property
@@ -506,7 +507,7 @@ class TestGameServer(unittest.TestCase):
                 phase_actions_remaining=2,
                 schedule_index=1,
             )
-            state = GameState(board=board, turn=turn, extension={"t": {}}, rng_log=())
+            state = GameState(board=board, turn=turn, title_state={}, title_bucket_key="t", rng_log=())
 
             class _GD(InterleavedTwoFactionGameDefinition):
                 @property
@@ -556,7 +557,9 @@ class TestGameServer(unittest.TestCase):
             )
             await server.handle_message("p1", req.to_message())
             self.assertFalse(errors)
-            hx = server.action_manager.current_state.extension.get("t", {})
+            from hexengine.state.title_extension import title_bucket
+
+            hx = title_bucket(server.action_manager.current_state, "t")
             self.assertEqual(hx.get("last_combat", {}).get("retreat_unit_id"), "a2")
             ro = hx.get("retreat_obligations", {})
             # Group retreat applies to the stack at a2's hex (h0), so both Blue units retreat.
@@ -589,7 +592,8 @@ class TestGameServer(unittest.TestCase):
             state = GameState(
                 board=board,
                 turn=turn,
-                extension={"t": {"retreat_obligations": {"u": 1}}},
+                title_state={"retreat_obligations": {"u": 1}},
+                title_bucket_key="t",
                 rng_log=(),
             )
 
@@ -666,7 +670,8 @@ class TestGameServer(unittest.TestCase):
             state = GameState(
                 board=board,
                 turn=turn,
-                extension={"t": {"retreat_obligations": {"u": 2}}},
+                title_state={"retreat_obligations": {"u": 2}},
+                title_bucket_key="t",
                 rng_log=(),
             )
 
@@ -925,14 +930,19 @@ class TestGameServer(unittest.TestCase):
     def test_after_next_phase_builtin_skips_title_combat_extension_clear(self) -> None:
         """Built-in `GameDefinition` has no `title_state_extension_key`; do not mutate."""
         server = GameServer(self.initial_state, game_definition=_test_game_definition())
-        ext = {
-            "hexdemo": {"attacks_this_phase": ["x"], "last_combat": {"outcome": "none"}}
+        hx0 = {
+            "attacks_this_phase": ["x"],
+            "last_combat": {"outcome": "none"},
         }
         server.action_manager._current_state = (
-            server.action_manager.current_state.with_extension(ext)
+            server.action_manager.current_state.with_title_state(
+                hx0, title_bucket_key="hexdemo"
+            )
         )
         server._after_next_phase_applied()
-        hx = server.action_manager.current_state.extension.get("hexdemo")
+        from hexengine.state.title_extension import title_bucket
+
+        hx = title_bucket(server.action_manager.current_state, "hexdemo")
         self.assertIsInstance(hx, dict)
         self.assertIn("attacks_this_phase", hx)
 

@@ -14,6 +14,7 @@ from hexengine.hexes.types import Hex
 from hexengine.server.game_server import GameServer
 from hexengine.server.protocol import ActionRequest, CombatEventWire, PlayerInfo
 from hexengine.state import GameState
+from hexengine.state.title_extension import title_bucket
 from hexengine.state.actions import Attack, NextPhase
 from hexengine.state.game_state import BoardState, TurnState, UnitState
 
@@ -49,7 +50,7 @@ def _hexdemo_combat_state() -> GameState:
         turn_number=1,
         schedule_index=1,
     )
-    return GameState(board=board, turn=turn, extension={"hexdemo": {}}, rng_log=())
+    return GameState(board=board, turn=turn, title_state={}, title_bucket_key="hexdemo", rng_log=())
 
 
 def _hexdemo_two_union_vs_one_def() -> GameState:
@@ -92,7 +93,7 @@ def _hexdemo_two_union_vs_one_def() -> GameState:
         turn_number=1,
         schedule_index=1,
     )
-    return GameState(board=board, turn=turn, extension={"hexdemo": {}}, rng_log=())
+    return GameState(board=board, turn=turn, title_state={}, title_bucket_key="hexdemo", rng_log=())
 
 
 def _hexdemo_artillery_ranged_vs_infantry() -> GameState:
@@ -139,14 +140,16 @@ def _hexdemo_artillery_ranged_vs_infantry() -> GameState:
         turn_number=1,
         schedule_index=1,
     )
-    return GameState(board=board, turn=turn, extension={"hexdemo": {}}, rng_log=())
+    return GameState(board=board, turn=turn, title_state={}, title_bucket_key="hexdemo", rng_log=())
 
 
 def test_pack_extension_retreat_reads_custom_key() -> None:
     from hexengine.state.pack_extension_retreat import retreat_hexes_remaining
 
     st = GameState.create_empty()
-    st = st.with_extension({"other": {"retreat_obligations": {"u": 3}}})
+    st = st.with_title_state(
+        {"retreat_obligations": {"u": 3}}, title_bucket_key="other"
+    )
     assert retreat_hexes_remaining(st, "u", extension_key="other") == 3
 
 
@@ -154,11 +157,12 @@ def test_hexdemo_retreat_reads_extension() -> None:
     """Mandatory retreat steps live in extension; engine helper has no UI imports."""
     from hexengine.state.pack_extension_retreat import retreat_hexes_remaining
 
+    from hexengine.state.title_extension import title_bucket
+
     st = _hexdemo_combat_state()
-    ext = dict(st.extension)
-    hx = dict(ext.get("hexdemo", {}))
+    hx = dict(title_bucket(st, "hexdemo"))
     hx["retreat_obligations"] = {"u_def": 2}
-    st2 = st.with_extension({**ext, "hexdemo": hx})
+    st2 = st.with_title_state(hx, title_bucket_key="hexdemo")
     assert retreat_hexes_remaining(st2, "u_def", extension_key="hexdemo") == 2
     assert retreat_hexes_remaining(st2, "u_att", extension_key="hexdemo") is None
 
@@ -215,7 +219,7 @@ def test_hexdemo_stacking_limit_rejects_move() -> None:
         phase_actions_remaining=2,
         schedule_index=0,
     )
-    st = GameState(board=board, turn=turn, extension={"hexdemo": {}}, rng_log=())
+    st = GameState(board=board, turn=turn, title_state={}, title_bucket_key="hexdemo", rng_log=())
     gd = game_definition_from_config(default_match_config())
     server = GameServer(initial_state=st, game_definition=gd)
 
@@ -267,7 +271,7 @@ def test_hexdemo_move_can_pass_through_friendly_stack() -> None:
         turn=TurnState(
             current_faction="union", current_phase="Move", phase_actions_remaining=2
         ),
-        extension={"hexdemo": {}},
+        title_state={}, title_bucket_key="hexdemo",
         rng_log=(),
     )
     moves = compute_valid_moves(st, "m", 2.0, max_active_units_per_hex=3)
@@ -294,7 +298,8 @@ def test_hexdemo_retreat_moves_entire_stack() -> None:
     st = GameState(
         board=board,
         turn=turn,
-        extension={"hexdemo": {"retreat_obligations": {"u1": 1, "u2": 1}}},
+        title_state={"retreat_obligations": {"u1": 1, "u2": 1}},
+        title_bucket_key="hexdemo",
         rng_log=(),
     )
     gd = game_definition_from_config(default_match_config())
@@ -321,7 +326,7 @@ def test_hexdemo_retreat_moves_entire_stack() -> None:
         after = server.action_manager.current_state
         assert after.board.units["u1"].position == h2
         assert after.board.units["u2"].position == h2
-        hx = after.extension.get("hexdemo", {})
+        hx = title_bucket(after, "hexdemo")
         ro = hx.get("retreat_obligations", {})
         assert "u1" not in ro and "u2" not in ro
 
@@ -348,7 +353,8 @@ def test_retreat_stack_rejected_before_partial_move() -> None:
     st = GameState(
         board=board,
         turn=turn,
-        extension={"hexdemo": {"retreat_obligations": {"u1": 1, "u2": 1}}},
+        title_state={"retreat_obligations": {"u1": 1, "u2": 1}},
+        title_bucket_key="hexdemo",
         rng_log=(),
     )
     gd = game_definition_from_config(default_match_config())
@@ -385,11 +391,12 @@ def test_server_suggested_focus_unit_id_for_player(hexdemo_server: GameServer) -
     """`GameServer` fills `StateUpdate.suggested_focus_unit_id` from the title hook."""
     from hexengine.server.protocol import PlayerInfo
 
+    from hexengine.state.title_extension import title_bucket
+
     st = hexdemo_server.action_manager.current_state
-    ext = dict(st.extension)
-    hx = dict(ext.get("hexdemo", {}))
+    hx = dict(title_bucket(st, "hexdemo"))
     hx["retreat_obligations"] = {"u_def": 1}
-    new_st = st.with_extension({**ext, "hexdemo": hx})
+    new_st = st.with_title_state(hx, title_bucket_key="hexdemo")
     hexdemo_server.action_manager._current_state = new_st
 
     hexdemo_server.players["p_conf"] = PlayerInfo(
@@ -535,7 +542,7 @@ def test_attack_updates_extension_and_rng() -> None:
         retreat_distance=None,
         rng_entry={"op": "adjacent_attack", "outcome": "none"},
     ).apply(st)
-    hx = nxt.extension.get("hexdemo")
+    hx = title_bucket(nxt, "hexdemo")
     assert isinstance(hx, dict)
     assert hx.get("attacks_this_phase") == ["u_att"]
     assert nxt.rng_log[-1]["op"] == "adjacent_attack"
@@ -648,7 +655,7 @@ def test_combat_disrupt_instead_of_retreat(hexdemo_server: GameServer) -> None:
             await server.handle_message("p_u", req.to_message())
 
         st = server.action_manager.current_state
-        hx = st.extension.get("hexdemo", {})
+        hx = title_bucket(st, "hexdemo")
         assert hx.get("combat_gate") == "awaiting_retreat_or_disrupt"
         ro = hx.get("retreat_obligations", {})
         assert isinstance(ro, dict) and "u_def" in ro
@@ -661,7 +668,7 @@ def test_combat_disrupt_instead_of_retreat(hexdemo_server: GameServer) -> None:
         await server.handle_message("p_c", dreq.to_message())
 
         st2 = server.action_manager.current_state
-        hx2 = st2.extension.get("hexdemo", {})
+        hx2 = title_bucket(st2, "hexdemo")
         assert not hx2.get("combat_gate")
         assert "u_def" not in (hx2.get("retreat_obligations") or {})
         assert st2.board.units["u_def"].attributes.get("disrupted") is True
@@ -697,7 +704,7 @@ def test_ranged_artillery_attack_suppresses_attacker_retreat() -> None:
             await server.handle_message("p_u", req.to_message())
 
         st = server.action_manager.current_state
-        hx = st.extension.get("hexdemo", {})
+        hx = title_bucket(st, "hexdemo")
         lc = hx.get("last_combat")
         assert isinstance(lc, dict)
         assert lc.get("outcome") == "none"
@@ -778,7 +785,7 @@ def test_advance_opens_when_wire_primary_is_ranged_but_adjacent_infantry_in_part
         },
         "retreat_obligations": {},
     }
-    st = GameState(board=board, turn=turn, extension={"hexdemo": hx}, rng_log=())
+    st = GameState(board=board, turn=turn, title_state=hx, title_bucket_key="hexdemo", rng_log=())
     gd = game_definition_from_config(default_match_config())
     server = GameServer(initial_state=st, game_definition=gd)
 
@@ -788,7 +795,7 @@ def test_advance_opens_when_wire_primary_is_ranged_but_adjacent_infantry_in_part
         )
         server._maybe_open_combat_advance_after_retreat("hexdemo")
         st2 = server.action_manager.current_state
-        adv = st2.extension.get("hexdemo", {}).get("advance")
+        adv = title_bucket(st2, "hexdemo").get("advance")
         assert isinstance(adv, dict)
         assert adv.get("faction") == "union"
         assert adv.get("unit_ids") == ["u_inf"]
@@ -856,7 +863,7 @@ def test_combat_advance_after_defender_retreat(hexdemo_server: GameServer) -> No
         await server.handle_message("p_c", mv.to_message())
 
         st1 = server.action_manager.current_state
-        hx = st1.extension.get("hexdemo", {})
+        hx = title_bucket(st1, "hexdemo")
         assert hx.get("combat_gate") == "awaiting_advance"
         adv = hx.get("advance")
         assert isinstance(adv, dict)
@@ -879,7 +886,7 @@ def test_combat_advance_after_defender_retreat(hexdemo_server: GameServer) -> No
 
         st2 = server.action_manager.current_state
         assert st2.board.units["u_att"].position == h_def
-        hx2 = st2.extension.get("hexdemo", {})
+        hx2 = title_bucket(st2, "hexdemo")
         assert hx2.get("combat_gate") is None
         assert hx2.get("advance") is None
 
@@ -938,7 +945,7 @@ def test_combat_advance_via_move_unit_optional_path(hexdemo_server: GameServer) 
         await server.handle_message("p_c", mv.to_message())
 
         st1 = server.action_manager.current_state
-        hx = st1.extension.get("hexdemo", {})
+        hx = title_bucket(st1, "hexdemo")
         assert hx.get("combat_gate") == "awaiting_advance"
 
         # Advance by MoveUnit into the vacated defender hex.
@@ -955,7 +962,7 @@ def test_combat_advance_via_move_unit_optional_path(hexdemo_server: GameServer) 
 
         st2 = server.action_manager.current_state
         assert st2.board.units["u_att"].position == h_def
-        hx2 = st2.extension.get("hexdemo", {})
+        hx2 = title_bucket(st2, "hexdemo")
         assert hx2.get("combat_gate") is None
         assert hx2.get("advance") is None
 
@@ -1003,12 +1010,14 @@ def test_retreat_move_no_spend_action(hexdemo_server: GameServer) -> None:
     h0 = st.board.units["u_att"].position
     h3 = Hex(2, -2, 0)
 
-    ext = dict(st.extension)
-    hx = dict(ext.get("hexdemo", {}))
+    from hexengine.state.title_extension import title_bucket
+
+    hx = dict(title_bucket(st, "hexdemo"))
     hx["retreat_obligations"] = {"u_att": 2}
     hx["combat_gate"] = "awaiting_retreat"
-    ext["hexdemo"] = hx
-    server.action_manager.replace_state(st.with_extension(ext))
+    server.action_manager.replace_state(
+        st.with_title_state(hx, title_bucket_key="hexdemo")
+    )
 
     server.players["p_u"] = PlayerInfo(
         player_id="p_u", player_name="U", faction="union", connected=True
@@ -1033,7 +1042,7 @@ def test_retreat_move_no_spend_action(hexdemo_server: GameServer) -> None:
     asyncio.run(run())
     after = server.action_manager.current_state
     assert after.turn.phase_actions_remaining == remaining_before
-    ro = after.extension.get("hexdemo", {}).get("retreat_obligations", {})
+    ro = title_bucket(after, "hexdemo").get("retreat_obligations", {})
     assert "u_att" not in ro
 
 
@@ -1050,7 +1059,9 @@ def test_clear_hexdemo_combat_on_next_phase(hexdemo_server: GameServer) -> None:
             rng_entry={"op": "adjacent_attack", "outcome": "none"},
         )
     )
-    assert server.action_manager.current_state.extension["hexdemo"].get(
+    from hexengine.state.title_extension import title_bucket as tb
+
+    assert tb(server.action_manager.current_state, "hexdemo").get(
         "attacks_this_phase"
     )
     info = server._get_next_phase()
@@ -1063,7 +1074,7 @@ def test_clear_hexdemo_combat_on_next_phase(hexdemo_server: GameServer) -> None:
         )
     )
     server._after_next_phase_applied()
-    hx = server.action_manager.current_state.extension.get("hexdemo", {})
+    hx = tb(server.action_manager.current_state, "hexdemo")
     assert "attacks_this_phase" not in hx
     assert "last_combat" not in hx
 

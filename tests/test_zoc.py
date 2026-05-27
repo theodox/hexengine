@@ -32,7 +32,7 @@ def _move_phase_state(board: BoardState) -> GameState:
             schedule_index=0,
             global_tick=0,
         ),
-        extension={},
+        
         rng_log=(),
     )
 

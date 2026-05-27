@@ -261,7 +261,13 @@ def test_default_primary_actions_disrupt_row() -> None:
             ),
         }
     )
-    st = GameState(board=board, turn=st.turn, extension=ext, rng_log=())
+    st = GameState(
+        board=board,
+        turn=st.turn,
+        title_state=ext["hexdemo"],
+        title_bucket_key="hexdemo",
+        rng_log=(),
+    )
     ctx = PrimaryActionsContext(
         state=st,
         viewer_faction="confederate",

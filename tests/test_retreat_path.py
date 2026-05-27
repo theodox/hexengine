@@ -283,7 +283,13 @@ def test_retreat_path_confirm_move_unit_with_path_wire() -> None:
     }
     from hexengine.state import GameState
 
-    st = GameState(board=board, turn=turn, extension=ext, rng_log=())
+    st = GameState(
+        board=board,
+        turn=turn,
+        title_state=ext.get("hexdemo", {}),
+        title_bucket_key="hexdemo",
+        rng_log=(),
+    )
     server = _hexdemo_server()
     server.action_manager.replace_state(st)
     server.players["p_c"] = PlayerInfo(

@@ -1,5 +1,5 @@
 """
-Hexdemo match-scoped title state in ``GameState.extension``.
+Hexdemo match-scoped title state in ``GameState.title_state``.
 
 One pack id per session (`PACK_STATE_EXTENSION_KEY`). All reads of the hexdemo
 bucket should go through ``bucket()`` so extension layout stays in one place.
@@ -24,6 +24,8 @@ def extension_key() -> str:
 def bucket(state: GameState) -> dict[str, Any]:
     """Copy of the hexdemo title bucket, or ``{}`` if absent."""
 
+    if state.title_bucket_key == PACK_STATE_EXTENSION_KEY:
+        return dict(state.title_state)
     return _title_bucket(state, PACK_STATE_EXTENSION_KEY)
 
 

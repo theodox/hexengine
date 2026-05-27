@@ -22,10 +22,11 @@ from hexengine.server.arcs.authority_attack import (
     execute_authority_attack_request,
     normalize_attack_party_ids,
 )
-from hexengine.state import GameState, UnitState
+from hexengine.state import GameState
+from hexengine.state.title_extension import title_bucket
 from hexengine.state.action_manager import ActionManager
 from hexengine.state.actions import PatchTitleBucket
-from hexengine.state.game_state import BoardState, TurnState
+from hexengine.state.game_state import BoardState, TurnState, UnitState
 
 EXPECTED_ORDER = (
     AuthorityAttackPipelineStep.NORMALIZE_WIRE_AND_PARTIES,
@@ -114,7 +115,7 @@ def _two_unit_combat_state() -> GameState:
         turn_number=1,
         phase_actions_remaining=1,
     )
-    return GameState(board=board, turn=turn, extension={"testpack": {}})
+    return GameState(board=board, turn=turn, title_state={}, title_bucket_key="testpack")
 
 
 def test_after_attack_applied_follow_ups_run_before_broadcast() -> None:
@@ -164,6 +165,6 @@ def test_after_attack_applied_follow_ups_run_before_broadcast() -> None:
     assert ok is True
     assert marker["patch_applied"] is True
     assert host.broadcasted is True
-    hx = mgr.current_state.extension.get("testpack")
+    hx = title_bucket(mgr.current_state, "testpack")
     assert isinstance(hx, dict)
     assert hx.get("after_attack_hook") is True

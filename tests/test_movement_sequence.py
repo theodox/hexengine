@@ -20,6 +20,7 @@ from hexengine.state.game_state import (
     UnitState,
 )
 from hexengine.state.logic import is_valid_move, shortest_move_path
+from hexengine.state.title_extension import engine_bucket
 from hexengine.state.movement_arc import (
     HEXENGINE_MOVEMENT_ARC_KEY,
     MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
@@ -92,7 +93,7 @@ def test_resolve_pass_movement_interrupt_restores_turn() -> None:
             schedule_index=1,
             global_tick=5,
         ),
-        extension={HEXENGINE_MOVEMENT_ARC_KEY: arc_payload},
+        engine_state={HEXENGINE_MOVEMENT_ARC_KEY: arc_payload},
     )
     mgr = ActionManager(st0)
     mgr.execute(ResolvePassMovementInterrupt("Blue"))
@@ -100,7 +101,7 @@ def test_resolve_pass_movement_interrupt_restores_turn() -> None:
     assert st1.turn.current_faction == "Red"
     assert st1.turn.current_phase == "Movement"
     assert (
-        st1.extension[HEXENGINE_MOVEMENT_ARC_KEY]["gate"]
+        st1.engine_state[HEXENGINE_MOVEMENT_ARC_KEY]["gate"]
         == MOVEMENT_ARC_GATE_AWAITING_CONTINUE
     )
 
@@ -171,7 +172,7 @@ def test_server_stepwise_move_opens_interrupt_queue() -> None:
         await server.handle_message("r1", req.to_message())
         s2 = server.game_state
         assert s2 is not None
-        arc = s2.extension.get(HEXENGINE_MOVEMENT_ARC_KEY)
+        arc = engine_bucket(s2, HEXENGINE_MOVEMENT_ARC_KEY)
         assert isinstance(arc, dict)
         assert arc.get("gate") == "awaiting_interrupt"
         assert s2.turn.current_faction == "Blue"
@@ -186,7 +187,7 @@ def test_server_stepwise_move_opens_interrupt_queue() -> None:
         s3 = server.game_state
         assert s3 is not None
         assert s3.turn.current_faction == "Red"
-        arc3 = s3.extension.get(HEXENGINE_MOVEMENT_ARC_KEY)
+        arc3 = engine_bucket(s3, HEXENGINE_MOVEMENT_ARC_KEY)
         assert isinstance(arc3, dict)
         assert arc3.get("gate") == MOVEMENT_ARC_GATE_AWAITING_CONTINUE
 
@@ -202,7 +203,7 @@ def test_server_stepwise_move_opens_interrupt_queue() -> None:
         await server.handle_message("r1", cont.to_message())
         s4 = server.game_state
         assert s4 is not None
-        assert HEXENGINE_MOVEMENT_ARC_KEY not in s4.extension
+        assert HEXENGINE_MOVEMENT_ARC_KEY not in s4.engine_state
         assert s4.board.units["ru"].position == c
         assert s4.turn.phase_actions_remaining == 1
 

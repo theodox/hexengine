@@ -200,6 +200,9 @@ class GameServer:
             pack_root: Pack directory (``games/<id>/``); inferred when omitted.
         """
         init_state = initial_state or GameState.create_empty()
+        raw_tek = getattr(game_definition.game_data, "title_state_extension_key", None)
+        if isinstance(raw_tek, str) and raw_tek.strip():
+            init_state = init_state.with_title_bucket_key(raw_tek.strip())
         self.action_manager = ActionManager(init_state)
         self.map_display = map_display
         self.global_styles = global_styles

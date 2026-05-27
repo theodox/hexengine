@@ -41,27 +41,26 @@ def test_retreat_owner_faction_defender() -> None:
 
 
 def test_default_blocks_routine_phase_advance_gate() -> None:
-    st = GameState.create_empty().with_extension(
-        {"hexdemo": {"combat_gate": "awaiting_advance"}}
+    st = GameState.create_empty().with_title_state(
+        {"combat_gate": "awaiting_advance"}, title_bucket_key="hexdemo"
     )
     assert default_blocks_routine_phase_advance(st, "hexdemo") is True
 
 
 def test_default_blocks_routine_phase_advance_retreat_obligation() -> None:
-    st = GameState.create_empty().with_extension(
-        {"hexdemo": {"retreat_obligations": {"u1": 2}}}
+    st = GameState.create_empty().with_title_state(
+        {"retreat_obligations": {"u1": 2}}, title_bucket_key="hexdemo"
     )
     assert default_blocks_routine_phase_advance(st, "hexdemo") is True
 
 
 def test_default_combat_interaction_messages_advance_row() -> None:
-    st = GameState.create_empty().with_extension(
+    st = GameState.create_empty().with_title_state(
         {
-            "hexdemo": {
-                "combat_gate": "awaiting_advance",
-                "advance": {"faction": "union"},
-            }
-        }
+            "combat_gate": "awaiting_advance",
+            "advance": {"faction": "union"},
+        },
+        title_bucket_key="hexdemo",
     )
     ctx = CombatInteractionMessagesContext(
         state=st, viewer_faction="union", extension_key="hexdemo"

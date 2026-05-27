@@ -108,7 +108,13 @@ def test_hexdemo_turn_action_dock_gate_hint_html_escapes() -> None:
         schedule_index=st.turn.schedule_index,
         global_tick=st.turn.global_tick,
     )
-    st = GameState(board=board, turn=turn, extension=ext, rng_log=())
+    st = GameState(
+        board=board,
+        turn=turn,
+        title_state=ext.get("hexdemo", {}),
+        title_bucket_key="hexdemo",
+        rng_log=(),
+    )
     ctx = TurnActionDockContext(
         state=st,
         viewer_faction="union",

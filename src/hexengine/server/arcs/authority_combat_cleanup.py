@@ -79,8 +79,10 @@ def move_unit_is_combat_advance_fulfillment(
 
     if not extension_key:
         return False
-    hx_adv = state.extension.get(extension_key)
-    if not isinstance(hx_adv, dict):
+    from ...state.title_extension import title_bucket
+
+    hx_adv = title_bucket(state, extension_key)
+    if not hx_adv:
         return False
     if str(hx_adv.get("combat_gate", "")).strip() != "awaiting_advance":
         return False
@@ -128,11 +130,10 @@ async def handle_combat_disrupt_instead_of_retreat(
         )
         return
     st0 = host.action_manager.current_state
-    hx0 = st0.extension.get(ek)
-    if (
-        not isinstance(hx0, dict)
-        or str(hx0.get("combat_gate", "")).strip() != "awaiting_retreat_or_disrupt"
-    ):
+    from ...state.title_extension import title_bucket
+
+    hx0 = title_bucket(st0, ek)
+    if str(hx0.get("combat_gate", "")).strip() != "awaiting_retreat_or_disrupt":
         await host._send_error(
             player_id, "Cannot take disruption instead of retreat right now"
         )
@@ -178,12 +179,11 @@ async def handle_combat_advance_rpc(
             "This game title does not define a state extension key for combat",
         )
         return
+    from ...state.title_extension import title_bucket
+
     st0 = host.action_manager.current_state
-    hx0 = st0.extension.get(ek)
-    if (
-        not isinstance(hx0, dict)
-        or str(hx0.get("combat_gate", "")).strip() != "awaiting_advance"
-    ):
+    hx0 = title_bucket(st0, ek)
+    if str(hx0.get("combat_gate", "")).strip() != "awaiting_advance":
         await host._send_error(player_id, "No combat advance is pending right now")
         return
     adv = hx0.get("advance")

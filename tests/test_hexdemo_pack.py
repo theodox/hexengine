@@ -162,7 +162,8 @@ def test_hexdemo_focus_unit_after_sync() -> None:
     st = GameState(
         board=board,
         turn=turn,
-        extension={"hexdemo": {"retreat_obligations": {"only": 1}}},
+        title_state={"retreat_obligations": {"only": 1}},
+        title_bucket_key="hexdemo",
         rng_log=(),
     )
     assert focus_unit_id_after_state_sync(st, "union") == "only"

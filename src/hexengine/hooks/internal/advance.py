@@ -28,8 +28,10 @@ def default_maybe_open_combat_advance_after_retreat(
       to that hex (so combined / ranged attacks still allow advance from the melee stack)
     """
 
-    hx = state.extension.get(extension_key)
-    if not isinstance(hx, dict):
+    from ...state.title_extension import title_bucket
+
+    hx = title_bucket(state, extension_key)
+    if not hx:
         return None
     if str(hx.get("combat_gate", "")).strip():
         return None

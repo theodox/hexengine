@@ -15,6 +15,8 @@ from hexengine.snapshot import (
     normalize_snapshot_value,
 )
 from hexengine.state import GameState
+from hexengine.state.title_extension import title_bucket
+from hexengine.state.title_extension import title_bucket
 from hexengine.state.actions import AddUnit, ApplyCombatEffects, Attack
 
 
@@ -63,12 +65,14 @@ def test_apply_combat_effects_expands_dataclass_last_combat_patch() -> None:
         hexdemo_combat_result: str
 
     st = GameState.create_empty()
-    st = st.with_extension({"hexdemo": {"last_combat": {"outcome": "none"}}})
+    st = st.with_title_state(
+        {"last_combat": {"outcome": "none"}}, title_bucket_key="hexdemo"
+    )
     st2 = ApplyCombatEffects(
         "hexdemo",
         {"last_combat_patch": Patch(3, "HIT")},
     ).apply(st)
-    hx = st2.extension.get("hexdemo")
+    hx = title_bucket(st2, "hexdemo")
     assert isinstance(hx, dict)
     lc = hx.get("last_combat")
     assert isinstance(lc, dict)
@@ -87,7 +91,7 @@ def test_attack_accepts_dataclass_rng_entry() -> None:
     h = Hex(0, 0, 0)
     st = AddUnit("a", "inf", "union", h).apply(st)
     st = AddUnit("d", "inf", "confederate", Hex(1, 0, -1)).apply(st)
-    st = st.with_extension({"hexdemo": {}})
+    st = st.with_title_state({}, title_bucket_key="hexdemo")
 
     atk = Attack(
         "combined",

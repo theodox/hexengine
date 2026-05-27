@@ -126,22 +126,30 @@ class WriteHexengineMovementArc(StateAction):
         self._prev_value: Any = None
 
     def apply(self, state: GameState) -> GameState:
-        ext = dict(state.extension)
-        self._had_key = HEXENGINE_MOVEMENT_ARC_KEY in ext
-        self._prev_value = ext.get(HEXENGINE_MOVEMENT_ARC_KEY)
+        from .title_extension import engine_bucket, with_engine_bucket
+
+        self._had_key = HEXENGINE_MOVEMENT_ARC_KEY in state.engine_state
+        self._prev_value = state.engine_state.get(HEXENGINE_MOVEMENT_ARC_KEY)
         if self.payload is None:
-            ext.pop(HEXENGINE_MOVEMENT_ARC_KEY, None)
-        else:
-            ext[HEXENGINE_MOVEMENT_ARC_KEY] = dict(self.payload)
-        return state.with_extension(ext)
+            es = dict(state.engine_state)
+            es.pop(HEXENGINE_MOVEMENT_ARC_KEY, None)
+            return state.with_engine_state(es)
+        return with_engine_bucket(
+            state, HEXENGINE_MOVEMENT_ARC_KEY, dict(self.payload)
+        )
 
     def revert(self, state: GameState) -> GameState:
-        ext = dict(state.extension)
+        from .title_extension import with_engine_bucket
+
         if self._had_key:
-            ext[HEXENGINE_MOVEMENT_ARC_KEY] = self._prev_value
-        else:
-            ext.pop(HEXENGINE_MOVEMENT_ARC_KEY, None)
-        return state.with_extension(ext)
+            return with_engine_bucket(
+                state,
+                HEXENGINE_MOVEMENT_ARC_KEY,
+                dict(self._prev_value) if isinstance(self._prev_value, dict) else {},
+            )
+        es = dict(state.engine_state)
+        es.pop(HEXENGINE_MOVEMENT_ARC_KEY, None)
+        return state.with_engine_state(es)
 
     def should_revert_prior(self) -> bool:
         return False
@@ -159,9 +167,10 @@ class ResolvePassMovementInterrupt(StateAction):
         self._saved_turn: TurnState | None = None
 
     def apply(self, state: GameState) -> GameState:
-        ext = dict(state.extension)
-        raw = ext.get(HEXENGINE_MOVEMENT_ARC_KEY)
-        if not isinstance(raw, dict):
+        from .title_extension import engine_bucket, with_engine_bucket
+
+        raw = engine_bucket(state, HEXENGINE_MOVEMENT_ARC_KEY)
+        if not raw:
             raise ValueError("No hexengine movement arc")
         arc = dict(raw)
         if str(arc.get("gate", "")) != MOVEMENT_ARC_GATE_AWAITING_INTERRUPT:
@@ -173,7 +182,7 @@ class ResolvePassMovementInterrupt(StateAction):
         if not queue or queue[0] != self.responding_faction:
             raise ValueError("Not your movement interrupt window")
 
-        self._saved_ext = dict(state.extension)
+        self._saved_ext = dict(state.engine_state)
         self._saved_turn = state.turn
 
         rest = queue[1:]
@@ -185,22 +194,22 @@ class ResolvePassMovementInterrupt(StateAction):
             arc["interrupt_queue"] = []
             arc["gate"] = MOVEMENT_ARC_GATE_AWAITING_CONTINUE
             arc["saved_turn"] = None
-            ext[HEXENGINE_MOVEMENT_ARC_KEY] = arc
-            return state.with_extension(ext).with_turn(restored)
+            return with_engine_bucket(
+                state, HEXENGINE_MOVEMENT_ARC_KEY, arc
+            ).with_turn(restored)
 
         next_f = rest[0]
         arc["interrupt_queue"] = rest
-        ext[HEXENGINE_MOVEMENT_ARC_KEY] = arc
         nt = replace(
             state.turn,
             current_faction=next_f,
         )
-        return state.with_extension(ext).with_turn(nt)
+        return with_engine_bucket(state, HEXENGINE_MOVEMENT_ARC_KEY, arc).with_turn(nt)
 
     def revert(self, state: GameState) -> GameState:
         if self._saved_ext is None or self._saved_turn is None:
             return state
-        return state.with_extension(self._saved_ext).with_turn(self._saved_turn)
+        return state.with_engine_state(self._saved_ext).with_turn(self._saved_turn)
 
     def should_revert_prior(self) -> bool:
         return False
@@ -545,23 +554,21 @@ class PatchTitleBucket(StateAction):
         self._saved_bucket: dict[str, Any] | None = None
 
     def apply(self, state: GameState) -> GameState:
-        from .title_extension import title_bucket
+        from .title_extension import title_bucket, with_title_bucket
 
         prior = title_bucket(state, self.extension_key)
         self._saved_bucket = dict(prior)
         new_hx = {**prior, **self.patch}
         for k in self.remove_keys:
             new_hx.pop(k, None)
-        ext = dict(state.extension)
-        ext[self.extension_key] = new_hx
-        return state.with_extension(ext)
+        return with_title_bucket(state, self.extension_key, new_hx)
 
     def revert(self, state: GameState) -> GameState:
         if self._saved_bucket is None:
             return state
-        ext = dict(state.extension)
-        ext[self.extension_key] = dict(self._saved_bucket)
-        return state.with_extension(ext)
+        from .title_extension import with_title_bucket
+
+        return with_title_bucket(state, self.extension_key, self._saved_bucket)
 
     def should_revert_prior(self) -> bool:
         return False
@@ -578,24 +585,24 @@ class ClearTitleCombatExtension(StateAction):
         self._saved_bucket: dict[str, Any] | None = None
 
     def apply(self, state: GameState) -> GameState:
-        ext = dict(state.extension)
-        hx = ext.get(self.extension_key)
-        if not isinstance(hx, dict):
+        from .title_extension import title_bucket, with_title_bucket
+
+        hx = title_bucket(state, self.extension_key)
+        if not hx:
             self._saved_bucket = None
             return state
         self._saved_bucket = dict(hx)
         new_hx = {**hx}
         for k in _TITLE_COMBAT_KEYS:
             new_hx.pop(k, None)
-        ext[self.extension_key] = new_hx
-        return state.with_extension(ext)
+        return with_title_bucket(state, self.extension_key, new_hx)
 
     def revert(self, state: GameState) -> GameState:
         if self._saved_bucket is None:
             return state
-        ext = dict(state.extension)
-        ext[self.extension_key] = dict(self._saved_bucket)
-        return state.with_extension(ext)
+        from .title_extension import with_title_bucket
+
+        return with_title_bucket(state, self.extension_key, self._saved_bucket)
 
     def should_revert_prior(self) -> bool:
         return False
@@ -669,10 +676,9 @@ class OpenCombatAdvance(StateAction):
         self._saved_bucket: dict[str, Any] | None = None
 
     def apply(self, state: GameState) -> GameState:
-        ext = dict(state.extension)
-        hx0 = ext.get(self.extension_key)
-        if not isinstance(hx0, dict):
-            hx0 = {}
+        from .title_extension import title_bucket, with_title_bucket
+
+        hx0 = title_bucket(state, self.extension_key)
         self._saved_bucket = dict(hx0)
         hx = dict(hx0)
         hx["combat_gate"] = "awaiting_advance"
@@ -691,15 +697,14 @@ class OpenCombatAdvance(StateAction):
             },
             "unit_ids": list(self.unit_ids),
         }
-        ext[self.extension_key] = hx
-        return state.with_extension(ext)
+        return with_title_bucket(state, self.extension_key, hx)
 
     def revert(self, state: GameState) -> GameState:
         if self._saved_bucket is None:
             return state
-        ext = dict(state.extension)
-        ext[self.extension_key] = dict(self._saved_bucket)
-        return state.with_extension(ext)
+        from .title_extension import with_title_bucket
+
+        return with_title_bucket(state, self.extension_key, self._saved_bucket)
 
     def should_revert_prior(self) -> bool:
         return False
@@ -717,9 +722,10 @@ class ResolveCombatAdvance(StateAction):
         self._saved_bucket: dict[str, Any] | None = None
 
     def apply(self, state: GameState) -> GameState:
-        ext = dict(state.extension)
-        hx0 = ext.get(self.extension_key)
-        if not isinstance(hx0, dict):
+        from .title_extension import title_bucket, with_title_bucket
+
+        hx0 = title_bucket(state, self.extension_key)
+        if not hx0:
             raise ValueError("No title combat extension")
         self._saved_bucket = dict(hx0)
         hx = dict(hx0)
@@ -744,7 +750,6 @@ class ResolveCombatAdvance(StateAction):
             raise ValueError("No units to advance")
 
         st = state
-        # Advance each still-active friendly unit listed.
         for uid in unit_ids_raw:
             if not isinstance(uid, str) or not uid.strip():
                 continue
@@ -753,20 +758,17 @@ class ResolveCombatAdvance(StateAction):
                 continue
             st = MoveUnit(uid, from_hex=u.position, to_hex=to_hex).apply(st)
 
-        # Clear the gate + payload.
-        ext2 = dict(st.extension)
-        hx2 = dict(ext2.get(self.extension_key) or {})
+        hx2 = dict(title_bucket(st, self.extension_key))
         hx2.pop("advance", None)
         hx2.pop("combat_gate", None)
-        ext2[self.extension_key] = hx2
-        return st.with_extension(ext2)
+        return with_title_bucket(st, self.extension_key, hx2)
 
     def revert(self, state: GameState) -> GameState:
         if self._saved_bucket is None:
             return state
-        ext = dict(state.extension)
-        ext[self.extension_key] = dict(self._saved_bucket)
-        return state.with_extension(ext)
+        from .title_extension import with_title_bucket
+
+        return with_title_bucket(state, self.extension_key, self._saved_bucket)
 
     def should_revert_prior(self) -> bool:
         return False
@@ -901,8 +903,10 @@ class ApplyCombatEffects(StateAction):
         self._prev_extension_bucket: dict[str, Any] | None = None
 
     def apply(self, state: GameState) -> GameState:
-        hx0 = state.extension.get(self.extension_key)
-        self._prev_extension_bucket = dict(hx0) if isinstance(hx0, dict) else {}
+        from .title_extension import title_bucket, with_title_bucket
+
+        hx0 = title_bucket(state, self.extension_key)
+        self._prev_extension_bucket = dict(hx0)
         st = state
         eff = self.effects
         if not eff:
@@ -944,13 +948,7 @@ class ApplyCombatEffects(StateAction):
                         st
                     )
 
-        ext = dict(st.extension)
-        cur_hx = ext.get(self.extension_key)
-        hx = (
-            dict(cur_hx)
-            if isinstance(cur_hx, dict)
-            else dict(self._prev_extension_bucket)
-        )
+        hx = dict(title_bucket(st, self.extension_key) or self._prev_extension_bucket)
 
         patch = eff.get("last_combat_patch")
         if isinstance(patch, dict):
@@ -959,17 +957,17 @@ class ApplyCombatEffects(StateAction):
             merged = {**base, **patch}
             hx["last_combat"] = merged
 
-        ext[self.extension_key] = hx
-        return st.with_extension(ext)
+        return with_title_bucket(st, self.extension_key, hx)
 
     def revert(self, state: GameState) -> GameState:
-        ext = dict(state.extension)
-        ext[self.extension_key] = (
+        from .title_extension import with_title_bucket
+
+        prior = (
             dict(self._prev_extension_bucket)
             if self._prev_extension_bucket is not None
             else {}
         )
-        return state.with_extension(ext)
+        return with_title_bucket(state, self.extension_key, prior)
 
     def should_revert_prior(self) -> bool:
         return False
@@ -987,9 +985,11 @@ class ResolveDisruptInsteadOfRetreat(StateAction):
         self._prev_extension_bucket: dict[str, Any] | None = None
 
     def apply(self, state: GameState) -> GameState:
-        hx0 = state.extension.get(self.extension_key)
-        self._prev_extension_bucket = dict(hx0) if isinstance(hx0, dict) else {}
-        if not isinstance(hx0, dict):
+        from .title_extension import title_bucket, with_title_bucket
+
+        hx0 = title_bucket(state, self.extension_key)
+        self._prev_extension_bucket = dict(hx0)
+        if not hx0:
             raise ValueError("No title combat extension")
         hx = dict(hx0)
         gate = str(hx.get("combat_gate", "")).strip()
@@ -1021,18 +1021,17 @@ class ResolveDisruptInsteadOfRetreat(StateAction):
         hx["retreat_obligations"] = ro
         if not _retreat_obligations_have_pending(ro):
             hx.pop("combat_gate", None)
-        ext = dict(st.extension)
-        ext[self.extension_key] = hx
-        return st.with_extension(ext)
+        return with_title_bucket(st, self.extension_key, hx)
 
     def revert(self, state: GameState) -> GameState:
-        ext = dict(state.extension)
-        ext[self.extension_key] = (
+        from .title_extension import with_title_bucket
+
+        prior = (
             dict(self._prev_extension_bucket)
             if self._prev_extension_bucket is not None
             else {}
         )
-        return state.with_extension(ext)
+        return with_title_bucket(state, self.extension_key, prior)
 
     def should_revert_prior(self) -> bool:
         return False
@@ -1149,8 +1148,10 @@ class Attack(StateAction):
             )
         )
 
-        hx0 = state.extension.get(self.extension_key)
-        self._prev_extension_bucket = dict(hx0) if isinstance(hx0, dict) else {}
+        from .title_extension import title_bucket, with_title_bucket
+
+        hx0 = title_bucket(state, self.extension_key)
+        self._prev_extension_bucket = dict(hx0)
         self._prev_rng_log = state.rng_log
 
         outcome = str(self.outcome)
@@ -1240,21 +1241,24 @@ class Attack(StateAction):
         else:
             self._deleted_unit_ids = ()
 
-        new_ext = {**st.extension, self.extension_key: hx}
-        return st.with_extension(new_ext).with_rng_log(new_rng)
+        st = with_title_bucket(st, self.extension_key, hx).with_title_bucket_key(
+            self.extension_key
+        )
+        return st.with_rng_log(new_rng)
 
     def revert(self, state: GameState) -> GameState:
+        from .title_extension import with_title_bucket
+
         st = state
         if self._deleted_unit_ids:
             for uid in self._deleted_unit_ids:
                 st = DeleteUnit(uid).revert(st)
-        ext = dict(st.extension)
-        ext[self.extension_key] = (
+        prior = (
             dict(self._prev_extension_bucket)
             if self._prev_extension_bucket is not None
             else {}
         )
-        st = st.with_extension(ext)
+        st = with_title_bucket(st, self.extension_key, prior)
         return st.with_rng_log(
             self._prev_rng_log if self._prev_rng_log is not None else ()
         )

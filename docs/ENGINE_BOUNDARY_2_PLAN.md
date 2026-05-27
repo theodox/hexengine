@@ -170,21 +170,20 @@ Include a short state table in module docstring (routine ↔ retreat gate ↔ ad
 
 ---
 
-## Phase E — Optional `GameState` split (wire migration)
+## Phase E — Optional `GameState` split (wire migration) ✅
 
-**Defer until Phases A–D stable.**
+**Status:** `GameState.title_state`, `engine_state`, `title_bucket_key` only (no combined `extension` map on state or wire). Helpers in `title_extension.py`; server sets `title_bucket_key` from `GameData` on match start.
 
 ```text
 GameState
   board, turn, rng_log
   title_state: dict[str, Any]      # was extension[pack_id]
   engine_state: dict[str, Any]   # movement arc, future engine ephemeral
+  title_bucket_key: str | None
 ```
 
 - Snapshot / `game_state_to_wire_dict` merge for v1 compat or bump wire schema.
 - Migration helper: `extension` ↔ split on load.
-
-**Only do this if** patch helpers and hook seams are insufficient clarity.
 
 ---
 

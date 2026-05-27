@@ -108,7 +108,7 @@ def test_hexdemo_combat_phase_enables_end_phase_without_gate() -> None:
         schedule_index=st.turn.schedule_index,
         global_tick=st.turn.global_tick,
     )
-    st = GameState(board=st.board, turn=turn, extension={"hexdemo": {}}, rng_log=())
+    st = GameState(board=st.board, turn=turn, title_state={}, title_bucket_key="hexdemo", rng_log=())
     ctx = TurnActionDockContext(
         state=st,
         viewer_faction="union",
@@ -133,11 +133,9 @@ def test_hexdemo_retreat_gate_shows_for_non_turn_owner() -> None:
     from hexengine.state.game_state import BoardState, TurnState, UnitState
 
     st = GameState.create_empty()
-    ext = {
-        "hexdemo": {
-            "combat_gate": "awaiting_retreat_or_disrupt",
-            "retreat_obligations": {"u_def": 1},
-        }
+    hx = {
+        "combat_gate": "awaiting_retreat_or_disrupt",
+        "retreat_obligations": {"u_def": 1},
     }
     board = BoardState(
         units={
@@ -159,7 +157,13 @@ def test_hexdemo_retreat_gate_shows_for_non_turn_owner() -> None:
         schedule_index=st.turn.schedule_index,
         global_tick=st.turn.global_tick,
     )
-    st = GameState(board=board, turn=turn, extension=ext, rng_log=())
+    st = GameState(
+        board=board,
+        turn=turn,
+        title_state=hx,
+        title_bucket_key="hexdemo",
+        rng_log=(),
+    )
     ctx = TurnActionDockContext(
         state=st,
         viewer_faction="confederate",
@@ -185,11 +189,9 @@ def test_hexdemo_retreat_obligation_shows_dock_for_non_turn_owner() -> None:
     from hexengine.state.game_state import BoardState, TurnState, UnitState
 
     st = GameState.create_empty()
-    ext = {
-        "hexdemo": {
-            "combat_gate": "awaiting_retreat",
-            "retreat_obligations": {"u_def": 1},
-        }
+    hx = {
+        "combat_gate": "awaiting_retreat",
+        "retreat_obligations": {"u_def": 1},
     }
     board = BoardState(
         units={
@@ -211,7 +213,13 @@ def test_hexdemo_retreat_obligation_shows_dock_for_non_turn_owner() -> None:
         schedule_index=st.turn.schedule_index,
         global_tick=st.turn.global_tick,
     )
-    st = GameState(board=board, turn=turn, extension=ext, rng_log=())
+    st = GameState(
+        board=board,
+        turn=turn,
+        title_state=hx,
+        title_bucket_key="hexdemo",
+        rng_log=(),
+    )
     ctx = TurnActionDockContext(
         state=st,
         viewer_faction="confederate",
@@ -236,11 +244,9 @@ def test_hexdemo_advance_gate_disables_end_phase() -> None:
     from hexengine.state.game_state import BoardState, TurnState, UnitState
 
     st = GameState.create_empty()
-    ext = {
-        "hexdemo": {
-            "combat_gate": "awaiting_advance",
-            "advance": {"faction": "union"},
-        }
+    hx = {
+        "combat_gate": "awaiting_advance",
+        "advance": {"faction": "union"},
     }
     board = BoardState(
         units={
@@ -262,7 +268,13 @@ def test_hexdemo_advance_gate_disables_end_phase() -> None:
         schedule_index=st.turn.schedule_index,
         global_tick=st.turn.global_tick,
     )
-    st = GameState(board=board, turn=turn, extension=ext, rng_log=())
+    st = GameState(
+        board=board,
+        turn=turn,
+        title_state=hx,
+        title_bucket_key="hexdemo",
+        rng_log=(),
+    )
     ctx = TurnActionDockContext(
         state=st,
         viewer_faction="union",

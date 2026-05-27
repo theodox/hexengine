@@ -296,14 +296,17 @@ class GameState:
     This is the single source of truth for the game. It's fully serializable
     and contains no display or UI concerns.
 
-    `extension` holds JSON-safe blobs: one title bucket per match (`GameData.title_state_extension_key`)
-    and engine keys prefixed with ``hexengine_`` (see ``hexengine.state.title_extension``).
-    `rng_log` is an append-only record of server-authoritative random draws (replay/debug).
+    Title-owned match data lives in ``title_state`` (one bucket per match;
+    ``title_bucket_key`` names the pack id). Engine ephemeral data (movement arc,
+    etc.) lives in ``engine_state`` (see ``hexengine.state.title_extension``).
+    ``rng_log`` is an append-only record of server-authoritative random draws.
     """
 
     board: BoardState
     turn: TurnState
-    extension: dict[str, Any] = field(default_factory=dict)
+    title_state: dict[str, Any] = field(default_factory=dict)
+    engine_state: dict[str, Any] = field(default_factory=dict)
+    title_bucket_key: str | None = None
     rng_log: tuple[dict[str, Any], ...] = ()
 
     def with_board(self, new_board: BoardState) -> GameState:
@@ -314,9 +317,31 @@ class GameState:
         """Return a new GameState with updated turn."""
         return replace(self, turn=new_turn)
 
-    def with_extension(self, extension: dict[str, Any]) -> GameState:
-        """Replace extension payload (shallow copy of dict)."""
-        return replace(self, extension=dict(extension))
+    def with_title_state(
+        self,
+        title_state: dict[str, Any],
+        *,
+        title_bucket_key: str | None = None,
+    ) -> GameState:
+        """Replace the title-owned bucket (and optionally the pack id key)."""
+
+        kw: dict[str, Any] = {"title_state": dict(title_state)}
+        if title_bucket_key is not None:
+            kw["title_bucket_key"] = (
+                str(title_bucket_key).strip() or None
+            )
+        return replace(self, **kw)
+
+    def with_engine_state(self, engine_state: dict[str, Any]) -> GameState:
+        """Replace engine ephemeral extension entries."""
+
+        return replace(self, engine_state=dict(engine_state))
+
+    def with_title_bucket_key(self, title_bucket_key: str | None) -> GameState:
+        """Set the pack id for ``title_state`` (``GameData.title_state_extension_key``)."""
+
+        k = str(title_bucket_key or "").strip() or None
+        return replace(self, title_bucket_key=k)
 
     def with_rng_log(self, rng_log: tuple[dict[str, Any], ...]) -> GameState:
         """Replace RNG log (immutable tuple)."""

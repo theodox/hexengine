@@ -99,6 +99,8 @@ Match-scoped title state lives in `GameState.extension[<pack_id>]`. Read/write t
 
 Hexdemo **`combat_gate`** values and transitions are documented in [`combat_transitions.py`](../games/hexdemo/combat_transitions.py) (FSM table, constants, `blocks_routine_phase_advance`, dock arcs). New pack combat behavior should start there; hook files stay thin `@bind_title_hook` adapters.
 
+Authoritative match state uses **`GameState.title_state`** (title bucket) and **`GameState.engine_state`** (keys prefixed `hexengine_`). Snapshots and `StateUpdate` game_state carry `title_state`, `engine_state`, and `title_bucket_key`. Prefer `title_state.bucket()` / `hexengine.state.title_extension.title_bucket` over reading raw fields when the pack id matters.
+
 ---
 
 ## API: `TitleHooks` bundles
