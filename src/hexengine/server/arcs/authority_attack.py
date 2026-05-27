@@ -18,8 +18,9 @@ from enum import StrEnum
 from typing import Any, Protocol
 
 from ...hexes.types import Hex
-from ...hooks.attack import AttackContext
+from ...hooks.attack import AfterAttackAppliedContext, AttackContext, AttackResolution
 from ...hooks.core import ENGINE_DEFAULT
+from ...state.action_manager import StateAction
 from ...hooks.title import TitleHooks
 from ...snapshot import attack_resolution_snapshot_fields
 from ...state import GameState
@@ -100,6 +101,7 @@ class AuthorityAttackPipelineStep(StrEnum):
     HOOK_RESOLVE = "hook_resolve"
     REQUIRE_TITLE_EXTENSION_KEY = "require_title_extension_key"
     COMMIT_ATTACK_AND_EFFECTS = "commit_attack_and_effects"
+    AFTER_ATTACK_APPLIED = "after_attack_applied"
     BROADCAST_COMBAT_EVENTS = "broadcast_combat_events"
     MAYBE_AUTO_ADVANCE_PHASE = "maybe_auto_advance_phase"
 
@@ -110,6 +112,7 @@ AUTHORITY_ATTACK_PIPELINE: tuple[AuthorityAttackPipelineStep, ...] = (
     AuthorityAttackPipelineStep.HOOK_RESOLVE,
     AuthorityAttackPipelineStep.REQUIRE_TITLE_EXTENSION_KEY,
     AuthorityAttackPipelineStep.COMMIT_ATTACK_AND_EFFECTS,
+    AuthorityAttackPipelineStep.AFTER_ATTACK_APPLIED,
     AuthorityAttackPipelineStep.BROADCAST_COMBAT_EVENTS,
     AuthorityAttackPipelineStep.MAYBE_AUTO_ADVANCE_PHASE,
 )
@@ -249,8 +252,37 @@ async def execute_authority_attack_request(
         await host._send_error(player_id, f"Action failed: {e}")
         return False
 
-    # --- BROADCAST_COMBAT_EVENTS ---
+    # --- AFTER_ATTACK_APPLIED ---
     st_after = host.action_manager.current_state
+    if not isinstance(hr, AttackResolution):
+        raise TypeError("resolve_attack must return AttackResolution")
+    follow_ctx = AfterAttackAppliedContext(
+        state=st_after,
+        attack_context=ctx,
+        resolution=hr,
+        extension_key=ek,
+        player_faction=player_faction,
+    )
+    follow_raw = host.hooks.attack.follow_up_after_attack(follow_ctx)
+    if follow_raw is not ENGINE_DEFAULT:
+        if not isinstance(follow_raw, list):
+            raise TypeError(
+                "hooks.attack.after_attack_applied must return list[StateAction] or "
+                "hooks.ENGINE_DEFAULT"
+            )
+        try:
+            for action in follow_raw:
+                if not isinstance(action, StateAction):
+                    raise TypeError(
+                        "hooks.attack.after_attack_applied entries must be StateAction"
+                    )
+                host.action_manager.execute(action)
+        except Exception as e:
+            await host._send_error(player_id, f"Action failed: {e}")
+            return False
+        st_after = host.action_manager.current_state
+
+    # --- BROADCAST_COMBAT_EVENTS ---
     await host._broadcast_combat_events(st_after)
 
     # --- MAYBE_AUTO_ADVANCE_PHASE ---

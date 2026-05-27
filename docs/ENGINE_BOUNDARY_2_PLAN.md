@@ -110,11 +110,13 @@ Reserved top-level keys: prefix `hexengine_` (e.g. `hexengine_movement_arc`) —
 
 ---
 
-## Phase C — Combat transition writes (hook follow-ups)
+## Phase C — Combat transition writes (hook follow-ups) ✅ (C.1)
 
 **Objective:** Titles return follow-up state changes; engine runs arcs in fixed order.
 
-### C.1 Hook: `after_attack_applied(ctx) -> list[StateAction] | ENGINE_DEFAULT`
+**Status:** `AttackHook.AFTER_ATTACK_APPLIED`, `AfterAttackAppliedContext`, `authority_attack` step, hexdemo `combat_transitions.follow_up_after_attack` (stub `[]`). Incremental migration of `Attack` / `ApplyCombatEffects` bucket writes and C.3 retreat hook remain.
+
+### C.1 Hook: `after_attack_applied(ctx) -> list[StateAction] | ENGINE_DEFAULT` ✅
 
 Context: `GameState`, `AttackResolution`, `extension_key`, attacker/defender ids, player faction.
 

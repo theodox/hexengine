@@ -9,6 +9,7 @@ Role in turn resolution:
   - whether the attack is legal (`validate_attack`)
   - what the outcome is (`resolve_attack`)
   - whether the phase should auto-advance after applying it (`auto_advance_phase_after_attack`)
+  - optional follow-up state actions after `Attack` + `ApplyCombatEffects` (`after_attack_applied`)
   - whether to open the post-retreat advance gate (`maybe_open_combat_advance_after_retreat`; engine default in `hooks.internal.advance`)
 - The engine then applies the outcome as a deterministic state action and broadcasts:
   - per-recipient combat/retreat instructions
@@ -30,6 +31,7 @@ from typing import Any
 
 from ..hexes.types import Hex
 from ..state import GameState, UnitState
+from ..state.action_manager import StateAction
 from ..state.actions import OpenCombatAdvance
 from .core import ENGINE_DEFAULT, RuleViolation
 
@@ -146,6 +148,17 @@ class AttackResolution:
 
 
 @dataclass(frozen=True, slots=True)
+class AfterAttackAppliedContext:
+    """State after ``Attack`` and ``ApplyCombatEffects``; title follow-up actions."""
+
+    state: GameState
+    attack_context: AttackContext
+    resolution: AttackResolution
+    extension_key: str
+    player_faction: str
+
+
+@dataclass(frozen=True, slots=True)
 class AttackHooks:
     """Combat policy surface consulted by the authoritative server during turn resolution."""
 
@@ -157,6 +170,9 @@ class AttackHooks:
     ) = None
     attack_plan_preview: (
         Callable[[AttackPlanPreviewContext], dict[str, Any] | object] | None
+    ) = None
+    after_attack_applied: (
+        Callable[[AfterAttackAppliedContext], list[StateAction] | object] | None
     ) = None
 
     def validate(self, ctx: AttackContext) -> None | object:
@@ -183,6 +199,13 @@ class AttackHooks:
             return ENGINE_DEFAULT
         return self.maybe_open_combat_advance_after_retreat(state, extension_key)
 
+    def follow_up_after_attack(
+        self, ctx: AfterAttackAppliedContext
+    ) -> list[StateAction] | object:
+        if self.after_attack_applied is None:
+            return ENGINE_DEFAULT
+        return self.after_attack_applied(ctx)
+
 
 class AttackHook(StrEnum):
     """Stable slot ids for `bind_title_hook` (values match `AttackHooks` field names)."""
@@ -192,6 +215,7 @@ class AttackHook(StrEnum):
     AUTO_ADVANCE_PHASE_AFTER_ATTACK = "auto_advance_phase_after_attack"
     MAYBE_OPEN_COMBAT_ADVANCE_AFTER_RETREAT = "maybe_open_combat_advance_after_retreat"
     ATTACK_PLAN_PREVIEW = "attack_plan_preview"
+    AFTER_ATTACK_APPLIED = "after_attack_applied"
 
 
 AttackHook._hexengine_hook_bundle = "attack"
@@ -215,6 +239,7 @@ def attack_hooks_unsupported() -> AttackHooks:
 
 
 __all__ = [
+    "AfterAttackAppliedContext",
     "AttackContext",
     "AttackHook",
     "AttackHooks",

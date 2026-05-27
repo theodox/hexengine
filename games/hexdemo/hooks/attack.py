@@ -10,6 +10,7 @@ from hexengine.hexes.types import Hex
 from typing import Any
 
 from hexengine.hooks.attack import (
+    AfterAttackAppliedContext,
     AttackContext,
     AttackHook,
     AttackHooks,
@@ -21,6 +22,7 @@ from hexengine.state import UnitState
 from hexengine.state.map_feature_queries import edges_block_los_predicate
 
 from .. import combat
+from .. import combat_transitions
 from .. import title_state
 from ..constants import PACK_STATE_EXTENSION_KEY
 
@@ -500,6 +502,11 @@ def resolve_attack(ctx: AttackContext) -> AttackResolution:
         rng_entry=rng_entry,
         effects=effects,
     )
+
+
+@bind_title_hook(AttackHook.AFTER_ATTACK_APPLIED)
+def after_attack_applied(ctx: AfterAttackAppliedContext) -> list:
+    return combat_transitions.follow_up_after_attack(ctx)
 
 
 @bind_title_hook(AttackHook.AUTO_ADVANCE_PHASE_AFTER_ATTACK)
