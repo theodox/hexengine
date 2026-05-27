@@ -13,10 +13,7 @@ from ..client import DisplayManager, LocalServerManager, UIState
 from ..client.marker_manager import MarkerManager
 from ..client.websocket_client import BrowserWebSocketClient, ConnectionState
 from ..document import create_proxy, element, js
-from ..gamedef.builtin import (
-    InterleavedTwoFactionGameDefinition,
-    StaticScheduleGameDefinition,
-)
+from ..gamedef.builtin import StaticScheduleGameDefinition
 from ..gamedef.client_title_data import ClientTitleData
 from ..gamedef.protocol import GameDefinition
 from ..hexes.types import Hex
@@ -63,14 +60,7 @@ def _game_definition_from_turn_rules_wire(wire: dict[str, Any]) -> GameDefinitio
             return StaticScheduleGameDefinition(
                 entries, movement_budget=budget, **per_kw
             )
-    raw = wire.get("factions")
-    if not isinstance(raw, list) or not raw:
-        raise ValueError("turn_rules must include entries or legacy factions list")
-    factions = tuple(str(f) for f in raw)
-    budget = float(wire.get("movement_budget", DEFAULT_MOVEMENT_BUDGET))
-    return InterleavedTwoFactionGameDefinition(
-        factions=factions, movement_budget=budget, **per_kw
-    )
+    raise ValueError("turn_rules must include a non-empty entries list")
 
 
 class Game(
@@ -159,9 +149,6 @@ class Game(
         self._interaction_panel_action_buttons: dict[str, dict[str, Any]] = {}
         self._interaction_panel_input_elements: dict[str, dict[str, Any]] = {}
         self._interaction_panel_wire_specs: dict[str, dict[str, Any]] = {}
-        from .arcs.client_interaction_panels import _remove_legacy_advance_button
-
-        _remove_legacy_advance_button()
 
         self.logger = logging.getLogger("game")
         self.logger.info("Game initialized")

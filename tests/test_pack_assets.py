@@ -30,14 +30,16 @@ def test_pack_asset_url_pack_route() -> None:
     assert href == "/pack/hexdemo/flags/union_34star.svg"
 
 
-def test_pack_asset_href_legacy_static_root() -> None:
+def test_pack_asset_href_without_asset_base_url_returns_none() -> None:
     from hexengine.ui.display import pack_asset_href
 
-    href = pack_asset_href(
-        HEXDEMO_ROOT,
-        "ui.css",
-        site_static_root=REPO_ROOT,
-    )
+    assert pack_asset_href(HEXDEMO_ROOT, "ui.css") is None
+
+
+def test_pack_resource_site_href_under_repo_static_root() -> None:
+    from hexengine.game_packs.resources import pack_resource_site_href
+
+    href = pack_resource_site_href(HEXDEMO_ROOT, "ui.css", static_root=REPO_ROOT)
     assert href is not None
     assert href.startswith("/")
     assert href.replace("\\", "/").endswith("games/hexdemo/resources/ui.css")

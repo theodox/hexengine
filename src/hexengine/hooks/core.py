@@ -20,8 +20,6 @@ from dataclasses import dataclass, field
 from typing import Any, get_type_hints
 
 ENGINE_DEFAULT: object = object()
-# Backward-compatible alias (same object identity as `ENGINE_DEFAULT`).
-RETURN_DEFAULT: object = ENGINE_DEFAULT
 
 # Bind-time contract modes (distinct from runtime return sentinel `ENGINE_DEFAULT`).
 REQUIRED: object = object()
@@ -122,7 +120,6 @@ def implements_hook(
 
 __all__ = [
     "ENGINE_DEFAULT",
-    "RETURN_DEFAULT",
     "REQUIRED",
     "PRESET",
     "SINGLE_DEFAULT",

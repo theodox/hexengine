@@ -560,16 +560,6 @@ class ClearTitleCombatExtension(StateAction):
         return f"<ClearTitleCombatExtension {self.extension_key!r}>"
 
 
-class ClearHexdemoCombatExtension(ClearTitleCombatExtension):
-    """Backward-compatible alias for ClearTitleCombatExtension('hexdemo')."""
-
-    def __init__(self) -> None:
-        super().__init__("hexdemo")
-
-    def __repr__(self) -> str:
-        return "<ClearHexdemoCombatExtension>"
-
-
 class ClearUnitRetreatObligation(StateAction):
     """Clear one unit's entry from title retreat_obligations after a fulfillment move."""
 

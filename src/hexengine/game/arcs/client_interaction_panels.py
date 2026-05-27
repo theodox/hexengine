@@ -85,16 +85,6 @@ def turn_dock_sequence_headline(
     return str(server_headline or "").strip()
 
 
-def _remove_legacy_advance_button() -> None:
-    """Remove pre-dock ``#advance-button`` if still in the DOM (stale cached ``hexes.html``)."""
-    btn = js.document.getElementById("advance-button")
-    if btn is not None:
-        try:
-            btn.remove()
-        except Exception:
-            pass
-
-
 def _mount_panel_on_advance_host(host: Any, root: Any) -> None:
     """Last child on the host = top of the column-reverse stack (most visible)."""
     host.appendChild(root)
@@ -290,7 +280,6 @@ class ClientInteractionPanelsMixin:
 
     def _sync_interaction_panels(self) -> None:
         """Render ``StateUpdate.interaction_panels`` on the user controls host."""
-        _remove_legacy_advance_button()
         client = getattr(self, "client", None)
         raw = getattr(client, "interaction_panels", None) if client is not None else None
         panels = [dict(p) for p in raw if isinstance(p, dict)] if isinstance(raw, list) else []

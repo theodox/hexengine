@@ -170,20 +170,16 @@ def pack_asset_href(
     rel: str,
     *,
     asset_base_url: str | None = None,
-    site_static_root: Path | None = None,
 ) -> str | None:
     """
     URL for a file under ``<pack_root>/resources/<rel>``.
 
-    Prefer ``asset_base_url`` from ``turn_rules`` (``/pack/<pack_id>/``). When
-    omitted, pass ``site_static_root`` for legacy repo-root paths such as
-    ``/games/mytitle/resources/...``.
+    Requires ``asset_base_url`` from ``turn_rules`` (``/pack/<pack_id>/``).
     """
     return pack_asset_url(
         pack_root.resolve(),
         rel,
         asset_base_url=asset_base_url,
-        static_root=site_static_root.resolve() if site_static_root is not None else None,
     )
 
 
