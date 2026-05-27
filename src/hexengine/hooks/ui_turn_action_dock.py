@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..state import GameState
-from ..state.title_extension import title_bucket
 from .ui_primary_actions import (
     PrimaryActionsContext,
     default_primary_actions_for_viewer,
@@ -38,11 +37,9 @@ def _shell_ui_label(shell_ui: Mapping[str, Any], key: str, default: str) -> str:
 
 
 def _combat_gate_blocks_end_phase(ctx: TurnActionDockContext) -> bool:
-    ek = str(ctx.extension_key).strip() if ctx.extension_key else ""
-    if not ek:
-        return False
-    gate = str(title_bucket(ctx.state, ek).get("combat_gate", "")).strip()
-    return gate in ("awaiting_retreat_or_disrupt", "awaiting_advance")
+    from .ui_combat_messages import default_blocks_routine_phase_advance
+
+    return default_blocks_routine_phase_advance(ctx.state, ctx.extension_key)
 
 
 def _catalog_gate_actions(ctx: TurnActionDockContext) -> list[dict[str, Any]]:

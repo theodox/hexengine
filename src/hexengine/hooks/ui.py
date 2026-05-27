@@ -30,6 +30,7 @@ from .core import ENGINE_DEFAULT, RuleViolation
 from .ui_primary_actions import PrimaryActionsContext
 from .ui_interaction_panels import InteractionPanelsContext
 from .inform_popup import InformPopupContext
+from .ui_combat_messages import CombatInteractionMessagesContext
 from .ui_turn_action_dock import TurnActionDockContext
 
 
@@ -182,6 +183,15 @@ class UIHooks:
         Callable[[PlaceMarkerPreviewContext], dict[str, Any] | object] | None
     ) = None
 
+    blocks_routine_phase_advance: (
+        Callable[[GameState, str | None], bool | object] | None
+    ) = None
+
+    combat_interaction_messages: (
+        Callable[[CombatInteractionMessagesContext], list[dict[str, Any]] | object]
+        | None
+    ) = None
+
     def messages(
         self, state: GameState, viewer_faction: str | None
     ) -> list[dict[str, Any]] | object:
@@ -264,6 +274,20 @@ class UIHooks:
             return ENGINE_DEFAULT
         return self.place_marker_preview(ctx)
 
+    def blocks_routine_phase_advance_for(
+        self, state: GameState, extension_key: str | None
+    ) -> bool | object:
+        if self.blocks_routine_phase_advance is None:
+            return ENGINE_DEFAULT
+        return self.blocks_routine_phase_advance(state, extension_key)
+
+    def combat_interaction_messages_for(
+        self, ctx: CombatInteractionMessagesContext
+    ) -> list[dict[str, Any]] | object:
+        if self.combat_interaction_messages is None:
+            return ENGINE_DEFAULT
+        return self.combat_interaction_messages(ctx)
+
 
 class UIHook(StrEnum):
     """Stable slot ids for `bind_title_hook` (values match `UIHooks` field names)."""
@@ -280,6 +304,8 @@ class UIHook(StrEnum):
     INTERACTION_PANELS_FOR_VIEWER = "interaction_panels_for_viewer"
     TURN_ACTION_DOCK_FOR_VIEWER = "turn_action_dock_for_viewer"
     PLACE_MARKER_PREVIEW = "place_marker_preview"
+    BLOCKS_ROUTINE_PHASE_ADVANCE = "blocks_routine_phase_advance"
+    COMBAT_INTERACTION_MESSAGES = "combat_interaction_messages"
 
 
 UIHook._hexengine_hook_bundle = "ui"
@@ -288,6 +314,7 @@ UIHook._hexengine_hook_bundle = "ui"
 __all__ = [
     "AdvanceGateInteractionContext",
     "CombatInteractionContext",
+    "CombatInteractionMessagesContext",
     "ENGINE_DEFAULT",
     "InteractionPanelsContext",
     "PhaseBannerContext",

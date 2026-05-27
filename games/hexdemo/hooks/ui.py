@@ -9,6 +9,7 @@ from __future__ import annotations
 from hexengine.hooks.ui import (
     AdvanceGateInteractionContext,
     CombatInteractionContext,
+    CombatInteractionMessagesContext,
     ENGINE_DEFAULT,
     PhaseBannerContext,
     UIHook,
@@ -90,6 +91,22 @@ def popup_message(
     return ENGINE_DEFAULT
 
 
+@bind_title_hook(UIHook.BLOCKS_ROUTINE_PHASE_ADVANCE)
+def blocks_routine_phase_advance(_state, _extension_key) -> bool:
+    from ..combat_policy import blocks_routine_phase_advance as policy
+
+    return policy(_state)
+
+
+@bind_title_hook(UIHook.COMBAT_INTERACTION_MESSAGES)
+def combat_interaction_messages(
+    ctx: CombatInteractionMessagesContext,
+) -> list[dict[str, object]]:
+    from ..combat_messages import build_combat_interaction_messages
+
+    return build_combat_interaction_messages(ctx)
+
+
 @bind_title_hook(UIHook.INFORM_POPUP)
 def inform_popup_for_viewer(ctx):
     from hexengine.hooks.inform_popup import InformPopupContext
@@ -101,6 +118,8 @@ def inform_popup_for_viewer(ctx):
 
 __all__ = [
     "advance_gate_banners_for_viewer",
+    "blocks_routine_phase_advance",
+    "combat_interaction_messages",
     "combat_instruction_for_viewer",
     "phase_banner_html_for_viewer",
     "phase_banner_text_for_viewer",

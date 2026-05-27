@@ -97,11 +97,8 @@ def retreat_path_preview_for_viewer(ctx):
 def auto_advance_phase_after_move_spend(state: GameState) -> bool:
     """Advance when actions are depleted unless combat gates block routine turn flow."""
 
-    if combat.any_retreat_obligation_pending(state):
-        return False
-    from .. import title_state
+    from ..combat_policy import blocks_routine_phase_advance
 
-    gate = str(title_state.bucket(state).get("combat_gate", "")).strip()
-    if gate in ("awaiting_retreat_or_disrupt", "awaiting_advance"):
+    if blocks_routine_phase_advance(state):
         return False
     return int(state.turn.phase_actions_remaining) <= 0

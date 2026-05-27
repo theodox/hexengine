@@ -230,6 +230,8 @@ def test_hexdemo_build_hooks_wires_all_marked() -> None:
     assert th.ui.combat_instruction_for_viewer is not None
     assert th.ui.advance_gate_banners_for_viewer is not None
     assert th.ui.turn_action_dock_for_viewer is not None
+    assert th.ui.blocks_routine_phase_advance is not None
+    assert th.ui.combat_interaction_messages is not None
 
 
 def test_default_primary_actions_disrupt_row() -> None:

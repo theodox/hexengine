@@ -859,16 +859,17 @@ class GameServer:
             return False
         return bool(out)
 
-    def _retreat_owner_faction(
-        self, state: GameState, outcome: str, attacker_id: str, defender_id: str
-    ) -> str | None:
-        if outcome == "attacker_retreat":
-            u = state.board.units.get(attacker_id)
-            return u.faction if u else None
-        if outcome == "defender_retreat":
-            u = state.board.units.get(defender_id)
-            return u.faction if u else None
-        return None
+    def _resolve_blocks_routine_phase_advance(
+        self, state: GameState | None = None
+    ) -> bool:
+        from ..hooks.ui_combat_messages import default_blocks_routine_phase_advance
+
+        st = state if state is not None else self.action_manager.current_state
+        ek = self._title_extension_key()
+        raw = self.hooks.ui.blocks_routine_phase_advance_for(st, ek)
+        if raw is ENGINE_DEFAULT:
+            return default_blocks_routine_phase_advance(st, ek)
+        return bool(raw)
 
     def _combat_instruction_for_viewer(
         self,
@@ -1014,96 +1015,39 @@ class GameServer:
             phase_row["html"] = phase_html
         out.append(phase_row)
 
-        # Combat/retreat prompt (per viewer) based on last_combat + retreat owner.
-        ek = self._title_extension_key()
-        if ek:
-            hx = self._title_bucket(st)
-            if isinstance(hx, dict):
-                last_combat = hx.get("last_combat")
-                if isinstance(last_combat, dict):
-                    outcome = str(last_combat.get("outcome", ""))
-                    attacker_id = str(last_combat.get("attacker_id", ""))
-                    defender_id = str(last_combat.get("defender_id", ""))
-                    retreat_owner = self._retreat_owner_faction(
-                        st, outcome, attacker_id, defender_id
-                    )
-                    inst, msg = self._combat_instruction_for_viewer(
-                        st,
-                        str(player.faction) if player.faction else None,
-                        outcome=outcome,
-                        retreat_owner_faction=retreat_owner,
-                    )
-                    # If mandatory retreat has already been satisfied, do not keep telling
-                    # clients to retreat/wait just because `last_combat` still describes a
-                    # retreat outcome. `combat_gate` is cleared when no retreat obligations
-                    # remain (see `ClearUnitRetreatObligation`).
-                    gate = str(hx.get("combat_gate", "")).strip()
-                    if inst in ("retreat_required", "wait") and gate not in (
-                        "awaiting_retreat",
-                        "awaiting_retreat_or_disrupt",
-                    ):
-                        inst, msg = "resolved", "Combat resolved."
-                    kind = (
-                        "retreat"
-                        if inst == "retreat_required"
-                        else "wait"
-                        if inst == "wait"
-                        else "info"
-                    )
-                    out.append(
-                        {
-                            "schema": 1,
-                            "kind": kind,
-                            "dedupe_key": "combat_prompt",
-                            "ttl_ms": None if kind in ("retreat", "wait") else 4_000,
-                            "css_class": (
-                                "interaction-msg--retreat"
-                                if kind == "retreat"
-                                else "interaction-msg--wait"
-                                if kind == "wait"
-                                else "interaction-msg--info"
-                            ),
-                            "text": msg,
-                        }
-                    )
+        from ..hooks.ui_combat_messages import (
+            CombatInteractionMessagesContext,
+            default_combat_interaction_messages,
+        )
 
-                # Advance prompt (post-retreat attacker advance).
-                gate = str(hx.get("combat_gate", "")).strip()
-                if gate == "awaiting_advance":
-                    adv = hx.get("advance")
-                    adv_faction = (
-                        str(adv.get("faction", "")).strip()
-                        if isinstance(adv, dict)
-                        else ""
-                    )
-                    if adv_faction:
-                        t_adv, t_wait = self._advance_gate_banner_text_pair(
-                            st,
-                            str(player.faction) if player.faction else None,
-                            adv_faction,
-                        )
-                        if adv_faction == str(player.faction):
-                            out.append(
-                                {
-                                    "schema": 1,
-                                    "kind": "advance",
-                                    "dedupe_key": "combat_advance",
-                                    "ttl_ms": None,
-                                    "css_class": "interaction-msg--advance",
-                                    "text": t_adv,
-                                }
-                            )
-                        else:
-                            out.append(
-                                {
-                                    "schema": 1,
-                                    "kind": "wait",
-                                    "dedupe_key": "combat_advance_wait",
-                                    "ttl_ms": None,
-                                    "css_class": "interaction-msg--wait",
-                                    "text": t_wait,
-                                }
-                            )
+        ek = self._title_extension_key()
+        msg_ctx = CombatInteractionMessagesContext(
+            state=st,
+            viewer_faction=viewer_faction,
+            extension_key=ek,
+        )
+        combat_raw = self.hooks.ui.combat_interaction_messages_for(msg_ctx)
+        if combat_raw is ENGINE_DEFAULT:
+            combat_rows = default_combat_interaction_messages(
+                msg_ctx,
+                combat_instruction=lambda outcome, ro: self._combat_instruction_for_viewer(
+                    st,
+                    viewer_faction,
+                    outcome=outcome,
+                    retreat_owner_faction=ro,
+                ),
+                advance_gate_banners=lambda adv_faction: self._advance_gate_banner_text_pair(
+                    st, viewer_faction, adv_faction
+                ),
+            )
+        elif isinstance(combat_raw, list):
+            combat_rows = [dict(r) for r in combat_raw if isinstance(r, dict)]
+        else:
+            raise TypeError(
+                "hooks.ui.combat_interaction_messages must return list[dict] or "
+                "hooks.ENGINE_DEFAULT"
+            )
+        out.extend(combat_rows)
 
         return out or None
 
@@ -1277,7 +1221,9 @@ class GameServer:
                     hex_remaining = int(raw_rem)
                 except (TypeError, ValueError):
                     hex_remaining = None
-        retreat_owner = self._retreat_owner_faction(
+        from ..hooks.ui_combat_messages import retreat_owner_faction
+
+        retreat_owner = retreat_owner_faction(
             state_after, outcome, attacker_id, defender_id
         )
         for pid, pinfo in self.players.items():
@@ -1536,6 +1482,10 @@ class GameServer:
                 if read_movement_arc(self.action_manager.current_state):
                     raise ValueError(
                         "Advance phase is blocked while a movement arc is incomplete"
+                    )
+                if self._resolve_blocks_routine_phase_advance():
+                    raise ValueError(
+                        "Cannot advance phase while combat obligations are pending"
                     )
                 info = self._get_next_phase()
                 action = NextPhase(

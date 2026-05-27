@@ -79,9 +79,11 @@ Reserved top-level keys: prefix `hexengine_` (e.g. `hexengine_movement_arc`) —
 
 ---
 
-## Phase B — Decouple combat INFORM / gate reads from `game_server`
+## Phase B — Decouple combat INFORM / gate reads from `game_server` ✅
 
 **Objective:** Stop encoding hexdemo combat narrative in `GameServer._interaction_messages_for_player_id`.
+
+**Status:** `UIHook.BLOCKS_ROUTINE_PHASE_ADVANCE`, `UIHook.COMBAT_INTERACTION_MESSAGES`, `ui_combat_messages.py`, hexdemo `combat_policy.py` / `combat_messages.py`, `NextPhase` guard.
 
 ### B.1 Hook: combat / phase blocking (unified policy)
 
