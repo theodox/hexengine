@@ -21,6 +21,7 @@ from hexengine.state import UnitState
 from hexengine.state.map_feature_queries import edges_block_los_predicate
 
 from .. import combat
+from .. import title_state
 from ..constants import PACK_STATE_EXTENSION_KEY
 
 # When the board has no explicit or unset-default terrain for a hex, CRT math still
@@ -111,10 +112,9 @@ def validate_attack(ctx: AttackContext) -> None:
         raise ValueError("Not your turn")
     if combat.any_retreat_obligation_pending(ctx.state):
         raise ValueError("Resolve retreat before issuing another attack")
-    hx = ctx.state.extension.get(PACK_STATE_EXTENSION_KEY)
     if (
-        isinstance(hx, dict)
-        and str(hx.get("combat_gate", "")).strip() == "awaiting_advance"
+        str(title_state.bucket(ctx.state).get("combat_gate", "")).strip()
+        == "awaiting_advance"
     ):
         raise ValueError("Resolve combat advance before issuing another attack")
 
@@ -160,13 +160,11 @@ def validate_attack(ctx: AttackContext) -> None:
         else:
             raise ValueError(f"Unit type {ut!r} cannot participate in combined attacks")
 
-    hx = ctx.state.extension.get(PACK_STATE_EXTENSION_KEY)
-    if isinstance(hx, dict):
-        prev = hx.get("attacks_this_phase")
-        if isinstance(prev, list):
-            for aid in ctx.attacker_ids:
-                if aid in prev:
-                    raise ValueError("That unit has already attacked this combat phase")
+    prev = title_state.bucket(ctx.state).get("attacks_this_phase")
+    if isinstance(prev, list):
+        for aid in ctx.attacker_ids:
+            if aid in prev:
+                raise ValueError("That unit has already attacked this combat phase")
 
     params = ctx.params if isinstance(ctx.params, dict) else {}
     pa = params.get("primary_attacker_id")
@@ -523,10 +521,7 @@ def auto_advance_phase_after_attack(state) -> bool:
     }
     if not active_ids:
         return True
-    hx = state.extension.get(PACK_STATE_EXTENSION_KEY)
-    if not isinstance(hx, dict):
-        return False
-    raw = hx.get("attacks_this_phase")
+    raw = title_state.bucket(state).get("attacks_this_phase")
     if not isinstance(raw, list):
         return False
     attacked: set[str] = set()

@@ -38,9 +38,10 @@ def default_primary_actions_for_viewer(
     if not my:
         return []
 
-    st = ctx.state
-    hx = st.extension.get(ek)
-    if not isinstance(hx, dict):
+    from ..state.title_extension import title_bucket
+
+    hx = title_bucket(ctx.state, ek)
+    if not hx:
         return []
 
     su = ctx.shell_ui if isinstance(ctx.shell_ui, Mapping) else {}
@@ -56,7 +57,7 @@ def default_primary_actions_for_viewer(
                         continue
                 except (TypeError, ValueError):
                     continue
-                u = st.board.units.get(str(uid))
+                u = ctx.state.board.units.get(str(uid))
                 if u is not None and u.active and str(u.faction).strip() == my:
                     out.append(
                         {

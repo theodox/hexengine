@@ -31,13 +31,13 @@ class TestGameRoot(unittest.TestCase):
     def test_game_root_and_scenario_id(self) -> None:
         repo = Path(__file__).resolve().parent.parent
         game_dir = repo / "games" / "hexdemo"
-        scenario_file = game_dir / "scenarios" / "skirmish" / "scenario.toml"
+        scenario_file = game_dir / "scenarios" / "default" / "scenario.toml"
         if not scenario_file.is_file():
-            self.skipTest("hexdemo skirmish scenario not present")
+            self.skipTest("hexdemo default scenario not present")
 
         resolved = resolve_scenario_path_with_game_root(
             game_root=game_dir,
-            scenario_id="skirmish",
+            scenario_id="default",
         )
         self.assertEqual(resolved.resolve(), scenario_file.resolve())
 
@@ -104,12 +104,12 @@ class TestGameRoot(unittest.TestCase):
     def test_scenario_id_only_uses_auto_hexdemo(self) -> None:
         repo = Path(__file__).resolve().parent.parent
         expected = (
-            repo / "games" / "hexdemo" / "scenarios" / "skirmish" / "scenario.toml"
+            repo / "games" / "hexdemo" / "scenarios" / "default" / "scenario.toml"
         )
         if not expected.is_file():
-            self.skipTest("hexdemo skirmish scenario not present")
+            self.skipTest("hexdemo default scenario not present")
 
-        resolved = resolve_scenario_path_with_game_root(scenario_id="skirmish")
+        resolved = resolve_scenario_path_with_game_root(scenario_id="default")
         self.assertEqual(resolved.resolve(), expected.resolve())
 
     def test_zip_pack_resolves_scenario(self) -> None:

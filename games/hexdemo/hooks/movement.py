@@ -99,11 +99,9 @@ def auto_advance_phase_after_move_spend(state: GameState) -> bool:
 
     if combat.any_retreat_obligation_pending(state):
         return False
-    from ..constants import PACK_STATE_EXTENSION_KEY
+    from .. import title_state
 
-    hx = state.extension.get(PACK_STATE_EXTENSION_KEY)
-    if isinstance(hx, dict):
-        gate = str(hx.get("combat_gate", "")).strip()
-        if gate in ("awaiting_retreat_or_disrupt", "awaiting_advance"):
-            return False
+    gate = str(title_state.bucket(state).get("combat_gate", "")).strip()
+    if gate in ("awaiting_retreat_or_disrupt", "awaiting_advance"):
+        return False
     return int(state.turn.phase_actions_remaining) <= 0

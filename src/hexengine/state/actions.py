@@ -5,6 +5,7 @@ State-based actions for the immutable state system.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
@@ -524,6 +525,49 @@ _TITLE_COMBAT_KEYS = (
     "last_combat",
     "advance",
 )
+
+
+class PatchTitleBucket(StateAction):
+    """Merge keys into a title extension bucket (undo restores prior bucket snapshot)."""
+
+    def __init__(
+        self,
+        extension_key: str,
+        patch: Mapping[str, Any],
+        *,
+        remove_keys: tuple[str, ...] = (),
+    ) -> None:
+        self.extension_key = str(extension_key).strip()
+        if not self.extension_key:
+            raise ValueError("extension_key must be non-empty")
+        self.patch = dict(patch)
+        self.remove_keys = tuple(str(k) for k in remove_keys)
+        self._saved_bucket: dict[str, Any] | None = None
+
+    def apply(self, state: GameState) -> GameState:
+        from .title_extension import title_bucket
+
+        prior = title_bucket(state, self.extension_key)
+        self._saved_bucket = dict(prior)
+        new_hx = {**prior, **self.patch}
+        for k in self.remove_keys:
+            new_hx.pop(k, None)
+        ext = dict(state.extension)
+        ext[self.extension_key] = new_hx
+        return state.with_extension(ext)
+
+    def revert(self, state: GameState) -> GameState:
+        if self._saved_bucket is None:
+            return state
+        ext = dict(state.extension)
+        ext[self.extension_key] = dict(self._saved_bucket)
+        return state.with_extension(ext)
+
+    def should_revert_prior(self) -> bool:
+        return False
+
+    def __repr__(self) -> str:
+        return f"<PatchTitleBucket {self.extension_key!r}>"
 
 
 class ClearTitleCombatExtension(StateAction):

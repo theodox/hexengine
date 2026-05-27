@@ -23,7 +23,7 @@ from hexengine.state import GameState
 from hexengine.state.map_feature_queries import edges_block_los_predicate
 
 from . import combat
-from .constants import PACK_STATE_EXTENSION_KEY
+from . import title_state
 
 _ATTACK_KIND = "combined"
 _ATTACK_PLAN_KIND = "attack_plan"
@@ -88,10 +88,7 @@ def _enemy_on_hex(state: GameState, h: Hex, attacker_faction: str) -> bool:
 
 
 def _already_attacked_this_phase(state: GameState, unit_id: str) -> bool:
-    hx = state.extension.get(PACK_STATE_EXTENSION_KEY)
-    if not isinstance(hx, dict):
-        return False
-    prev = hx.get("attacks_this_phase")
+    prev = title_state.bucket(state).get("attacks_this_phase")
     if not isinstance(prev, list):
         return False
     return unit_id in prev
@@ -104,16 +101,10 @@ def _planning_blocked_reason(state: GameState, player_faction: str) -> str | Non
         return "Attack planning is only available during Combat"
     if combat.any_retreat_obligation_pending(state):
         return "Resolve retreat before planning an attack"
-    hx = state.extension.get(PACK_STATE_EXTENSION_KEY)
-    if (
-        isinstance(hx, dict)
-        and str(hx.get("combat_gate", "")).strip() == "awaiting_advance"
-    ):
+    gate = str(title_state.bucket(state).get("combat_gate", "")).strip()
+    if gate == "awaiting_advance":
         return "Resolve combat advance before planning an attack"
-    if (
-        isinstance(hx, dict)
-        and str(hx.get("combat_gate", "")).strip() == "awaiting_retreat_or_disrupt"
-    ):
+    if gate == "awaiting_retreat_or_disrupt":
         return "Resolve retreat before planning an attack"
     return None
 

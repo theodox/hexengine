@@ -8,7 +8,7 @@ from hexengine.hooks.ui import ENGINE_DEFAULT, UIHook
 from hexengine.hooks.wiring import bind_title_hook
 from hexengine.state import GameState
 
-from ..constants import PACK_STATE_EXTENSION_KEY
+from .. import title_state
 
 
 def _glyph_row(hex_dict: dict) -> dict[str, object] | None:
@@ -30,8 +30,8 @@ def map_overlays(
     """
     After combat, show a marker on defender hex(es) (even if defenders were destroyed).
     """
-    hx = state.extension.get(PACK_STATE_EXTENSION_KEY)
-    if not isinstance(hx, dict):
+    hx = title_state.bucket(state)
+    if not hx:
         return ENGINE_DEFAULT
     atk_n = 0
     prev_attacks = hx.get("attacks_this_phase")

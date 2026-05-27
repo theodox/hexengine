@@ -402,6 +402,16 @@ class GameServer:
             return raw.strip()
         return None
 
+    def _title_bucket(self, state: GameState | None = None) -> dict[str, Any]:
+        """Title-owned extension bucket for this match (empty when no key configured)."""
+        from ..state.title_extension import title_bucket
+
+        ek = self._title_extension_key()
+        if not ek:
+            return {}
+        st = state if state is not None else self.action_manager.current_state
+        return title_bucket(st, ek)
+
     def _turn_rules_wire(self) -> dict[str, Any]:
         """Full turn rota + budget + fingerprint for thin clients (no game pack on disk)."""
         entries = self._game_definition.turn_order()
@@ -1007,7 +1017,7 @@ class GameServer:
         # Combat/retreat prompt (per viewer) based on last_combat + retreat owner.
         ek = self._title_extension_key()
         if ek:
-            hx = st.extension.get(ek)
+            hx = self._title_bucket(st)
             if isinstance(hx, dict):
                 last_combat = hx.get("last_combat")
                 if isinstance(last_combat, dict):
@@ -1233,7 +1243,7 @@ class GameServer:
         ek = self._title_extension_key()
         if not ek:
             return
-        hx = state_after.extension.get(ek)
+        hx = self._title_bucket(state_after)
         if not isinstance(hx, dict):
             return
         last_combat = hx.get("last_combat")

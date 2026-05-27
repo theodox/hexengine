@@ -28,4 +28,4 @@ render = "image"
 ```
 
 Use `confederate_battle.svg` for Confederate leaders; keep `viewBox` aspect in mind when
-placing inside `unit_template.svg` (100×100 art box).
+placing inside the unit SVG art box (see engine `resources/default/unit_template.svg`).

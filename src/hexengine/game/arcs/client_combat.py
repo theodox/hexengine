@@ -52,10 +52,9 @@ class ClientCombatMixin(ClientMapSelectionMixin):
         ek = self._title_state_extension_key()
         if not ek:
             return ""
-        hx = st.extension.get(ek)
-        if isinstance(hx, dict):
-            return str(hx.get("combat_gate", "")).strip()
-        return ""
+        from ...state.title_extension import title_bucket
+
+        return str(title_bucket(st, ek).get("combat_gate", "")).strip()
 
     def _combat_gate_blocks_attack_planning_ui(self) -> bool:
         return self._title_combat_gate() in (

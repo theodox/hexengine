@@ -53,7 +53,6 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `game_config.py` | **Match config** (`HexdemoMatchConfig`) and `GameDefinition` construction |
 | `registry.py` | `build_game_definition()` (uses `game_config`) |
 | `engine_entry.py` | Manifest `load_game_definition` entry |
-| `movement_rules.py` | Stubs for future `MovementRules` |
 | `marker_rules.py` | Optional `MarkerPlacementRule` hook |
 
 ## Zip packs

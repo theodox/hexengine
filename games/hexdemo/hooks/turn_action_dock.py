@@ -18,6 +18,7 @@ from hexengine.hooks.ui_turn_action_dock import (
 )
 from hexengine.hooks.wiring import bind_title_hook
 
+from .. import title_state
 from ..ui_markup import render_dock_gate_panel_html
 
 
@@ -26,10 +27,7 @@ def _viewer_has_retreat_obligation(ctx: TurnActionDockContext) -> bool:
     my = str(ctx.viewer_faction or "").strip()
     if not ek or not my:
         return False
-    hx = ctx.state.extension.get(ek)
-    if not isinstance(hx, dict):
-        return False
-    ro = hx.get("retreat_obligations")
+    ro = title_state.bucket(ctx.state).get("retreat_obligations")
     if not isinstance(ro, dict):
         return False
     for uid, raw in ro.items():

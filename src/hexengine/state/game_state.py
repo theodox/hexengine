@@ -296,7 +296,8 @@ class GameState:
     This is the single source of truth for the game. It's fully serializable
     and contains no display or UI concerns.
 
-    `extension` holds optional JSON-safe game-specific data (namespaced by game id).
+    `extension` holds JSON-safe blobs: one title bucket per match (`GameData.title_state_extension_key`)
+    and engine keys prefixed with ``hexengine_`` (see ``hexengine.state.title_extension``).
     `rng_log` is an append-only record of server-authoritative random draws (replay/debug).
     """
 

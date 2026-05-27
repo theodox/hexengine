@@ -29,7 +29,7 @@ These are **layers**, not two different species of title code.
 **Healthy pattern:** hooks stay thin; they call into **rules** modules.
 
 ```text
-MoveUnit / movement arc  →  MovementHook.*  →  hooks/movement.py  →  (ideally) ../movement_rules.py
+MoveUnit / movement arc  →  MovementHook.*  →  hooks/movement.py  →  ../combat.py (retreat state)
 Attack RPC               →  AttackHook.*     →  hooks/attack.py    →  ../combat.py
 ```
 
@@ -37,13 +37,10 @@ Hexdemo today:
 
 | Rules (policy) | Hook adapters |
 |----------------|---------------|
-| `../combat.py` — CRT, retreat extension state | `attack.py`, parts of `movement.py` |
-| `../movement_rules.py` — stub; future `legal_move_hexes`, budgets | `movement.py` (most movement policy lives here for now) |
+| `../combat.py` — CRT, retreat extension state | `attack.py`, `movement.py` |
 | `../marker_rules.py` — `MarkerPlacementRule` factory | Injected on `GameServer`, not `TitleHooks` |
 
-Keep **one coherent policy** in rules when it is reused (server validation + client preview + unit tests). Keep logic in `hooks/*.py` only while it is small and tied to a single hook slot.
-
-`movement_rules.py` is explicitly **pure** until the engine delegates full legality (see `docs/engine_game_boundary_matrix.md` movement row). Until then, hooks answer slices (budget, ZoC, retreat); rules will eventually answer “all legal destination hexes” in one place.
+Keep **one coherent policy** in pack-root modules when it is reused (server validation + client preview + unit tests). Movement legality slices (budget, ZoC, retreat) live in `movement.py` for now; see `docs/engine_game_boundary_matrix.md` and `docs/RULE_COMPOSITION.md` for future delegation.
 
 Longer term, the engine may offer **composable rule pieces** (ZOC, terrain, morale, …) that titles assemble declaratively, with custom rules alongside — see `docs/RULE_COMPOSITION.md` (planning only; not implemented).
 
@@ -80,18 +77,18 @@ Callbacks when the committed turn enters a phase (e.g. `before_union_move`). Ext
 
 ## Adding title behavior
 
-1. **Shared policy** — add or extend a **rules** module at pack root (`combat.py`, `movement_rules.py`, …): pure `GameState` in/out.
+1. **Shared policy** — add or extend a pack-root module (`combat.py`, …): pure `GameState` in/out.
 2. **In-match integration** — wire a **hook** in `hooks/*.py` with `bind_title_hook`; call the rules module from the hook body; ensure `build_hooks()` still assembles it.
 3. **Connect / splash / lobby** — `title_load.py` or a future manifest table.
 4. **Phase entry** — `turn_schedule.py` or `after_phase_transition` in `game_config.py`.
 
-Optional future layout: `hexdemo/rules/` for policy modules and `hexdemo/hooks/` only as adapters — not required until `movement_rules` is real and wired.
+Optional future layout: `hexdemo/rules/` for policy modules and `hexdemo/hooks/` only as adapters.
 
 ## See also
 
 - Author hub: [`docs/TITLE_AUTHORING.md`](../../../docs/TITLE_AUTHORING.md)
 - Pack overview: `../README.md`
-- Policy stubs: `../movement_rules.py`, `../marker_rules.py`, `../combat.py`
+- Policy modules: `../marker_rules.py`, `../combat.py`
 - Boundary matrix (movement legality): `docs/engine_game_boundary_matrix.md`
 - Engine hook authoring: `hexengine.hooks` package docstring
 - Title-load detail: `docs/TITLE_LOAD_HOOKS.md`

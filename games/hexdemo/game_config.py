@@ -200,15 +200,15 @@ class HexdemoGameDefinition:
                 raise ValueError(
                     f"Unit type {ut!r} cannot participate in combined attacks"
                 )
-        hx = state.extension.get(PACK_STATE_EXTENSION_KEY)
-        if isinstance(hx, dict):
-            prev = hx.get("attacks_this_phase")
-            if isinstance(prev, list):
-                for aid in attacker_ids:
-                    if aid in prev:
-                        raise ValueError(
-                            "That unit has already attacked this combat phase"
-                        )
+        from . import title_state
+
+        prev = title_state.bucket(state).get("attacks_this_phase")
+        if isinstance(prev, list):
+            for aid in attacker_ids:
+                if aid in prev:
+                    raise ValueError(
+                        "That unit has already attacked this combat phase"
+                    )
 
     def retreat_obligation_hexes_remaining(
         self, state: GameState, unit_id: str

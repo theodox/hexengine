@@ -1,9 +1,8 @@
 """
-Hexdemo combat extension reads for `GameState.extension[PACK_STATE_EXTENSION_KEY]`.
+Hexdemo combat extension reads for the match title bucket.
 
 Server and client resolve obligations through optional `GameDefinition` hooks
-on `HexdemoGameDefinition`; per-unit steps are read from `GameState` via
-`hexengine.state.pack_extension_retreat` (shared with the browser client).
+on `HexdemoGameDefinition`; per-unit steps use `hexengine.state.pack_extension_retreat`.
 """
 
 from __future__ import annotations
@@ -14,6 +13,7 @@ from hexengine.state.pack_extension_retreat import (
 )
 
 from .constants import PACK_STATE_EXTENSION_KEY
+from .title_state import bucket
 
 
 def retreat_hexes_remaining(state: GameState, unit_id: str) -> int | None:
@@ -23,13 +23,10 @@ def retreat_hexes_remaining(state: GameState, unit_id: str) -> int | None:
 
 def any_retreat_obligation_pending(state: GameState) -> bool:
     """True if any unit still has a positive retreat obligation."""
-    hx = state.extension.get(PACK_STATE_EXTENSION_KEY)
-    if not isinstance(hx, dict):
+    obligations = bucket(state).get("retreat_obligations")
+    if not isinstance(obligations, dict):
         return False
-    ob = hx.get("retreat_obligations")
-    if not isinstance(ob, dict):
-        return False
-    for v in ob.values():
+    for v in obligations.values():
         try:
             if int(v) > 0:
                 return True
@@ -40,13 +37,10 @@ def any_retreat_obligation_pending(state: GameState) -> bool:
 
 def faction_has_pending_retreat(state: GameState, faction: str) -> bool:
     """True if `faction` owns any active unit with a positive retreat obligation."""
-    hx = state.extension.get(PACK_STATE_EXTENSION_KEY)
-    if not isinstance(hx, dict):
+    pending_retreat = bucket(state).get("retreat_obligations")
+    if not isinstance(pending_retreat, dict):
         return False
-    ro = hx.get("retreat_obligations")
-    if not isinstance(ro, dict):
-        return False
-    for uid, v in ro.items():
+    for uid, v in pending_retreat.items():
         try:
             if int(v) <= 0:
                 continue
