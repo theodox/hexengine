@@ -1,8 +1,9 @@
 """
 Engine logic for opening the post-retreat combat advance gate.
 
-Titles override via `AttackHooks.maybe_open_combat_advance_after_retreat`; when that
-returns `ENGINE_DEFAULT`, `GameServer` uses `default_maybe_open_combat_advance_after_retreat`.
+Titles override via `AttackHooks.on_retreat_obligation_cleared` (or legacy
+`maybe_open_combat_advance_after_retreat`); when that returns `ENGINE_DEFAULT`,
+`GameServer` uses `default_maybe_open_combat_advance_after_retreat`.
 """
 
 from __future__ import annotations

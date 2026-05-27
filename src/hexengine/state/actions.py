@@ -610,30 +610,34 @@ class ClearUnitRetreatObligation(StateAction):
     def __init__(self, unit_id: str, extension_key: str) -> None:
         self.unit_id = unit_id
         self.extension_key = extension_key
-        self._saved_bucket: dict[str, Any] | None = None
+        self._inner: PatchTitleBucket | None = None
 
     def apply(self, state: GameState) -> GameState:
-        ext = dict(state.extension)
-        hx = ext.get(self.extension_key)
-        if not isinstance(hx, dict):
-            self._saved_bucket = None
+        from .title_extension import title_bucket
+
+        hx = title_bucket(state, self.extension_key)
+        if not hx:
+            self._inner = None
             return state
-        self._saved_bucket = dict(hx)
-        new_hx = {**hx}
-        ro = dict(new_hx.get("retreat_obligations", {}))
+        ro = dict(hx.get("retreat_obligations", {}))
+        if self.unit_id not in ro:
+            self._inner = None
+            return state
         ro.pop(self.unit_id, None)
-        new_hx["retreat_obligations"] = ro
+        remove: tuple[str, ...] = ()
         if not _retreat_obligations_have_pending(ro):
-            new_hx.pop("combat_gate", None)
-        ext[self.extension_key] = new_hx
-        return state.with_extension(ext)
+            remove = ("combat_gate",)
+        self._inner = PatchTitleBucket(
+            self.extension_key,
+            {"retreat_obligations": ro},
+            remove_keys=remove,
+        )
+        return self._inner.apply(state)
 
     def revert(self, state: GameState) -> GameState:
-        if self._saved_bucket is None:
+        if self._inner is None:
             return state
-        ext = dict(state.extension)
-        ext[self.extension_key] = dict(self._saved_bucket)
-        return state.with_extension(ext)
+        return self._inner.revert(state)
 
     def should_revert_prior(self) -> bool:
         return False
@@ -947,11 +951,6 @@ class ApplyCombatEffects(StateAction):
             if isinstance(cur_hx, dict)
             else dict(self._prev_extension_bucket)
         )
-
-        retreat_meta = eff.get("retreat")
-        if isinstance(retreat_meta, dict) and retreat_meta.get("allow_disrupt_instead"):
-            if str(hx.get("combat_gate", "")) == "awaiting_retreat":
-                hx["combat_gate"] = "awaiting_retreat_or_disrupt"
 
         patch = eff.get("last_combat_patch")
         if isinstance(patch, dict):

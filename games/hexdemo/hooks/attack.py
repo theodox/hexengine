@@ -16,6 +16,7 @@ from hexengine.hooks.attack import (
     AttackHooks,
     AttackPlanPreviewContext,
     AttackResolution,
+    RetreatObligationClearedContext,
 )
 from hexengine.hooks.wiring import bind_title_hook
 from hexengine.state import UnitState
@@ -507,6 +508,13 @@ def resolve_attack(ctx: AttackContext) -> AttackResolution:
 @bind_title_hook(AttackHook.AFTER_ATTACK_APPLIED)
 def after_attack_applied(ctx: AfterAttackAppliedContext) -> list:
     return combat_transitions.follow_up_after_attack(ctx)
+
+
+@bind_title_hook(AttackHook.ON_RETREAT_OBLIGATION_CLEARED)
+def on_retreat_obligation_cleared(
+    ctx: RetreatObligationClearedContext,
+) -> object:
+    return combat_transitions.on_retreat_obligation_cleared(ctx)
 
 
 @bind_title_hook(AttackHook.AUTO_ADVANCE_PHASE_AFTER_ATTACK)

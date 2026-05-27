@@ -10,7 +10,7 @@ Role in turn resolution:
   - what the outcome is (`resolve_attack`)
   - whether the phase should auto-advance after applying it (`auto_advance_phase_after_attack`)
   - optional follow-up state actions after `Attack` + `ApplyCombatEffects` (`after_attack_applied`)
-  - whether to open the post-retreat advance gate (`maybe_open_combat_advance_after_retreat`; engine default in `hooks.internal.advance`)
+  - whether to open the post-retreat advance gate (`on_retreat_obligation_cleared`; legacy `maybe_open_combat_advance_after_retreat`; engine default in `hooks.internal.advance`)
 - The engine then applies the outcome as a deterministic state action and broadcasts:
   - per-recipient combat/retreat instructions
   - updated `StateUpdate` snapshots
@@ -159,6 +159,15 @@ class AfterAttackAppliedContext:
 
 
 @dataclass(frozen=True, slots=True)
+class RetreatObligationClearedContext:
+    """State after retreat obligations were cleared (move fulfillment or disrupt)."""
+
+    state: GameState
+    extension_key: str
+    cleared_unit_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class AttackHooks:
     """Combat policy surface consulted by the authoritative server during turn resolution."""
 
@@ -167,6 +176,10 @@ class AttackHooks:
     auto_advance_phase_after_attack: Callable[[GameState], bool | object] | None = None
     maybe_open_combat_advance_after_retreat: (
         Callable[[GameState, str], OpenCombatAdvance | None | object] | None
+    ) = None
+    on_retreat_obligation_cleared: (
+        Callable[[RetreatObligationClearedContext], OpenCombatAdvance | None | object]
+        | None
     ) = None
     attack_plan_preview: (
         Callable[[AttackPlanPreviewContext], dict[str, Any] | object] | None
@@ -191,13 +204,24 @@ class AttackHooks:
         return self.auto_advance_phase_after_attack(state)
 
     def advance_after_retreat(
-        self, state: GameState, extension_key: str
+        self,
+        state: GameState,
+        extension_key: str,
+        *,
+        cleared_unit_ids: tuple[str, ...] = (),
     ) -> OpenCombatAdvance | None | object:
-        """Policy for opening the advance gate after retreat; see `hooks.internal.advance`."""
+        """Policy for opening the advance gate after retreat obligations clear."""
 
-        if self.maybe_open_combat_advance_after_retreat is None:
-            return ENGINE_DEFAULT
-        return self.maybe_open_combat_advance_after_retreat(state, extension_key)
+        ctx = RetreatObligationClearedContext(
+            state=state,
+            extension_key=extension_key,
+            cleared_unit_ids=cleared_unit_ids,
+        )
+        if self.on_retreat_obligation_cleared is not None:
+            return self.on_retreat_obligation_cleared(ctx)
+        if self.maybe_open_combat_advance_after_retreat is not None:
+            return self.maybe_open_combat_advance_after_retreat(state, extension_key)
+        return ENGINE_DEFAULT
 
     def follow_up_after_attack(
         self, ctx: AfterAttackAppliedContext
@@ -214,6 +238,7 @@ class AttackHook(StrEnum):
     RESOLVE_ATTACK = "resolve_attack"
     AUTO_ADVANCE_PHASE_AFTER_ATTACK = "auto_advance_phase_after_attack"
     MAYBE_OPEN_COMBAT_ADVANCE_AFTER_RETREAT = "maybe_open_combat_advance_after_retreat"
+    ON_RETREAT_OBLIGATION_CLEARED = "on_retreat_obligation_cleared"
     ATTACK_PLAN_PREVIEW = "attack_plan_preview"
     AFTER_ATTACK_APPLIED = "after_attack_applied"
 
@@ -240,6 +265,7 @@ def attack_hooks_unsupported() -> AttackHooks:
 
 __all__ = [
     "AfterAttackAppliedContext",
+    "RetreatObligationClearedContext",
     "AttackContext",
     "AttackHook",
     "AttackHooks",

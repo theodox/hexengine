@@ -110,11 +110,11 @@ Reserved top-level keys: prefix `hexengine_` (e.g. `hexengine_movement_arc`) —
 
 ---
 
-## Phase C — Combat transition writes (hook follow-ups) ✅ (C.1)
+## Phase C — Combat transition writes (hook follow-ups) ✅
 
 **Objective:** Titles return follow-up state changes; engine runs arcs in fixed order.
 
-**Status:** `AttackHook.AFTER_ATTACK_APPLIED`, `AfterAttackAppliedContext`, `authority_attack` step, hexdemo `combat_transitions.follow_up_after_attack` (stub `[]`). Incremental migration of `Attack` / `ApplyCombatEffects` bucket writes and C.3 retreat hook remain.
+**Status:** C.1 hook + authority step; C.2 `ClearUnitRetreatObligation` via `PatchTitleBucket`, disrupt gate upgrade in hexdemo `follow_up_after_attack` (removed from `ApplyCombatEffects`); C.3 `ON_RETREAT_OBLIGATION_CLEARED` + unified server dispatch (retreat fulfillment + disrupt path). `Attack.apply` bucket writes remain engine-side until a later migration.
 
 ### C.1 Hook: `after_attack_applied(ctx) -> list[StateAction] | ENGINE_DEFAULT` ✅
 
@@ -128,15 +128,16 @@ Context: `GameState`, `AttackResolution`, `extension_key`, attacker/defender ids
 
 - Hexdemo: move obligation / `last_combat` / `attacks_this_phase` / `combat_gate` writes from resolve path into this list where possible (incremental).
 
-### C.2 Generalize cleanup actions
+### C.2 Generalize cleanup actions ✅ (incremental)
 
-- Prefer `patch_title_bucket_action` over new `StateAction` subclasses per gate.
+- Prefer `PatchTitleBucket` over ad-hoc bucket copies (`ClearUnitRetreatObligation` migrated).
 - Keep `OpenCombatAdvance` / `ResolveCombatAdvance` until a second title needs a different advance model (or extract pack-local actions in `games/hexdemo/actions.py`).
 
-### C.3 Optional: `on_retreat_obligation_cleared(ctx)`
+### C.3 Optional: `on_retreat_obligation_cleared(ctx)` ✅
 
-- Unify `maybe_open_combat_advance_after_retreat` call sites (movement fulfillment, disrupt path).
-- Returns `OpenCombatAdvance | None | ENGINE_DEFAULT` → catalog.
+- `RetreatObligationClearedContext`; `GameServer._on_retreat_obligation_cleared` (legacy `_maybe_open_combat_advance_after_retreat` alias).
+- Call sites: retreat stack fulfillment, `CombatDisruptInsteadOfRetreat` after obligations clear.
+- Hexdemo binds `combat_transitions.on_retreat_obligation_cleared` (delegates to engine default).
 
 **Exit criteria:** No new inline `hx["combat_gate"] = …` in server arcs except inside generic patch actions driven by title.
 

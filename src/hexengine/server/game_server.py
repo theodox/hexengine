@@ -2373,11 +2373,18 @@ class GameServer:
             case _:
                 raise ValueError(f"Unknown action type: {action_type}")
 
-    def _maybe_open_combat_advance_after_retreat(self, extension_key: str) -> None:
+    def _on_retreat_obligation_cleared(
+        self,
+        extension_key: str,
+        *,
+        cleared_unit_ids: tuple[str, ...] = (),
+    ) -> None:
         """Delegates advance-gate policy to `AttackHooks` and engine default in `hooks.internal.advance`."""
 
         st = self.action_manager.current_state
-        raw = self.hooks.attack.advance_after_retreat(st, extension_key)
+        raw = self.hooks.attack.advance_after_retreat(
+            st, extension_key, cleared_unit_ids=cleared_unit_ids
+        )
         if raw is ENGINE_DEFAULT:
             action = default_maybe_open_combat_advance_after_retreat(st, extension_key)
         elif raw is None:
@@ -2386,11 +2393,21 @@ class GameServer:
             action = raw
         else:
             raise TypeError(
-                "hooks.attack.maybe_open_combat_advance_after_retreat must return "
+                "hooks.attack.on_retreat_obligation_cleared (or legacy "
+                "maybe_open_combat_advance_after_retreat) must return "
                 "OpenCombatAdvance, None, or hooks.ENGINE_DEFAULT"
             )
         if action is not None:
             self.action_manager.execute(action)
+
+    def _maybe_open_combat_advance_after_retreat(
+        self, extension_key: str, *, cleared_unit_ids: tuple[str, ...] = ()
+    ) -> None:
+        """Backward-compatible alias for retreat fulfillment and tests."""
+
+        self._on_retreat_obligation_cleared(
+            extension_key, cleared_unit_ids=cleared_unit_ids
+        )
 
     async def _handle_leave_game(self, player_id: str) -> None:
         """Handle a player leaving the game."""

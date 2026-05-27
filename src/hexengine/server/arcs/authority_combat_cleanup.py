@@ -54,7 +54,9 @@ class AuthorityCombatCleanupHost(Protocol):
         self, state: GameState, unit_id: str
     ) -> int | None: ...
 
-    def _maybe_open_combat_advance_after_retreat(self, extension_key: str) -> None: ...
+    def _on_retreat_obligation_cleared(
+        self, extension_key: str, *, cleared_unit_ids: tuple[str, ...] = ()
+    ) -> None: ...
 
 
 async def _reply_ok_broadcast(host: AuthorityCombatCleanupHost, player_id: str) -> None:
@@ -160,6 +162,7 @@ async def handle_combat_disrupt_instead_of_retreat(
     except Exception as e:
         await host._send_error(player_id, f"Action failed: {e}")
         return
+    host._on_retreat_obligation_cleared(ek)
     await _reply_ok_broadcast(host, player_id)
 
 
@@ -327,7 +330,7 @@ def finalize_retreat_fulfillment_stack(
     if r_ek:
         for moved_uid in to_move:
             host.action_manager.execute(ClearUnitRetreatObligation(moved_uid, r_ek))
-        host._maybe_open_combat_advance_after_retreat(r_ek)
+        host._on_retreat_obligation_cleared(r_ek, cleared_unit_ids=tuple(to_move))
 
 
 __all__ = [
