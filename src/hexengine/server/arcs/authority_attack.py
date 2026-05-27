@@ -24,7 +24,7 @@ from ...hooks.title import TitleHooks
 from ...snapshot import attack_resolution_snapshot_fields
 from ...state import GameState
 from ...state.action_manager import ActionManager
-from ...state.actions import ApplyCombatEffects, Attack, NextPhase
+from ...state.actions import ApplyCombatEffects, Attack
 
 
 def dedupe_wire_id_list(raw: Any) -> list[str]:
@@ -131,6 +131,14 @@ class AuthorityAttackHost(Protocol):
     def _get_next_phase(self) -> dict[str, Any]: ...
 
     def _after_next_phase_applied(self) -> None: ...
+
+    def _maybe_auto_advance_phase(
+        self,
+        raw: bool | object,
+        *,
+        catalog_path: str | None,
+        log_reason: str,
+    ) -> bool: ...
 
 
 async def execute_authority_attack_request(
@@ -247,22 +255,14 @@ async def execute_authority_attack_request(
 
     # --- MAYBE_AUTO_ADVANCE_PHASE ---
     adv = host.hooks.attack.auto_advance(st_after)
-    if adv is not ENGINE_DEFAULT and bool(adv):
-        next_phase_info = host._get_next_phase()
-        host.logger.info(
-            "Auto-advancing phase after attack (%s → %s %s)",
-            st_after.turn.current_faction,
-            next_phase_info["faction"],
-            next_phase_info["phase"],
-        )
-        next_phase_action = NextPhase(
-            new_faction=next_phase_info["faction"],
-            new_phase=next_phase_info["phase"],
-            max_actions=next_phase_info["max_actions"],
-            new_schedule_index=int(next_phase_info["schedule_index"]),
-        )
-        host.action_manager.execute(next_phase_action)
-        host._after_next_phase_applied()
+    host._maybe_auto_advance_phase(
+        adv,
+        catalog_path=None,
+        log_reason=(
+            f"after attack ({st_after.turn.current_faction} "
+            f"{st_after.turn.current_phase})"
+        ),
+    )
 
     return True
 

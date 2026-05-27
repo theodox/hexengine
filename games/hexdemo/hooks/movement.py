@@ -91,3 +91,19 @@ def retreat_path_preview_for_viewer(ctx):
     from ..retreat_path_preview import retreat_path_preview
 
     return retreat_path_preview(ctx)
+
+
+@bind_title_hook(MovementHook.AUTO_ADVANCE_PHASE_AFTER_MOVE_SPEND)
+def auto_advance_phase_after_move_spend(state: GameState) -> bool:
+    """Advance when actions are depleted unless combat gates block routine turn flow."""
+
+    if combat.any_retreat_obligation_pending(state):
+        return False
+    from ..constants import PACK_STATE_EXTENSION_KEY
+
+    hx = state.extension.get(PACK_STATE_EXTENSION_KEY)
+    if isinstance(hx, dict):
+        gate = str(hx.get("combat_gate", "")).strip()
+        if gate in ("awaiting_retreat_or_disrupt", "awaiting_advance"):
+            return False
+    return int(state.turn.phase_actions_remaining) <= 0

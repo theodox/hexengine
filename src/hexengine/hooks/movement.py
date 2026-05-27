@@ -8,6 +8,8 @@ Role in turn resolution:
   - movement budget, ZOC
   - retreat obligations and retreat routing constraints
   - retreat legality checks (e.g. distance rule)
+- whether to auto-advance the turn schedule after a normal move spends an action
+  (`auto_advance_phase_after_move_spend`; engine catalog default when the pool is empty)
 - The engine then applies the resulting move as a pure state action.
 - Optional **stepwise** moves implement a **movement arc** (see **Arc** / **Segment** in
   `hexengine.state.movement_arc`): each hex step is a segment; titles may insert
@@ -109,6 +111,9 @@ class MovementHooks:
     retreat_path_preview: (
         Callable[[RetreatPathPreviewContext], dict[str, Any] | object] | None
     ) = None
+    auto_advance_phase_after_move_spend: (
+        Callable[[GameState], bool | object] | None
+    ) = None
 
     def budget(self, state: GameState, unit_id: str) -> float | object:
         if self.movement_budget_for_unit is None:
@@ -183,6 +188,11 @@ class MovementHooks:
             return ENGINE_DEFAULT
         return self.retreat_path_preview(ctx)
 
+    def auto_advance_after_move_spend(self, state: GameState) -> bool | object:
+        if self.auto_advance_phase_after_move_spend is None:
+            return ENGINE_DEFAULT
+        return self.auto_advance_phase_after_move_spend(state)
+
 
 class MovementHook(StrEnum):
     """Stable slot ids for `bind_title_hook` (values match `MovementHooks` field names)."""
@@ -200,6 +210,7 @@ class MovementHook(StrEnum):
     RESOLVE_MOVE_AS_STEPS = "resolve_move_as_steps"
     MOVEMENT_INTERRUPT_FACTIONS_AFTER_STEP = "movement_interrupt_factions_after_step"
     RETREAT_PATH_PREVIEW = "retreat_path_preview"
+    AUTO_ADVANCE_PHASE_AFTER_MOVE_SPEND = "auto_advance_phase_after_move_spend"
 
 
 MovementHook._hexengine_hook_bundle = "movement"

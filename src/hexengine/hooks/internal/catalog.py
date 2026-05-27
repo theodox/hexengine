@@ -14,6 +14,7 @@ from ...state.logic import DEFAULT_MOVEMENT_BUDGET
 from ..core import SINGLE_DEFAULT
 from ..ui_primary_actions import default_primary_actions_for_viewer
 from ..ui_interaction_panels import default_interaction_panels_for_viewer
+from ..movement_advance import default_auto_advance_phase_after_move_spend
 from ..ui_turn_action_dock import default_turn_action_dock_for_viewer
 from .contracts import hook
 
@@ -77,6 +78,12 @@ turn_action_dock_for_viewer_engine_default = hook(
     title_field="ui.turn_action_dock_for_viewer",
 )(default_turn_action_dock_for_viewer)
 
+auto_advance_phase_after_move_spend_engine_default = hook(
+    contract=SINGLE_DEFAULT,
+    engine_impl=default_auto_advance_phase_after_move_spend,
+    title_field="movement.auto_advance_phase_after_move_spend",
+)(default_auto_advance_phase_after_move_spend)
+
 
 def _load_defaults() -> None:
     register_engine_catalog_hook(
@@ -95,6 +102,10 @@ def _load_defaults() -> None:
         "ui.turn_action_dock_for_viewer",
         turn_action_dock_for_viewer_engine_default,
     )
+    register_engine_catalog_hook(
+        "movement.auto_advance_phase_after_move_spend",
+        auto_advance_phase_after_move_spend_engine_default,
+    )
 
 
 _load_defaults()
@@ -103,6 +114,7 @@ __all__ = [
     "engine_catalog_map",
     "get_engine_catalog_hook",
     "iter_engine_catalog_paths",
+    "auto_advance_phase_after_move_spend_engine_default",
     "interaction_panels_for_viewer_engine_default",
     "movement_budget_for_unit_engine_default",
     "primary_actions_for_viewer_engine_default",

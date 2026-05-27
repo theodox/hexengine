@@ -131,6 +131,34 @@ def test_engine_catalog_has_movement_budget_default() -> None:
     assert fn is movement_budget_for_unit_engine_default
 
 
+def test_engine_catalog_auto_advance_after_move_spend_when_depleted() -> None:
+    from hexengine.hooks.internal.catalog import (
+        auto_advance_phase_after_move_spend_engine_default,
+    )
+    from hexengine.hooks.movement_advance import (
+        default_auto_advance_phase_after_move_spend,
+    )
+    from hexengine.state.game_state import TurnState
+
+    fn = get_engine_catalog_hook("movement.auto_advance_phase_after_move_spend")
+    assert fn is auto_advance_phase_after_move_spend_engine_default
+    import dataclasses
+
+    st = GameState.create_empty()
+    assert default_auto_advance_phase_after_move_spend(st) is False
+    st2 = dataclasses.replace(
+        st,
+        turn=TurnState(
+            current_faction="A",
+            current_phase="Move",
+            phase_actions_remaining=0,
+            turn_number=st.turn.turn_number,
+            schedule_index=st.turn.schedule_index,
+        ),
+    )
+    assert default_auto_advance_phase_after_move_spend(st2) is True
+
+
 def test_attack_hooks_unsupported_contract() -> None:
     a = attack_hooks_unsupported()
     assert a.validate_attack is not None and a.resolve_attack is not None

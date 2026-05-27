@@ -770,6 +770,48 @@ class GameServer:
         # Notify other players
         await self._broadcast_player_joined(player)
 
+    def _resolve_auto_advance_policy(
+        self, raw: bool | object, *, catalog_path: str | None
+    ) -> bool:
+        """Resolve title hook result; optional engine catalog when ``raw`` is ``ENGINE_DEFAULT``."""
+
+        if raw is ENGINE_DEFAULT:
+            if catalog_path is None:
+                return False
+            catalog = get_engine_catalog_hook(catalog_path)
+            if catalog is None:
+                return False
+            raw = catalog(self.action_manager.current_state)
+        return bool(raw)
+
+    def _maybe_auto_advance_phase(
+        self,
+        raw: bool | object,
+        *,
+        catalog_path: str | None,
+        log_reason: str,
+    ) -> bool:
+        """Apply ``NextPhase`` when policy (title hook or catalog) returns true."""
+
+        if not self._resolve_auto_advance_policy(raw, catalog_path=catalog_path):
+            return False
+        next_phase_info = self._get_next_phase()
+        self.logger.info("Auto-advancing phase (%s)", log_reason)
+        next_phase_action = NextPhase(
+            new_faction=next_phase_info["faction"],
+            new_phase=next_phase_info["phase"],
+            max_actions=next_phase_info["max_actions"],
+            new_schedule_index=int(next_phase_info["schedule_index"]),
+        )
+        self.action_manager.execute(next_phase_action)
+        self._after_next_phase_applied()
+        self.logger.info(
+            "Advanced to %s-%s",
+            next_phase_info["faction"],
+            next_phase_info["phase"],
+        )
+        return True
+
     def _after_next_phase_applied(self) -> None:
         """Title hook then strip title combat keys from the pack extension bucket."""
         self._invoke_phase_transition_hook()
@@ -2137,20 +2179,12 @@ class GameServer:
             f"{current_state.turn.current_phase}, "
             f"actions remaining: {current_state.turn.phase_actions_remaining}"
         )
-        if current_state.turn.phase_actions_remaining <= 0:
-            next_phase_info = self._get_next_phase()
-            self.logger.info("Actions depleted, advancing to next phase")
-            next_phase_action = NextPhase(
-                new_faction=next_phase_info["faction"],
-                new_phase=next_phase_info["phase"],
-                max_actions=next_phase_info["max_actions"],
-                new_schedule_index=int(next_phase_info["schedule_index"]),
-            )
-            self.action_manager.execute(next_phase_action)
-            self._after_next_phase_applied()
-            self.logger.info(
-                f"Advanced to {next_phase_info['faction']}-{next_phase_info['phase']}"
-            )
+        policy = self.hooks.movement.auto_advance_after_move_spend(current_state)
+        self._maybe_auto_advance_phase(
+            policy,
+            catalog_path="movement.auto_advance_phase_after_move_spend",
+            log_reason="after move spend",
+        )
 
     def _rollback_retreat_fulfillment_attempt(
         self,
