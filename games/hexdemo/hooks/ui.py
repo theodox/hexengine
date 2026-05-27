@@ -93,7 +93,7 @@ def popup_message(
 
 @bind_title_hook(UIHook.BLOCKS_ROUTINE_PHASE_ADVANCE)
 def blocks_routine_phase_advance(_state, _extension_key) -> bool:
-    from ..combat_policy import blocks_routine_phase_advance as policy
+    from ..combat_transitions import blocks_routine_phase_advance as policy
 
     return policy(_state)
 

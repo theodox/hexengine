@@ -116,8 +116,8 @@ def validate_attack(ctx: AttackContext) -> None:
     if combat.any_retreat_obligation_pending(ctx.state):
         raise ValueError("Resolve retreat before issuing another attack")
     if (
-        str(title_state.bucket(ctx.state).get("combat_gate", "")).strip()
-        == "awaiting_advance"
+        combat_transitions.current_combat_gate(ctx.state)
+        == combat_transitions.GATE_AWAITING_ADVANCE
     ):
         raise ValueError("Resolve combat advance before issuing another attack")
 

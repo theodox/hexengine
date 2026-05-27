@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from hexengine.hooks.attack import (
     AfterAttackAppliedContext,
     AttackContext,
@@ -76,3 +78,43 @@ def test_on_retreat_obligation_cleared_returns_none_without_last_combat() -> Non
     st = GameState.create_empty().with_extension({"hexdemo": {}})
     ctx = RetreatObligationClearedContext(state=st, extension_key="hexdemo")
     assert combat_transitions.on_retreat_obligation_cleared(ctx) is None
+
+
+def test_blocks_routine_phase_advance_gate_constants() -> None:
+    st = GameState.create_empty().with_extension(
+        {"hexdemo": {"combat_gate": combat_transitions.GATE_AWAITING_ADVANCE}}
+    )
+    assert combat_transitions.blocks_routine_phase_advance(st) is True
+    st2 = GameState.create_empty().with_extension({"hexdemo": {}})
+    assert combat_transitions.blocks_routine_phase_advance(st2) is False
+
+
+def test_dock_arc_hint_retreat_gate() -> None:
+    st = GameState.create_empty()
+    arc = combat_transitions.dock_arc_hint(
+        state=st,
+        viewer_faction="union",
+        viewer_is_turn_owner=False,
+        current_phase="Combat",
+        gate_actions=[{"action_type": "CombatDisruptInsteadOfRetreat"}],
+    )
+    assert arc == combat_transitions.DOCK_ARC_RETREAT_GATE
+
+
+def test_attack_planning_blocked_on_advance_gate() -> None:
+    base = GameState.create_empty()
+    st = base.with_turn(
+        replace(
+            base.turn,
+            current_faction="union",
+            current_phase="Combat",
+            phase_actions_remaining=1,
+        )
+    ).with_extension(
+        {
+            "hexdemo": {"combat_gate": combat_transitions.GATE_AWAITING_ADVANCE},
+        }
+    )
+    reason = combat_transitions.attack_planning_blocked_reason(st, "union")
+    assert reason is not None
+    assert "advance" in reason.lower()

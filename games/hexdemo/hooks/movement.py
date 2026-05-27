@@ -97,7 +97,7 @@ def retreat_path_preview_for_viewer(ctx):
 def auto_advance_phase_after_move_spend(state: GameState) -> bool:
     """Advance when actions are depleted unless combat gates block routine turn flow."""
 
-    from ..combat_policy import blocks_routine_phase_advance
+    from ..combat_transitions import blocks_routine_phase_advance
 
     if blocks_routine_phase_advance(state):
         return False

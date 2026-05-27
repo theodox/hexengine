@@ -83,7 +83,7 @@ Reserved top-level keys: prefix `hexengine_` (e.g. `hexengine_movement_arc`) —
 
 **Objective:** Stop encoding hexdemo combat narrative in `GameServer._interaction_messages_for_player_id`.
 
-**Status:** `UIHook.BLOCKS_ROUTINE_PHASE_ADVANCE`, `UIHook.COMBAT_INTERACTION_MESSAGES`, `ui_combat_messages.py`, hexdemo `combat_policy.py` / `combat_messages.py`, `NextPhase` guard.
+**Status:** `UIHook.BLOCKS_ROUTINE_PHASE_ADVANCE`, `UIHook.COMBAT_INTERACTION_MESSAGES`, `ui_combat_messages.py`, hexdemo `combat_transitions` / `combat_messages.py`, `NextPhase` guard.
 
 ### B.1 Hook: combat / phase blocking (unified policy)
 
@@ -145,11 +145,13 @@ Context: `GameState`, `AttackResolution`, `extension_key`, attacker/defender ids
 
 ---
 
-## Phase D — Hexdemo explicit combat transitions (pack only)
+## Phase D — Hexdemo explicit combat transitions (pack only) ✅
 
 **Objective:** One readable FSM doc in code for authors; engine stays ignorant.
 
-### D.1 `games/hexdemo/combat_transitions.py`
+**Status:** `combat_transitions.py` FSM table, gate constants, `blocks_routine_phase_advance`, `attack_planning_blocked_reason`, `dock_arc_hint`; `combat_policy.py` removed; hooks are thin adapters.
+
+### D.1 `games/hexdemo/combat_transitions.py` ✅
 
 | Export | Role |
 |--------|------|
@@ -160,11 +162,11 @@ Context: `GameState`, `AttackResolution`, `extension_key`, attacker/defender ids
 
 Include a short state table in module docstring (routine ↔ retreat gate ↔ advance gate ↔ routine).
 
-### D.2 Wire adapters in `hooks/`
+### D.2 Wire adapters in `hooks/` ✅
 
 - `@bind_title_hook` wrappers only; no business logic in hook files.
 
-**Exit criteria:** New combat behavior starts in `combat_transitions.py` + `title_state.py`, not scattered string checks.
+**Exit criteria:** New combat behavior starts in `combat_transitions.py` + `title_state.py`, not scattered string checks. (Engine `Attack.apply` gate writes remain until a later migration.)
 
 ---
 

@@ -95,18 +95,9 @@ def _already_attacked_this_phase(state: GameState, unit_id: str) -> bool:
 
 
 def _planning_blocked_reason(state: GameState, player_faction: str) -> str | None:
-    if str(player_faction).strip() != str(state.turn.current_faction).strip():
-        return "Not your turn"
-    if not _phase_allows_attack(state):
-        return "Attack planning is only available during Combat"
-    if combat.any_retreat_obligation_pending(state):
-        return "Resolve retreat before planning an attack"
-    gate = str(title_state.bucket(state).get("combat_gate", "")).strip()
-    if gate == "awaiting_advance":
-        return "Resolve combat advance before planning an attack"
-    if gate == "awaiting_retreat_or_disrupt":
-        return "Resolve retreat before planning an attack"
-    return None
+    from .combat_transitions import attack_planning_blocked_reason
+
+    return attack_planning_blocked_reason(state, player_faction)
 
 
 def _parse_target_hex(draft: dict[str, Any]) -> Hex | None:

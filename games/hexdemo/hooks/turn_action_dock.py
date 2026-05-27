@@ -18,28 +18,8 @@ from hexengine.hooks.ui_turn_action_dock import (
 )
 from hexengine.hooks.wiring import bind_title_hook
 
-from .. import title_state
+from ..combat_transitions import dock_arc_hint
 from ..ui_markup import render_dock_gate_panel_html
-
-
-def _viewer_has_retreat_obligation(ctx: TurnActionDockContext) -> bool:
-    ek = str(ctx.extension_key or "").strip()
-    my = str(ctx.viewer_faction or "").strip()
-    if not ek or not my:
-        return False
-    ro = title_state.bucket(ctx.state).get("retreat_obligations")
-    if not isinstance(ro, dict):
-        return False
-    for uid, raw in ro.items():
-        try:
-            if int(raw) <= 0:
-                continue
-        except (TypeError, ValueError):
-            continue
-        u = ctx.state.board.units.get(str(uid))
-        if u is not None and u.active and str(u.faction).strip() == my:
-            return True
-    return False
 
 
 def _gate_actions(ctx: TurnActionDockContext) -> list[dict[str, Any]]:
@@ -52,22 +32,6 @@ def _gate_actions(ctx: TurnActionDockContext) -> list[dict[str, Any]]:
         shell_ui=ctx.shell_ui,
     )
     return ui_primary_actions.default_primary_actions_for_viewer(pa_ctx)
-
-
-def _dock_arc(ctx: TurnActionDockContext, gate_actions: list[dict[str, Any]]) -> str:
-    for row in gate_actions:
-        at = str(row.get("action_type", "")).strip()
-        if at == "CombatDisruptInsteadOfRetreat":
-            return "retreat_gate"
-        if at == "CombatAdvance":
-            return "advance_gate"
-    if _viewer_has_retreat_obligation(ctx):
-        return "retreat_gate"
-    if not ctx.viewer_is_turn_owner:
-        return "hidden"
-    if str(ctx.current_phase).strip() == "Combat":
-        return "attack_ready"
-    return "routine"
 
 
 def _panel_html(ctx: TurnActionDockContext, dock_arc: str) -> str:
@@ -97,11 +61,22 @@ def turn_action_dock_for_viewer(
     ctx: TurnActionDockContext,
 ) -> list[dict[str, Any]]:
     gate_actions = _gate_actions(ctx)
-    has_retreat_ob = _viewer_has_retreat_obligation(ctx)
+    from .. import combat
+
+    has_retreat_ob = bool(
+        ctx.viewer_faction
+        and combat.faction_has_pending_retreat(ctx.state, str(ctx.viewer_faction))
+    )
     if not ctx.viewer_is_turn_owner and not gate_actions and not has_retreat_ob:
         return []
     actions = [dict(a) for a in gate_actions]
-    dock_arc = _dock_arc(ctx, gate_actions)
+    dock_arc = dock_arc_hint(
+        state=ctx.state,
+        viewer_faction=ctx.viewer_faction,
+        viewer_is_turn_owner=ctx.viewer_is_turn_owner,
+        current_phase=ctx.current_phase,
+        gate_actions=gate_actions,
+    )
 
     # End Phase stays available in Combat unless a combat_gate blocks it.
     # Client disables end_phase while an attack-plan draft is active (see contract).

@@ -93,6 +93,14 @@ Server prepends `games/` when loading a scenario path; see hexdemo README for lo
 
 ---
 
+## Title bucket and combat transitions (hexdemo pattern)
+
+Match-scoped title state lives in `GameState.extension[<pack_id>]`. Read/write through one module (hexdemo: [`title_state.py`](../games/hexdemo/title_state.py)). Reserved top-level keys prefixed `hexengine_` are engine-only.
+
+Hexdemo **`combat_gate`** values and transitions are documented in [`combat_transitions.py`](../games/hexdemo/combat_transitions.py) (FSM table, constants, `blocks_routine_phase_advance`, dock arcs). New pack combat behavior should start there; hook files stay thin `@bind_title_hook` adapters.
+
+---
+
 ## API: `TitleHooks` bundles
 
 Assembled with [`assemble_title_hooks`](../src/hexengine/hooks/wiring.py). Enum markers: [`MovementHook`](../src/hexengine/hooks/movement.py), [`AttackHook`](../src/hexengine/hooks/attack.py), [`UIHook`](../src/hexengine/hooks/ui.py).
