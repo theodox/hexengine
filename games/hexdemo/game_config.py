@@ -264,18 +264,21 @@ class HexdemoGameDefinition:
             self._base, state, unit_id, patch
         )
 
-    def after_phase_transition(self, state: GameState) -> None:
+    def after_phase_transition(self, state: GameState) -> list:
         """
         Called by the server after each `NextPhase` is applied.
 
-        Combat bookkeeping in the hexdemo extension bucket is cleared by the engine
-        (`GameServer` runs `ClearTitleCombatExtension` after every phase advance).
+        Returns title-owned `StateAction`s for the engine to execute. Hexdemo clears
+        its own phase-scoped combat bookkeeping here (the engine does not know these
+        bucket keys).
         """
+        from . import combat_transitions
         from .hooks.turn_schedule import before_union_move
 
         t = state.turn
         if t.current_faction == "union" and phase_allows_unit_move(t.current_phase):
             before_union_move(state)
+        return combat_transitions.clear_combat_state_actions(state)
 
 
 @dataclass(frozen=True, slots=True)

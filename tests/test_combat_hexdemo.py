@@ -501,12 +501,52 @@ def test_hexdemo_validate_attack_adjacent_and_once_per_unit(
             "combined",
             "u_att",
             "u_def",
-            extension_key="hexdemo",
             outcome="none",
             retreat_distance=None,
             rng_entry={"op": "adjacent_attack", "outcome": "none"},
         )
     )
+    st2 = hexdemo_server.action_manager.current_state
+    # Engine `Attack` no longer writes hexdemo bucket bookkeeping; titles own that in
+    # `AFTER_ATTACK_APPLIED` follow-ups. Apply hexdemo follow-ups so "already attacked"
+    # validation sees `attacks_this_phase`.
+    from games.hexdemo import combat_transitions
+    from hexengine.hooks.attack import AfterAttackAppliedContext, AttackResolution
+
+    att_h = st.board.units["u_att"].position
+    def_h = st.board.units["u_def"].position
+    follow_ctx = AfterAttackAppliedContext(
+        state=st2,
+        attack_context=AttackContext(
+            state=st,
+            attacker_ids=("u_att",),
+            defender_ids=("u_def",),
+            attacker_hexes=(att_h,),
+            defender_hexes=(def_h,),
+            player_faction="union",
+            attack_kind="combined",
+            params={
+                "attacker_id": "u_att",
+                "attacker_ids": ["u_att"],
+                "defender_id": "u_def",
+                "defender_ids": ["u_def"],
+                "attack_kind": "combined",
+            },
+        ),
+        resolution=AttackResolution(
+            outcome="none",
+            attacker_ids=None,
+            defender_ids=None,
+            retreat_distance=None,
+            retreat_unit_id=None,
+            rng_entry=None,
+            effects=None,
+        ),
+        extension_key="hexdemo",
+        player_faction="union",
+    )
+    for a in combat_transitions.follow_up_after_attack(follow_ctx):
+        hexdemo_server.action_manager.execute(a)
     st2 = hexdemo_server.action_manager.current_state
     with pytest.raises(ValueError, match="already attacked"):
         att_h = st2.board.units["u_att"].position
@@ -533,15 +573,39 @@ def test_hexdemo_validate_attack_adjacent_and_once_per_unit(
 def test_attack_updates_extension_and_rng() -> None:
     st = _hexdemo_combat_state()
     def_hex = st.board.units["u_def"].position
-    nxt = Attack(
+    after = Attack(
         "combined",
         "u_att",
         "u_def",
-        extension_key="hexdemo",
         outcome="none",
         retreat_distance=None,
         rng_entry={"op": "adjacent_attack", "outcome": "none"},
     ).apply(st)
+
+    from games.hexdemo import combat_transitions
+    from hexengine.hooks.attack import AfterAttackAppliedContext, AttackResolution, AttackContext
+
+    att_hex = st.board.units["u_att"].position
+    follow_ctx = AfterAttackAppliedContext(
+        state=after,
+        attack_context=AttackContext(
+            state=st,
+            attacker_ids=("u_att",),
+            defender_ids=("u_def",),
+            attacker_hexes=(att_hex,),
+            defender_hexes=(def_hex,),
+            player_faction="union",
+            attack_kind="combined",
+            params={"attacker_id": "u_att", "defender_id": "u_def", "attack_kind": "combined"},
+        ),
+        resolution=AttackResolution(outcome="none"),
+        extension_key="hexdemo",
+        player_faction="union",
+    )
+    nxt = after
+    for a in combat_transitions.follow_up_after_attack(follow_ctx):
+        nxt = a.apply(nxt)
+
     hx = title_bucket(nxt, "hexdemo")
     assert isinstance(hx, dict)
     assert hx.get("attacks_this_phase") == ["u_att"]
@@ -553,7 +617,6 @@ def test_attack_updates_extension_and_rng() -> None:
     assert lc.get("defender_hexes") == [
         {"i": int(def_hex.i), "j": int(def_hex.j), "k": int(def_hex.k)}
     ]
-    att_hex = st.board.units["u_att"].position
     assert lc.get("attacker_hexes") == [
         {"i": int(att_hex.i), "j": int(att_hex.j), "k": int(att_hex.k)}
     ]
@@ -1048,17 +1111,41 @@ def test_retreat_move_no_spend_action(hexdemo_server: GameServer) -> None:
 
 def test_clear_hexdemo_combat_on_next_phase(hexdemo_server: GameServer) -> None:
     server = hexdemo_server
+    from games.hexdemo import combat_transitions
+    from hexengine.hooks.attack import AfterAttackAppliedContext, AttackResolution, AttackContext
+
+    before = server.action_manager.current_state
+    att_hex = before.board.units["u_att"].position
+    def_hex = before.board.units["u_def"].position
     server.action_manager.execute(
         Attack(
             "adjacent",
             "u_att",
             "u_def",
-            extension_key="hexdemo",
             outcome="none",
             retreat_distance=None,
             rng_entry={"op": "adjacent_attack", "outcome": "none"},
         )
     )
+    after = server.action_manager.current_state
+    follow_ctx = AfterAttackAppliedContext(
+        state=after,
+        attack_context=AttackContext(
+            state=before,
+            attacker_ids=("u_att",),
+            defender_ids=("u_def",),
+            attacker_hexes=(att_hex,),
+            defender_hexes=(def_hex,),
+            player_faction="union",
+            attack_kind="adjacent",
+            params={"attacker_id": "u_att", "defender_id": "u_def", "attack_kind": "adjacent"},
+        ),
+        resolution=AttackResolution(outcome="none"),
+        extension_key="hexdemo",
+        player_faction="union",
+    )
+    for a in combat_transitions.follow_up_after_attack(follow_ctx):
+        server.action_manager.execute(a)
     from hexengine.state.title_extension import title_bucket as tb
 
     assert tb(server.action_manager.current_state, "hexdemo").get(

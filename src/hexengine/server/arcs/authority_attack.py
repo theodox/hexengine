@@ -237,7 +237,6 @@ async def execute_authority_attack_request(
             attack_kind,
             att,
             deff,
-            extension_key=ek,
             outcome=str(getattr(hr, "outcome", "")),
             attacker_ids=hr_att if hr_att is not None else ctx.attacker_ids,
             defender_ids=hr_def if hr_def is not None else ctx.defender_ids,
@@ -247,7 +246,7 @@ async def execute_authority_attack_request(
         )
         host.action_manager.execute(atk)
         if n_eff:
-            host.action_manager.execute(ApplyCombatEffects(ek, n_eff))
+            host.action_manager.execute(ApplyCombatEffects(n_eff))
     except Exception as e:
         await host._send_error(player_id, f"Action failed: {e}")
         return False

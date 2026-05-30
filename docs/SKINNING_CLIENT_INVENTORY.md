@@ -125,4 +125,4 @@ Client does not compute legal moves locally. Multi-hex mandatory retreat with Co
 | `primary_actions` | **Not sent** when title binds turn action dock |
 | `map_overlays` | When hook returns overlays |
 
-Combat policy (`combat_gate`, `retreat_obligations`) stays in server `GameState.extension` only — not read by the client for buttons.
+Combat policy (`combat_gate`, `retreat_obligations`) stays in server `GameState.title_state` only — client may read gates for **display** (e.g. hide attack planner) but not for commit legality; use wire hooks and previews for commits.

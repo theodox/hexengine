@@ -10,6 +10,7 @@ from hexengine.hooks.attack import (
     AttackResolution,
     RetreatObligationClearedContext,
 )
+from hexengine.hexes.types import Hex
 from hexengine.state import GameState
 from hexengine.state.action_manager import ActionManager
 from hexengine.state.actions import ClearUnitRetreatObligation, PatchTitleBucket
@@ -33,23 +34,26 @@ def test_follow_up_after_attack_opens_disrupt_gate() -> None:
             state=st,
             attacker_ids=("a",),
             defender_ids=("d",),
-            attacker_hexes=(),
-            defender_hexes=(),
+            attacker_hexes=(Hex(0, 0, 0),),
+            defender_hexes=(Hex(1, 0, -1),),
             player_faction="union",
             attack_kind="combined",
             params={},
         ),
         resolution=AttackResolution(
             outcome="defender_retreat",
+            retreat_distance=2,
             effects={"retreat": {"allow_disrupt_instead": True}},
         ),
         extension_key="hexdemo",
         player_faction="union",
     )
     actions = combat_transitions.follow_up_after_attack(ctx)
-    assert len(actions) == 1
-    assert isinstance(actions[0], PatchTitleBucket)
-    st2 = actions[0].apply(st)
+    assert len(actions) == 2
+    assert all(isinstance(a, PatchTitleBucket) for a in actions)
+    st2 = ctx.state
+    for a in actions:
+        st2 = a.apply(st2)
     assert (
         title_bucket(st2, "hexdemo")["combat_gate"]
         == combat_transitions.GATE_AWAITING_RETREAT_OR_DISRUPT
@@ -75,10 +79,10 @@ def test_clear_unit_retreat_obligation_uses_patch_title_bucket() -> None:
     assert "combat_gate" not in hx2
 
 
-def test_on_retreat_obligation_cleared_returns_none_without_last_combat() -> None:
+def test_on_retreat_obligation_cleared_returns_empty_without_last_combat() -> None:
     st = GameState.create_empty().with_title_bucket_key("hexdemo")
     ctx = RetreatObligationClearedContext(state=st, extension_key="hexdemo")
-    assert combat_transitions.on_retreat_obligation_cleared(ctx) is None
+    assert combat_transitions.on_retreat_obligation_cleared(ctx) == []
 
 
 def test_blocks_routine_phase_advance_gate_constants() -> None:

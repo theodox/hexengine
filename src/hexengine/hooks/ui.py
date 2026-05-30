@@ -54,6 +54,24 @@ class AdvanceGateInteractionContext:
 
 
 @dataclass(frozen=True, slots=True)
+class CombatEventSummary:
+    """Title-extracted combat result used to fan out per-viewer `combat_event` wires.
+
+    The engine builds `CombatEventWire` per connected player from this summary plus the
+    per-viewer `combat_instruction_for_viewer` hook; titles own how to derive it from
+    their match state (the engine does not read title bucket combat keys).
+    """
+
+    attack_kind: str
+    outcome: str
+    attacker_id: str
+    defender_id: str
+    retreat_distance: int | None = None
+    retreat_unit_id: str | None = None
+    retreat_hexes_remaining: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class PlaceMarkerPreviewContext:
     """Inputs for ``map_selection_preview`` when ``kind`` is ``place_marker``."""
 
@@ -192,6 +210,10 @@ class UIHooks:
         | None
     ) = None
 
+    combat_event_summary: (
+        Callable[[GameState], CombatEventSummary | None | object] | None
+    ) = None
+
     def messages(
         self, state: GameState, viewer_faction: str | None
     ) -> list[dict[str, Any]] | object:
@@ -288,6 +310,13 @@ class UIHooks:
             return ENGINE_DEFAULT
         return self.combat_interaction_messages(ctx)
 
+    def combat_event_summary_for(
+        self, state: GameState
+    ) -> CombatEventSummary | None | object:
+        if self.combat_event_summary is None:
+            return ENGINE_DEFAULT
+        return self.combat_event_summary(state)
+
 
 class UIHook(StrEnum):
     """Stable slot ids for `bind_title_hook` (values match `UIHooks` field names)."""
@@ -306,6 +335,7 @@ class UIHook(StrEnum):
     PLACE_MARKER_PREVIEW = "place_marker_preview"
     BLOCKS_ROUTINE_PHASE_ADVANCE = "blocks_routine_phase_advance"
     COMBAT_INTERACTION_MESSAGES = "combat_interaction_messages"
+    COMBAT_EVENT_SUMMARY = "combat_event_summary"
 
 
 UIHook._hexengine_hook_bundle = "ui"
@@ -313,6 +343,7 @@ UIHook._hexengine_hook_bundle = "ui"
 
 __all__ = [
     "AdvanceGateInteractionContext",
+    "CombatEventSummary",
     "CombatInteractionContext",
     "CombatInteractionMessagesContext",
     "ENGINE_DEFAULT",

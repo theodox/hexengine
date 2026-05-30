@@ -60,7 +60,7 @@ Players never “click HTML to commit.” They use three **wire lanes** mapped t
 **Authoring rules**
 
 - Do not put `onclick` or forms in banner/dock `html`.
-- Do not read `GameState.extension` on the client for buttons or legality.
+- Do not read `GameState.title_state` / extension-shaped fields on the client for buttons or legality.
 - Use preview RPCs for legal hexes (drag and map-selection), not client-side reachability.
 
 Full primitive catalog and path-draft shapes: [`TURN_ACTION_DOCK_CONTRACT.md` § Player interaction primitives](TURN_ACTION_DOCK_CONTRACT.md#player-interaction-primitives).
@@ -95,7 +95,7 @@ Server prepends `games/` when loading a scenario path; see hexdemo README for lo
 
 ## Title bucket and combat transitions (hexdemo pattern)
 
-Match-scoped title state lives in `GameState.extension[<pack_id>]`. Read/write through one module (hexdemo: [`title_state.py`](../games/hexdemo/title_state.py)). Reserved top-level keys prefixed `hexengine_` are engine-only.
+Match-scoped title state lives in **`GameState.title_state`** (one bucket per match; pack id in **`GameState.title_bucket_key`** from `GameData.title_state_extension_key`). Read/write through one module (hexdemo: [`title_state.py`](../games/hexdemo/title_state.py)). Engine ephemeral keys live in **`GameState.engine_state`** and must use the `hexengine_` prefix (see [`title_extension.py`](../src/hexengine/state/title_extension.py)).
 
 Hexdemo **`combat_gate`** values and transitions are documented in [`combat_transitions.py`](../games/hexdemo/combat_transitions.py) (FSM table, constants, `blocks_routine_phase_advance`, dock arcs). New pack combat behavior should start there; hook files stay thin `@bind_title_hook` adapters.
 

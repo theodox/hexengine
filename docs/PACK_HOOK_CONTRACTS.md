@@ -54,11 +54,12 @@ Transient turn banner rows. Omitted from wire when `None`. Client shows **one** 
 | `ttl_ms` | `int \| null` | no | Local expiry in ms; `null` = persistent until next `StateUpdate` |
 | `css_class` | `str` | no | Extra class on `#interaction-banner`; if omitted, client uses `GameData.interaction_kind_styles` via `css_class_for_interaction_kind(kind)` |
 
-**Server composition:** unless `UIHook.INTERACTION_MESSAGES` returns a full list, the server merges partial hooks into a default list:
+**Server composition:** unless `UIHook.INTERACTION_MESSAGES` returns a full list, the server merges:
 
 1. **Phase row** — `PHASE_BANNER_TEXT_FOR_VIEWER` → `text`; optional `PHASE_BANNER_HTML_FOR_VIEWER` → `html`
-2. **Combat/retreat row** — from `last_combat` + `COMBAT_INSTRUCTION_FOR_VIEWER` (`instruction` ∈ `resolved`, `retreat_required`, `wait`)
-3. **Advance gate rows** — when `combat_gate == awaiting_advance`, `ADVANCE_GATE_BANNERS_FOR_VIEWER` → advancing faction gets `kind: advance`, others `kind: wait`
+2. **Combat rows** — `UIHook.COMBAT_INTERACTION_MESSAGES` → `list[dict]` (hexdemo: [`combat_messages.py`](../games/hexdemo/combat_messages.py) via [`combat_transitions`](../games/hexdemo/combat_transitions.py)). When the hook returns `ENGINE_DEFAULT`, the engine builds rows from the title bucket using `COMBAT_INSTRUCTION_FOR_VIEWER` and `ADVANCE_GATE_BANNERS_FOR_VIEWER` ([`ui_combat_messages.py`](../src/hexengine/hooks/ui_combat_messages.py)). Gate string literals in that default path are hexdemo-shaped catalog fallbacks only.
+
+`game_server` does not parse `last_combat` / `combat_gate` directly for banners (engine boundary 2). **`combat_event`** messages for retreat UI still use `last_combat` in [`_broadcast_combat_events`](../src/hexengine/server/game_server.py) — separate from INFORM.
 
 **Full override:** `INTERACTION_MESSAGES(state, viewer_faction)` → `list[dict]` replaces the entire default list. Partial hooks are ignored when this hook is bound and does not return `ENGINE_DEFAULT`.
 
@@ -205,6 +206,9 @@ Bind with `@bind_title_hook(UIHook.…)` in the title hooks package. Values matc
 | **`TURN_ACTION_DOCK_FOR_VIEWER`** | Every per-player `StateUpdate` | `(ctx: TurnActionDockContext)` | `list[dict]` panels | Engine catalog ([`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py)) |
 | **`PRIMARY_ACTIONS_FOR_VIEWER`** | When dock hook not bound | `(ctx: PrimaryActionsContext)` | `list[dict]` | Engine catalog ([`ui_primary_actions`](../src/hexengine/hooks/ui_primary_actions.py)) |
 | **`INTERACTION_PANELS_FOR_VIEWER`** | When dock hook not bound | `(ctx: InteractionPanelsContext)` | `list[dict]` | Engine catalog ([`ui_interaction_panels`](../src/hexengine/hooks/ui_interaction_panels.py)) |
+| **`BLOCKS_ROUTINE_PHASE_ADVANCE`** | Before `NextPhase`, move/attack auto-advance, dock `end_phase` enablement | `(state: GameState)` | `bool` | `False` (catalog: hexdemo gate check when extension key set — prefer title bind) |
+| **`COMBAT_INTERACTION_MESSAGES`** | Default `interaction_messages` combat slice (after phase row) | `(ctx: CombatInteractionMessagesContext)` | `list[dict]` | [`default_combat_interaction_messages`](../src/hexengine/hooks/ui_combat_messages.py) using partial combat/advance hooks |
+| **`COMBAT_EVENT_SUMMARY`** | After combat, to fan out `combat_event` wires | `(state)` | `CombatEventSummary \| None` | `None` (no `combat_event` broadcast) |
 
 **Partial vs full message hooks**
 
@@ -212,9 +216,27 @@ Bind with `@bind_title_hook(UIHook.…)` in the title hooks package. Values matc
 - **Full** — `INTERACTION_MESSAGES` replaces the entire list; do not rely on partial hooks when the full hook is bound.
 - **Phase banner** — always provide sensible `text` via `PHASE_BANNER_TEXT_FOR_VIEWER` even when `PHASE_BANNER_HTML_FOR_VIEWER` supplies display HTML.
 
-Context dataclasses: [`CombatInteractionContext`](../src/hexengine/hooks/ui.py), [`AdvanceGateInteractionContext`](../src/hexengine/hooks/ui.py), [`PhaseBannerContext`](../src/hexengine/hooks/ui.py), [`TurnActionDockContext`](../src/hexengine/hooks/ui_turn_action_dock.py), [`PrimaryActionsContext`](../src/hexengine/hooks/ui_primary_actions.py).
+Context dataclasses: [`CombatInteractionContext`](../src/hexengine/hooks/ui.py), [`AdvanceGateInteractionContext`](../src/hexengine/hooks/ui.py), [`CombatInteractionMessagesContext`](../src/hexengine/hooks/ui_combat_messages.py), [`PhaseBannerContext`](../src/hexengine/hooks/ui.py), [`TurnActionDockContext`](../src/hexengine/hooks/ui_turn_action_dock.py), [`PrimaryActionsContext`](../src/hexengine/hooks/ui_primary_actions.py).
 
-**Reference pack:** [`games/hexdemo/hooks/`](../games/hexdemo/hooks/) (`turn_action_dock.py`, message hooks in `ui.py`); markup in [`games/hexdemo/ui_markup.py`](../games/hexdemo/ui_markup.py); assets in [`games/hexdemo/resources/`](../games/hexdemo/resources/) (`templates/`, `flags/`, `ui.css`). Inventory: [`SKINNING_CLIENT_INVENTORY.md`](SKINNING_CLIENT_INVENTORY.md).
+### Attack hook inventory (combat policy)
+
+Bind with `@bind_title_hook(AttackHook.…)`. Values match [`AttackHook`](../src/hexengine/hooks/attack.py).
+
+| Hook | When invoked | Signature / context | Return | `ENGINE_DEFAULT` behavior |
+|------|--------------|---------------------|--------|---------------------------|
+| **`VALIDATE_ATTACK`** | Before resolve in attack arc | `(ctx: AttackContext)` | `None` or raise | Unsupported attack |
+| **`RESOLVE_ATTACK`** | Attack arc | `(ctx: AttackContext)` | `AttackResolution` | Unsupported attack |
+| **`ATTACK_PLAN_PREVIEW`** | `map_selection_preview` kind `attack_plan` | `(ctx: AttackPlanPreviewContext)` | preview dict | Empty/minimal preview |
+| **`AUTO_ADVANCE_PHASE_AFTER_ATTACK`** | After attack applied + broadcast | `(state: GameState)` | `bool` | No auto-advance |
+| **`AFTER_ATTACK_APPLIED`** | After `Attack` + `ApplyCombatEffects`, before combat events | `(ctx: AfterAttackAppliedContext)` | `list[StateAction]` | No follow-up actions |
+| **`ON_RETREAT_OBLIGATION_CLEARED`** | Retreat stack empty or disrupt cleared obligations | `(ctx: RetreatObligationClearedContext)` | `list[StateAction]` | `[]` (no follow-up) |
+| **`COMBAT_DISRUPT_INSTEAD_OF_RETREAT`** | `CombatDisruptInsteadOfRetreat` RPC | `(ctx: CombatCleanupContext)` | `list[StateAction]` | Unsupported |
+| **`COMBAT_RESOLVE_ADVANCE`** | `CombatAdvance` RPC or advance `MoveUnit` fulfillment | `(ctx: CombatCleanupContext)` | `list[StateAction]` | Unsupported |
+| **`IS_COMBAT_ADVANCE_MOVE`** | Before routing a `MoveUnit` (detect advance fulfillment) | `(ctx: CombatAdvanceMoveContext)` | `bool` | `False` (not an advance move) |
+
+**Undoable title bucket patches:** prefer [`PatchTitleBucket`](../src/hexengine/state/actions.py) in hook follow-up lists over ad-hoc copies. Read bucket via [`title_bucket`](../src/hexengine/state/title_extension.py) / pack `title_state` module.
+
+**Reference pack:** [`games/hexdemo/hooks/`](../games/hexdemo/hooks/) (`attack.py`, `movement.py`, `turn_action_dock.py`, `ui.py`); policy modules [`combat_transitions.py`](../games/hexdemo/combat_transitions.py), [`title_state.py`](../games/hexdemo/title_state.py); markup in [`games/hexdemo/ui_markup.py`](../games/hexdemo/ui_markup.py); assets in [`games/hexdemo/resources/`](../games/hexdemo/resources/) (`templates/`, `flags/`, `ui.css`). Inventory: [`SKINNING_CLIENT_INVENTORY.md`](SKINNING_CLIENT_INVENTORY.md). Boundary matrix: [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md).
 
 ### Client contract features (not wire rows)
 
@@ -301,7 +323,7 @@ Align naming and validation rules with `TitleHooks` contract sentinels (`REQUIRE
 | Area | Declaration | Entry / validation | Notes |
 |------|-------------|-------------------|--------|
 | Movement | `TitleHooks.movement` | Server movement arc; hook catalog | `MovementHook` enum + `bind_title_hook` |
-| Attack | `TitleHooks.attack` | `authority_attack` pipeline; `validate_title_contract` if schedule has combat | Required callables when schedule implies combat |
+| Attack | `TitleHooks.attack` | [`authority_attack`](../src/hexengine/server/arcs/authority_attack.py); `validate_title_contract` if schedule has combat | Required `validate_attack` / `resolve_attack` when schedule implies combat; optional `after_attack_applied`, `on_retreat_obligation_cleared` — see [Attack hook inventory](#attack-hook-inventory-combat-policy) |
 | UI | `TitleHooks.ui` | Client/server UI hook points | Per-viewer wire: [`interaction_messages`](#stateupdateinteraction_messages), [`interaction_panels`](#stateupdateinteraction_panels-turn-action-dock), [`ui_popup`](#ui-popup-standalone-message); see [UI affordances](#ui-affordances--wire-schemas-and-hooks-v1) |
 | Title-load (client) | `[hooks.title_load]` | Client title-load arc; tolerant dispatch in `gameroot` | See [`TITLE_LOAD_HOOKS.md`](TITLE_LOAD_HOOKS.md) |
 | Title-load (server) | same manifest | `try_pack_title_load_server` | One-shot log hook today |

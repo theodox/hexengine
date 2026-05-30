@@ -527,15 +527,6 @@ class RemoveMarker:
         return f"<RemoveMarker {self.marker_id!r}>"
 
 
-_TITLE_COMBAT_KEYS = (
-    "attacks_this_phase",
-    "retreat_obligations",
-    "combat_gate",
-    "last_combat",
-    "advance",
-)
-
-
 class PatchTitleBucket(StateAction):
     """Merge keys into a title extension bucket (undo restores prior bucket snapshot)."""
 
@@ -575,40 +566,6 @@ class PatchTitleBucket(StateAction):
 
     def __repr__(self) -> str:
         return f"<PatchTitleBucket {self.extension_key!r}>"
-
-
-class ClearTitleCombatExtension(StateAction):
-    """Remove title combat keys from extension[extension_key] (phase rollover)."""
-
-    def __init__(self, extension_key: str) -> None:
-        self.extension_key = extension_key
-        self._saved_bucket: dict[str, Any] | None = None
-
-    def apply(self, state: GameState) -> GameState:
-        from .title_extension import title_bucket, with_title_bucket
-
-        hx = title_bucket(state, self.extension_key)
-        if not hx:
-            self._saved_bucket = None
-            return state
-        self._saved_bucket = dict(hx)
-        new_hx = {**hx}
-        for k in _TITLE_COMBAT_KEYS:
-            new_hx.pop(k, None)
-        return with_title_bucket(state, self.extension_key, new_hx)
-
-    def revert(self, state: GameState) -> GameState:
-        if self._saved_bucket is None:
-            return state
-        from .title_extension import with_title_bucket
-
-        return with_title_bucket(state, self.extension_key, self._saved_bucket)
-
-    def should_revert_prior(self) -> bool:
-        return False
-
-    def __repr__(self) -> str:
-        return f"<ClearTitleCombatExtension {self.extension_key!r}>"
 
 
 class ClearUnitRetreatObligation(StateAction):
@@ -654,127 +611,6 @@ class ClearUnitRetreatObligation(StateAction):
             f"<ClearUnitRetreatObligation {self.unit_id!r} "
             f"extension_key={self.extension_key!r}>"
         )
-
-
-class OpenCombatAdvance(StateAction):
-    """Open a title-defined attacker advance window after retreat is resolved."""
-
-    def __init__(
-        self,
-        extension_key: str,
-        *,
-        advancing_faction: str,
-        from_hex: Hex,
-        to_hex: Hex,
-        unit_ids: tuple[str, ...],
-    ) -> None:
-        self.extension_key = extension_key
-        self.advancing_faction = str(advancing_faction).strip()
-        self.from_hex = from_hex
-        self.to_hex = to_hex
-        self.unit_ids = tuple(str(u).strip() for u in unit_ids if str(u).strip())
-        self._saved_bucket: dict[str, Any] | None = None
-
-    def apply(self, state: GameState) -> GameState:
-        from .title_extension import title_bucket, with_title_bucket
-
-        hx0 = title_bucket(state, self.extension_key)
-        self._saved_bucket = dict(hx0)
-        hx = dict(hx0)
-        hx["combat_gate"] = "awaiting_advance"
-        hx["advance"] = {
-            "schema": 1,
-            "faction": self.advancing_faction,
-            "from_hex": {
-                "i": int(self.from_hex.i),
-                "j": int(self.from_hex.j),
-                "k": int(self.from_hex.k),
-            },
-            "to_hex": {
-                "i": int(self.to_hex.i),
-                "j": int(self.to_hex.j),
-                "k": int(self.to_hex.k),
-            },
-            "unit_ids": list(self.unit_ids),
-        }
-        return with_title_bucket(state, self.extension_key, hx)
-
-    def revert(self, state: GameState) -> GameState:
-        if self._saved_bucket is None:
-            return state
-        from .title_extension import with_title_bucket
-
-        return with_title_bucket(state, self.extension_key, self._saved_bucket)
-
-    def should_revert_prior(self) -> bool:
-        return False
-
-    def __repr__(self) -> str:
-        return f"<OpenCombatAdvance extension_key={self.extension_key!r}>"
-
-
-class ResolveCombatAdvance(StateAction):
-    """Advance the attacker stack and clear the advance gate."""
-
-    def __init__(self, extension_key: str, player_faction: str) -> None:
-        self.extension_key = extension_key
-        self.player_faction = str(player_faction).strip()
-        self._saved_bucket: dict[str, Any] | None = None
-
-    def apply(self, state: GameState) -> GameState:
-        from .title_extension import title_bucket, with_title_bucket
-
-        hx0 = title_bucket(state, self.extension_key)
-        if not hx0:
-            raise ValueError("No title combat extension")
-        self._saved_bucket = dict(hx0)
-        hx = dict(hx0)
-        if str(hx.get("combat_gate", "")).strip() != "awaiting_advance":
-            raise ValueError("No advance pending")
-        adv = hx.get("advance")
-        if not isinstance(adv, dict):
-            raise ValueError("Missing advance payload")
-        if str(adv.get("faction", "")).strip() != self.player_faction:
-            raise ValueError("Not allowed to advance for this faction")
-        to_hex_raw = adv.get("to_hex")
-        if not isinstance(to_hex_raw, dict):
-            raise ValueError("Invalid to_hex")
-        try:
-            to_hex = Hex(
-                int(to_hex_raw["i"]), int(to_hex_raw["j"]), int(to_hex_raw["k"])
-            )
-        except Exception as e:
-            raise ValueError("Invalid to_hex") from e
-        unit_ids_raw = adv.get("unit_ids")
-        if not isinstance(unit_ids_raw, list) or not unit_ids_raw:
-            raise ValueError("No units to advance")
-
-        st = state
-        for uid in unit_ids_raw:
-            if not isinstance(uid, str) or not uid.strip():
-                continue
-            u = st.board.units.get(uid)
-            if u is None or not u.active or u.faction != self.player_faction:
-                continue
-            st = MoveUnit(uid, from_hex=u.position, to_hex=to_hex).apply(st)
-
-        hx2 = dict(title_bucket(st, self.extension_key))
-        hx2.pop("advance", None)
-        hx2.pop("combat_gate", None)
-        return with_title_bucket(st, self.extension_key, hx2)
-
-    def revert(self, state: GameState) -> GameState:
-        if self._saved_bucket is None:
-            return state
-        from .title_extension import with_title_bucket
-
-        return with_title_bucket(state, self.extension_key, self._saved_bucket)
-
-    def should_revert_prior(self) -> bool:
-        return False
-
-    def __repr__(self) -> str:
-        return f"<ResolveCombatAdvance extension_key={self.extension_key!r}>"
 
 
 def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:
@@ -894,19 +730,13 @@ class ApplyCombatEffects(StateAction):
     dataclasses expanded); titles should not call snapshot helpers themselves.
     """
 
-    def __init__(self, extension_key: str, effects: dict[str, Any]) -> None:
-        self.extension_key = extension_key
+    def __init__(self, effects: dict[str, Any]) -> None:
         self.effects = normalize_snapshot_mapping(effects)
         assert_snapshot_json_serializable(
             self.effects, context=" (ApplyCombatEffects.effects)"
         )
-        self._prev_extension_bucket: dict[str, Any] | None = None
 
     def apply(self, state: GameState) -> GameState:
-        from .title_extension import title_bucket, with_title_bucket
-
-        hx0 = title_bucket(state, self.extension_key)
-        self._prev_extension_bucket = dict(hx0)
         st = state
         eff = self.effects
         if not eff:
@@ -947,100 +777,16 @@ class ApplyCombatEffects(StateAction):
                     st = PatchUnitAttributes(str(u.unit_id), {"disrupted": True}).apply(
                         st
                     )
-
-        hx = dict(title_bucket(st, self.extension_key) or self._prev_extension_bucket)
-
-        patch = eff.get("last_combat_patch")
-        if isinstance(patch, dict):
-            lc = hx.get("last_combat")
-            base = dict(lc) if isinstance(lc, dict) else {}
-            merged = {**base, **patch}
-            hx["last_combat"] = merged
-
-        return with_title_bucket(st, self.extension_key, hx)
+        return st
 
     def revert(self, state: GameState) -> GameState:
-        from .title_extension import with_title_bucket
-
-        prior = (
-            dict(self._prev_extension_bucket)
-            if self._prev_extension_bucket is not None
-            else {}
-        )
-        return with_title_bucket(state, self.extension_key, prior)
+        return state
 
     def should_revert_prior(self) -> bool:
         return False
 
     def __repr__(self) -> str:
-        return f"<ApplyCombatEffects extension_key={self.extension_key!r}>"
-
-
-class ResolveDisruptInsteadOfRetreat(StateAction):
-    """Retreating player takes disruption and clears mandatory retreat obligations."""
-
-    def __init__(self, extension_key: str, player_faction: str) -> None:
-        self.extension_key = extension_key
-        self.player_faction = str(player_faction).strip()
-        self._prev_extension_bucket: dict[str, Any] | None = None
-
-    def apply(self, state: GameState) -> GameState:
-        from .title_extension import title_bucket, with_title_bucket
-
-        hx0 = title_bucket(state, self.extension_key)
-        self._prev_extension_bucket = dict(hx0)
-        if not hx0:
-            raise ValueError("No title combat extension")
-        hx = dict(hx0)
-        gate = str(hx.get("combat_gate", "")).strip()
-        if gate != "awaiting_retreat_or_disrupt":
-            raise ValueError(
-                "Disrupt-instead is only allowed when combat_gate is awaiting_retreat_or_disrupt"
-            )
-        prev_ro = hx.get("retreat_obligations")
-        ro = dict(prev_ro) if isinstance(prev_ro, dict) else {}
-        st = state
-        cleared_any = False
-        for uid in list(ro.keys()):
-            raw = ro.get(uid)
-            try:
-                n = int(raw)
-            except (TypeError, ValueError):
-                continue
-            if n <= 0:
-                continue
-            u = st.board.units.get(uid)
-            if u is None or not u.active or u.faction != self.player_faction:
-                continue
-            st = PatchUnitAttributes(str(uid), {"disrupted": True}).apply(st)
-            ro.pop(uid, None)
-            cleared_any = True
-        if not cleared_any:
-            raise ValueError("No retreat obligation found for this faction")
-
-        hx["retreat_obligations"] = ro
-        if not _retreat_obligations_have_pending(ro):
-            hx.pop("combat_gate", None)
-        return with_title_bucket(st, self.extension_key, hx)
-
-    def revert(self, state: GameState) -> GameState:
-        from .title_extension import with_title_bucket
-
-        prior = (
-            dict(self._prev_extension_bucket)
-            if self._prev_extension_bucket is not None
-            else {}
-        )
-        return with_title_bucket(state, self.extension_key, prior)
-
-    def should_revert_prior(self) -> bool:
-        return False
-
-    def __repr__(self) -> str:
-        return (
-            f"<ResolveDisruptInsteadOfRetreat "
-            f"extension_key={self.extension_key!r} faction={self.player_faction!r}>"
-        )
+        return "<ApplyCombatEffects>"
 
 
 class Attack(StateAction):
@@ -1057,7 +803,6 @@ class Attack(StateAction):
         attacker_id: str,
         defender_id: str,
         *,
-        extension_key: str,
         outcome: str,
         attacker_ids: tuple[str, ...] | None = None,
         defender_ids: tuple[str, ...] | None = None,
@@ -1068,7 +813,6 @@ class Attack(StateAction):
         self.attack_kind = attack_kind
         self.attacker_id = attacker_id
         self.defender_id = defender_id
-        self.extension_key = extension_key
         self.outcome = outcome
         if attacker_ids is None:
             self.attacker_ids: tuple[str, ...] | None = None
@@ -1148,10 +892,6 @@ class Attack(StateAction):
             )
         )
 
-        from .title_extension import title_bucket, with_title_bucket
-
-        hx0 = title_bucket(state, self.extension_key)
-        self._prev_extension_bucket = dict(hx0)
         self._prev_rng_log = state.rng_log
 
         outcome = str(self.outcome)
@@ -1173,64 +913,6 @@ class Attack(StateAction):
         if self.rng_entry is not None:
             new_rng = new_rng + (dict(self.rng_entry),)
 
-        hx = dict(self._prev_extension_bucket)
-        prev_attacks = hx.get("attacks_this_phase")
-        attacks = list(prev_attacks) if isinstance(prev_attacks, list) else []
-        for a in attackers:
-            attacks.append(a.unit_id)
-        hx["attacks_this_phase"] = attacks
-
-        prev_ro = hx.get("retreat_obligations")
-        retreat_obligations: dict[str, int] = (
-            dict(prev_ro) if isinstance(prev_ro, dict) else {}
-        )
-        retreat_unit_id: str | None = self.retreat_unit_id
-        if outcome == "attacker_retreat":
-            assert retreat_distance is not None
-            retreat_unit_id = retreat_unit_id or self.attacker_id
-            u0 = state.board.units.get(retreat_unit_id)
-            if u0 is not None:
-                for u in state.board.active_units_at_hex(u0.position):
-                    if u.faction == u0.faction:
-                        retreat_obligations[u.unit_id] = retreat_distance
-            hx["combat_gate"] = "awaiting_retreat"
-        elif outcome == "defender_retreat":
-            assert retreat_distance is not None
-            retreat_unit_id = retreat_unit_id or self.defender_id
-            u0 = state.board.units.get(retreat_unit_id)
-            if u0 is not None:
-                for u in state.board.active_units_at_hex(u0.position):
-                    if u.faction == u0.faction:
-                        retreat_obligations[u.unit_id] = retreat_distance
-            hx["combat_gate"] = "awaiting_retreat"
-        else:
-            hx.pop("combat_gate", None)
-
-        if outcome == "defender_destroyed":
-            for d in defenders:
-                retreat_obligations.pop(d.unit_id, None)
-
-        hx["retreat_obligations"] = retreat_obligations
-        hx["last_combat"] = {
-            "attack_kind": self.attack_kind,
-            "outcome": outcome,
-            "attacker_id": self.attacker_id,
-            "attacker_ids": [a.unit_id for a in attackers],
-            "defender_id": self.defender_id,
-            "defender_ids": [d.unit_id for d in defenders],
-            "defender_hex": {"i": int(dpos0.i), "j": int(dpos0.j), "k": int(dpos0.k)},
-            "defender_hexes": [
-                {"i": int(h.i), "j": int(h.j), "k": int(h.k)}
-                for h in defender_hexes_sorted
-            ],
-            "attacker_hexes": [
-                {"i": int(h.i), "j": int(h.j), "k": int(h.k)}
-                for h in attacker_hexes_sorted
-            ],
-            "retreat_distance": retreat_distance,
-            "retreat_unit_id": retreat_unit_id,
-        }
-
         st = state
         if outcome == "defender_destroyed":
             deleted: list[str] = []
@@ -1241,24 +923,13 @@ class Attack(StateAction):
         else:
             self._deleted_unit_ids = ()
 
-        st = with_title_bucket(st, self.extension_key, hx).with_title_bucket_key(
-            self.extension_key
-        )
         return st.with_rng_log(new_rng)
 
     def revert(self, state: GameState) -> GameState:
-        from .title_extension import with_title_bucket
-
         st = state
         if self._deleted_unit_ids:
             for uid in self._deleted_unit_ids:
                 st = DeleteUnit(uid).revert(st)
-        prior = (
-            dict(self._prev_extension_bucket)
-            if self._prev_extension_bucket is not None
-            else {}
-        )
-        st = with_title_bucket(st, self.extension_key, prior)
         return st.with_rng_log(
             self._prev_rng_log if self._prev_rng_log is not None else ()
         )
@@ -1269,5 +940,5 @@ class Attack(StateAction):
     def __repr__(self) -> str:
         return (
             f"<Attack {self.attack_kind!r} {self.attacker_id!r} -> {self.defender_id!r} "
-            f"extension_key={self.extension_key!r}>"
+            f"outcome={self.outcome!r}>"
         )

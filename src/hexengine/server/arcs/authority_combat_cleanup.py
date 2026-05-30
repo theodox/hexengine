@@ -14,19 +14,37 @@ import uuid
 from typing import Any, Protocol
 
 from ...hexes.types import Hex
+from ...hooks.attack import CombatAdvanceMoveContext, CombatCleanupContext
+from ...hooks.core import ENGINE_DEFAULT
+from ...hooks.title import TitleHooks
 from ...state import ActionManager, GameState
-from ...state.actions import (
-    ClearUnitRetreatObligation,
-    MoveUnit,
-    ResolveCombatAdvance,
-    ResolveDisruptInsteadOfRetreat,
-)
+from ...state.action_manager import StateAction
+from ...state.actions import ClearUnitRetreatObligation, MoveUnit
 from ..protocol import ActionRequest, ActionResult, Message, PlayerInfo
+
+
+def _execute_hook_state_actions(
+    host: AuthorityCombatCleanupHost,
+    raw: list[StateAction] | object,
+    *,
+    hook_name: str,
+) -> None:
+    if raw is ENGINE_DEFAULT:
+        raise ValueError(f"This game title does not implement {hook_name}")
+    if not isinstance(raw, list):
+        raise TypeError(
+            f"{hook_name} must return list[StateAction] or hooks.ENGINE_DEFAULT"
+        )
+    for action in raw:
+        if not isinstance(action, StateAction):
+            raise TypeError(f"{hook_name} entries must be StateAction instances")
+        host.action_manager.execute(action)
 
 
 class AuthorityCombatCleanupHost(Protocol):
     """Minimal `GameServer` surface for combat cleanup actions."""
 
+    hooks: TitleHooks
     action_manager: ActionManager
 
     def _title_extension_key(self) -> str | None: ...
@@ -66,6 +84,7 @@ async def _reply_ok_broadcast(host: AuthorityCombatCleanupHost, player_id: str) 
 
 
 def move_unit_is_combat_advance_fulfillment(
+    hooks: TitleHooks,
     state: GameState,
     params: dict[str, Any],
     *,
@@ -73,48 +92,24 @@ def move_unit_is_combat_advance_fulfillment(
     extension_key: str | None,
 ) -> bool:
     """
-    True when this `MoveUnit` wire is the title-declared advance into the vacated hex
-    (extension `combat_gate` awaiting_advance).
+    True when this `MoveUnit` wire is the title-declared advance into the vacated hex.
+
+    The decision is title policy (`AttackHook.IS_COMBAT_ADVANCE_MOVE`); the engine has
+    no default and treats `ENGINE_DEFAULT` as "not an advance move".
     """
 
     if not extension_key:
         return False
-    from ...state.title_extension import title_bucket
-
-    hx_adv = title_bucket(state, extension_key)
-    if not hx_adv:
+    ctx = CombatAdvanceMoveContext(
+        state=state,
+        params=dict(params),
+        extension_key=extension_key,
+        player_faction=str(player_faction),
+    )
+    raw = hooks.attack.detect_combat_advance_move(ctx)
+    if raw is ENGINE_DEFAULT:
         return False
-    if str(hx_adv.get("combat_gate", "")).strip() != "awaiting_advance":
-        return False
-    adv = hx_adv.get("advance")
-    if not isinstance(adv, dict) or str(adv.get("faction", "")).strip() != str(
-        player_faction
-    ):
-        return False
-    to_hex_raw = adv.get("to_hex")
-    unit_ids_raw = adv.get("unit_ids")
-    if not (
-        isinstance(to_hex_raw, dict)
-        and isinstance(unit_ids_raw, list)
-        and isinstance(params.get("unit_id"), str)
-        and isinstance(params.get("to_hex"), dict)
-    ):
-        return False
-    try:
-        adv_to = Hex(
-            int(to_hex_raw["i"]),
-            int(to_hex_raw["j"]),
-            int(to_hex_raw["k"]),
-        )
-    except Exception:
-        return False
-    try:
-        req_to = Hex(**params["to_hex"])
-    except Exception:
-        return False
-    uid = str(params["unit_id"]).strip()
-    allowed_ids = {str(x) for x in unit_ids_raw if isinstance(x, str)}
-    return bool(uid and req_to == adv_to and uid in allowed_ids)
+    return bool(raw)
 
 
 async def handle_combat_disrupt_instead_of_retreat(
@@ -157,8 +152,16 @@ async def handle_combat_disrupt_instead_of_retreat(
         )
         return
     try:
-        host.action_manager.execute(
-            ResolveDisruptInsteadOfRetreat(ek, str(player.faction))
+        cleanup_ctx = CombatCleanupContext(
+            state=st0,
+            extension_key=ek,
+            player_faction=str(player.faction),
+        )
+        raw = host.hooks.attack.disrupt_instead_of_retreat(cleanup_ctx)
+        _execute_hook_state_actions(
+            host,
+            raw,
+            hook_name="hooks.attack.combat_disrupt_instead_of_retreat",
         )
     except Exception as e:
         await host._send_error(player_id, f"Action failed: {e}")
@@ -193,7 +196,17 @@ async def handle_combat_advance_rpc(
         await host._send_error(player_id, "You are not allowed to advance right now")
         return
     try:
-        host.action_manager.execute(ResolveCombatAdvance(ek, str(player.faction)))
+        cleanup_ctx = CombatCleanupContext(
+            state=st0,
+            extension_key=ek,
+            player_faction=str(player.faction),
+        )
+        raw = host.hooks.attack.resolve_combat_advance(cleanup_ctx)
+        _execute_hook_state_actions(
+            host,
+            raw,
+            hook_name="hooks.attack.combat_resolve_advance",
+        )
     except Exception as e:
         await host._send_error(player_id, f"Action failed: {e}")
         return
@@ -271,7 +284,7 @@ async def handle_move_unit_combat_advance_resolution(
     player_id: str,
     player: PlayerInfo,
 ) -> None:
-    """Run `ResolveCombatAdvance` when advance is fulfilled by a `MoveUnit` into the hex."""
+    """Run title combat advance resolution when advance is fulfilled by `MoveUnit`."""
 
     ek = host._title_extension_key()
     if not ek:
@@ -280,8 +293,19 @@ async def handle_move_unit_combat_advance_resolution(
             "This game title does not define a state extension key for combat",
         )
         return
+    st0 = host.action_manager.current_state
     try:
-        host.action_manager.execute(ResolveCombatAdvance(ek, str(player.faction)))
+        cleanup_ctx = CombatCleanupContext(
+            state=st0,
+            extension_key=ek,
+            player_faction=str(player.faction),
+        )
+        raw = host.hooks.attack.resolve_combat_advance(cleanup_ctx)
+        _execute_hook_state_actions(
+            host,
+            raw,
+            hook_name="hooks.attack.combat_resolve_advance",
+        )
     except Exception as e:
         await host._send_error(player_id, f"Action failed: {e}")
         return

@@ -34,10 +34,10 @@ Branch: `engine_boundary_2` (from skinning squash on `main`).
 
 | Area | Today | Strain |
 |------|--------|--------|
-| Extension | `extension["hexdemo"]` + `extension["hexengine_movement_arc"]` | `extension_key` threaded through hooks, actions, server, hexdemo |
+| Match state | Was `extension["hexdemo"]` + `hexengine_*` | Now `title_state` / `engine_state` / `title_bucket_key`; `extension_key` still on hooks/actions for API |
 | Combat FSM | Implicit in bucket keys: `combat_gate`, `last_combat`, `retreat_obligations`, `advance`, `attacks_this_phase` | Engine + hexdemo + `game_server` INFORM all parse same strings |
 | Phase advance | Title hooks for move/attack; explicit `NextPhase` on dock | Improved; gate checks duplicated (dock, movement auto-advance) |
-| Engine actions | `OpenCombatAdvance`, `ClearTitleCombatExtension`, … | Shapes are hexdemo-flavored; keys listed in engine `actions.py` |
+| Engine actions | ~~`OpenCombatAdvance`, `ResolveCombatAdvance`, `ResolveDisruptInsteadOfRetreat`, `ClearTitleCombatExtension`~~ removed | Combat cleanup + phase-scoped key clearing now title-owned (`games/hexdemo/combat_actions.py`, `combat_transitions.clear_combat_state_actions`); engine actions hold no hexdemo key literals |
 
 ---
 
@@ -56,8 +56,8 @@ Branch: `engine_boundary_2` (from skinning squash on `main`).
 
 | API | Behavior |
 |-----|----------|
-| `title_bucket(state, key) -> dict` | `state.extension.get(key)` or `{}` if missing/wrong type |
-| `with_title_bucket(state, key, bucket: dict) -> GameState` | Shallow replace one top-level extension entry |
+| `title_bucket(state, key) -> dict` | `state.title_state` when `key == state.title_bucket_key`, else `{}` |
+| `with_title_bucket(state, key, bucket: dict) -> GameState` | Shallow replace title bucket |
 | `patch_title_bucket_action(key, patch, *, remove=()) -> StateAction` | Generic undoable patch (replaces ad-hoc copies in actions) |
 
 Reserved top-level keys: prefix `hexengine_` (e.g. `hexengine_movement_arc`) — engine only.
@@ -104,7 +104,7 @@ Reserved top-level keys: prefix `hexengine_` (e.g. `hexengine_movement_arc`) —
 - In [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md): `combat_gate` values are **pack conventions**, not engine enums.
 - Engine catalog defaults may reference hexdemo gates only behind `ENGINE_DEFAULT` + extension key set.
 
-**Exit criteria:** `game_server.py` has no direct reads of `last_combat` / `combat_gate` except via hook dispatch.
+**Exit criteria:** Banner path has no direct reads of `last_combat` / `combat_gate` except via hook dispatch (`COMBAT_INTERACTION_MESSAGES` / catalog default). `combat_event` broadcast may still read `last_combat`.
 
 **Tests:** `test_combat_hexdemo` message kinds unchanged; hook contract tests for new UI/Movement enum members.
 
@@ -131,7 +131,7 @@ Context: `GameState`, `AttackResolution`, `extension_key`, attacker/defender ids
 ### C.2 Generalize cleanup actions ✅ (incremental)
 
 - Prefer `PatchTitleBucket` over ad-hoc bucket copies (`ClearUnitRetreatObligation` migrated).
-- Keep `OpenCombatAdvance` / `ResolveCombatAdvance` until a second title needs a different advance model (or extract pack-local actions in `games/hexdemo/actions.py`).
+- Done: `OpenCombatAdvance` / `ResolveCombatAdvance` / `ResolveDisruptInsteadOfRetreat` extracted to pack-local `games/hexdemo/combat_actions.py`; engine cleanup arc dispatches title hooks (`COMBAT_RESOLVE_ADVANCE`, `COMBAT_DISRUPT_INSTEAD_OF_RETREAT`, `ON_RETREAT_OBLIGATION_CLEARED`).
 
 ### C.3 Optional: `on_retreat_obligation_cleared(ctx)` ✅
 
@@ -187,14 +187,14 @@ GameState
 
 ---
 
-## Phase F — Docs and matrix maintenance
+## Phase F — Docs and matrix maintenance ✅
 
 | Item | Action |
 |------|--------|
-| [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md) | Row #9: map `InteractionKind` + registry; row combat: extension bucket + hooks |
-| [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) | Section: title bucket, reserved `hexengine_*` keys, combat transition hooks |
-| [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md) | New hook entries when B/C land |
-| This plan | Mark phases complete as PRs merge |
+| [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md) | Rows #9–11 + boundary-2 quick reference |
+| [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) | Title bucket / `title_state` / combat transitions section |
+| [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md) | `COMBAT_INTERACTION_MESSAGES`, `BLOCKS_ROUTINE_PHASE_ADVANCE`, attack follow-up hooks |
+| This plan | Phases A–F marked complete on `engine_boundary_2` |
 
 ---
 
@@ -237,7 +237,7 @@ Each PR should keep pytest green (`test_combat_hexdemo`, `test_hooks_contract`, 
 ## Success criteria (track complete)
 
 - Title combat policy readable in `games/hexdemo/combat_transitions.py` + `title_state.py`.
-- `game_server` does not interpret hexdemo `combat_gate` / `last_combat` directly.
+- `game_server` does not interpret hexdemo `combat_gate` / `last_combat` for INFORM banners (hook path only).
 - Phase advance blocking and post-move auto-advance use one title policy function.
 - Extension access for titles goes through helpers; engine keys stay prefixed `hexengine_`.
 - [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md) reflects post-skinning + this track.

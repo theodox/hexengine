@@ -107,6 +107,13 @@ def combat_interaction_messages(
     return build_combat_interaction_messages(ctx)
 
 
+@bind_title_hook(UIHook.COMBAT_EVENT_SUMMARY)
+def combat_event_summary(state):
+    from ..combat_messages import build_combat_event_summary
+
+    return build_combat_event_summary(state)
+
+
 @bind_title_hook(UIHook.INFORM_POPUP)
 def inform_popup_for_viewer(ctx):
     from hexengine.hooks.inform_popup import InformPopupContext
@@ -119,6 +126,7 @@ def inform_popup_for_viewer(ctx):
 __all__ = [
     "advance_gate_banners_for_viewer",
     "blocks_routine_phase_advance",
+    "combat_event_summary",
     "combat_interaction_messages",
     "combat_instruction_for_viewer",
     "phase_banner_html_for_viewer",

@@ -16,6 +16,8 @@ from hexengine.hooks.attack import (
     AttackHooks,
     AttackPlanPreviewContext,
     AttackResolution,
+    CombatAdvanceMoveContext,
+    CombatCleanupContext,
     RetreatObligationClearedContext,
 )
 from hexengine.hooks.wiring import bind_title_hook
@@ -513,8 +515,35 @@ def after_attack_applied(ctx: AfterAttackAppliedContext) -> list:
 @bind_title_hook(AttackHook.ON_RETREAT_OBLIGATION_CLEARED)
 def on_retreat_obligation_cleared(
     ctx: RetreatObligationClearedContext,
-) -> object:
+) -> list:
     return combat_transitions.on_retreat_obligation_cleared(ctx)
+
+
+@bind_title_hook(AttackHook.COMBAT_DISRUPT_INSTEAD_OF_RETREAT)
+def combat_disrupt_instead_of_retreat(ctx: CombatCleanupContext) -> list:
+    from .. import combat_actions
+
+    return combat_actions.disrupt_instead_of_retreat(
+        ctx.state, ctx.extension_key, ctx.player_faction
+    )
+
+
+@bind_title_hook(AttackHook.COMBAT_RESOLVE_ADVANCE)
+def combat_resolve_advance(ctx: CombatCleanupContext) -> list:
+    from .. import combat_actions
+
+    return combat_actions.resolve_combat_advance(
+        ctx.state, ctx.extension_key, ctx.player_faction
+    )
+
+
+@bind_title_hook(AttackHook.IS_COMBAT_ADVANCE_MOVE)
+def is_combat_advance_move(ctx: CombatAdvanceMoveContext) -> bool:
+    from .. import combat_actions
+
+    return combat_actions.is_combat_advance_move(
+        ctx.state, ctx.params, ctx.player_faction, ctx.extension_key
+    )
 
 
 @bind_title_hook(AttackHook.AUTO_ADVANCE_PHASE_AFTER_ATTACK)

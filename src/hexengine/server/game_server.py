@@ -35,17 +35,14 @@ from ..gamedef.unit_attributes import (
 from ..hexes.math import distance
 from ..hexes.types import Hex, HexColRow
 from ..hooks.core import ENGINE_DEFAULT
-from ..hooks.internal import (
-    default_maybe_open_combat_advance_after_retreat,
-    get_engine_catalog_hook,
-    validate_title_contract,
-)
+from ..hooks.internal import get_engine_catalog_hook, validate_title_contract
 from ..hooks.map_selection_registry import bound_map_selection_kinds
 from ..hooks.movement import MoveContext
 from ..hooks.title import TitleHooks, read_title_hooks_from_definition
 from ..hooks.inform_popup import InformPopupContext, default_inform_popup_for_viewer
 from ..hooks.ui import (
     AdvanceGateInteractionContext,
+    CombatEventSummary,
     CombatInteractionContext,
     PhaseBannerContext,
     TurnActionDockContext,
@@ -55,13 +52,12 @@ from ..hooks.ui import (
 )
 from ..package_version import hexes_package_version
 from ..state import ActionManager, GameState
+from ..state.action_manager import StateAction
 from ..state.actions import (
     AddUnit,
-    ClearTitleCombatExtension,
     DeleteUnit,
     MoveUnit,
     NextPhase,
-    OpenCombatAdvance,
     PatchUnitAttributes,
     ResolvePassMovementInterrupt,
     SpendAction,
@@ -653,7 +649,27 @@ class GameServer:
         return list(state.board.locations.keys())
 
     def _invoke_phase_transition_hook(self) -> None:
-        self._call("after_phase_transition", None, self.action_manager.current_state)
+        raw = self._call(
+            "after_phase_transition", None, self.action_manager.current_state
+        )
+        if raw is None:
+            return
+        if not isinstance(raw, list):
+            raise TypeError(
+                "GameDefinition.after_phase_transition must return None or "
+                "list[StateAction]"
+            )
+        for action in raw:
+            if not isinstance(action, StateAction):
+                raise TypeError(
+                    "after_phase_transition entries must be StateAction instances"
+                )
+            try:
+                self.action_manager.execute(action)
+            except Exception as e:
+                self.logger.error(
+                    "after_phase_transition action failed: %s", e, exc_info=True
+                )
 
     def add_message_handler(self, handler: Callable[[str, Message], None]) -> None:
         """
@@ -826,21 +842,18 @@ class GameServer:
         return True
 
     def _after_next_phase_applied(self) -> None:
-        """Title hook then strip title combat keys from the pack extension bucket."""
-        self._invoke_phase_transition_hook()
+        """Clear engine movement arc, then run the title phase-transition hook.
+
+        Title combat bookkeeping cleanup (phase-scoped bucket keys) is owned by the
+        title via `GameDefinition.after_phase_transition` returning `StateAction`s.
+        """
         try:
             self.action_manager.execute(WriteHexengineMovementArc(None))
         except Exception as e:
             self.logger.error(
                 "WriteHexengineMovementArc clear failed: %s", e, exc_info=True
             )
-        ek = self._title_extension_key()
-        if not ek:
-            return
-        try:
-            self.action_manager.execute(ClearTitleCombatExtension(ek))
-        except Exception as e:
-            self.logger.error("ClearTitleCombatExtension failed: %s", e, exc_info=True)
+        self._invoke_phase_transition_hook()
 
     def _retreat_obligation_hexes_remaining(
         self, state: GameState, unit_id: str | None
@@ -1187,43 +1200,22 @@ class GameServer:
         return out
 
     async def _broadcast_combat_events(self, state_after: GameState) -> None:
-        ek = self._title_extension_key()
-        if not ek:
+        raw = self.hooks.ui.combat_event_summary_for(state_after)
+        if raw is ENGINE_DEFAULT or raw is None:
             return
-        hx = self._title_bucket(state_after)
-        if not isinstance(hx, dict):
-            return
-        last_combat = hx.get("last_combat")
-        if not isinstance(last_combat, dict):
-            return
-        outcome = str(last_combat.get("outcome", ""))
-        attack_kind = str(last_combat.get("attack_kind", ""))
-        attacker_id = str(last_combat.get("attacker_id", ""))
-        defender_id = str(last_combat.get("defender_id", ""))
-        retreat_distance = last_combat.get("retreat_distance")
-        rd_int: int | None = None
-        if isinstance(retreat_distance, int):
-            rd_int = retreat_distance
-        elif retreat_distance is not None:
-            try:
-                rd_int = int(retreat_distance)
-            except (TypeError, ValueError):
-                rd_int = None
-        retreat_unit_raw = last_combat.get("retreat_unit_id")
-        ru: str | None = str(retreat_unit_raw) if retreat_unit_raw else None
-        ob = (
-            hx.get("retreat_obligations")
-            if isinstance(hx.get("retreat_obligations"), dict)
-            else {}
-        )
-        hex_remaining: int | None = None
-        if ru is not None:
-            raw_rem = ob.get(ru)
-            if isinstance(raw_rem, int | float | str):
-                try:
-                    hex_remaining = int(raw_rem)
-                except (TypeError, ValueError):
-                    hex_remaining = None
+        if not isinstance(raw, CombatEventSummary):
+            raise TypeError(
+                "hooks.ui.combat_event_summary must return CombatEventSummary, None, "
+                "or hooks.ENGINE_DEFAULT"
+            )
+        summary = raw
+        outcome = str(summary.outcome)
+        attack_kind = str(summary.attack_kind)
+        attacker_id = str(summary.attacker_id)
+        defender_id = str(summary.defender_id)
+        rd_int = summary.retreat_distance
+        ru = summary.retreat_unit_id
+        hex_remaining = summary.retreat_hexes_remaining
         from ..hooks.ui_combat_messages import retreat_owner_faction
 
         retreat_owner = retreat_owner_faction(
@@ -1271,6 +1263,7 @@ class GameServer:
         is_advance_fulfillment = False
         if request.action_type == "MoveUnit":
             is_advance_fulfillment = move_unit_is_combat_advance_fulfillment(
+                self.hooks,
                 current_state,
                 request.params,
                 player_faction=str(player.faction),
@@ -2389,19 +2382,22 @@ class GameServer:
             st, extension_key, cleared_unit_ids=cleared_unit_ids
         )
         if raw is ENGINE_DEFAULT:
-            action = default_maybe_open_combat_advance_after_retreat(st, extension_key)
-        elif raw is None:
-            action = None
-        elif isinstance(raw, OpenCombatAdvance):
-            action = raw
+            actions: list = []
+        elif isinstance(raw, list):
+            actions = raw
         else:
             raise TypeError(
-                "hooks.attack.on_retreat_obligation_cleared (or legacy "
-                "maybe_open_combat_advance_after_retreat) must return "
-                "OpenCombatAdvance, None, or hooks.ENGINE_DEFAULT"
+                "hooks.attack.on_retreat_obligation_cleared must return "
+                "list[StateAction] or hooks.ENGINE_DEFAULT"
             )
-        if action is not None:
-            self.action_manager.execute(action)
+        from .arcs.authority_combat_cleanup import _execute_hook_state_actions
+
+        if actions:
+            _execute_hook_state_actions(
+                self,
+                actions,
+                hook_name="hooks.attack.on_retreat_obligation_cleared",
+            )
 
     def _maybe_open_combat_advance_after_retreat(
         self, extension_key: str, *, cleared_unit_ids: tuple[str, ...] = ()
