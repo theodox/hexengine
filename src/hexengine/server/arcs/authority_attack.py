@@ -287,6 +287,7 @@ async def execute_authority_attack_request(
     # combat state the follow-up just set and auto-advances to the matching gate (or
     # finishes when there is no cleanup). No-op for titles without a declared arc.
     begin_combat_arc(host)
+    st_after = host.action_manager.current_state
 
     # --- BROADCAST_COMBAT_EVENTS ---
     await host._broadcast_combat_events(st_after)

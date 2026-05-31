@@ -102,25 +102,50 @@ def apply_retreat_fulfillment_step(
     return actions
 
 
+def _defender_occupies_combat_hex(state: GameState, last: dict[str, Any], to_hex: Hex) -> bool:
+    """True when a defender from ``last_combat`` still actively holds the combat hex."""
+
+    raw_ids = last.get("defender_ids")
+    if isinstance(raw_ids, list) and raw_ids:
+        defender_ids = [str(x).strip() for x in raw_ids if isinstance(x, str) and str(x).strip()]
+    else:
+        did = str(last.get("defender_id", "")).strip()
+        defender_ids = [did] if did else []
+    for did in defender_ids:
+        u = state.board.units.get(did)
+        if u is not None and u.active and u.position == to_hex:
+            return True
+    return False
+
+
 def maybe_open_advance_after_retreat(
     state: GameState, extension_key: str
 ) -> list[StateAction]:
-    """Open optional post-retreat advance when hexdemo rules match."""
+    """Open optional advance into the vacated defender hex when hexdemo rules match.
+
+    Offered after defender retreat is resolved or when the defender was eliminated
+    (``defender_destroyed`` or step-loss removal) and the combat hex is vacant.
+    """
+
+    from . import combat
 
     hx = title_bucket(state, extension_key)
     if not hx:
         return []
     if str(hx.get("combat_gate", "")).strip():
         return []
+    if combat.any_retreat_obligation_pending(state):
+        return []
     last = hx.get("last_combat")
     if not isinstance(last, dict):
         return []
-    if str(last.get("outcome", "")).strip() != "defender_retreat":
+
+    outcome = str(last.get("outcome", "")).strip()
+    if outcome not in ("defender_retreat", "defender_destroyed", "none"):
         return []
 
     attacker_id = str(last.get("attacker_id", "")).strip()
-    defender_id = str(last.get("defender_id", "")).strip()
-    if not attacker_id or not defender_id:
+    if not attacker_id:
         return []
     raw_aids = last.get("attacker_ids")
     if isinstance(raw_aids, list) and raw_aids:
@@ -128,7 +153,7 @@ def maybe_open_advance_after_retreat(
             str(x).strip() for x in raw_aids if isinstance(x, str) and str(x).strip()
         ]
     else:
-        attacker_ids = [attacker_id] if attacker_id else []
+        attacker_ids = [attacker_id]
     if not attacker_ids:
         return []
 
@@ -140,9 +165,15 @@ def maybe_open_advance_after_retreat(
     except Exception:
         return []
 
-    d0 = state.board.units.get(defender_id)
-    if d0 is None:
+    if _defender_occupies_combat_hex(state, last, to_hex):
         return []
+
+    defender_id = str(last.get("defender_id", "")).strip()
+    defender_faction: str | None = None
+    if defender_id:
+        d0 = state.board.units.get(defender_id)
+        if d0 is not None:
+            defender_faction = str(d0.faction)
 
     anchor_order = [attacker_id, *attacker_ids]
     seen: set[str] = set()
@@ -152,7 +183,9 @@ def maybe_open_advance_after_retreat(
             continue
         seen.add(aid)
         au = state.board.units.get(aid)
-        if au is None or not au.active or au.faction == d0.faction:
+        if au is None or not au.active:
+            continue
+        if defender_faction is not None and au.faction == defender_faction:
             continue
         if distance(au.position, to_hex) != 1:
             continue

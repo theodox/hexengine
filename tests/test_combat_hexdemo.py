@@ -1271,3 +1271,174 @@ def test_two_union_units_require_two_attacks_before_advance() -> None:
     st = server.action_manager.current_state
     assert st.turn.current_phase == "Move"
     assert st.turn.current_faction == "confederate"
+
+
+def test_advance_opens_after_defender_destroyed_outcome() -> None:
+    from hexengine.arcs import read_arc_cursor
+    from hexengine.server.arcs import begin_combat_arc
+
+    from games.hexdemo import combat_actions, combat_arc
+
+    h_att, h_def = Hex(0, 0, 0), Hex(1, -1, 0)
+    board = BoardState(
+        units={
+            "u_att": UnitState(
+                unit_id="u_att",
+                unit_type="inf",
+                faction="union",
+                position=h_att,
+                active=True,
+            ),
+        }
+    )
+    st = GameState(
+        board=board,
+        turn=TurnState(
+            current_faction="union",
+            current_phase="Combat",
+            phase_actions_remaining=2,
+            schedule_index=1,
+        ),
+        title_state={
+            "last_combat": {
+                "attack_kind": "combined",
+                "outcome": "defender_destroyed",
+                "attacker_id": "u_att",
+                "attacker_ids": ["u_att"],
+                "defender_id": "u_def",
+                "defender_ids": ["u_def"],
+                "defender_hex": {"i": h_def.i, "j": h_def.j, "k": h_def.k},
+            },
+            "retreat_obligations": {},
+        },
+        title_bucket_key="hexdemo",
+        rng_log=(),
+    )
+    actions = combat_actions.maybe_open_advance_after_retreat(st, "hexdemo")
+    assert actions
+    st2 = st
+    for a in actions:
+        st2 = a.apply(st2)
+    hx = title_bucket(st2, "hexdemo")
+    assert hx.get("combat_gate") == "awaiting_advance"
+    adv = hx.get("advance")
+    assert isinstance(adv, dict)
+    assert adv.get("faction") == "union"
+    assert adv.get("to_hex") == {"i": h_def.i, "j": h_def.j, "k": h_def.k}
+
+    gd = game_definition_from_config(default_match_config())
+    server = GameServer(initial_state=st, game_definition=gd)
+    begin_combat_arc(server)
+    cur = read_arc_cursor(server.action_manager.current_state)
+    assert cur is not None
+    assert cur.segment_id == combat_arc.SEG_ADVANCE_GATE
+    hx3 = title_bucket(server.action_manager.current_state, "hexdemo")
+    assert hx3.get("combat_gate") == "awaiting_advance"
+
+
+def test_advance_opens_when_defender_eliminated_via_step_loss() -> None:
+    """LOSS removes the defender but leaves ``last_combat.outcome`` as ``none``."""
+
+    from hexengine.state.actions import DeleteUnit
+
+    from games.hexdemo import combat_actions
+
+    h_att, h_def = Hex(0, 0, 0), Hex(1, -1, 0)
+    board = BoardState(
+        units={
+            "u_att": UnitState(
+                unit_id="u_att",
+                unit_type="inf",
+                faction="union",
+                position=h_att,
+                active=True,
+            ),
+        }
+    )
+    st = GameState(
+        board=board,
+        turn=TurnState(
+            current_faction="union",
+            current_phase="Combat",
+            phase_actions_remaining=2,
+            schedule_index=1,
+        ),
+        title_state={
+            "last_combat": {
+                "attack_kind": "combined",
+                "outcome": "none",
+                "attacker_id": "u_att",
+                "attacker_ids": ["u_att"],
+                "defender_id": "u_def",
+                "defender_ids": ["u_def"],
+                "defender_hex": {"i": h_def.i, "j": h_def.j, "k": h_def.k},
+            },
+            "retreat_obligations": {},
+        },
+        title_bucket_key="hexdemo",
+        rng_log=(),
+    )
+    st = DeleteUnit("u_def").apply(
+        st.with_board(
+            st.board.with_unit(
+                UnitState(
+                    unit_id="u_def",
+                    unit_type="inf",
+                    faction="confederate",
+                    position=h_def,
+                    active=False,
+                )
+            )
+        )
+    )
+    actions = combat_actions.maybe_open_advance_after_retreat(st, "hexdemo")
+    assert actions
+    st2 = st
+    for a in actions:
+        st2 = a.apply(st2)
+    assert title_bucket(st2, "hexdemo").get("combat_gate") == "awaiting_advance"
+
+
+def test_no_advance_when_defender_still_occupies_hex() -> None:
+    from games.hexdemo import combat_actions
+
+    h_att, h_def = Hex(0, 0, 0), Hex(1, -1, 0)
+    board = BoardState(
+        units={
+            "u_att": UnitState(
+                unit_id="u_att",
+                unit_type="inf",
+                faction="union",
+                position=h_att,
+                active=True,
+            ),
+            "u_def": UnitState(
+                unit_id="u_def",
+                unit_type="inf",
+                faction="confederate",
+                position=h_def,
+                active=True,
+            ),
+        }
+    )
+    st = GameState(
+        board=board,
+        turn=TurnState(
+            current_faction="union",
+            current_phase="Combat",
+            phase_actions_remaining=2,
+            schedule_index=1,
+        ),
+        title_state={
+            "last_combat": {
+                "outcome": "none",
+                "attacker_id": "u_att",
+                "attacker_ids": ["u_att"],
+                "defender_id": "u_def",
+                "defender_hex": {"i": h_def.i, "j": h_def.j, "k": h_def.k},
+            },
+        },
+        title_bucket_key="hexdemo",
+        rng_log=(),
+    )
+    assert combat_actions.maybe_open_advance_after_retreat(st, "hexdemo") == []

@@ -551,8 +551,12 @@ def auto_advance_phase_after_attack(state) -> bool:
     """
     Advance the schedule when every active unit of the current faction has attacked
     this combat segment and no mandatory retreat is pending.
+
+    Blocked while any combat gate is open (including optional post-combat advance).
     """
-    if combat.any_retreat_obligation_pending(state):
+    from ..combat_transitions import blocks_routine_phase_advance
+
+    if blocks_routine_phase_advance(state):
         return False
     phase = str(state.turn.current_phase)
     if phase not in ("Combat", "Attack"):

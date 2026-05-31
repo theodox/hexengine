@@ -164,7 +164,8 @@ def build_combat_arc() -> Arc:
             s.auto_branch(
                 case(guard=disrupt_offered, goto=SEG_RETREAT_OR_DISRUPT_GATE),
                 case(guard=has_pending_retreat, goto=SEG_RETREAT_GATE),
-                case(done=True),  # no retreat outcome -> arc ends immediately
+                case(guard=advance_available, effect=open_advance, goto=SEG_ADVANCE_GATE),
+                case(done=True),
             )
 
         with a.segment(
