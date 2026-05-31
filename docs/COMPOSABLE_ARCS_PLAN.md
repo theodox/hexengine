@@ -216,9 +216,145 @@ Implemented in `hexengine/arcs/runner.py`:
 - Tests in `tests/test_arc_runner.py`: full combat walk (attack → suspend into defender retreat → resume to advance → done), owner/allowed-action/guard rejections, `OwnerRef` resolution, auto-advance through ownerless segments, `auto_branch` arm selection, whole-event undo, and the loop guard.
 
 ### Phase 2 — Combat arc as declaration (hexdemo)
-- Re-express `combat_transitions` as a declared combat arc (`attack` → `retreat_gate` interrupt → `advance_gate`), using its existing FSM table as the source of truth.
-- Route `CombatAdvance` / `CombatDisruptInsteadOfRetreat` / retreat fulfillment through the generic runner; delete the gate-string prechecks in `authority_combat_cleanup`.
-- Fold `ClearUnitRetreatObligation`'s gate removal into a declared transition effect.
+
+Goal: express hexdemo's post-`Attack` combat cleanup as one declared arc driven by the
+generic runner, and make the runner authoritative for combat-RPC dispatch.
+
+#### What "cutover" means here (migration reality)
+
+The runner becomes authoritative for **combat-RPC dispatch and legality** (disrupt /
+advance / retreat fulfillment): the dispatch-time gate-string prechecks in
+`authority_combat_cleanup` and `game_server` are deleted as each RPC migrates, replaced
+by `submit_event` (owner + `allowed_actions` + guards).
+
+The `combat_gate` string is **not** deleted in Phase 2. It is still read by End-Phase
+blocking (`blocks_routine_phase_advance` / `_resolve_blocks_routine_phase_advance`),
+`attack_planning_blocked_reason`, `dock_arc_hint`, and the client. During Phases 2–4 the
+gate string is demoted to an **effect-maintained mirror** of the cursor (the transition
+effects keep writing it), and it is retired only in Phase 5 (affordances/End-Phase derive
+from the published `current_segment`) and Phase 4 (End-Phase blocking reads the cursor).
+So Phase 2 has the cursor authoritative for dispatch with the gate string as a redundant
+read-model alongside it; this is intentional and temporary.
+
+#### The declared combat arc (target shape)
+
+Source of truth = the existing FSM in `games/hexdemo/combat_transitions.py` +
+`combat_actions.py`. Mapping the three gates and their transitions onto segments:
+
+- `classify` — owner `NO_OWNER` (auto, the entry). Branches on the just-computed attack
+  outcome to the right gate (replaces "begin at a chosen gate"): `auto_branch` →
+  `retreat_or_disrupt_gate` when the attack opened the optional-disrupt gate, else
+  `retreat_gate`. (Keeps `begin_arc` generic — it always starts at the declared entry.)
+- `retreat_gate` — owner `OwnerRef("retreating")` (resolves to the faction holding
+  `retreat_obligations`, attacker on `attacker_retreat`, defender on `defender_retreat`).
+  `allowed_actions = {MoveUnit}`. `on("MoveUnit", guard=is_retreat_fulfillment, effect=…)`
+  → `goto resolve`. (Replaces `GATE_AWAITING_RETREAT`.)
+- `retreat_or_disrupt_gate` — same owner; `allowed_actions = {MoveUnit,
+  CombatDisruptInsteadOfRetreat}`; adds `on("CombatDisruptInsteadOfRetreat",
+  effect=disrupt_instead_of_retreat) → goto resolve`. (Replaces
+  `GATE_AWAITING_RETREAT_OR_DISRUPT`.)
+- `resolve` — owner `NO_OWNER` (auto). Handles partial/stacked retreats and the
+  post-retreat advance opening without a guard needing post-effect state:
+  `auto_branch` → (still pending obligations) `goto retreat_gate`; (advance available per
+  `maybe_open_advance_after_retreat`) effect opens the advance payload + `goto advance_gate`;
+  else `done` (clear cursor → routine).
+- `advance_gate` — owner `CURRENT` (the attacker). `allowed_actions = {CombatAdvance,
+  MoveUnit, CombatDeclineAdvance}`; `on("CombatAdvance", effect=resolve_combat_advance)
+  → done`, `on("MoveUnit", guard=is_combat_advance_move, effect=resolve_combat_advance)
+  → done`, and `on("CombatDeclineAdvance", effect=clear_advance_gate) → done` (the skip).
+  (Replaces `GATE_AWAITING_ADVANCE`; covers both advance fulfillment paths plus skip.)
+
+**Decided — Approach A (`goto`-cycling), not `interrupt`/`resume`.** Every retreat/disrupt
+step goes `retreat_gate → resolve`, and the ownerless auto `resolve` re-reads state to
+loop back (`goto retreat_gate`) for multi-step / stacked retreats, branch to
+`advance_gate`, or finish. This is required because "did this move finish the retreat?"
+is only answerable *after* the effect, and a transition guard runs *before* its effect;
+`resolve` is where that post-effect decision lives. The depth-1 `interrupt` frame can't
+express the loop (it would pop on the first hop), and `advance_gate` is attacker-owned
+(`CURRENT`) like the routine state, so there is nothing meaningful to "resume" to. The
+earlier `attack → retreat_gate interrupt → advance_gate` sketch is superseded for combat.
+
+Effects reuse the existing title functions verbatim (they already return
+`list[StateAction]`): `combat_transitions.follow_up_after_attack`,
+`combat_actions.disrupt_instead_of_retreat`, `combat_actions.resolve_combat_advance`,
+`combat_actions.maybe_open_advance_after_retreat`, `ClearUnitRetreatObligation`. They
+additionally keep writing the `combat_gate` mirror until Phase 5.
+
+#### New engine/title surfaces needed
+
+- A title-provided **combat arc bundle**: the declared `Arc` + an `OwnerRefResolver`
+  (`"retreating"` → faction holding obligations). Phase 2 can expose this as one small
+  hexdemo hook; Phase 4 generalizes it into the arc registry/schedule.
+- **Arc lookup by id** so dispatch can fetch the arc for the active `cursor.arc_id`.
+- **`game_server` dispatch integration**: when a combat-arc cursor is active, route
+  `CombatAdvance` / `CombatDisruptInsteadOfRetreat` and the combat `MoveUnit` paths
+  (retreat fulfillment, advance fulfillment) through `submit_event`, mapping the wire
+  `actor` to `player.faction` and passing `params`. Heavy, non-undoable pre-validation
+  that must reject before any mutation (the stacked-retreat stacking-limit check in
+  `validate_retreat_fulfillment_stack`) stays as a server pre-guard or becomes a
+  transition `guard`; the actual moves/clears become the transition effect.
+- **`begin_arc`** is invoked from the `Attack` pipeline (`execute_authority_attack_request`,
+  right where `follow_up_after_attack` runs) when the outcome yields obligations.
+
+#### Sub-steps (each keeps pytest green)
+
+- **2a (additive, no routing) — [done].** Declared the combat arc as data in
+  `games/hexdemo/combat_arc.py` (`build_combat_arc`): `classify` (auto entry) →
+  `retreat_gate` / `retreat_or_disrupt_gate` (`OwnerRef("retreating")`) → auto `resolve`
+  (Approach A loop) → `advance_gate` (`CURRENT`, with `CombatDeclineAdvance` skip).
+  Effects/guards reference the existing title functions; `apply_retreat_step` is a 2c
+  stub (raises until the retreat move/clear logic moves here). Added `resolve_owner_ref`
+  (the `"retreating"` `OwnerRefResolver`) and `combat_actions.clear_advance_gate`.
+  Gate-bearing segments carry their `combat_gate` string as `kind`. Parity test
+  `tests/test_combat_arc_declaration.py` asserts owners, derived `allowed_actions`,
+  one-to-one segment↔`GATES_BLOCKING_ROUTINE` mapping, and resolver behavior;
+  `Arc.validate()` passes. No routing — all existing combat tests stay green.
+- **2b (cutover: disrupt + advance).** Start the arc from the `Attack` follow-up; route
+  `CombatDisruptInsteadOfRetreat` and `CombatAdvance` (RPC + `MoveUnit` advance path)
+  through `submit_event`; delete their gate-string prechecks in `authority_combat_cleanup`
+  / `game_server`.
+- **2c (cutover: retreat fulfillment — hardest).** Route the retreat `MoveUnit` path
+  through `submit_event` on `retreat_gate`; express stacked-retreat moves + per-unit
+  obligation clears as the transition effect; keep the stacking-limit rejection as a
+  pre-guard. Multi-step / partial retreats loop via `resolve`.
+- **2d (cleanup).** Make `ClearUnitRetreatObligation` gate-agnostic (only pops the
+  obligation entry); the gate mirror is updated by the declared transition/effect.
+  Remove now-dead gate-precheck branches and `is_retreat_fulfillment`-only special cases
+  that the runner now owns (full removal of the `current_faction` retreat bypass lands in
+  Phase 4).
+
+#### Modeling questions (resolved)
+
+1. **Two segments, not one.** `awaiting_retreat` → `retreat_gate` and
+   `awaiting_retreat_or_disrupt` → `retreat_or_disrupt_gate` are modeled as two distinct
+   segments (faithful to the gate table; `allowed_actions` differs only by the added
+   `CombatDisruptInsteadOfRetreat`). After a retreat step, `resolve` loops back to the
+   plain `retreat_gate` (the disrupt option is offered once, at gate entry).
+2. **Advance is skippable (new in Phase 2).** Today the dock offers only `CombatAdvance`
+   at `awaiting_advance` and End-Phase is blocked while the gate is open, so advance is
+   effectively forced. We are making it skippable: add a `CombatDeclineAdvance` RPC (the
+   `Combat*` family) whose effect clears the advance payload + gate mirror and finishes
+   the arc (`advance_gate → done`). End-Phase remains blocked while `awaiting_advance` so
+   the choice stays deliberate (advance or skip), rather than letting End-Phase
+   auto-skip. New work this adds: a `CombatDeclineAdvance` dispatch branch routed through
+   `submit_event` (2b), a `clear_advance_gate` title effect (clears `advance` +
+   `combat_gate`, reusing the existing remove-keys patch), and a "Skip" action row at the
+   advance gate (added to `default_primary_actions_for_viewer` alongside "Advance"; fully
+   migrated to the segment-driven dock in Phase 5).
+3. **`goto`-cycling (Approach A).** Resolved above; no `interrupt`/`resume` for combat.
+4. **Stacking-limit stays a server pre-guard (for now).** The stacked-retreat
+   stacking-limit check (`validate_retreat_fulfillment_stack` → specific `ValueError`)
+   must reject before any mutation and carries descriptive messaging + the
+   `_rollback_retreat_fulfillment_attempt` path, so 2c keeps it as a server pre-guard run
+   before `submit_event`. The runner owns segment/owner/`allowed_actions` legality; the
+   stacked moves + per-unit obligation clears are the transition effect. (Candidate to
+   fold into the effect later as an atomic raise-before-return, once messaging parity is
+   confirmed — not required for Phase 2.)
+
+#### Tests that must stay green
+`test_combat_hexdemo`, `test_combat_transitions`, `test_attack_multi_defender`,
+`test_authority_arcs`, `test_network`, `test_turn_action_dock`, plus the new 2a parity
+test and 2b–2c integration tests.
 
 ### Phase 3 — Movement arc as declaration
 - Re-express stepwise movement + `awaiting_continue`/`awaiting_interrupt`/`PassMovementInterrupt` as a declared arc with an interrupt sub-arc. Unify engine-reserved arc state with the generic cursor.

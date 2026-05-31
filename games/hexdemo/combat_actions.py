@@ -216,6 +216,23 @@ def disrupt_instead_of_retreat(
     return actions
 
 
+def clear_advance_gate(state: GameState, extension_key: str) -> list[StateAction]:
+    """Skip a pending advance: drop the advance payload and gate (no unit moves)."""
+
+    hx0 = title_bucket(state, extension_key)
+    if not hx0:
+        return []
+    if str(hx0.get("combat_gate", "")).strip() != GATE_AWAITING_ADVANCE:
+        return []
+    return [
+        PatchTitleBucket(
+            extension_key,
+            {},
+            remove_keys=("advance", "combat_gate"),
+        )
+    ]
+
+
 def resolve_combat_advance(
     state: GameState, extension_key: str, player_faction: str
 ) -> list[StateAction]:
@@ -264,6 +281,7 @@ def resolve_combat_advance(
 
 
 __all__ = [
+    "clear_advance_gate",
     "disrupt_instead_of_retreat",
     "is_combat_advance_move",
     "maybe_open_advance_after_retreat",
