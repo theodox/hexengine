@@ -204,9 +204,16 @@ Each phase keeps pytest green (`test_combat_hexdemo`, `test_combat_transitions`,
 
 Notes: the **transition** type already carries trigger kind (external-event `Event` vs automatic/ownerless `AUTO`) + optional guard predicate over `GameState`; RNG-bearing effects draw from `rng_log`.
 
-### Phase 1 — Generic arc runner (engine mechanism)
+### Phase 1 — Generic arc runner (engine mechanism) — **[done]**
 - One engine driver that, given a declared arc + cursor, resolves the current segment, gates RPCs by `owner` + `allowed_actions`, runs transition effects (`StateAction` lists), and advances/suspends/resumes.
 - No title shapes read by the engine.
+
+Implemented in `hexengine/arcs/runner.py`:
+- `submit_event(arc, sink, action_type=, actor=, params=, resolver=)` — gates by resolved `owner` and `allowed_actions`, picks the first transition whose `guard` passes, runs the effect, moves the cursor, then auto-advances. Returns `RunResult(ok, state, reason)`; legality failures are no-op rejections, authoring bugs raise.
+- `begin_arc(arc, sink, resolver=)` — validates, sets the cursor to the entry, auto-advances leading automatic segments.
+- `resolve_owner` maps `OwnerScope.CURRENT`→`turn.current_faction`, `Faction`→its name, `OwnerRef`→title `OwnerRefResolver`, `NO_OWNER`→None. `_auto_advance` fires ownerless segments (first passing guard) until an owned segment or completion, capped against declared loops.
+- Mutation flows through an `ActionSink` (`ActionManager` satisfies it); each `StateAction` executes exactly once (no dry-run double-apply), so undo/redo, snapshots, and `rng_log` stay consistent. The engine reads no title shapes — only title-supplied callables (guards/effects/resolver).
+- Tests in `tests/test_arc_runner.py`: full combat walk (attack → suspend into defender retreat → resume to advance → done), owner/allowed-action/guard rejections, `OwnerRef` resolution, auto-advance through ownerless segments, `auto_branch` arm selection, whole-event undo, and the loop guard.
 
 ### Phase 2 — Combat arc as declaration (hexdemo)
 - Re-express `combat_transitions` as a declared combat arc (`attack` → `retreat_gate` interrupt → `advance_gate`), using its existing FSM table as the source of truth.
