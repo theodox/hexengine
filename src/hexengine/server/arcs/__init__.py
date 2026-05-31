@@ -17,6 +17,12 @@ in `hexengine.state.movement_arc`.
 
 from __future__ import annotations
 
+from .authority_arc_runtime import (
+    ArcRuntimeHost,
+    begin_combat_arc,
+    combat_arc_spec,
+    drive_combat_arc_event,
+)
 from .authority_attack import (
     AUTHORITY_ATTACK_PIPELINE,
     AuthorityAttackHost,
@@ -49,11 +55,15 @@ from .authority_movement import (
 
 __all__ = [
     "AUTHORITY_ATTACK_PIPELINE",
+    "ArcRuntimeHost",
     "AuthorityAttackHost",
     "AuthorityAttackPipelineStep",
     "AuthorityCombatCleanupHost",
     "AuthorityMovementHost",
+    "begin_combat_arc",
+    "combat_arc_spec",
     "continue_stepwise_move_unit",
+    "drive_combat_arc_event",
     "dedupe_faction_ids",
     "dedupe_wire_id_list",
     "execute_authority_attack_request",

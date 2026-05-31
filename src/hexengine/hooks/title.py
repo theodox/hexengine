@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .arcs import ArcsHooks
 from .attack import AttackHooks
 from .movement import MovementHooks
 from .ui import UIHooks
@@ -41,6 +42,7 @@ class TitleHooks:
     movement: MovementHooks = MovementHooks()
     attack: AttackHooks = AttackHooks()
     ui: UIHooks = UIHooks()
+    arcs: ArcsHooks = ArcsHooks()
 
 
 __all__ = ["TitleHooks", "read_title_hooks_from_definition"]

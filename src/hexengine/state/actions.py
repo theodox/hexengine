@@ -588,13 +588,9 @@ class ClearUnitRetreatObligation(StateAction):
             self._inner = None
             return state
         ro.pop(self.unit_id, None)
-        remove: tuple[str, ...] = ()
-        if not _retreat_obligations_have_pending(ro):
-            remove = ("combat_gate",)
         self._inner = PatchTitleBucket(
             self.extension_key,
             {"retreat_obligations": ro},
-            remove_keys=remove,
         )
         return self._inner.apply(state)
 

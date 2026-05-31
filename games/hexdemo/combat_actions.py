@@ -13,7 +13,12 @@ from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
 from hexengine.state import GameState
 from hexengine.state.action_manager import StateAction
-from hexengine.state.actions import MoveUnit, PatchTitleBucket, PatchUnitAttributes
+from hexengine.state.actions import (
+    ClearUnitRetreatObligation,
+    MoveUnit,
+    PatchTitleBucket,
+    PatchUnitAttributes,
+)
 from hexengine.state.title_extension import title_bucket
 
 # Must match ``combat_transitions`` gate constants (avoid import cycle).
@@ -29,6 +34,72 @@ def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:
         except (TypeError, ValueError):
             continue
     return False
+
+
+def retreat_stack_unit_ids(
+    state: GameState,
+    from_hex: Hex,
+    player_faction: str,
+    uid_for_move: str,
+) -> list[str]:
+    """Unit ids that must retreat together from ``from_hex`` (includes ``uid_for_move``)."""
+
+    from . import combat
+
+    faction = str(player_faction).strip()
+    to_move: list[str] = []
+    for u in state.board.active_units_at_hex(from_hex):
+        if u.faction != faction:
+            continue
+        if combat.retreat_hexes_remaining(state, u.unit_id) is None:
+            continue
+        to_move.append(u.unit_id)
+    if uid_for_move not in to_move:
+        to_move.append(uid_for_move)
+    return to_move
+
+
+def apply_retreat_fulfillment_step(
+    state: GameState,
+    extension_key: str,
+    player_faction: str,
+    params: dict[str, Any],
+) -> list[StateAction]:
+    """Move a retreat stack (primary may already be at destination) and clear obligations."""
+
+    uid = params.get("unit_id")
+    if not isinstance(uid, str) or not uid.strip():
+        return []
+    fh, th = params.get("from_hex"), params.get("to_hex")
+    if not isinstance(fh, dict) or not isinstance(th, dict):
+        return []
+    from_hex = Hex(int(fh["i"]), int(fh["j"]), int(fh["k"]))
+    to_hex = Hex(int(th["i"]), int(th["j"]), int(th["k"]))
+
+    to_move = retreat_stack_unit_ids(state, from_hex, player_faction, uid)
+    actions: list[StateAction] = []
+    for move_uid in to_move:
+        u = state.board.units.get(move_uid)
+        if u is None:
+            continue
+        if u.position == to_hex:
+            continue
+        if u.position != from_hex:
+            raise ValueError(
+                f"Unit {move_uid} is at {u.position}, expected {from_hex} or {to_hex}"
+            )
+        actions.append(MoveUnit(move_uid, from_hex=from_hex, to_hex=to_hex))
+    for moved_uid in to_move:
+        actions.append(ClearUnitRetreatObligation(moved_uid, extension_key))
+    ro_after = dict(title_bucket(state, extension_key).get("retreat_obligations") or {})
+    for moved_uid in to_move:
+        ro_after.pop(moved_uid, None)
+    if not _retreat_obligations_have_pending(ro_after):
+        if str(title_bucket(state, extension_key).get("combat_gate", "")).strip():
+            actions.append(
+                PatchTitleBucket(extension_key, {}, remove_keys=("combat_gate",))
+            )
+    return actions
 
 
 def maybe_open_advance_after_retreat(

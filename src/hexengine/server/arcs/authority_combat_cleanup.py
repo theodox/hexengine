@@ -19,7 +19,12 @@ from ...hooks.core import ENGINE_DEFAULT
 from ...hooks.title import TitleHooks
 from ...state import ActionManager, GameState
 from ...state.action_manager import StateAction
-from ...state.actions import ClearUnitRetreatObligation, MoveUnit
+from ...state.actions import (
+    ClearUnitRetreatObligation,
+    MoveUnit,
+    PatchTitleBucket,
+    _retreat_obligations_have_pending,
+)
 from ..protocol import ActionRequest, ActionResult, Message, PlayerInfo
 
 
@@ -128,11 +133,6 @@ async def handle_combat_disrupt_instead_of_retreat(
     from ...state.title_extension import title_bucket
 
     hx0 = title_bucket(st0, ek)
-    if str(hx0.get("combat_gate", "")).strip() != "awaiting_retreat_or_disrupt":
-        await host._send_error(
-            player_id, "Cannot take disruption instead of retreat right now"
-        )
-        return
     ro0 = hx0.get("retreat_obligations")
     ro0 = ro0 if isinstance(ro0, dict) else {}
     has_ob = False
@@ -185,16 +185,6 @@ async def handle_combat_advance_rpc(
     from ...state.title_extension import title_bucket
 
     st0 = host.action_manager.current_state
-    hx0 = title_bucket(st0, ek)
-    if str(hx0.get("combat_gate", "")).strip() != "awaiting_advance":
-        await host._send_error(player_id, "No combat advance is pending right now")
-        return
-    adv = hx0.get("advance")
-    if not isinstance(adv, dict) or str(adv.get("faction", "")).strip() != str(
-        player.faction
-    ):
-        await host._send_error(player_id, "You are not allowed to advance right now")
-        return
     try:
         cleanup_ctx = CombatCleanupContext(
             state=st0,
@@ -230,7 +220,7 @@ def retreat_stack_unit_ids(
             continue
         to_move.append(u.unit_id)
     if uid_for_move not in to_move:
-        to_move = [uid_for_move]
+        to_move.append(uid_for_move)
     return to_move
 
 
@@ -352,8 +342,18 @@ def finalize_retreat_fulfillment_stack(
                 MoveUnit(other_uid, from_hex=from_hex, to_hex=to_hex)
             )
     if r_ek:
+        from ...state.title_extension import title_bucket
+
         for moved_uid in to_move:
             host.action_manager.execute(ClearUnitRetreatObligation(moved_uid, r_ek))
+        hx = title_bucket(host.action_manager.current_state, r_ek)
+        ro = hx.get("retreat_obligations") if hx else {}
+        ro = ro if isinstance(ro, dict) else {}
+        if not _retreat_obligations_have_pending(ro):
+            if str(hx.get("combat_gate", "")).strip():
+                host.action_manager.execute(
+                    PatchTitleBucket(r_ek, {}, remove_keys=("combat_gate",))
+                )
         host._on_retreat_obligation_cleared(r_ek, cleared_unit_ids=tuple(to_move))
 
 

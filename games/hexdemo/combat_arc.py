@@ -6,9 +6,8 @@ It is the title-owned source of truth that the generic runner will drive in 2b+.
 existing gate FSM in `combat_transitions` + `combat_actions` is the reference; segment
 `kind` values are the matching `combat_gate` strings so the two can be parity-checked.
 
-Phase 2a only declares and validates the arc (no routing yet). Effects/guards reference
-the existing title functions. The retreat-step effect is intentionally a stub until 2c,
-where the stacked-retreat move/clear logic moves out of the server into this effect.
+Phase 2a declared and validated the arc; Phase 2b+ routes combat RPCs through the generic
+runner. The retreat-step effect is live in 2c.
 """
 
 from __future__ import annotations
@@ -119,11 +118,15 @@ def is_combat_advance_move(ctx: ArcContext) -> bool:
 
 
 def apply_retreat_step(ctx: ArcContext) -> list[StateAction]:
-    """Stacked-retreat move + per-unit obligation clear. Wired in Phase 2c."""
+    """Stacked-retreat move + per-unit obligation clear (Phase 2c)."""
 
-    raise NotImplementedError(
-        "combat_arc.apply_retreat_step is wired in Phase 2c (currently the retreat "
-        "MoveUnit path is handled by the server)"
+    if not ctx.extension_key or not ctx.owner_faction:
+        return []
+    return combat_actions.apply_retreat_fulfillment_step(
+        ctx.state,
+        ctx.extension_key,
+        ctx.owner_faction,
+        ctx.params,
     )
 
 

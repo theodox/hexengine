@@ -80,6 +80,7 @@ from ..state.snapshot import game_state_from_wire_dict, game_state_to_wire_dict
 from .map_selection import compute_map_selection_preview
 from .preview import compute_marker_drag_preview, compute_unit_drag_preview
 from .arcs import (
+    drive_combat_arc_event,
     execute_authority_attack_request,
     finalize_retreat_fulfillment_stack,
     handle_authority_move_unit_normal,
@@ -1271,11 +1272,25 @@ class GameServer:
             )
 
         if request.action_type == "CombatDisruptInsteadOfRetreat":
+            if await drive_combat_arc_event(
+                self, player_id, player, "CombatDisruptInsteadOfRetreat"
+            ):
+                return
             await handle_combat_disrupt_instead_of_retreat(self, player_id, player)
             return
 
         if request.action_type == "CombatAdvance":
+            if await drive_combat_arc_event(self, player_id, player, "CombatAdvance"):
+                return
             await handle_combat_advance_rpc(self, player_id, player)
+            return
+
+        if request.action_type == "CombatDeclineAdvance":
+            if await drive_combat_arc_event(
+                self, player_id, player, "CombatDeclineAdvance"
+            ):
+                return
+            await self._send_error(player_id, "No combat advance to skip right now")
             return
 
         if request.action_type == "PassMovementInterrupt":
@@ -1348,6 +1363,10 @@ class GameServer:
 
         # Optional advance path: MoveUnit into the advance hex resolves CombatAdvance.
         if request.action_type == "MoveUnit" and is_advance_fulfillment:
+            if await drive_combat_arc_event(
+                self, player_id, player, "MoveUnit", request.params
+            ):
+                return
             await handle_move_unit_combat_advance_resolution(self, player_id, player)
             return
 
@@ -1471,6 +1490,12 @@ class GameServer:
             except ValueError as e:
                 await self._send_error(player_id, str(e))
                 return
+
+            if is_retreat_fulfillment and uid_for_move is not None:
+                if await drive_combat_arc_event(
+                    self, player_id, player, "MoveUnit", request.params
+                ):
+                    return
 
         # Create action from request (NextPhase is always server-authoritative)
         try:

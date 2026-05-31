@@ -309,19 +309,44 @@ additionally keep writing the `combat_gate` mirror until Phase 5.
   `tests/test_combat_arc_declaration.py` asserts owners, derived `allowed_actions`,
   one-to-one segment↔`GATES_BLOCKING_ROUTINE` mapping, and resolver behavior;
   `Arc.validate()` passes. No routing — all existing combat tests stay green.
-- **2b (cutover: disrupt + advance).** Start the arc from the `Attack` follow-up; route
-  `CombatDisruptInsteadOfRetreat` and `CombatAdvance` (RPC + `MoveUnit` advance path)
-  through `submit_event`; delete their gate-string prechecks in `authority_combat_cleanup`
-  / `game_server`.
-- **2c (cutover: retreat fulfillment — hardest).** Route the retreat `MoveUnit` path
-  through `submit_event` on `retreat_gate`; express stacked-retreat moves + per-unit
-  obligation clears as the transition effect; keep the stacking-limit rejection as a
-  pre-guard. Multi-step / partial retreats loop via `resolve`.
-- **2d (cleanup).** Make `ClearUnitRetreatObligation` gate-agnostic (only pops the
-  obligation entry); the gate mirror is updated by the declared transition/effect.
-  Remove now-dead gate-precheck branches and `is_retreat_fulfillment`-only special cases
-  that the runner now owns (full removal of the `current_faction` retreat bypass lands in
-  Phase 4).
+- **2b (soft cutover: disrupt + advance RPCs) — [done].** Added a dedicated **`arcs` hook
+  bundle** (`hexengine/hooks/arcs.py`: `ArcsHooks.combat_arc` → `ArcSpec(arc,
+  owner_resolver)`), registered in `title.py` + `wiring.py`; hexdemo binds it in
+  `games/hexdemo/hooks/arcs.py`. New engine bridge
+  `hexengine/server/arcs/authority_arc_runtime.py` exposes `begin_combat_arc` (called from
+  `execute_authority_attack_request` right after the follow-up — `classify` auto-advances
+  to the matching gate, or finishes for no-cleanup outcomes) and `drive_combat_arc_event`
+  (drives `submit_event`, maps acceptance → `ActionResult` + broadcast).
+  `game_server` routes `CombatDisruptInsteadOfRetreat`, `CombatAdvance`, and the new
+  `CombatDeclineAdvance` through the runner first. A "Skip" row at `awaiting_advance` was
+  added to `default_primary_actions_for_viewer`. Tests: `tests/test_combat_arc_runner_2b.py`.
+
+  **Deviation from strict cutover (intentional, until 2c):** because retreat fulfillment
+  still runs on the legacy `MoveUnit` path (2c) and does **not** move the cursor, the
+  cursor can be stale relative to the gate mirror mid-combat. So the runner is
+  authoritative only when it **accepts** an event (cursor correctly positioned, owner +
+  action legal); on any rejection `drive_combat_arc_event` returns False and the dispatch
+  **falls back to the legacy handler** (which keeps its gate-string precheck + error
+  messages as the backstop). Thus no prechecks are deleted yet, and the `MoveUnit` advance
+  path is left on the legacy handler in 2b. The prechecks/handlers are deleted in 2c–2d
+  once every combat RPC moves the cursor and the runner is the sole authority.
+- **2c (cutover: retreat fulfillment) — [done].** Implemented
+  `combat_actions.apply_retreat_fulfillment_step` + `retreat_stack_unit_ids` (stacked
+  moves + `ClearUnitRetreatObligation`; primary may already be at destination for
+  stepwise-path completion). Wired `apply_retreat_step` in `combat_arc.py`. Route
+  retreat-fulfillment `MoveUnit` through `drive_combat_arc_event` in `game_server`
+  (after `validate_retreat_fulfillment_stack` pre-guard) and at stepwise-path completion
+  in `authority_movement.continue_stepwise_move_unit`. Legacy handler remains fallback
+  when no arc cursor is active. Tests: `tests/test_combat_arc_runner_2c.py`.
+- **2d (cleanup) — [done].** `ClearUnitRetreatObligation` is gate-agnostic (only pops the
+  obligation entry). The retreat gate mirror is cleared by title effects:
+  `apply_retreat_fulfillment_step` removes `combat_gate` when no obligations remain;
+  legacy `finalize_retreat_fulfillment_stack` does the same before
+  `_on_retreat_obligation_cleared`. Removed engine gate-string prechecks from
+  `handle_combat_disrupt_instead_of_retreat` and `handle_combat_advance_rpc` (runner +
+  title effects own legality; legacy handlers remain for titles without a declared arc).
+  Routed advance-fulfillment `MoveUnit` through `drive_combat_arc_event`. Tests:
+  `tests/test_combat_arc_runner_2d.py`.
 
 #### Modeling questions (resolved)
 

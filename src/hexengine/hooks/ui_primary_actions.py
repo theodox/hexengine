@@ -104,6 +104,24 @@ def default_primary_actions_for_viewer(
                     "enabled": True,
                 }
             )
+            out.append(
+                {
+                    "schema": 1,
+                    "id": "combat_decline_advance",
+                    "action_type": "CombatDeclineAdvance",
+                    "label": _shell_ui_label(
+                        su, "combat_decline_advance_label", "Skip"
+                    ),
+                    "title": _shell_ui_label(
+                        su,
+                        "combat_decline_advance_title",
+                        "Skip the optional advance.",
+                    ),
+                    "payload": {},
+                    "css_class": "hexengine-primary-action--decline-advance",
+                    "enabled": True,
+                }
+            )
 
     return out
 

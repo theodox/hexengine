@@ -8,6 +8,7 @@ from enum import Enum
 from types import ModuleType
 from typing import Any
 
+from .arcs import ArcHook, ArcsHooks
 from .attack import AttackHook, AttackHooks
 from .core import HookContractError
 from .movement import MovementHook, MovementHooks
@@ -18,9 +19,10 @@ _BUNDLE_TYPES: dict[str, type[Any]] = {
     "movement": MovementHooks,
     "attack": AttackHooks,
     "ui": UIHooks,
+    "arcs": ArcsHooks,
 }
 
-TitleHookMarker = str | MovementHook | AttackHook | UIHook
+TitleHookMarker = str | MovementHook | AttackHook | UIHook | ArcHook
 
 
 def _bundle_field_from_marker(marker: TitleHookMarker) -> tuple[str, str]:
@@ -132,6 +134,7 @@ def assemble_title_hooks(
     movement: dict[str, Callable[..., Any]] | None = None,
     attack: dict[str, Callable[..., Any]] | None = None,
     ui: dict[str, Callable[..., Any]] | None = None,
+    arcs: dict[str, Callable[..., Any]] | None = None,
 ) -> TitleHooks:
     """Build a `TitleHooks` bundle from decorated module callables.
 
@@ -152,6 +155,7 @@ def assemble_title_hooks(
         "movement": {},
         "attack": {},
         "ui": {},
+        "arcs": {},
     }
     for mod in modules:
         _scan_module(mod, sink)
@@ -167,10 +171,15 @@ def assemble_title_hooks(
         for k in ui:
             _validate_bundle_field("ui", k)
         sink["ui"].update(ui)
+    if arcs:
+        for k in arcs:
+            _validate_bundle_field("arcs", k)
+        sink["arcs"].update(arcs)
     return TitleHooks(
         movement=MovementHooks(**sink["movement"]),
         attack=AttackHooks(**sink["attack"]),
         ui=UIHooks(**sink["ui"]),
+        arcs=ArcsHooks(**sink["arcs"]),
     )
 
 

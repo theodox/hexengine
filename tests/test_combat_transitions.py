@@ -60,7 +60,7 @@ def test_follow_up_after_attack_opens_disrupt_gate() -> None:
     )
 
 
-def test_clear_unit_retreat_obligation_uses_patch_title_bucket() -> None:
+def test_clear_unit_retreat_obligation_only_pops_obligation() -> None:
     st = GameState.create_empty().with_title_state(
         {
             "combat_gate": combat_transitions.GATE_AWAITING_RETREAT,
@@ -76,7 +76,8 @@ def test_clear_unit_retreat_obligation_uses_patch_title_bucket() -> None:
     mgr.execute(ClearUnitRetreatObligation("u2", "hexdemo"))
     hx2 = title_bucket(mgr.current_state, "hexdemo")
     assert hx2.get("retreat_obligations") == {}
-    assert "combat_gate" not in hx2
+    # Gate-agnostic: combat_gate mirror is cleared by title effects, not ClearUnit.
+    assert hx2.get("combat_gate") == combat_transitions.GATE_AWAITING_RETREAT
 
 
 def test_on_retreat_obligation_cleared_returns_empty_without_last_combat() -> None:

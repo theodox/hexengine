@@ -72,6 +72,19 @@ class RunResult:
     reason: str = ""
 
 
+@dataclass(frozen=True)
+class ArcSpec:
+    """A declared arc bundled with the title resolver the runner needs to drive it.
+
+    A title exposes one of these per arc (Phase 2: the combat arc). owner_resolver
+    resolves any OwnerRef in the arc; it may be None for arcs that use only CURRENT /
+    NO_OWNER / explicit factions.
+    """
+
+    arc: Arc
+    owner_resolver: OwnerRefResolver | None = None
+
+
 def resolve_owner(
     owner: Owner, state: GameState, resolver: OwnerRefResolver | None
 ) -> str | None:
@@ -261,6 +274,7 @@ def submit_event(
 
 __all__ = [
     "ActionSink",
+    "ArcSpec",
     "OwnerRefResolver",
     "RunResult",
     "begin_arc",

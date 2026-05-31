@@ -26,6 +26,7 @@ from ...snapshot import attack_resolution_snapshot_fields
 from ...state import GameState
 from ...state.action_manager import ActionManager
 from ...state.actions import ApplyCombatEffects, Attack
+from .authority_arc_runtime import begin_combat_arc
 
 
 def dedupe_wire_id_list(raw: Any) -> list[str]:
@@ -280,6 +281,12 @@ async def execute_authority_attack_request(
             await host._send_error(player_id, f"Action failed: {e}")
             return False
         st_after = host.action_manager.current_state
+
+    # --- BEGIN COMBAT ARC ---
+    # If the title declares a combat arc, start it now: its entry segment classifies the
+    # combat state the follow-up just set and auto-advances to the matching gate (or
+    # finishes when there is no cleanup). No-op for titles without a declared arc.
+    begin_combat_arc(host)
 
     # --- BROADCAST_COMBAT_EVENTS ---
     await host._broadcast_combat_events(st_after)

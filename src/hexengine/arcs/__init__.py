@@ -30,6 +30,7 @@ from .cursor import (
 )
 from .runner import (
     ActionSink,
+    ArcSpec,
     OwnerRefResolver,
     RunResult,
     begin_arc,
@@ -67,6 +68,7 @@ __all__ = [
     "ArcBuilder",
     "ArcContext",
     "ArcCursor",
+    "ArcSpec",
     "AutoTrigger",
     "CURRENT",
     "Case",

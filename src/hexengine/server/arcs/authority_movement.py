@@ -29,6 +29,7 @@ from ...state.movement_arc import (
 )
 from ..protocol import ActionRequest, PlayerInfo
 from ...retreat_path import parse_wire_path, validate_retreat_path
+from .authority_arc_runtime import drive_combat_arc_event
 from .authority_combat_cleanup import (
     finalize_retreat_fulfillment_stack,
     validate_retreat_fulfillment_stack,
@@ -192,10 +193,16 @@ async def continue_stepwise_move_unit(
             fin = flow.get("finalize_request")
             if isinstance(fin, dict):
                 uid = str(flow.get("unit_id", "")).strip()
+                fin_params = dict(fin)
+                if await drive_combat_arc_event(
+                    host, player_id, player, "MoveUnit", fin_params
+                ):
+                    await host._send_move_unit_success_and_broadcast(player_id)
+                    return True
                 fin_req = ActionRequest(
                     action_type="MoveUnit",
                     player_id=player_id,
-                    params=dict(fin),
+                    params=fin_params,
                 )
                 finalize_retreat_fulfillment_stack(
                     host,
