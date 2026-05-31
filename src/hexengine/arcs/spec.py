@@ -98,9 +98,11 @@ class Goto:
 
 @dataclass(frozen=True, slots=True)
 class Interrupt:
-    """Suspend the current arc, run segment, then resume at resume when it completes.
+    """Suspend to an in-arc sub-flow at segment, then resume at resume when it ends.
 
-    Depth-1 by design: at most one suspended frame at a time (see the plan).
+    Both segment and resume name segments of the same arc: interrupt never crosses an
+    arc boundary (arcs are distinct units; see "Arc boundaries are clean" in the plan).
+    Depth-1 by design: at most one suspended frame at a time.
     """
 
     segment: str

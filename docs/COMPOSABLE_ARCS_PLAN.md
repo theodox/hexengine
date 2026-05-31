@@ -33,12 +33,12 @@ An **arc** is a finite state machine that occupies part of a turn:
 | Transition δ | **declared** transition table (today: scattered across dispatch + hooks) |
 | Guards | segment `owner` + `allowed_actions` |
 | Output | `StateAction` lists (existing hook returns) |
-| Terminal | arc completion → resume parent / advance schedule |
+| Terminal | arc completion → cursor cleared; schedule picks the next arc from `GameState` |
 
 Two properties the design must preserve:
 
 - **Rewindable.** Arc/segment state lives in the undoable `GameState`; transitions are `StateAction`s. The arc cursor must be snapshot-able and revertible (works under `LOAD_SNAPSHOT` / undo).
-- **Hierarchical (pushdown).** An arc can **suspend** the current owner, insert a sub-arc for another faction (e.g. retreat), then **resume**. This already exists: the movement arc snapshots `TurnState` into its payload (`turn_state_to_movement_arc_snapshot`). So the system is a hierarchical state machine with a **suspend stack**, not a flat FSM.
+- **Hierarchical *within* an arc (pushdown, depth-1).** An arc can **suspend** to an in-arc sub-flow (e.g. a retreat gate owned by another faction), then **resume** — all inside the same arc. Cross-faction steps are just segments with a different `owner`, not a separate arc. Across arc *boundaries* the structure is flat: see "Arc boundaries are clean."
 
 ### The segment triple
 
@@ -72,7 +72,7 @@ This degrades gracefully: a single-click action has no draft (just an allowed ac
 A title composes its turn from arcs using just **two** structural operators (the HSM primitives):
 
 - **sequence** — arc then arc (e.g. Move-arc → Combat-arc; rotate factions). Replaces the flat `turn_order()` rota.
-- **interrupt / suspend** — `interrupt(owner, sub_arc)`: pause current owner, run a sub-arc for another owner, resume. Generalizes movement `awaiting_interrupt` and the combat retreat/advance gates.
+- **interrupt / suspend** — *within one arc*, suspend to an in-arc sub-flow and resume at a named in-arc segment (depth-1). Generalizes movement `awaiting_interrupt` and the combat retreat/advance gates. The resume target is always a segment of the same arc — interrupt never crosses an arc boundary (see "Arc boundaries are clean").
 
 There is **no `conditional` operator** — conditionality is a property of *transitions*, not a structural primitive (resolved):
 
@@ -150,6 +150,17 @@ Consistency is automatic: undo reverts `GameState` and the embedded arc position
 
 **Suspend-stack depth:** default to **depth-1** (one optional suspended frame, not an unbounded stack) — covers every current case (combat retreat, movement interrupt), keeps stored state to a single slot, and preserves arc encapsulation/reuse. Unbounded nesting (interrupt-within-interrupt) is a future extension if a title needs reaction-to-reaction. Flattening the stack into one graph with explicit return edges is rejected: it breaks reusable-arc encapsulation.
 
+### Arc boundaries are clean (resolved)
+
+Arcs are **distinct, self-contained units**: nothing carries across an arc boundary except the resulting `GameState`, which is what terminates the previous arc. Concretely:
+
+- The cursor tracks **exactly one active arc** at a time, plus that arc's optional intra-arc depth-1 suspend frame. There is **no cross-arc suspend stack** and no "parent arc" waiting to resume.
+- **Suspend/resume is strictly intra-arc.** The suspended frame stores an in-arc resume segment id only (never an arc id), and `interrupt` resume targets are validated against the same arc's segments. Structurally a frame cannot point into another arc.
+- **Arc completion clears the whole cursor** (`SetArcCursor(None)`); any suspend frame dies with it. The **schedule** then selects the next arc purely from `GameState` (the `sequence` operator is "pick the next arc from state," not "resume a suspended parent"). So undo across an arc boundary restores a clean pre-arc state with no dangling frame.
+- Different-faction participation inside an arc (retreat, reaction) is expressed via per-segment `owner`, **not** by nesting a separate arc.
+
+This keeps arcs reusable and composable: an arc's behavior depends only on the `GameState` it starts from, never on hidden carryover from whatever ran before it. (Already true in the 0a spec + 0b cursor; recorded here so Phases 3–4 don't reintroduce cross-arc carryover.)
+
 ### Wire shape: a published `current_segment` descriptor (resolved)
 
 The wire replaces server-prebaked `primary_actions` and the `dock_arc` string with a direct **per-recipient projection of the current segment** on `StateUpdate`:
@@ -188,8 +199,8 @@ Each phase keeps pytest green (`test_combat_hexdemo`, `test_combat_transitions`,
 
 ### Phase 0 — Spec and types (no behavior change)
 - **[done] 0a** — Core spec types in `hexengine/arcs/spec.py`: `Owner` (tagged union: `OwnerScope.CURRENT`/`NO_OWNER`, explicit `Faction`, title-resolved `OwnerRef`), `Trigger` (`Event` / `AUTO`), `Target` (`Goto` / `Interrupt` / `FlowEnd.DONE`/`RESUME`), `ArcContext`, `Transition` (callable `guard`/`effect`), `Segment` (the triple; derives `allowed_actions` from `Event` triggers), and `Arc` with `validate()` (the seed of load-time validation). Spec is code; only the cursor (0b) is serialized. Tests in `tests/test_arc_spec.py`.
-- **0b** — Define the snapshot-able **arc cursor** (segment id + one optional suspended frame, per the depth-1 decision) stored in `engine_state` and mutated via a `StateAction`, with revert support; unit-test undo/redo of the cursor alone.
-- **0c** — Provide the **context-manager builder** that emits this data (thin, side-effect-free), plus the typed sugars (`branch`, `interrupt`/`resume`, derived `allowed_actions`); keep the data type public.
+- **[done] 0b** — Snapshot-able **arc cursor** in `hexengine/arcs/cursor.py`: `ArcCursor` (arc id + segment id + one optional depth-1 `SuspendedFrame`) with pure transitions (`advanced_to`/`suspended_into`/`resumed`), JSON-safe `cursor_to_snapshot`/`cursor_from_snapshot`, engine-state helpers (`read_arc_cursor`/`with_arc_cursor` under reserved key `hexengine_arc_cursor`), and the `SetArcCursor` `StateAction` (undo restores the exact prior cursor entry, including the no-cursor boundary). Undo/redo of the cursor alone covered in `tests/test_arc_cursor.py`.
+- **[done] 0c** — Context-manager builder in `hexengine/arcs/builder.py`: `arc(id)` / `a.segment(id, owner=, kind=)` blocks, `s.on(event, ...)` / `s.auto(...)` with keyword targets (`goto` / `done` / `resume` / `interrupt`+`resume_at`), `branch`/`auto_branch`+`case` for guarded fan-out, entry defaults to the first segment, and `build()` returns a validated `Arc`. Thin and side-effect-free — emits the canonical spec exactly (asserted by an equality test) with no operator overloading; `allowed_actions` is derived, never declared. Worked combat-arc example + sugar/validation tests in `tests/test_arc_builder.py`. **Phase 0 complete.**
 
 Notes: the **transition** type already carries trigger kind (external-event `Event` vs automatic/ownerless `AUTO`) + optional guard predicate over `GameState`; RNG-bearing effects draw from `rng_log`.
 
