@@ -101,6 +101,11 @@ class ClientInteractionPanelsMixin:
     def _attack_plan_draft_active(self) -> bool:
         if not getattr(self, "_client_has_attack_planning_ui", lambda: False)():
             return False
+        allowed = None
+        if hasattr(self, "_segment_allows_action"):
+            allowed = self._segment_allows_action("Attack")  # type: ignore[attr-defined]
+        if allowed is False:
+            return False
         if getattr(self, "attack_plan_target_hex", None) is not None:
             return True
         return bool(getattr(self, "attack_plan_attacker_ids", None))

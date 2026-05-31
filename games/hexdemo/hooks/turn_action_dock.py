@@ -2,6 +2,7 @@
 Hexdemo turn action dock: one commit panel per viewer on host ``advance``.
 
 Attack-plan confirm/cancel merge on the client from ``map_selection_preview``.
+Phase 5: rows and End-Phase gating derive from ``current_segment``.
 """
 
 from __future__ import annotations
@@ -9,29 +10,17 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from hexengine.hooks.ui import TurnActionDockContext, UIHook
-from hexengine.hooks import ui_primary_actions
-from hexengine.hooks.ui_turn_action_dock import (
-    _combat_gate_blocks_end_phase,
-    _end_phase_row,
-    _shell_ui_label,
+from hexengine.arcs.segment_wire import (
+    action_rows_from_segment,
+    dock_arc_from_segment,
+    segment_allows_action,
 )
+from hexengine.hooks.ui import TurnActionDockContext, UIHook
+from hexengine.hooks.ui_turn_action_dock import _end_phase_row, _shell_ui_label
 from hexengine.hooks.wiring import bind_title_hook
 
-from ..combat_transitions import dock_arc_hint
+from .. import combat
 from ..ui_markup import render_dock_gate_panel_html
-
-
-def _gate_actions(ctx: TurnActionDockContext) -> list[dict[str, Any]]:
-    from hexengine.hooks.ui_primary_actions import PrimaryActionsContext
-
-    pa_ctx = PrimaryActionsContext(
-        state=ctx.state,
-        viewer_faction=ctx.viewer_faction,
-        extension_key=ctx.extension_key,
-        shell_ui=ctx.shell_ui,
-    )
-    return ui_primary_actions.default_primary_actions_for_viewer(pa_ctx)
 
 
 def _panel_html(ctx: TurnActionDockContext, dock_arc: str) -> str:
@@ -60,8 +49,7 @@ def _headline(ctx: TurnActionDockContext, dock_arc: str) -> str:
 def turn_action_dock_for_viewer(
     ctx: TurnActionDockContext,
 ) -> list[dict[str, Any]]:
-    gate_actions = _gate_actions(ctx)
-    from .. import combat
+    gate_actions = action_rows_from_segment(ctx.current_segment, ctx.shell_ui)
 
     has_retreat_ob = bool(
         ctx.viewer_faction
@@ -69,18 +57,18 @@ def turn_action_dock_for_viewer(
     )
     if not ctx.viewer_is_turn_owner and not gate_actions and not has_retreat_ob:
         return []
-    actions = [dict(a) for a in gate_actions]
-    dock_arc = dock_arc_hint(
-        state=ctx.state,
-        viewer_faction=ctx.viewer_faction,
-        viewer_is_turn_owner=ctx.viewer_is_turn_owner,
-        current_phase=ctx.current_phase,
-        gate_actions=gate_actions,
-    )
 
-    # End Phase stays available in Combat unless a combat_gate blocks it.
-    # Client disables end_phase while an attack-plan draft is active (see contract).
-    end_enabled = not _combat_gate_blocks_end_phase(ctx)
+    actions = [dict(a) for a in gate_actions]
+    dock_arc = dock_arc_from_segment(
+        ctx.current_segment,
+        viewer_may_act=ctx.viewer_is_turn_owner,
+        current_phase=ctx.current_phase,
+        extra_gate_actions=gate_actions,
+    )
+    if dock_arc == "hidden" and has_retreat_ob:
+        dock_arc = "retreat_gate"
+
+    end_enabled = segment_allows_action(ctx.current_segment, "NextPhase")
     actions.append(_end_phase_row(ctx, enabled=end_enabled))
 
     html = _panel_html(ctx, dock_arc)

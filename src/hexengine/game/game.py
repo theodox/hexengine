@@ -743,16 +743,27 @@ class Game(
                 self.cancel_retreat_path()
             return
 
+        self._sync_retreat_obligation_unit_highlights(new_state)
+
         active_uid = getattr(self, "retreat_path_unit_id", None)
         if isinstance(active_uid, str) and active_uid.strip():
             local = [h for h in self.retreat_path_hexes if isinstance(h, Hex)]
             if len(local) >= 2:
                 self._sync_retreat_path_polyline(local)
-            # Keep an extended draft across state sync churn.
-            if len(local) > 1 or self._retreat_path_active():
+                # Keep an extended draft across state sync churn.
+                if len(local) > 1:
+                    return
+            if self._retreat_path_active():
+                # _clear_drag_and_highlights() wiped hex highlights; refresh preview.
+                self._refresh_retreat_path_preview()
                 return
 
         uid = self.ui_state.selected_unit_id
+        if uid is None:
+            client = self.client
+            sf = getattr(client, "suggested_focus_unit_id", None) if client else None
+            if isinstance(sf, str) and sf.strip():
+                uid = sf.strip()
         if uid is None:
             return
         uid_s = str(uid).strip()
@@ -766,6 +777,8 @@ class Game(
             )
             if local_len <= 1:
                 self.begin_retreat_path_for_unit(uid_s)
+        elif self._retreat_path_active():
+            self._refresh_retreat_path_preview()
 
     def _sync_interaction_messages(self) -> None:
         """Render per-recipient `StateUpdate.interaction_messages` as a small banner."""

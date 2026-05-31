@@ -45,6 +45,23 @@ class ClientCombatMixin(ClientMapSelectionMixin):
             return raw.strip()
         return default
 
+    def _current_segment_wire(self) -> dict[str, Any] | None:
+        client = getattr(self, "client", None)
+        if client is None:
+            return None
+        seg = getattr(client, "current_segment", None)
+        return dict(seg) if isinstance(seg, dict) else None
+
+    def _segment_allows_action(self, action_type: str) -> bool | None:
+        """True/False from server ``current_segment``; None when descriptor absent."""
+
+        from ...arcs.segment_wire import segment_allows_action
+
+        seg = self._current_segment_wire()
+        if seg is None:
+            return None
+        return segment_allows_action(seg, action_type)
+
     def _title_combat_gate(self) -> str:
         st = self._interactive_game_state()
         if st is None:
@@ -57,8 +74,12 @@ class ClientCombatMixin(ClientMapSelectionMixin):
         return str(title_bucket(st, ek).get("combat_gate", "")).strip()
 
     def _combat_gate_blocks_attack_planning_ui(self) -> bool:
+        allowed = self._segment_allows_action("Attack")
+        if allowed is not None:
+            return not allowed
         return self._title_combat_gate() in (
             "awaiting_advance",
+            "awaiting_retreat",
             "awaiting_retreat_or_disrupt",
         )
 

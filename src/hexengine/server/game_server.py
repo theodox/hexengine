@@ -941,12 +941,18 @@ class GameServer:
     def _resolve_blocks_routine_phase_advance(
         self, state: GameState | None = None
     ) -> bool:
-        from ..hooks.ui_combat_messages import default_blocks_routine_phase_advance
+        from ..arcs.segment_wire import segment_blocks_routine_phase_advance
 
         st = state if state is not None else self.action_manager.current_state
+        if segment_blocks_routine_phase_advance(
+            self, st, viewer_faction=str(st.turn.current_faction)
+        ):
+            return True
         ek = self._title_extension_key()
         raw = self.hooks.ui.blocks_routine_phase_advance_for(st, ek)
         if raw is ENGINE_DEFAULT:
+            from ..hooks.ui_combat_messages import default_blocks_routine_phase_advance
+
             return default_blocks_routine_phase_advance(st, ek)
         return bool(raw)
 
@@ -1138,6 +1144,26 @@ class GameServer:
                 return raw.strip()
         return default
 
+    def project_current_segment(
+        self, state: GameState, *, viewer_faction: str | None
+    ) -> dict[str, Any] | None:
+        from ..arcs.segment_wire import project_current_segment
+
+        return project_current_segment(self, state, viewer_faction=viewer_faction)
+
+    def _current_segment_for_player_id(
+        self, player_id: str
+    ) -> dict[str, Any] | None:
+        player = self.players.get(player_id)
+        if player is None or not player.connected:
+            return None
+        viewer = str(player.faction).strip() if player.faction else ""
+        if not viewer:
+            return None
+        return self.project_current_segment(
+            self.action_manager.current_state, viewer_faction=viewer
+        )
+
     def _turn_action_dock_context_for_player_id(
         self, player_id: str
     ) -> TurnActionDockContext | None:
@@ -1150,6 +1176,19 @@ class GameServer:
             return None
         turn = st.turn
         current_faction = str(turn.current_faction).strip()
+        current_segment = self.project_current_segment(
+            st, viewer_faction=viewer_faction
+        )
+        segment_owner = (
+            str(current_segment.get("owner", "")).strip()
+            if isinstance(current_segment, dict)
+            else ""
+        )
+        viewer_is_turn_owner = (
+            viewer_faction == segment_owner
+            if segment_owner
+            else viewer_faction == current_faction
+        )
         features = frozenset()
         tr = self._turn_rules_wire()
         cc = tr.get("client_contract")
@@ -1168,8 +1207,9 @@ class GameServer:
             current_faction=current_faction,
             current_phase=str(turn.current_phase).strip(),
             phase_actions_remaining=int(turn.phase_actions_remaining),
-            viewer_is_turn_owner=viewer_faction == current_faction,
+            viewer_is_turn_owner=viewer_is_turn_owner,
             client_contract_features=features,
+            current_segment=current_segment,
         )
 
     def _turn_action_dock_for_player_id(
@@ -2537,6 +2577,7 @@ class GameServer:
             interaction_messages=self._interaction_messages_for_player_id(player_id),
             map_overlays=self._map_overlays_for_player_id(player_id),
             interaction_panels=self._interaction_panels_for_player_id(player_id),
+            current_segment=self._current_segment_for_player_id(player_id),
         )
         await self._send_message(player_id, update.to_message())
 
@@ -2568,6 +2609,7 @@ class GameServer:
                     ),
                     map_overlays=self._map_overlays_for_player_id(player_id),
                     interaction_panels=self._interaction_panels_for_player_id(player_id),
+                    current_segment=self._current_segment_for_player_id(player_id),
                 )
                 await self._send_message(player_id, update.to_message())
 

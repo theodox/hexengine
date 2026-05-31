@@ -97,6 +97,7 @@ def test_hexdemo_state_update_uses_turn_action_dock_panels() -> None:
 
 def test_hexdemo_combat_phase_enables_end_phase_without_gate() -> None:
     from games.hexdemo.hooks.turn_action_dock import turn_action_dock_for_viewer
+    from hexengine.arcs.segment_wire import project_current_segment
     from hexengine.state.game_state import TurnState
 
     st = GameState.create_empty()
@@ -105,21 +106,27 @@ def test_hexdemo_combat_phase_enables_end_phase_without_gate() -> None:
         current_phase="Combat",
         phase_actions_remaining=2,
         turn_number=st.turn.turn_number,
-        schedule_index=st.turn.schedule_index,
+        schedule_index=1,
         global_tick=st.turn.global_tick,
     )
     st = GameState(board=st.board, turn=turn, title_state={}, title_bucket_key="hexdemo", rng_log=())
+    from hexengine.server import GameServer
+    from games.hexdemo.game_config import game_definition_from_config, default_match_config
+
+    server = GameServer(st, game_definition=game_definition_from_config(default_match_config()))
+    seg = project_current_segment(server, server.game_state, viewer_faction="union")
     ctx = TurnActionDockContext(
-        state=st,
+        state=server.game_state,
         viewer_faction="union",
         extension_key="hexdemo",
         shell_ui={},
-        schedule_index=0,
+        schedule_index=1,
         current_faction="union",
         current_phase="Combat",
         phase_actions_remaining=2,
         viewer_is_turn_owner=True,
         client_contract_features=frozenset(),
+        current_segment=seg,
     )
     panels = turn_action_dock_for_viewer(ctx)
     assert panels[0]["dock_arc"] == "attack_ready"
@@ -129,14 +136,17 @@ def test_hexdemo_combat_phase_enables_end_phase_without_gate() -> None:
 
 def test_hexdemo_retreat_gate_shows_for_non_turn_owner() -> None:
     from games.hexdemo.hooks.turn_action_dock import turn_action_dock_for_viewer
+    from hexengine.arcs import ArcCursor, SetArcCursor
     from hexengine.hexes.types import Hex
+    from hexengine.server.arcs import lookup_arc_spec
+    from hexengine.arcs.segment_wire import project_current_segment
+    from hexengine.state.action_manager import ActionManager
     from hexengine.state.game_state import BoardState, TurnState, UnitState
 
+    from games.hexdemo import combat_arc
+    from games.hexdemo.hooks import build_hooks
+
     st = GameState.create_empty()
-    hx = {
-        "combat_gate": "awaiting_retreat_or_disrupt",
-        "retreat_obligations": {"u_def": 1},
-    }
     board = BoardState(
         units={
             "u_def": UnitState(
@@ -153,17 +163,35 @@ def test_hexdemo_retreat_gate_shows_for_non_turn_owner() -> None:
         current_faction="union",
         current_phase="Combat",
         phase_actions_remaining=1,
-        turn_number=st.turn.turn_number,
-        schedule_index=st.turn.schedule_index,
-        global_tick=st.turn.global_tick,
+        turn_number=1,
+        schedule_index=0,
+        global_tick=0,
     )
     st = GameState(
         board=board,
         turn=turn,
-        title_state=hx,
+        title_state={
+            "combat_gate": "awaiting_retreat_or_disrupt",
+            "retreat_obligations": {"u_def": 1},
+        },
         title_bucket_key="hexdemo",
         rng_log=(),
     )
+    am = ActionManager(st)
+    am.execute(
+        SetArcCursor(
+            ArcCursor(arc_id="combat", segment_id=combat_arc.SEG_RETREAT_OR_DISRUPT_GATE)
+        )
+    )
+    st = am.current_state
+
+    class _Host:
+        hooks = build_hooks()
+
+        def lookup_arc_spec(self, arc_id: str):
+            return lookup_arc_spec(self, arc_id)
+
+    seg = project_current_segment(_Host(), st, viewer_faction="confederate")
     ctx = TurnActionDockContext(
         state=st,
         viewer_faction="confederate",
@@ -173,8 +201,9 @@ def test_hexdemo_retreat_gate_shows_for_non_turn_owner() -> None:
         current_faction="union",
         current_phase="Combat",
         phase_actions_remaining=1,
-        viewer_is_turn_owner=False,
+        viewer_is_turn_owner=True,
         client_contract_features=frozenset(),
+        current_segment=seg,
     )
     panels = turn_action_dock_for_viewer(ctx)
     assert len(panels) == 1
@@ -185,14 +214,16 @@ def test_hexdemo_retreat_gate_shows_for_non_turn_owner() -> None:
 
 def test_hexdemo_retreat_obligation_shows_dock_for_non_turn_owner() -> None:
     from games.hexdemo.hooks.turn_action_dock import turn_action_dock_for_viewer
+    from hexengine.arcs import ArcCursor, SetArcCursor
     from hexengine.hexes.types import Hex
+    from hexengine.server.arcs import lookup_arc_spec
+    from hexengine.arcs.segment_wire import project_current_segment
+    from hexengine.state.action_manager import ActionManager
     from hexengine.state.game_state import BoardState, TurnState, UnitState
 
-    st = GameState.create_empty()
-    hx = {
-        "combat_gate": "awaiting_retreat",
-        "retreat_obligations": {"u_def": 1},
-    }
+    from games.hexdemo import combat_arc
+    from games.hexdemo.hooks import build_hooks
+
     board = BoardState(
         units={
             "u_def": UnitState(
@@ -209,17 +240,35 @@ def test_hexdemo_retreat_obligation_shows_dock_for_non_turn_owner() -> None:
         current_faction="union",
         current_phase="Combat",
         phase_actions_remaining=1,
-        turn_number=st.turn.turn_number,
-        schedule_index=st.turn.schedule_index,
-        global_tick=st.turn.global_tick,
+        turn_number=1,
+        schedule_index=0,
+        global_tick=0,
     )
     st = GameState(
         board=board,
         turn=turn,
-        title_state=hx,
+        title_state={
+            "combat_gate": "awaiting_retreat",
+            "retreat_obligations": {"u_def": 1},
+        },
         title_bucket_key="hexdemo",
         rng_log=(),
     )
+    am = ActionManager(st)
+    am.execute(
+        SetArcCursor(
+            ArcCursor(arc_id="combat", segment_id=combat_arc.SEG_RETREAT_GATE)
+        )
+    )
+    st = am.current_state
+
+    class _Host:
+        hooks = build_hooks()
+
+        def lookup_arc_spec(self, arc_id: str):
+            return lookup_arc_spec(self, arc_id)
+
+    seg = project_current_segment(_Host(), st, viewer_faction="confederate")
     ctx = TurnActionDockContext(
         state=st,
         viewer_faction="confederate",
@@ -229,8 +278,9 @@ def test_hexdemo_retreat_obligation_shows_dock_for_non_turn_owner() -> None:
         current_faction="union",
         current_phase="Combat",
         phase_actions_remaining=1,
-        viewer_is_turn_owner=False,
+        viewer_is_turn_owner=True,
         client_contract_features=frozenset(),
+        current_segment=seg,
     )
     panels = turn_action_dock_for_viewer(ctx)
     assert len(panels) == 1
@@ -240,14 +290,16 @@ def test_hexdemo_retreat_obligation_shows_dock_for_non_turn_owner() -> None:
 
 def test_hexdemo_advance_gate_disables_end_phase() -> None:
     from games.hexdemo.hooks.turn_action_dock import turn_action_dock_for_viewer
+    from hexengine.arcs import ArcCursor, SetArcCursor
     from hexengine.hexes.types import Hex
+    from hexengine.server.arcs import lookup_arc_spec
+    from hexengine.arcs.segment_wire import project_current_segment
+    from hexengine.state.action_manager import ActionManager
     from hexengine.state.game_state import BoardState, TurnState, UnitState
 
-    st = GameState.create_empty()
-    hx = {
-        "combat_gate": "awaiting_advance",
-        "advance": {"faction": "union"},
-    }
+    from games.hexdemo import combat_arc
+    from games.hexdemo.hooks import build_hooks
+
     board = BoardState(
         units={
             "u1": UnitState(
@@ -264,17 +316,35 @@ def test_hexdemo_advance_gate_disables_end_phase() -> None:
         current_faction="union",
         current_phase="Combat",
         phase_actions_remaining=1,
-        turn_number=st.turn.turn_number,
-        schedule_index=st.turn.schedule_index,
-        global_tick=st.turn.global_tick,
+        turn_number=1,
+        schedule_index=0,
+        global_tick=0,
     )
     st = GameState(
         board=board,
         turn=turn,
-        title_state=hx,
+        title_state={
+            "combat_gate": "awaiting_advance",
+            "advance": {"faction": "union"},
+        },
         title_bucket_key="hexdemo",
         rng_log=(),
     )
+    am = ActionManager(st)
+    am.execute(
+        SetArcCursor(
+            ArcCursor(arc_id="combat", segment_id=combat_arc.SEG_ADVANCE_GATE)
+        )
+    )
+    st = am.current_state
+
+    class _Host:
+        hooks = build_hooks()
+
+        def lookup_arc_spec(self, arc_id: str):
+            return lookup_arc_spec(self, arc_id)
+
+    seg = project_current_segment(_Host(), st, viewer_faction="union")
     ctx = TurnActionDockContext(
         state=st,
         viewer_faction="union",
@@ -286,6 +356,7 @@ def test_hexdemo_advance_gate_disables_end_phase() -> None:
         phase_actions_remaining=1,
         viewer_is_turn_owner=True,
         client_contract_features=frozenset(),
+        current_segment=seg,
     )
     panels = turn_action_dock_for_viewer(ctx)
     actions = panels[0]["actions"]

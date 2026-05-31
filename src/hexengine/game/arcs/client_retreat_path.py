@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 from ...document import js
 from ...gamedef.interactions import InteractionKind
 from ...hexes.types import Hex
+from ...state import GameState
 
 if TYPE_CHECKING:
     from ..game import Game
@@ -181,9 +182,46 @@ class ClientRetreatPathMixin:
         self.retreat_path_continue_index = 0
         self._clear_drag_and_highlights()
         self.ui_state.select_unit(uid)
+        gu = self.board.get_unit(uid)
+        if gu is not None:
+            self.selection = gu
+        self._refresh_retreat_path_preview()
+
+    def _refresh_retreat_path_preview(self) -> None:
+        """Re-request server preview (hex highlights) for the active retreat-path draft."""
+        if not self._retreat_path_active():
+            return
         self._request_map_selection_preview(
             InteractionKind.RETREAT_PATH, self._retreat_path_draft_wire()
         )
+
+    def _sync_retreat_obligation_unit_highlights(self, state: GameState) -> None:
+        """Secondary-select every unit on this viewer's faction that owes a retreat."""
+        client = getattr(self, "client", None)
+        ro = getattr(client, "retreat_obligations", None) if client is not None else None
+        if not isinstance(ro, dict) or not ro:
+            return
+        fac = str(getattr(client, "faction", "") or "").strip()
+        ids: set[str] = set()
+        for uid, raw in ro.items():
+            uid_s = str(uid).strip()
+            if not uid_s:
+                continue
+            try:
+                if int(raw) <= 0:
+                    continue
+            except (TypeError, ValueError):
+                continue
+            u = state.board.units.get(uid_s)
+            if u is None or not u.active:
+                continue
+            if fac and str(u.faction).strip() != fac:
+                continue
+            ids.add(uid_s)
+        if not ids:
+            return
+        self.ui_state.set_secondary_selected_units(ids)
+        self.display_mgr.sync_secondary_selection(ids)
 
     def append_retreat_path_hex(self, h: Hex) -> None:
         if not self._retreat_path_active():

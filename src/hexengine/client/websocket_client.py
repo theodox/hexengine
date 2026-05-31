@@ -96,6 +96,8 @@ class BrowserWebSocketClient:
         self.primary_actions: list[dict[str, Any]] | None = None
         #: Last StateUpdate.interaction_panels (HTML shell + wired actions/inputs).
         self.interaction_panels: list[dict[str, Any]] | None = None
+        #: Last StateUpdate.current_segment (per-viewer arc segment descriptor).
+        self.current_segment: dict[str, Any] | None = None
 
         # Last applied scenario map_display JSON (avoid reset_view on every state tick)
         self._applied_map_display_json: str | None = None
@@ -434,6 +436,13 @@ class BrowserWebSocketClient:
             self.interaction_panels = [
                 dict(m) for m in update.interaction_panels if isinstance(m, dict)
             ]
+
+        if update.current_segment is None:
+            self.current_segment = None
+        elif isinstance(update.current_segment, dict):
+            self.current_segment = dict(update.current_segment)
+        else:
+            self.current_segment = None
 
         # Update sequence number
         if update.sequence_number <= self.sequence_number:

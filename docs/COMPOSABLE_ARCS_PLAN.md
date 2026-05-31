@@ -445,10 +445,31 @@ replace it temporarily and restore the routine cursor when they finish.
 `tests/test_turn_arc_schedule.py`.
 
 ### Phase 5 — Affordances + client from the declared segment
-- Publish the per-recipient `current_segment` descriptor (`kind` / `owner` / `allowed_actions` / `locus`) on `StateUpdate`; derive dock / `dock_arc` / allowed actions / phase-blocking from it.
-- Split semantics vs presentation: the descriptor carries allowed action *types*; the client renders buttons by looking up label/css/payload from title client data (`shell_ui`) per action type. Keep `retreat_obligations`-style per-unit fields as separate title-populated wire data.
-- Retire `default_primary_actions_for_viewer` / `default_blocks_routine_phase_advance` gate string-matching.
-- Re-express the client `effective_turn_dock_arc` draft override as **entry-guarded client-local sub-arcs** (drafts enterable only when their commit action is in the current segment's `allowed_actions`); remove client gate-string reads (`_combat_gate_blocks_attack_planning_ui`).
+
+**Status:** done (5a–5d).
+
+Publish per-recipient ``current_segment`` on ``StateUpdate``; derive dock rows, End-Phase
+gating, and client draft entry from it instead of ``combat_gate`` string matching.
+
+#### Sub-steps (completed)
+
+1. **5a — Segment wire projector.** ``hexengine/arcs/segment_wire.py`` projects
+   ``arc_id``, ``segment_id``, ``kind``, ``owner``, ``allowed_actions``, and
+   ``action_locus`` (``server`` vs ``client_draft``) from the active cursor.
+2. **5b — StateUpdate field.** ``current_segment`` on ``StateUpdate`` (per viewer);
+   ``TurnActionDockContext.current_segment`` for dock hooks.
+3. **5c — Segment-driven dock + End-Phase.** ``action_rows_from_segment`` builds combat
+   button rows from ``allowed_actions`` + ``shell_ui`` labels. End-Phase enabled when
+   ``NextPhase`` is in the segment set; ``segment_blocks_routine_phase_advance`` drives
+   server ``NextPhase`` rejection before legacy hook fallback.
+4. **5d — Client entry guards.** ``BrowserWebSocketClient.current_segment``; attack-plan
+   draft and planning UI gated on ``Attack`` in ``allowed_actions`` instead of
+   ``combat_gate`` reads.
+
+#### Tests that must stay green
+
+``test_turn_action_dock``, ``test_current_segment``, combat/movement arc runners, plus
+existing integration tests.
 
 ### Phase 6 — Importable patterns + templates + validation
 - Extract the common arcs (combat, simple phase, igo-ugo) into the importable patterns namespace; hexdemo imports them.

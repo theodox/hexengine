@@ -22,6 +22,7 @@ _STATE_UPDATE_OMIT_IF_NONE = frozenset(
         "map_overlays",
         "primary_actions",
         "interaction_panels",
+        "current_segment",
     }
 )
 
@@ -93,6 +94,11 @@ class StateUpdate:
     #: - actions: list of primary-action-shaped dicts (engine builds buttons)
     #: - inputs (optional): list of input specs (``id``, ``kind``, ``label``, ``name``, …)
     interaction_panels: list[dict[str, Any]] | None = None
+    #: Per-recipient projection of the active declared arc segment (Phase 5).
+    #:
+    #: Each dict includes schema 1, arc_id, segment_id, kind, owner,
+    #: allowed_actions, and action_locus (server vs client_draft per action type).
+    current_segment: dict[str, Any] | None = None
 
 
 @server_message("action_result")

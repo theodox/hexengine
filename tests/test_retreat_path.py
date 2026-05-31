@@ -222,6 +222,74 @@ def test_retreat_path_polyline_hexes_prefers_local_draft() -> None:
     assert path[-1] == Hex(2, -2, 0)
 
 
+def test_sync_retreat_path_refreshes_preview_after_highlights_cleared() -> None:
+    """State sync clears hex highlights; an active one-hex draft must re-request preview."""
+    from hexengine.game.arcs.client_retreat_path import ClientRetreatPathMixin
+    from hexengine.hexes.types import Hex
+    from hexengine.state import BoardState, GameState, TurnState, UnitState
+
+    h0 = Hex(0, 0, 0)
+    st = GameState(
+        board=BoardState(
+            units={
+                "u_def": UnitState(
+                    unit_id="u_def",
+                    unit_type="inf",
+                    faction="confederate",
+                    position=h0,
+                    active=True,
+                ),
+            }
+        ),
+        turn=TurnState(
+            current_faction="union",
+            current_phase="Combat",
+            phase_actions_remaining=1,
+            schedule_index=0,
+        ),
+    )
+
+    preview_calls: list[dict] = []
+
+    class _Client:
+        faction = "confederate"
+        retreat_obligations = {"u_def": 1}
+        suggested_focus_unit_id = "u_def"
+
+    class _G(ClientRetreatPathMixin):
+        client = _Client()
+        ui_state = type("_UI", (), {"selected_unit_id": "u_def"})()
+
+        def _client_has_retreat_path_selection(self) -> bool:
+            return True
+
+        def retreat_obligation_hexes_remaining(self, _state, unit_id: str):
+            return 1 if unit_id == "u_def" else None
+
+        def _interactive_game_state(self):
+            return st
+
+        def _sync_retreat_obligation_unit_highlights(self, _state) -> None:
+            pass
+
+        def _request_map_selection_preview(self, kind, draft) -> None:
+            preview_calls.append({"kind": kind, "draft": dict(draft)})
+
+        def cancel_retreat_path(self) -> None:
+            raise AssertionError("should not cancel active obligation draft")
+
+    g = _G()
+    g.retreat_path_unit_id = "u_def"
+    g.retreat_path_hexes = [h0]
+
+    from hexengine.game.game import Game
+
+    Game._sync_retreat_path_after_state_update(g, st)
+
+    assert len(preview_calls) == 1
+    assert preview_calls[0]["draft"]["unit_id"] == "u_def"
+
+
 def test_map_selection_preview_wire_carries_retreat_hex_fields() -> None:
     from hexengine.server.protocol import MapSelectionPreviewWire
 
