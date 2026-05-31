@@ -414,8 +414,35 @@ data stays in `hexengine_movement_arc` until a later payload refactor.
 the new 3a parity test and 3b integration tests.
 
 ### Phase 4 — Turn schedule as arc sequence
-- Replace flat `turn_order()` with a declared sequence of arcs (Move-arc, Combat-arc, …). `schedule_index` → arc/segment cursor. `get_next_phase` derives from the sequence.
-- Ownership legality everywhere reads `segment.owner`; remove direct `current_faction` gate checks and the `is_retreat_fulfillment` branch.
+
+**Status:** done (4a–4d).
+
+Replace flat `turn_order()` with a declared sequence of routine phase arcs. The generic
+cursor holds the active schedule slot; overlay arcs (combat cleanup, stepwise movement)
+replace it temporarily and restore the routine cursor when they finish.
+
+#### Sub-steps (completed)
+
+1. **4a — Schedule types + routine phase arcs.** `hexengine/arcs/schedule.py`
+   (`ArcSchedule`, `ScheduleSlot`), `routine_phase.py` (`build_routine_phase_arc`),
+   explicit `allowed_actions` on segments. Hexdemo declaration in
+   `games/hexdemo/turn_arc_schedule.py`; parity tests in `tests/test_turn_arc_schedule.py`.
+2. **4b — Turn arc registry.** `TurnArcRegistry` + `ArcsHooks.turn_arc_registry`;
+   hexdemo binds via `games/hexdemo/hooks/arcs.py`. `lookup_arc_spec` merges routine,
+   combat, and movement arcs.
+3. **4c — Schedule-driven phase advance.** `schedule_next_phase_info` drives
+   `GameServer._get_next_phase` when a registry is declared; `turn_order` wire field
+   derives from the schedule. `begin_routine_slot` on server init and after each
+   `NextPhase`.
+4. **4d — Segment-owner legality.** `resolve_active_segment_owner` +
+   `GameServer._actor_may_act` replace direct `current_faction` checks for Attack,
+   MoveUnit (non-retreat), markers, and movement interrupts. Combat-arc `MoveUnit` is
+   offered before the legacy retreat branch.
+
+#### Tests that must stay green
+
+`test_movement_sequence`, `test_combat_hexdemo`, `test_network`, plus
+`tests/test_turn_arc_schedule.py`.
 
 ### Phase 5 — Affordances + client from the declared segment
 - Publish the per-recipient `current_segment` descriptor (`kind` / `owner` / `allowed_actions` / `locus`) on `StateUpdate`; derive dock / `dock_arc` / allowed actions / phase-blocking from it.

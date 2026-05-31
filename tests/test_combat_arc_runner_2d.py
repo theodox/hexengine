@@ -120,7 +120,8 @@ def test_advance_moveunit_through_runner() -> None:
     assert handled is True
     final = host.action_manager.current_state
     assert final.board.units["u_att"].position == h1
-    assert read_arc_cursor(final) is None
+    cur = read_arc_cursor(final)
+    assert cur is None or cur.arc_id != "combat"
     hx = title_bucket(final, "hexdemo")
     assert "combat_gate" not in hx
     assert "advance" not in hx

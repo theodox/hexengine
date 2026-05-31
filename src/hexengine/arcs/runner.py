@@ -272,12 +272,57 @@ def submit_event(
     return RunResult(True, final)
 
 
+def event_allowed(
+    arc: Arc,
+    state: GameState,
+    *,
+    action_type: str,
+    actor: str | None,
+    resolver: OwnerRefResolver | None = None,
+) -> RunResult:
+    """Check whether an RPC would pass owner and allowed_actions gating (no mutation)."""
+
+    cursor = read_arc_cursor(state)
+    if cursor is None:
+        return RunResult(False, state, "no active arc")
+    if cursor.arc_id != arc.id:
+        return RunResult(
+            False, state, f"active arc {cursor.arc_id!r} is not {arc.id!r}"
+        )
+
+    segment = arc.get(cursor.segment_id)
+    if segment.is_automatic:
+        return RunResult(
+            False,
+            state,
+            f"segment {segment.id} is automatic (not event-driven)",
+        )
+
+    owner_faction = resolve_owner(segment.owner, state, resolver)
+    if owner_faction is None:
+        return RunResult(
+            False, state, f"segment {segment.id} has no resolved owner"
+        )
+    if actor != owner_faction:
+        return RunResult(
+            False,
+            state,
+            f"actor {actor!r} is not segment owner {owner_faction!r}",
+        )
+    if action_type not in segment.allowed_actions:
+        return RunResult(
+            False, state, f"action {action_type!r} not allowed in segment {segment.id}"
+        )
+    return RunResult(True, state)
+
+
 __all__ = [
     "ActionSink",
     "ArcSpec",
     "OwnerRefResolver",
     "RunResult",
     "begin_arc",
+    "event_allowed",
     "resolve_owner",
     "submit_event",
 ]

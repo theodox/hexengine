@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from ..arcs import ArcSpec
+from ..arcs.registry import TurnArcRegistry
 from .core import ENGINE_DEFAULT
 
 
@@ -22,6 +23,7 @@ class ArcsHooks:
 
     combat_arc: Callable[[], ArcSpec] | None = None
     movement_arc: Callable[[], ArcSpec] | None = None
+    turn_arc_registry: Callable[[], TurnArcRegistry] | None = None
 
     def combat_arc_spec(self) -> ArcSpec | object:
         """The title's combat arc bundle, or ENGINE_DEFAULT when not provided."""
@@ -37,12 +39,20 @@ class ArcsHooks:
             return ENGINE_DEFAULT
         return self.movement_arc()
 
+    def turn_arc_registry_spec(self) -> TurnArcRegistry | object:
+        """The title's turn schedule + routine arc registry, or ENGINE_DEFAULT."""
+
+        if self.turn_arc_registry is None:
+            return ENGINE_DEFAULT
+        return self.turn_arc_registry()
+
 
 class ArcHook(StrEnum):
     """Stable slot ids for `bind_title_hook` (values match `ArcsHooks` field names)."""
 
     COMBAT_ARC = "combat_arc"
     MOVEMENT_ARC = "movement_arc"
+    TURN_ARC_REGISTRY = "turn_arc_registry"
 
 
 ArcHook._hexengine_hook_bundle = "arcs"

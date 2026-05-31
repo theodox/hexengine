@@ -137,11 +137,19 @@ def case(
 class SegmentBuilder:
     """Collects the transitions of one segment; commits the Segment on block exit."""
 
-    def __init__(self, arc_builder: ArcBuilder, segment_id: str, owner: Owner, kind: str):
+    def __init__(
+        self,
+        arc_builder: ArcBuilder,
+        segment_id: str,
+        owner: Owner,
+        kind: str,
+        explicit_allowed_actions: frozenset[str] | None = None,
+    ):
         self._arc = arc_builder
         self._id = str(segment_id)
         self._owner = owner
         self._kind = str(kind)
+        self._explicit_allowed_actions = explicit_allowed_actions
         self._transitions: list[Transition] = []
 
     def __enter__(self) -> SegmentBuilder:
@@ -160,6 +168,7 @@ class SegmentBuilder:
                     owner=self._owner,
                     transitions=tuple(self._transitions),
                     kind=self._kind,
+                    explicit_allowed_actions=self._explicit_allowed_actions,
                 )
             )
         return False
@@ -268,10 +277,17 @@ class ArcBuilder:
     ) -> bool:
         return False
 
-    def segment(self, segment_id: str, *, owner: Owner, kind: str = "") -> SegmentBuilder:
+    def segment(
+        self,
+        segment_id: str,
+        *,
+        owner: Owner,
+        kind: str = "",
+        allowed_actions: frozenset[str] | None = None,
+    ) -> SegmentBuilder:
         """Open a segment block; its transitions are committed when the block exits."""
 
-        return SegmentBuilder(self, segment_id, owner, kind)
+        return SegmentBuilder(self, segment_id, owner, kind, allowed_actions)
 
     def _add_segment(self, seg: Segment) -> None:
         self._segments.append(seg)

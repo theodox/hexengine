@@ -106,7 +106,9 @@ def test_begin_lands_on_retreat_gate() -> None:
 def test_begin_with_no_gate_finishes_immediately() -> None:
     host = _Host(_state(None))
     begin_combat_arc(host)
-    assert read_arc_cursor(host.action_manager.current_state) is None
+    cur = read_arc_cursor(host.action_manager.current_state)
+    # Phase 4: overlay arc completion restores the routine schedule cursor.
+    assert cur is None or cur.arc_id != "combat"
 
 
 def test_begin_is_noop_without_declared_arc() -> None:
@@ -143,8 +145,8 @@ def test_disrupt_through_runner_clears_obligation_and_cursor() -> None:
     assert not hx.get("retreat_obligations")
     assert "combat_gate" not in hx
     assert final.board.units["u1"].attributes.get("disrupted") is True
-    # No advance opened for this minimal state -> arc finished, cursor cleared.
-    assert read_arc_cursor(final) is None
+    cur = read_arc_cursor(final)
+    assert cur is None or cur.arc_id != "combat"
 
 
 def test_disrupt_by_wrong_faction_falls_back() -> None:
@@ -195,7 +197,8 @@ def test_decline_advance_through_runner_clears_gate_and_cursor() -> None:
     hx = title_bucket(final, "hexdemo")
     assert "combat_gate" not in hx
     assert "advance" not in hx
-    assert read_arc_cursor(final) is None
+    cur = read_arc_cursor(final)
+    assert cur is None or cur.arc_id != "combat"
 
 
 def test_decline_advance_by_non_current_faction_falls_back() -> None:

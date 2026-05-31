@@ -165,6 +165,8 @@ class Segment:
     owner: Owner
     transitions: tuple[Transition, ...]
     kind: str = ""
+    explicit_allowed_actions: frozenset[str] | None = None
+    """When set, overrides Event-derived allowed_actions (routine phase segments)."""
 
     @property
     def is_automatic(self) -> bool:
@@ -174,8 +176,10 @@ class Segment:
 
     @property
     def allowed_actions(self) -> frozenset[str]:
-        """Action types legal here, derived from this segment's Event triggers."""
+        """Action types legal here (explicit list or derived from Event triggers)."""
 
+        if self.explicit_allowed_actions is not None:
+            return self.explicit_allowed_actions
         return frozenset(
             t.trigger.action_type
             for t in self.transitions
@@ -233,7 +237,11 @@ class Arc:
 
         for s in self.segments:
             if not s.transitions:
-                raise ValueError(f"Segment {self.id}.{s.id} has no transitions")
+                if s.explicit_allowed_actions is None:
+                    raise ValueError(
+                        f"Segment {self.id}.{s.id} has no transitions"
+                    )
+                continue
             for t in s.transitions:
                 if s.is_automatic:
                     if not isinstance(t.trigger, AutoTrigger):

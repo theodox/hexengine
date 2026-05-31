@@ -139,7 +139,8 @@ def test_retreat_through_runner_advances_cursor_to_resolve() -> None:
     assert host.broadcasts == 1
     final = host.action_manager.current_state
     assert final.board.units["u1"].position == h1
-    assert read_arc_cursor(final) is None  # no advance payload -> arc finished
+    cur = read_arc_cursor(final)
+    assert cur is None or cur.arc_id != "combat"  # routine cursor restored (Phase 4)
 
 
 def test_partial_retreat_loops_cursor_to_retreat_gate() -> None:

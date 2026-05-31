@@ -36,6 +36,7 @@ from ..hexes.math import distance
 from ..hexes.types import Hex, HexColRow
 from ..hooks.core import ENGINE_DEFAULT
 from ..arcs import ArcSpec
+from ..arcs.registry import TurnArcRegistry
 from ..hooks.internal import get_engine_catalog_hook, validate_title_contract
 from ..hooks.map_selection_registry import bound_map_selection_kinds
 from ..hooks.movement import MoveContext
@@ -81,6 +82,7 @@ from ..state.snapshot import game_state_from_wire_dict, game_state_to_wire_dict
 from .map_selection import compute_map_selection_preview
 from .preview import compute_marker_drag_preview, compute_unit_drag_preview
 from .arcs import (
+    begin_routine_slot,
     drive_combat_arc_event,
     drive_movement_arc_event,
     execute_authority_attack_request,
@@ -90,10 +92,15 @@ from .arcs import (
     handle_combat_advance_rpc,
     handle_combat_disrupt_instead_of_retreat,
     handle_move_unit_combat_advance_resolution,
+    lookup_arc_spec,
     move_unit_is_combat_advance_fulfillment,
     read_movement_arc,
+    resolve_active_segment_owner,
+    restore_routine_cursor,
     retreat_stack_unit_ids,
+    schedule_next_phase_info,
     sync_movement_cursor_from_payload,
+    turn_arc_registry_from_hooks,
     validate_retreat_fulfillment_stack,
 )
 from .protocol import (
@@ -240,11 +247,36 @@ class GameServer:
         self.logger = logging.getLogger("game_server")
         self.logger.info("Game server initialized")
 
-        self.turn_order = self._game_definition.turn_order()
-        self.logger.info(f"Turn order: {self.turn_order}")
-
         self._pending_game_log_events: deque[tuple[str, str, str]] = deque()
         self._movement_arc_spec_cache: ArcSpec | None = None
+
+        reg = self.turn_arc_registry()
+        if reg is not None:
+            self.turn_order = reg.schedule.turn_order_entries()
+        else:
+            self.turn_order = self._game_definition.turn_order()
+        self.logger.info(f"Turn order: {self.turn_order}")
+
+        self.begin_routine_slot(int(self.action_manager.current_state.turn.schedule_index))
+
+    def turn_arc_registry(self) -> TurnArcRegistry | None:
+        return turn_arc_registry_from_hooks(self.hooks)
+
+    def lookup_arc_spec(self, arc_id: str) -> ArcSpec | None:
+        return lookup_arc_spec(self, arc_id)
+
+    def begin_routine_slot(self, schedule_index: int) -> None:
+        begin_routine_slot(self, schedule_index)
+
+    def restore_routine_cursor(self) -> None:
+        restore_routine_cursor(self)
+
+    def _segment_owner_faction(self, state: GameState | None = None) -> str:
+        st = state if state is not None else self.action_manager.current_state
+        return resolve_active_segment_owner(self, st) or str(st.turn.current_faction)
+
+    def _actor_may_act(self, player_faction: str, state: GameState | None = None) -> bool:
+        return str(player_faction) == self._segment_owner_faction(state)
 
     def movement_arc_spec(self) -> ArcSpec | None:
         """Built-in stepwise movement arc (host-bound effects, cached per server)."""
@@ -376,6 +408,10 @@ class GameServer:
 
     def _get_next_phase(self) -> dict:
         """Get the next phase in the turn order."""
+
+        scheduled = schedule_next_phase_info(self)
+        if scheduled is not None:
+            return scheduled
         return self._game_definition.get_next_phase(self.action_manager.current_state)
 
     def _suggested_focus_unit_id_for_player_id(self, player_id: str) -> str | None:
@@ -877,6 +913,9 @@ class GameServer:
             self.logger.error(
                 "WriteHexengineMovementArc clear failed: %s", e, exc_info=True
             )
+        self.begin_routine_slot(
+            int(self.action_manager.current_state.turn.schedule_index)
+        )
         self._invoke_phase_transition_hook()
 
     def _retreat_obligation_hexes_remaining(
@@ -1317,9 +1356,10 @@ class GameServer:
             return
 
         if request.action_type == "PassMovementInterrupt":
-            if player.faction != current_faction:
+            if not self._actor_may_act(player.faction, current_state):
                 await self._send_error(
-                    player_id, f"Not your turn (current: {current_faction})"
+                    player_id,
+                    f"Not your turn (current: {self._segment_owner_faction(current_state)})",
                 )
                 return
             if not phase_allows_movement_interrupt_pass(
@@ -1347,9 +1387,10 @@ class GameServer:
             return
 
         if request.action_type == "Attack":
-            if player.faction != current_faction:
+            if not self._actor_may_act(player.faction, current_state):
                 await self._send_error(
-                    player_id, f"Not your turn (current: {current_faction})"
+                    player_id,
+                    f"Not your turn (current: {self._segment_owner_faction(current_state)})",
                 )
                 return
             ok = await execute_authority_attack_request(
@@ -1377,10 +1418,17 @@ class GameServer:
             )
             is_retreat_fulfillment = retreat_rem is not None
 
+        if request.action_type == "MoveUnit":
+            if await drive_combat_arc_event(
+                self, player_id, player, "MoveUnit", request.params
+            ):
+                return
+
         if not is_retreat_fulfillment:
-            if player.faction != current_faction:
+            if not self._actor_may_act(player.faction, current_state):
                 await self._send_error(
-                    player_id, f"Not your turn (current: {current_faction})"
+                    player_id,
+                    f"Not your turn (current: {self._segment_owner_faction(current_state)})",
                 )
                 return
         else:
@@ -1391,10 +1439,6 @@ class GameServer:
 
         # Optional advance path: MoveUnit into the advance hex resolves CombatAdvance.
         if request.action_type == "MoveUnit" and is_advance_fulfillment:
-            if await drive_combat_arc_event(
-                self, player_id, player, "MoveUnit", request.params
-            ):
-                return
             await handle_move_unit_combat_advance_resolution(self, player_id, player)
             return
 
@@ -1435,9 +1479,10 @@ class GameServer:
             return
 
         if request.action_type == "PatchUnitAttributes":
-            if player.faction != current_faction:
+            if not self._actor_may_act(player.faction, current_state):
                 await self._send_error(
-                    player_id, f"Not your turn (current: {current_faction})"
+                    player_id,
+                    f"Not your turn (current: {self._segment_owner_faction(current_state)})",
                 )
                 return
             uid = str(request.params.get("unit_id", ""))
