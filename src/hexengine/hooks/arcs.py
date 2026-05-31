@@ -21,6 +21,7 @@ class ArcsHooks:
     """Declared-arc providers consulted by the authoritative server."""
 
     combat_arc: Callable[[], ArcSpec] | None = None
+    movement_arc: Callable[[], ArcSpec] | None = None
 
     def combat_arc_spec(self) -> ArcSpec | object:
         """The title's combat arc bundle, or ENGINE_DEFAULT when not provided."""
@@ -29,11 +30,19 @@ class ArcsHooks:
             return ENGINE_DEFAULT
         return self.combat_arc()
 
+    def movement_arc_spec(self) -> ArcSpec | object:
+        """The title's movement arc bundle, or ENGINE_DEFAULT when not provided."""
+
+        if self.movement_arc is None:
+            return ENGINE_DEFAULT
+        return self.movement_arc()
+
 
 class ArcHook(StrEnum):
     """Stable slot ids for `bind_title_hook` (values match `ArcsHooks` field names)."""
 
     COMBAT_ARC = "combat_arc"
+    MOVEMENT_ARC = "movement_arc"
 
 
 ArcHook._hexengine_hook_bundle = "arcs"

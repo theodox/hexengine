@@ -20,8 +20,12 @@ from __future__ import annotations
 from .authority_arc_runtime import (
     ArcRuntimeHost,
     begin_combat_arc,
+    begin_movement_arc,
     combat_arc_spec,
     drive_combat_arc_event,
+    drive_movement_arc_event,
+    movement_arc_spec,
+    sync_movement_cursor_from_payload,
 )
 from .authority_attack import (
     AUTHORITY_ATTACK_PIPELINE,
@@ -61,9 +65,13 @@ __all__ = [
     "AuthorityCombatCleanupHost",
     "AuthorityMovementHost",
     "begin_combat_arc",
+    "begin_movement_arc",
     "combat_arc_spec",
     "continue_stepwise_move_unit",
     "drive_combat_arc_event",
+    "drive_movement_arc_event",
+    "movement_arc_spec",
+    "sync_movement_cursor_from_payload",
     "dedupe_faction_ids",
     "dedupe_wire_id_list",
     "execute_authority_attack_request",

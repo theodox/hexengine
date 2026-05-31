@@ -29,7 +29,15 @@ from ...state.movement_arc import (
 )
 from ..protocol import ActionRequest, PlayerInfo
 from ...retreat_path import parse_wire_path, validate_retreat_path
-from .authority_arc_runtime import drive_combat_arc_event
+from ...state.movement_arc import (
+    MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
+    MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
+)
+from .authority_arc_runtime import (
+    drive_combat_arc_event,
+    drive_movement_arc_event,
+    sync_movement_cursor_from_payload,
+)
 from .authority_combat_cleanup import (
     finalize_retreat_fulfillment_stack,
     validate_retreat_fulfillment_stack,
@@ -180,6 +188,39 @@ async def continue_stepwise_move_unit(
         await host._send_error(player_id, "Movement budget exhausted")
         return True
 
+    if await drive_movement_arc_event(
+        host, player_id, player, "MoveUnit", dict(request.params)
+    ):
+        flow_after = read_movement_arc(host.action_manager.current_state)
+        if flow_after is None:
+            if flow.get("retreat_fulfillment"):
+                fin = flow.get("finalize_request")
+                if isinstance(fin, dict):
+                    uid = str(flow.get("unit_id", "")).strip()
+                    fin_params = dict(fin)
+                    if await drive_combat_arc_event(
+                        host, player_id, player, "MoveUnit", fin_params
+                    ):
+                        return True
+                    fin_req = ActionRequest(
+                        action_type="MoveUnit",
+                        player_id=player_id,
+                        params=fin_params,
+                    )
+                    finalize_retreat_fulfillment_stack(
+                        host,
+                        uid_for_move=uid,
+                        player=player,
+                        request=fin_req,
+                        st_before=current_state,
+                    )
+            elif not flow.get("retreat_fulfillment"):
+                try:
+                    host._spend_action_after_normal_move_unit()
+                except Exception as e:
+                    host.logger.error(f"Error in turn advancement: {e}", exc_info=True)
+        return True
+
     try:
         host.action_manager.execute(MoveUnit(unit_id, from_hex, to_hex))
     except Exception as e:
@@ -189,6 +230,7 @@ async def continue_stepwise_move_unit(
     new_idx = idx + 1
     if new_idx >= len(path) - 1:
         host.action_manager.execute(WriteHexengineMovementArc(None))
+        sync_movement_cursor_from_payload(host)
         if flow.get("retreat_fulfillment"):
             fin = flow.get("finalize_request")
             if isinstance(fin, dict):
@@ -254,6 +296,7 @@ async def continue_stepwise_move_unit(
         new_flow["saved_turn"] = None
         host.action_manager.execute(WriteHexengineMovementArc(new_flow))
 
+    sync_movement_cursor_from_payload(host)
     await host._send_move_unit_success_and_broadcast(player_id)
     return True
 
@@ -385,6 +428,7 @@ async def handle_authority_move_unit_normal(
         base_flow["saved_turn"] = None
         host.action_manager.execute(WriteHexengineMovementArc(base_flow))
 
+    sync_movement_cursor_from_payload(host)
     await host._send_move_unit_success_and_broadcast(player_id)
     return True
 
@@ -508,6 +552,7 @@ async def handle_authority_retreat_path_move_unit(
         },
     }
     host.action_manager.execute(WriteHexengineMovementArc(base_flow))
+    sync_movement_cursor_from_payload(host)
     await host._send_move_unit_success_and_broadcast(player_id)
     return True
 

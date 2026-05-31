@@ -382,7 +382,36 @@ additionally keep writing the `combat_gate` mirror until Phase 5.
 test and 2b–2c integration tests.
 
 ### Phase 3 — Movement arc as declaration
-- Re-express stepwise movement + `awaiting_continue`/`awaiting_interrupt`/`PassMovementInterrupt` as a declared arc with an interrupt sub-arc. Unify engine-reserved arc state with the generic cursor.
+
+**Status:** done (3a–3d).
+
+Re-express stepwise movement + `awaiting_continue` / `awaiting_interrupt` /
+`PassMovementInterrupt` as a declared arc with an interrupt sub-arc. The generic
+`hexengine_arc_cursor` is kept in sync with the movement payload gate mirror; path/budget
+data stays in `hexengine_movement_arc` until a later payload refactor.
+
+#### Sub-steps (completed)
+
+1. **3a — Declare movement arc as data.** `src/hexengine/arcs/movement_arc_decl.py`
+   (`build_movement_arc`): segments `continue`, `step_resolve`, `interrupt`,
+   `interrupt_resolve`; `kind` values match movement gate strings. Parity tests in
+   `tests/test_movement_arc_declaration.py`.
+2. **3b — Cursor sync + runtime bridge.** `sync_movement_cursor_from_payload` maps payload
+   gate → `ArcCursor` (interrupt uses depth-1 suspend/resume). `ArcsHooks.movement_arc`
+   slot added; `GameServer.movement_arc_spec()` builds the engine default with host-bound
+   effects (`movement_arc_effects.py`).
+3. **3c — Route RPCs through runner (soft cutover).** `PassMovementInterrupt` and stepwise
+   continue `MoveUnit` offered to `drive_movement_arc_event` first; legacy
+   `ResolvePassMovementInterrupt` / imperative continue remain fallback when the runner
+   rejects. Integration tests in `tests/test_movement_arc_runner_3b.py`.
+4. **3d — Wire payload writes.** Every `WriteHexengineMovementArc` path in
+   `authority_movement.py` calls `sync_movement_cursor_from_payload` so the cursor exists
+   before the next RPC.
+
+#### Tests that must stay green
+
+`test_movement_sequence`, `test_retreat_path`, `test_authority_arcs`, `test_network`, plus
+the new 3a parity test and 3b integration tests.
 
 ### Phase 4 — Turn schedule as arc sequence
 - Replace flat `turn_order()` with a declared sequence of arcs (Move-arc, Combat-arc, …). `schedule_index` → arc/segment cursor. `get_next_phase` derives from the sequence.

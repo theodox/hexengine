@@ -1,0 +1,185 @@
+"""
+Engine stepwise movement as a declared arc (composable arcs, Phase 3).
+
+Declares the stepwise movement FSM (continue / interrupt sub-arc) as data for the
+generic runner. Segment `kind` values match the movement arc gate strings so the
+declaration can be parity-checked against the legacy payload mirror.
+
+Effects are supplied at runtime (see server.arcs.movement_arc_effects) because step
+application needs movement hooks from the authoritative server host.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any, Protocol
+
+from ..hexes.types import Hex
+from ..state import GameState
+from ..state.action_manager import StateAction
+from ..state.movement_arc import (
+    MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
+    MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
+    HEXENGINE_MOVEMENT_ARC_KEY,
+)
+from ..state.title_extension import engine_bucket
+from . import CURRENT, NO_OWNER, Arc, ArcContext, OwnerRef, arc, case
+
+MOVEMENT_ARC_ID = "movement"
+
+SEG_CONTINUE = "continue"
+SEG_STEP_RESOLVE = "step_resolve"
+SEG_INTERRUPT = "interrupt"
+SEG_INTERRUPT_RESOLVE = "interrupt_resolve"
+
+OWNER_MOVING = "moving"
+
+Guard = Callable[[ArcContext], bool]
+Effect = Callable[[ArcContext], list[StateAction]]
+
+
+class MovementArcEffectsBinding(Protocol):
+    """Host-bound guards and effects the movement arc declaration wires in."""
+
+    def matches_stepwise_step(self, ctx: ArcContext) -> bool: ...
+
+    def apply_step(self, ctx: ArcContext) -> list[StateAction]: ...
+
+    def finish_path(self, ctx: ArcContext) -> list[StateAction]: ...
+
+    def is_interrupt_responder(self, ctx: ArcContext) -> bool: ...
+
+    def pass_interrupt(self, ctx: ArcContext) -> list[StateAction]: ...
+
+
+def read_movement_payload(state: GameState) -> dict[str, Any] | None:
+    """Return the movement arc payload from engine state, if any."""
+
+    raw = engine_bucket(state, HEXENGINE_MOVEMENT_ARC_KEY)
+    if not isinstance(raw, dict):
+        return None
+    return dict(raw)
+
+
+def path_tuple_from_payload(payload: dict[str, Any]) -> tuple[Hex, ...]:
+    """Parse `path` wire list from a movement arc payload into hex tuples."""
+
+    raw = payload.get("path")
+    if not isinstance(raw, list):
+        return ()
+    out: list[Hex] = []
+    for row in raw:
+        if not isinstance(row, dict):
+            continue
+        try:
+            out.append(Hex(int(row["i"]), int(row["j"]), int(row["k"])))
+        except (KeyError, TypeError, ValueError):
+            continue
+    return tuple(out)
+
+
+def resolve_moving_faction(key: str, state: GameState) -> str | None:
+    """OwnerRefResolver for the movement arc (only knows the "moving" owner)."""
+
+    if key != OWNER_MOVING:
+        return None
+    flow = read_movement_payload(state)
+    if not flow:
+        return None
+    faction = str(flow.get("moving_faction", "")).strip()
+    return faction or None
+
+
+def _movement_flow(ctx: ArcContext) -> dict[str, Any] | None:
+    return read_movement_payload(ctx.state)
+
+
+def path_complete(ctx: ArcContext) -> bool:
+    flow = _movement_flow(ctx)
+    if not flow:
+        return True
+    path = path_tuple_from_payload(flow)
+    idx = int(flow.get("step_index", -1))
+    return not path or idx >= len(path) - 1
+
+
+def step_opened_interrupts(ctx: ArcContext) -> bool:
+    flow = _movement_flow(ctx)
+    if not flow:
+        return False
+    queue = flow.get("interrupt_queue")
+    return isinstance(queue, list) and len(queue) > 0
+
+
+def interrupt_queue_empty(ctx: ArcContext) -> bool:
+    flow = _movement_flow(ctx)
+    if not flow:
+        return True
+    queue = flow.get("interrupt_queue")
+    return not isinstance(queue, list) or not queue
+
+
+def build_movement_arc(effects: MovementArcEffectsBinding) -> Arc:
+    """Build the engine stepwise movement arc (interrupt sub-arc, depth-1 suspend)."""
+
+    with arc(MOVEMENT_ARC_ID, entry=SEG_CONTINUE) as a:
+        with a.segment(
+            SEG_CONTINUE,
+            owner=OwnerRef(OWNER_MOVING),
+            kind=MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
+        ) as s:
+            s.on(
+                "MoveUnit",
+                guard=effects.matches_stepwise_step,
+                effect=effects.apply_step,
+                goto=SEG_STEP_RESOLVE,
+            )
+
+        with a.segment(SEG_STEP_RESOLVE, owner=NO_OWNER) as s:
+            s.auto_branch(
+                case(guard=path_complete, effect=effects.finish_path, done=True),
+                case(
+                    guard=step_opened_interrupts,
+                    interrupt=SEG_INTERRUPT,
+                    resume_at=SEG_CONTINUE,
+                ),
+                case(goto=SEG_CONTINUE),
+            )
+
+        with a.segment(
+            SEG_INTERRUPT,
+            owner=CURRENT,
+            kind=MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
+        ) as s:
+            s.on(
+                "PassMovementInterrupt",
+                guard=effects.is_interrupt_responder,
+                effect=effects.pass_interrupt,
+                goto=SEG_INTERRUPT_RESOLVE,
+            )
+
+        with a.segment(SEG_INTERRUPT_RESOLVE, owner=NO_OWNER) as s:
+            s.auto_branch(
+                case(guard=interrupt_queue_empty, resume=True),
+                case(goto=SEG_INTERRUPT),
+            )
+
+    return a.build()
+
+
+__all__ = [
+    "MOVEMENT_ARC_ID",
+    "OWNER_MOVING",
+    "SEG_CONTINUE",
+    "SEG_INTERRUPT",
+    "SEG_INTERRUPT_RESOLVE",
+    "SEG_STEP_RESOLVE",
+    "MovementArcEffectsBinding",
+    "build_movement_arc",
+    "interrupt_queue_empty",
+    "path_complete",
+    "path_tuple_from_payload",
+    "read_movement_payload",
+    "resolve_moving_faction",
+    "step_opened_interrupts",
+]

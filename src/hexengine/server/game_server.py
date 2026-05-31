@@ -35,6 +35,7 @@ from ..gamedef.unit_attributes import (
 from ..hexes.math import distance
 from ..hexes.types import Hex, HexColRow
 from ..hooks.core import ENGINE_DEFAULT
+from ..arcs import ArcSpec
 from ..hooks.internal import get_engine_catalog_hook, validate_title_contract
 from ..hooks.map_selection_registry import bound_map_selection_kinds
 from ..hooks.movement import MoveContext
@@ -81,6 +82,7 @@ from .map_selection import compute_map_selection_preview
 from .preview import compute_marker_drag_preview, compute_unit_drag_preview
 from .arcs import (
     drive_combat_arc_event,
+    drive_movement_arc_event,
     execute_authority_attack_request,
     finalize_retreat_fulfillment_stack,
     handle_authority_move_unit_normal,
@@ -91,6 +93,7 @@ from .arcs import (
     move_unit_is_combat_advance_fulfillment,
     read_movement_arc,
     retreat_stack_unit_ids,
+    sync_movement_cursor_from_payload,
     validate_retreat_fulfillment_stack,
 )
 from .protocol import (
@@ -241,6 +244,26 @@ class GameServer:
         self.logger.info(f"Turn order: {self.turn_order}")
 
         self._pending_game_log_events: deque[tuple[str, str, str]] = deque()
+        self._movement_arc_spec_cache: ArcSpec | None = None
+
+    def movement_arc_spec(self) -> ArcSpec | None:
+        """Built-in stepwise movement arc (host-bound effects, cached per server)."""
+
+        override = self.hooks.arcs.movement_arc_spec()
+        if isinstance(override, ArcSpec):
+            return override
+        if override is not ENGINE_DEFAULT:
+            return None
+        if self._movement_arc_spec_cache is None:
+            from ..arcs.movement_arc_decl import build_movement_arc, resolve_moving_faction
+            from .arcs.movement_arc_effects import MovementArcEffects
+
+            effects = MovementArcEffects(self)
+            self._movement_arc_spec_cache = ArcSpec(
+                arc=build_movement_arc(effects),
+                owner_resolver=resolve_moving_faction,
+            )
+        return self._movement_arc_spec_cache
 
     @property
     def game_state(self) -> GameState:
@@ -1306,6 +1329,10 @@ class GameServer:
                     player_id, "No movement interrupt to pass right now"
                 )
                 return
+            if await drive_movement_arc_event(
+                self, player_id, player, "PassMovementInterrupt", {}
+            ):
+                return
             try:
                 self.action_manager.execute(
                     ResolvePassMovementInterrupt(str(player.faction))
@@ -1313,6 +1340,7 @@ class GameServer:
             except Exception as e:
                 await self._send_error(player_id, str(e))
                 return
+            sync_movement_cursor_from_payload(self)
             result = ActionResult(success=True, action_id=str(uuid.uuid4()))
             await self._send_message(player_id, result.to_message())
             await self._broadcast_state_update()

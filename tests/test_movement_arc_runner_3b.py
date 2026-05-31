@@ -1,0 +1,269 @@
+"""
+Phase 3b–3c: routing movement RPCs through the generic arc runner.
+
+Covers stepwise continue (MoveUnit) and interrupt pass (PassMovementInterrupt) against
+the engine movement arc. The runner is authoritative only when it accepts; legacy
+handlers remain fallback when the cursor is missing or the runner rejects.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from dataclasses import replace
+from types import SimpleNamespace
+
+from hexengine.arcs import ArcCursor, SuspendedFrame, read_arc_cursor
+from hexengine.arcs.movement_arc_decl import MOVEMENT_ARC_ID, SEG_CONTINUE, SEG_INTERRUPT
+from hexengine.hexes.types import Hex
+from hexengine.hooks.movement import MoveContext, MovementHooks, MovementStepContext
+from hexengine.hooks.title import TitleHooks
+from hexengine.server import GameServer
+from hexengine.server.arcs import (
+    drive_movement_arc_event,
+    sync_movement_cursor_from_payload,
+)
+from hexengine.server.protocol import ActionRequest, JoinGameRequest
+from hexengine.gamedef.builtin import InterleavedTwoFactionGameDefinition
+from hexengine.state import ActionManager, GameState
+from hexengine.state.game_state import BoardState, LocationState, TurnState, UnitState
+from hexengine.state.movement_arc import (
+    HEXENGINE_MOVEMENT_ARC_KEY,
+    MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
+    MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
+    MOVEMENT_INTERRUPT_PHASE,
+)
+from hexengine.state.title_extension import engine_bucket
+
+
+def _loc(h: Hex) -> LocationState:
+    return LocationState(position=h, terrain_type="t", movement_cost=1.0)
+
+
+def _always_stepwise(_ctx: MoveContext) -> bool:
+    return True
+
+
+def _blue_after_first_step(_ctx: MovementStepContext) -> tuple[str, ...]:
+    return ("Blue",)
+
+
+class StepwiseInterleaved(InterleavedTwoFactionGameDefinition):
+    def __init__(self, movement: MovementHooks) -> None:
+        super().__init__()
+        self._movement_hooks = movement
+
+    @property
+    def hooks(self) -> TitleHooks:
+        b = super().hooks
+        return TitleHooks(
+            movement=self._movement_hooks,
+            attack=b.attack,
+            ui=b.ui,
+            arcs=b.arcs,
+        )
+
+
+class _Host:
+    """Minimal stand-in with real movement arc spec (GameServer builds effects)."""
+
+    def __init__(self, state: GameState, hooks: TitleHooks) -> None:
+        self.hooks = hooks
+        self.action_manager = ActionManager(state)
+        self.sent: list[tuple[str, object]] = []
+        self.broadcasts = 0
+        self._movement_arc_spec_cache = None
+        from hexengine.arcs import ArcSpec
+        from hexengine.arcs.movement_arc_decl import build_movement_arc, resolve_moving_faction
+        from hexengine.server.arcs.movement_arc_effects import MovementArcEffects
+
+        class _MovementHostAdapter:
+            action_manager = self.action_manager
+            hooks = self.hooks
+
+            def _max_active_units_per_hex(self, state, unit_id):
+                return None
+
+            def _zoc_hexes_for_unit(self, state, unit_id):
+                return None
+
+            def _movement_step_cost_fn(self, unit_id):
+                return None
+
+            def _movement_step_total_cost(self, state, unit_id, from_h, to_h):
+                return 1.0
+
+        effects = MovementArcEffects(_MovementHostAdapter())  # type: ignore[arg-type]
+        self._movement_arc_spec_cache = ArcSpec(
+            arc=build_movement_arc(effects),
+            owner_resolver=resolve_moving_faction,
+        )
+
+    def movement_arc_spec(self):
+        return self._movement_arc_spec_cache
+
+    async def _send_message(self, player_id: str, message: object) -> None:
+        self.sent.append((player_id, message))
+
+    async def _broadcast_state_update(self) -> None:
+        self.broadcasts += 1
+
+
+def _flow_payload(
+    *,
+    gate: str,
+    step_index: int = 1,
+    interrupt_queue: list[str] | None = None,
+) -> dict:
+    return {
+        "schema": 1,
+        "unit_id": "ru",
+        "path": [
+            {"i": 0, "j": 0, "k": 0},
+            {"i": 1, "j": -1, "k": 0},
+            {"i": 2, "j": -2, "k": 0},
+        ],
+        "step_index": step_index,
+        "moving_faction": "Red",
+        "budget_remaining": 2.0,
+        "gate": gate,
+        "interrupt_queue": interrupt_queue or [],
+        "saved_turn": None,
+    }
+
+
+def test_sync_cursor_maps_continue_gate() -> None:
+    st = GameState.create_empty().with_engine_state(
+        {HEXENGINE_MOVEMENT_ARC_KEY: _flow_payload(gate=MOVEMENT_ARC_GATE_AWAITING_CONTINUE)}
+    )
+    host = _Host(st, StepwiseInterleaved(MovementHooks()).hooks)
+    sync_movement_cursor_from_payload(host)
+    cur = read_arc_cursor(host.action_manager.current_state)
+    assert cur == ArcCursor(arc_id=MOVEMENT_ARC_ID, segment_id=SEG_CONTINUE)
+
+
+def test_sync_cursor_maps_interrupt_gate_with_suspend_frame() -> None:
+    st = GameState.create_empty().with_engine_state(
+        {
+            HEXENGINE_MOVEMENT_ARC_KEY: _flow_payload(
+                gate=MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
+                interrupt_queue=["Blue"],
+            )
+        }
+    )
+    host = _Host(st, StepwiseInterleaved(MovementHooks()).hooks)
+    sync_movement_cursor_from_payload(host)
+    cur = read_arc_cursor(host.action_manager.current_state)
+    assert cur == ArcCursor(
+        arc_id=MOVEMENT_ARC_ID,
+        segment_id=SEG_INTERRUPT,
+        suspended=SuspendedFrame(resume_segment_id=SEG_CONTINUE),
+    )
+
+
+def test_server_stepwise_move_routes_through_runner() -> None:
+    mh = MovementHooks(
+        resolve_move_as_steps=_always_stepwise,
+        movement_interrupt_factions_after_step=_blue_after_first_step,
+    )
+    gd = StepwiseInterleaved(mh)
+
+    a = Hex(0, 0, 0)
+    b = Hex(1, -1, 0)
+    c = Hex(2, -2, 0)
+    board = BoardState(
+        locations={a: _loc(a), b: _loc(b), c: _loc(c)},
+        units={
+            "ru": UnitState("ru", "x", "Red", a, active=True),
+            "bu": UnitState("bu", "x", "Blue", Hex(5, -2, -3), active=True),
+        },
+    )
+    st = GameState(board=board, turn=TurnState("Red", "Movement", 2, 1, 0, 0))
+    server = GameServer(st, game_definition=gd)
+
+    async def run() -> None:
+        await server.handle_message(
+            "r1", JoinGameRequest(player_name="R", faction="Red").to_message()
+        )
+        await server.handle_message(
+            "b1", JoinGameRequest(player_name="B", faction="Blue").to_message()
+        )
+        req = ActionRequest(
+            action_type="MoveUnit",
+            player_id="r1",
+            params={
+                "unit_id": "ru",
+                "from_hex": {"i": a.i, "j": a.j, "k": a.k},
+                "to_hex": {"i": c.i, "j": c.j, "k": c.k},
+            },
+        )
+        await server.handle_message("r1", req.to_message())
+        s2 = server.game_state
+        assert s2 is not None
+        cur = read_arc_cursor(s2)
+        assert cur is not None
+        assert cur.arc_id == MOVEMENT_ARC_ID
+        assert cur.segment_id == SEG_INTERRUPT
+        assert cur.is_suspended
+
+        pass_req = ActionRequest(
+            action_type="PassMovementInterrupt",
+            player_id="b1",
+            params={},
+        )
+        await server.handle_message("b1", pass_req.to_message())
+        s3 = server.game_state
+        assert s3 is not None
+        assert s3.turn.current_faction == "Red"
+        cur3 = read_arc_cursor(s3)
+        assert cur3 is not None
+        assert cur3.segment_id == SEG_CONTINUE
+        assert not cur3.is_suspended
+
+        cont = ActionRequest(
+            action_type="MoveUnit",
+            player_id="r1",
+            params={
+                "unit_id": "ru",
+                "from_hex": {"i": b.i, "j": b.j, "k": b.k},
+                "to_hex": {"i": c.i, "j": c.j, "k": c.k},
+            },
+        )
+        await server.handle_message("r1", cont.to_message())
+        s4 = server.game_state
+        assert s4 is not None
+        assert read_arc_cursor(s4) is None
+        assert HEXENGINE_MOVEMENT_ARC_KEY not in s4.engine_state
+        assert s4.board.units["ru"].position == c
+        assert s4.turn.phase_actions_remaining == 1
+
+    asyncio.run(run())
+
+
+def test_drive_rejects_wrong_interrupt_owner() -> None:
+    st = GameState.create_empty().with_engine_state(
+        {
+            HEXENGINE_MOVEMENT_ARC_KEY: _flow_payload(
+                gate=MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
+                interrupt_queue=["Blue"],
+            )
+        }
+    ).with_turn(
+        replace(
+            GameState.create_empty().turn,
+            current_faction="Blue",
+            current_phase=MOVEMENT_INTERRUPT_PHASE,
+        )
+    )
+    host = _Host(st, StepwiseInterleaved(MovementHooks()).hooks)
+    sync_movement_cursor_from_payload(host)
+
+    async def run() -> bool:
+        return await drive_movement_arc_event(
+            host,
+            "x1",
+            SimpleNamespace(faction="Red"),
+            "PassMovementInterrupt",
+            {},
+        )
+
+    assert asyncio.run(run()) is False
