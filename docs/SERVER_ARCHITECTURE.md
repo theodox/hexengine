@@ -32,6 +32,7 @@ This architecture works identically for single-player (client connects to local 
 - Defines message types (ACTION_REQUEST, STATE_UPDATE, etc.)
 - Serialization/deserialization (JSON)
 - Message structures (ActionRequest, StateUpdate, etc.)
+- Per-recipient **`current_segment`** on `StateUpdate` projects the active arc segment (`allowed_actions`, owner, kind) for dock affordances and client draft entry
 
 ## Message Flow
 

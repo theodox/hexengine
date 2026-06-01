@@ -24,6 +24,7 @@ from hexengine.hooks.wiring import bind_title_hook
 from hexengine.state import UnitState
 from hexengine.state.map_feature_queries import edges_block_los_predicate
 
+from .. import arc_segment
 from .. import combat
 from .. import combat_transitions
 from .. import title_state
@@ -117,11 +118,8 @@ def validate_attack(ctx: AttackContext) -> None:
         raise ValueError("Not your turn")
     if combat.any_retreat_obligation_pending(ctx.state):
         raise ValueError("Resolve retreat before issuing another attack")
-    if (
-        combat_transitions.current_combat_gate(ctx.state)
-        == combat_transitions.GATE_AWAITING_ADVANCE
-    ):
-        raise ValueError("Resolve combat advance before issuing another attack")
+    if arc_segment.segment_denies_action(ctx.state, ctx.player_faction, "Attack"):
+        raise ValueError("Resolve combat obligations before issuing another attack")
 
     att_primary = ctx.state.board.units.get(ctx.attacker_unit_id)
     if att_primary is None or not att_primary.active:
@@ -552,11 +550,11 @@ def auto_advance_phase_after_attack(state) -> bool:
     Advance the schedule when every active unit of the current faction has attacked
     this combat segment and no mandatory retreat is pending.
 
-    Blocked while any combat gate is open (including optional post-combat advance).
+    Blocked while the active segment forbids routine phase advance (combat overlay segments).
     """
-    from ..combat_transitions import blocks_routine_phase_advance
+    from ..arc_segment import phase_advance_blocked
 
-    if blocks_routine_phase_advance(state):
+    if phase_advance_blocked(state):
         return False
     phase = str(state.turn.current_phase)
     if phase not in ("Combat", "Attack"):

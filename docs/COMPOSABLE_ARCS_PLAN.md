@@ -83,6 +83,22 @@ There is **no `conditional` operator** — conditionality is a property of *tran
 
 This keeps replay/undo deterministic for the same reason as the representation decision: randomness enters state only via a logged-RNG `StateAction`, so guards stay pure functions of state.
 
+### Prompt segments
+
+A **prompt segment** is a server-authoritative arc segment that narrows `allowed_actions` until the player resolves a **player prompt** (see [`TURN_ACTION_DOCK_CONTRACT.md` § Player prompts](TURN_ACTION_DOCK_CONTRACT.md#player-prompts)). Routine turn actions (move, end phase, etc.) stay illegal until the prompt is cleared.
+
+Same shape as combat **gate** segments (`retreat_gate`, `advance_gate`) but the name is UX-neutral: season events, scenario beats, and combat obligations all use **interrupt** plus narrowed `allowed_actions`, not a separate mechanism.
+
+Typical authoring:
+
+- **Enter** via automatic transition when title script fires (phase entry, bucket flag, arc effect).
+- **`owner`** — faction that must acknowledge, or per-viewer policy composed in the dock hook.
+- **`allowed_actions`** — only acknowledge / branch RPCs (e.g. `AcknowledgeEvent`).
+- **Exit** on DECIDE commit: clear prompt state in `title_state`, resume the suspended segment or advance the cursor.
+- **Not a draft** — no client-local SELECT sub-arc; validity is server-side on commit.
+
+In title docs, prefer **prompt segment** for narrative or scripted interrupts. Reserve **gate** for segments whose segment kind or `dock_arc` is combat-shaped (`retreat_gate`, `advance_gate`) unless you explicitly mean this segment shape.
+
 ### Why not generators as the standard
 
 Python coroutines map seductively onto arcs (`yield` a segment, resume on the next event; `yield from` is the interrupt/sub-arc operator; sequence is sequential code; `if` is conditional). But a generator's state is an opaque, suspended Python **frame**, which collides with the non-negotiable rewindable-state requirement:

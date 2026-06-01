@@ -12,7 +12,8 @@ Vocabulary (cross-cutting, engine + client):
 **Segment**
     One **step** inside an arc—the smallest server-advanced unit along that arc (e.g.
     one hex hop of a stepwise path, one `PassMovementInterrupt`, or one named stage
-    of the attack pipeline). Arcs compose segments; scheduling phases are a separate layer.
+    of the attack pipeline). The turn arc registry schedules routine segments; overlay
+    arcs (combat, movement) suspend that cursor until they finish.
 
 Combat arcs use the title `extension` bucket; movement stepwise state uses this module’s
 wire key. See `hexengine.server.arcs.authority_attack` (attack RPC),

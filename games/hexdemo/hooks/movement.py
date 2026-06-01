@@ -95,10 +95,10 @@ def retreat_path_preview_for_viewer(ctx):
 
 @bind_title_hook(MovementHook.AUTO_ADVANCE_PHASE_AFTER_MOVE_SPEND)
 def auto_advance_phase_after_move_spend(state: GameState) -> bool:
-    """Advance when actions are depleted unless combat gates block routine turn flow."""
+    """Advance when actions are depleted unless the active segment blocks routine advance."""
 
-    from ..combat_transitions import blocks_routine_phase_advance
+    from ..arc_segment import phase_advance_blocked
 
-    if blocks_routine_phase_advance(state):
+    if phase_advance_blocked(state):
         return False
     return int(state.turn.phase_actions_remaining) <= 0

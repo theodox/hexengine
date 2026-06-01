@@ -21,7 +21,9 @@ from hexengine.hooks.attack import (
 from hexengine.hooks.movement import MovementHooks
 from hexengine.hooks.title import TitleHooks
 from hexengine.hooks.ui import UIHooks
+from hexengine.hooks.arcs import ArcsHooks
 from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer
+from hexengine.authoring.patterns.schedule import build_turn_registry, interleaved_slots
 from hexengine.server import (
     ActionRequest,
     GameServer,
@@ -42,6 +44,23 @@ def _hex_wire(h: Hex) -> dict[str, int]:
 _TEST_TITLE_DOCK_UI = UIHooks(
     turn_action_dock_for_viewer=empty_turn_action_dock_for_viewer,
 )
+
+_TEST_TURN_ARC_REGISTRY = build_turn_registry(
+    interleaved_slots(
+        ("Red", "Blue"),
+        (("Movement", 2, "move"), ("Attack", 2, "attack")),
+        faction_first=True,
+    ),
+    allowed_actions_for_phase=lambda phase: (
+        frozenset({"MoveUnit", "NextPhase"})
+        if str(phase).strip() in ("Movement", "Move")
+        else frozenset({"Attack", "NextPhase"})
+        if str(phase).strip() in ("Attack", "Combat")
+        else frozenset({"NextPhase"})
+    ),
+)
+
+_TEST_ARCS = ArcsHooks(turn_arc_registry=lambda: _TEST_TURN_ARC_REGISTRY)
 
 
 def _test_game_definition() -> InterleavedTwoFactionGameDefinition:
@@ -437,6 +456,7 @@ class TestGameServer(unittest.TestCase):
 
                     return TitleHooks(
                         ui=_TEST_TITLE_DOCK_UI,
+                        arcs=_TEST_ARCS,
                         attack=AttackHooks(
                             validate_attack=_reject,
                             resolve_attack=lambda _c: AttackResolution(outcome="miss"),
@@ -533,6 +553,7 @@ class TestGameServer(unittest.TestCase):
 
                     return TitleHooks(
                         ui=_TEST_TITLE_DOCK_UI,
+                        arcs=_TEST_ARCS,
                         attack=AttackHooks(
                             validate_attack=lambda _c: None,
                             resolve_attack=resolve,
@@ -612,6 +633,7 @@ class TestGameServer(unittest.TestCase):
                 def hooks(self) -> TitleHooks:
                     return TitleHooks(
                         ui=_TEST_TITLE_DOCK_UI,
+                        arcs=_TEST_ARCS,
                         movement=MovementHooks(
                             retreat_obligation_hexes_remaining=lambda st, uid: (
                                 1 if uid == "u" else None
@@ -693,6 +715,7 @@ class TestGameServer(unittest.TestCase):
 
                     return TitleHooks(
                         ui=_TEST_TITLE_DOCK_UI,
+                        arcs=_TEST_ARCS,
                         movement=MovementHooks(
                             retreat_obligation_hexes_remaining=lambda _st, uid: (
                                 2 if uid == "u" else None

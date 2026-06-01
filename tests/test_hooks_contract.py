@@ -126,6 +126,23 @@ def test_validate_title_contract_requires_turn_action_dock_when_extension_key() 
         validate_title_contract(PackWithExtension())
 
 
+def test_validate_title_contract_requires_turn_arc_registry_with_extension_key() -> None:
+    from hexengine.gamedef.game_data import GameData
+    from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer
+
+    class PackWithDockOnly:
+        @property
+        def game_data(self) -> GameData:
+            return GameData.empty().replacing(title_state_extension_key="pack")
+
+        hooks = TitleHooks(
+            ui=UIHooks(turn_action_dock_for_viewer=empty_turn_action_dock_for_viewer),
+        )
+
+    with pytest.raises(HookContractError, match="TURN_ARC_REGISTRY"):
+        validate_title_contract(PackWithDockOnly())
+
+
 def test_engine_catalog_has_movement_budget_default() -> None:
     fn = get_engine_catalog_hook("movement.movement_budget_for_unit")
     assert fn is movement_budget_for_unit_engine_default
@@ -230,54 +247,24 @@ def test_hexdemo_build_hooks_wires_all_marked() -> None:
     assert th.ui.combat_instruction_for_viewer is not None
     assert th.ui.advance_gate_banners_for_viewer is not None
     assert th.ui.turn_action_dock_for_viewer is not None
-    assert th.ui.blocks_routine_phase_advance is not None
     assert th.ui.combat_interaction_messages is not None
 
 
-def test_default_primary_actions_disrupt_row() -> None:
-    from hexengine.hooks.ui import PrimaryActionsContext
-    from hexengine.hooks.ui_primary_actions import default_primary_actions_for_viewer
-    from hexengine.state import GameState
+def test_segment_gate_actions_disrupt_row() -> None:
+    from hexengine.arcs.segment_wire import action_rows_from_segment
 
-    st = GameState.create_empty()
-    ext = {
-        "hexdemo": {
-            "combat_gate": "awaiting_retreat_or_disrupt",
-            "retreat_obligations": {"u_def": 1},
-        }
+    segment = {
+        "schema": 1,
+        "arc_id": "combat",
+        "segment_id": "retreat_or_disrupt_gate",
+        "kind": "awaiting_retreat_or_disrupt",
+        "owner": "confederate",
+        "allowed_actions": ["MoveUnit", "CombatDisruptInsteadOfRetreat"],
+        "action_locus": {},
     }
-    from hexengine.hexes.types import Hex
-    from hexengine.state.game_state import BoardState, UnitState
-
-    board = BoardState(
-        units={
-            "u_def": UnitState(
-                unit_id="u_def",
-                unit_type="inf",
-                faction="confederate",
-                position=Hex(0, 0, 0),
-                health=100,
-                active=True,
-            ),
-        }
-    )
-    st = GameState(
-        board=board,
-        turn=st.turn,
-        title_state=ext["hexdemo"],
-        title_bucket_key="hexdemo",
-        rng_log=(),
-    )
-    ctx = PrimaryActionsContext(
-        state=st,
-        viewer_faction="confederate",
-        extension_key="hexdemo",
-        shell_ui={},
-    )
-    rows = default_primary_actions_for_viewer(ctx)
-    assert len(rows) == 1
-    assert rows[0]["id"] == "combat_disrupt_instead"
-    assert rows[0]["action_type"] == "CombatDisruptInsteadOfRetreat"
+    rows = action_rows_from_segment(segment, {})
+    types = {r["action_type"] for r in rows}
+    assert "CombatDisruptInsteadOfRetreat" in types
 
 
 def test_movement_budget_catalog_default_matches_engine_constant() -> None:

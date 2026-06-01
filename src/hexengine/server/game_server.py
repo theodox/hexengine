@@ -946,17 +946,9 @@ class GameServer:
         from ..arcs.segment_wire import segment_blocks_routine_phase_advance
 
         st = state if state is not None else self.action_manager.current_state
-        if segment_blocks_routine_phase_advance(
+        return segment_blocks_routine_phase_advance(
             self, st, viewer_faction=str(st.turn.current_faction)
-        ):
-            return True
-        ek = self._title_extension_key()
-        raw = self.hooks.ui.blocks_routine_phase_advance_for(st, ek)
-        if raw is ENGINE_DEFAULT:
-            from ..hooks.ui_combat_messages import default_blocks_routine_phase_advance
-
-            return default_blocks_routine_phase_advance(st, ek)
-        return bool(raw)
+        )
 
     def _combat_instruction_for_viewer(
         self,
@@ -1112,6 +1104,9 @@ class GameServer:
             state=st,
             viewer_faction=viewer_faction,
             extension_key=ek,
+            current_segment=self.project_current_segment(
+                st, viewer_faction=viewer_faction
+            ),
         )
         combat_raw = self.hooks.ui.combat_interaction_messages_for(msg_ctx)
         if combat_raw is ENGINE_DEFAULT:

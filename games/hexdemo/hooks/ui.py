@@ -91,13 +91,6 @@ def popup_message(
     return ENGINE_DEFAULT
 
 
-@bind_title_hook(UIHook.BLOCKS_ROUTINE_PHASE_ADVANCE)
-def blocks_routine_phase_advance(_state, _extension_key) -> bool:
-    from ..combat_transitions import blocks_routine_phase_advance as policy
-
-    return policy(_state)
-
-
 @bind_title_hook(UIHook.COMBAT_INTERACTION_MESSAGES)
 def combat_interaction_messages(
     ctx: CombatInteractionMessagesContext,
@@ -125,7 +118,6 @@ def inform_popup_for_viewer(ctx):
 
 __all__ = [
     "advance_gate_banners_for_viewer",
-    "blocks_routine_phase_advance",
     "combat_event_summary",
     "combat_interaction_messages",
     "combat_instruction_for_viewer",

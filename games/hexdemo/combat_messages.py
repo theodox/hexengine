@@ -101,6 +101,7 @@ def build_combat_interaction_messages(
             state=ctx.state,
             viewer_faction=ctx.viewer_faction,
             extension_key=ek or PACK_STATE_EXTENSION_KEY,
+            current_segment=ctx.current_segment,
         ),
         combat_instruction=combat_instruction,
         advance_gate_banners=advance_gate_banners,

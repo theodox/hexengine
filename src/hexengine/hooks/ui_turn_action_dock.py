@@ -64,9 +64,7 @@ def _segment_gate_actions(ctx: TurnActionDockContext) -> list[dict[str, Any]]:
 def _end_phase_enabled(ctx: TurnActionDockContext) -> bool:
     if ctx.current_segment is not None:
         return segment_allows_action(ctx.current_segment, "NextPhase")
-    from .ui_combat_messages import default_blocks_routine_phase_advance
-
-    return not default_blocks_routine_phase_advance(ctx.state, ctx.extension_key)
+    return True
 
 
 def _dock_arc_for_viewer(

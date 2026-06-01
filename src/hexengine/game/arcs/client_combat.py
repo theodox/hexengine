@@ -3,7 +3,8 @@ Optional client combat UX (attack planning) gated by `turn_rules.client_contract
 
 Attack-plan drafts use server ``map_selection_preview`` when
 ``map_selection_previews`` is advertised; confirm/cancel merge into the turn
-action dock via ``panel_actions``. Combat-gate and end-phase buttons use the same dock.
+action dock via ``panel_actions``. End-phase and gate buttons derive from
+``current_segment`` on the turn action dock.
 """
 
 from __future__ import annotations
@@ -62,33 +63,18 @@ class ClientCombatMixin(ClientMapSelectionMixin):
             return None
         return segment_allows_action(seg, action_type)
 
-    def _title_combat_gate(self) -> str:
-        st = self._interactive_game_state()
-        if st is None:
-            return ""
-        ek = self._title_state_extension_key()
-        if not ek:
-            return ""
-        from ...state.title_extension import title_bucket
-
-        return str(title_bucket(st, ek).get("combat_gate", "")).strip()
-
-    def _combat_gate_blocks_attack_planning_ui(self) -> bool:
+    def _segment_blocks_attack_planning_ui(self) -> bool:
         allowed = self._segment_allows_action("Attack")
         if allowed is not None:
             return not allowed
-        return self._title_combat_gate() in (
-            "awaiting_advance",
-            "awaiting_retreat",
-            "awaiting_retreat_or_disrupt",
-        )
+        return False
 
     def _sync_attack_plan_after_state_update(self) -> None:
         if not self._client_has_attack_planning_ui():
             if self.attack_plan_target_hex is not None or self.attack_plan_attacker_ids:
                 self.cancel_attack_plan()
             return
-        if self._combat_gate_blocks_attack_planning_ui():
+        if self._segment_blocks_attack_planning_ui():
             if self.attack_plan_target_hex is not None or self.attack_plan_attacker_ids:
                 self.cancel_attack_plan()
             return

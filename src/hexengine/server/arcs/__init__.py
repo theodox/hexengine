@@ -7,11 +7,12 @@ stepwise move with interrupt passes). It is “server authority” in that progr
 and legality belong to `GameServer` and state actions, not to thin clients.
 
 A **segment** is one atomic step along an arc (one pipeline stage, one hex step in a
-path, one interrupt resolution, and so on). Arcs compose segments; turn schedule
-phases are a separate layer.
+path, one interrupt resolution, and so on). Overlay arcs (combat cleanup,
+movement stepwise) suspend the routine arc cursor; the turn registry schedules
+which routine arc is active each slot.
 
-This package holds three arc implementations (`authority_attack`, `authority_movement`,
-`authority_combat_cleanup`). Shared vocabulary and movement wire details are documented
+This package holds arc runtime bridges (`authority_arc_runtime`, attack/movement/
+combat cleanup dispatch). Shared vocabulary and movement wire details are documented
 in `hexengine.state.movement_arc`.
 """
 

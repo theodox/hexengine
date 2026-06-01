@@ -1,5 +1,10 @@
 # Engine boundary 2 — implementation plan
 
+> **Superseded for combat flow** by [`COMPOSABLE_ARCS_PLAN.md`](COMPOSABLE_ARCS_PLAN.md) (Phases 0–7).
+> Phase B hooks (`BLOCKS_ROUTINE_PHASE_ADVANCE`, gate-string catalog defaults) were removed;
+> legality and affordances now use `current_segment` from declared arcs. This doc remains as
+> historical context for the boundary-2 branch.
+
 Branch: `engine_boundary_2` (from skinning squash on `main`).
 
 **Goal:** Clarify engine vs title ownership for **match state**, **combat transitions**, and **phase advance** — without a monolithic engine combat state machine and without requiring mid-session title switches.

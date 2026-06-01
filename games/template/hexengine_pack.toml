@@ -1,0 +1,13 @@
+manifest_version = 1
+
+[pack]
+id = "template"
+title = "Arc template"
+
+[python]
+path_add = ".."
+entry_module = "template.engine_entry"
+entry_callable = "load_game_definition"
+
+[gamedata]
+file = "resources/game_data.toml"

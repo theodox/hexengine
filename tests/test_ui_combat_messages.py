@@ -1,15 +1,17 @@
-"""Tests for combat interaction message hooks (engine boundary phase B)."""
+"""Tests for combat interaction message hooks."""
 
 from __future__ import annotations
 
+from hexengine.arcs import ArcCursor, with_arc_cursor
 from hexengine.hooks.ui import CombatInteractionContext
 from hexengine.hooks.ui_combat_messages import (
     CombatInteractionMessagesContext,
-    default_blocks_routine_phase_advance,
     default_combat_interaction_messages,
     retreat_owner_faction,
 )
 from hexengine.state import GameState
+
+from games.hexdemo import combat_transitions
 
 
 def test_retreat_owner_faction_defender() -> None:
@@ -40,30 +42,29 @@ def test_retreat_owner_faction_defender() -> None:
     )
 
 
-def test_default_blocks_routine_phase_advance_gate() -> None:
+def test_default_combat_interaction_messages_advance_row_uses_segment() -> None:
     st = GameState.create_empty().with_title_state(
-        {"combat_gate": "awaiting_advance"}, title_bucket_key="hexdemo"
-    )
-    assert default_blocks_routine_phase_advance(st, "hexdemo") is True
-
-
-def test_default_blocks_routine_phase_advance_retreat_obligation() -> None:
-    st = GameState.create_empty().with_title_state(
-        {"retreat_obligations": {"u1": 2}}, title_bucket_key="hexdemo"
-    )
-    assert default_blocks_routine_phase_advance(st, "hexdemo") is True
-
-
-def test_default_combat_interaction_messages_advance_row() -> None:
-    st = GameState.create_empty().with_title_state(
-        {
-            "combat_gate": "awaiting_advance",
-            "advance": {"faction": "union"},
-        },
+        {"advance": {"faction": "union"}},
         title_bucket_key="hexdemo",
     )
+    st = with_arc_cursor(
+        st,
+        ArcCursor(arc_id="combat", segment_id="advance_gate"),
+    )
+    segment = {
+        "schema": 1,
+        "arc_id": "combat",
+        "segment_id": "advance_gate",
+        "kind": combat_transitions.GATE_AWAITING_ADVANCE,
+        "owner": "union",
+        "allowed_actions": ["CombatAdvance", "CombatDeclineAdvance"],
+        "action_locus": {},
+    }
     ctx = CombatInteractionMessagesContext(
-        state=st, viewer_faction="union", extension_key="hexdemo"
+        state=st,
+        viewer_faction="union",
+        extension_key="hexdemo",
+        current_segment=segment,
     )
     rows = default_combat_interaction_messages(
         ctx,

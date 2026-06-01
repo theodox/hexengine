@@ -55,6 +55,24 @@ Titles expose many player-facing flows; the engine reuses a small set of **primi
 | Yes/no or enumerated choice (no map) | DECIDE (`actions[]` or `inputs[]` + confirm row) |
 | “Pick path, then confirm” wizard | SEQUENCE: INFORM → SELECT (path) → DECIDE |
 | “Pick ammunition, then path, then confirm” | SEQUENCE: DECIDE (inputs) → SELECT → DECIDE |
+| Scripted event / season card (must dismiss) | SEQUENCE: INFORM (dock `html`) → DECIDE (Acknowledge or branch) |
+
+### Player prompts
+
+A **player prompt** is a title-authored beat where the player reads copy (optional graphics) and commits via the dock. It is **not** a new wire type or primitive. It is a **prompt sequence**: one or more INFORM steps (banner and/or dock `headline` / `html`) followed by DECIDE (`actions[]` → `action_request`).
+
+Blocking scripted events (season cards, scenario intros, “click Continue”) use this pattern:
+
+| Piece | Author with |
+|-------|-------------|
+| Copy + image | Dock `headline` + `html` from `resources/templates/` (HTML ladder); optional `interaction_messages` for a banner line |
+| Acknowledge / choice | DECIDE: one or more dock action rows (e.g. `AcknowledgeEvent`, branch A / B) |
+| Skin key | `dock_arc` (e.g. `event_prompt`) — opaque to engine; pack CSS may center or modal-style the panel |
+| Queue / script id | Title bucket (`title_state`); not client-readable for legality |
+
+Do **not** use `ui_popup` for blocking prompts — that lane is hex-anchored, ephemeral INFORM. Do **not** put `onclick` in prompt HTML; every commit is a dock action row.
+
+Longer flows add SELECT between INFORM and DECIDE (attack plan, retreat path). Authority-side blocking is a **prompt segment** in the turn arc — see [`COMPOSABLE_ARCS_PLAN.md` § Prompt segments](COMPOSABLE_ARCS_PLAN.md#prompt-segments).
 
 ### SELECT — draft shapes (same wire, title policy)
 
@@ -265,9 +283,9 @@ Unregistered rows: `execute_action_request(action_type, payload ∪ inputs)`.
 
 When the hook returns `ENGINE_DEFAULT`, the server uses [`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py):
 
-1. Catalog gate rows from [`default_primary_actions_for_viewer`](../src/hexengine/hooks/ui_primary_actions.py) when `extension_key` is set.
-2. **`end_phase`** (`NextPhase`) when the viewer may end the phase (blocked while `combat_gate` is `awaiting_retreat_or_disrupt` or `awaiting_advance`).
-3. One panel: `id: turn_actions`, `host: advance`, `dock_arc: engine_default`.
+1. Gate rows from `ctx.current_segment.allowed_actions` via [`action_rows_from_segment`](../src/hexengine/arcs/segment_wire.py).
+2. **`end_phase`** (`NextPhase`) when `NextPhase` is in the segment's allowed set (or when no segment descriptor is present).
+3. One panel: `id: turn_actions`, `host: user-controls`, `dock_arc` from [`dock_arc_from_segment`](../src/hexengine/arcs/segment_wire.py).
 
 Titles that bind **`TURN_ACTION_DOCK_FOR_VIEWER`** replace this composition.
 

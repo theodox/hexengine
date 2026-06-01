@@ -12,9 +12,8 @@ from typing import Any
 from ...state import GameState
 from ...state.logic import DEFAULT_MOVEMENT_BUDGET
 from ..core import SINGLE_DEFAULT
-from ..ui_primary_actions import default_primary_actions_for_viewer
-from ..ui_interaction_panels import default_interaction_panels_for_viewer
 from ..movement_advance import default_auto_advance_phase_after_move_spend
+from ..ui_interaction_panels import default_interaction_panels_for_viewer
 from ..ui_turn_action_dock import default_turn_action_dock_for_viewer
 from .contracts import hook
 
@@ -60,12 +59,6 @@ movement_budget_for_unit_engine_default = hook(
 )(_engine_impl_default_movement_budget_for_unit)
 
 
-primary_actions_for_viewer_engine_default = hook(
-    contract=SINGLE_DEFAULT,
-    engine_impl=default_primary_actions_for_viewer,
-    title_field="ui.primary_actions_for_viewer",
-)(default_primary_actions_for_viewer)
-
 interaction_panels_for_viewer_engine_default = hook(
     contract=SINGLE_DEFAULT,
     engine_impl=default_interaction_panels_for_viewer,
@@ -91,10 +84,6 @@ def _load_defaults() -> None:
         movement_budget_for_unit_engine_default,
     )
     register_engine_catalog_hook(
-        "ui.primary_actions_for_viewer",
-        primary_actions_for_viewer_engine_default,
-    )
-    register_engine_catalog_hook(
         "ui.interaction_panels_for_viewer",
         interaction_panels_for_viewer_engine_default,
     )
@@ -117,7 +106,6 @@ __all__ = [
     "auto_advance_phase_after_move_spend_engine_default",
     "interaction_panels_for_viewer_engine_default",
     "movement_budget_for_unit_engine_default",
-    "primary_actions_for_viewer_engine_default",
     "turn_action_dock_for_viewer_engine_default",
     "register_engine_catalog_hook",
 ]

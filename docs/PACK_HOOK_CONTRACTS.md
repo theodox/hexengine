@@ -57,7 +57,7 @@ Transient turn banner rows. Omitted from wire when `None`. Client shows **one** 
 **Server composition:** unless `UIHook.INTERACTION_MESSAGES` returns a full list, the server merges:
 
 1. **Phase row** — `PHASE_BANNER_TEXT_FOR_VIEWER` → `text`; optional `PHASE_BANNER_HTML_FOR_VIEWER` → `html`
-2. **Combat rows** — `UIHook.COMBAT_INTERACTION_MESSAGES` → `list[dict]` (hexdemo: [`combat_messages.py`](../games/hexdemo/combat_messages.py) via [`combat_transitions`](../games/hexdemo/combat_transitions.py)). When the hook returns `ENGINE_DEFAULT`, the engine builds rows from the title bucket using `COMBAT_INSTRUCTION_FOR_VIEWER` and `ADVANCE_GATE_BANNERS_FOR_VIEWER` ([`ui_combat_messages.py`](../src/hexengine/hooks/ui_combat_messages.py)). Gate string literals in that default path are hexdemo-shaped catalog fallbacks only.
+2. **Combat rows** — `UIHook.COMBAT_INTERACTION_MESSAGES` → `list[dict]` (hexdemo: [`combat_messages.py`](../games/hexdemo/combat_messages.py)). When the hook returns `ENGINE_DEFAULT`, the engine builds rows from `current_segment.kind` plus `COMBAT_INSTRUCTION_FOR_VIEWER` and `ADVANCE_GATE_BANNERS_FOR_VIEWER` ([`ui_combat_messages.py`](../src/hexengine/hooks/ui_combat_messages.py)). The engine does not read title bucket `combat_gate` for banners.
 
 `game_server` does not parse `last_combat` / `combat_gate` directly for banners (engine boundary 2). **`combat_event`** messages for retreat UI still use `last_combat` in [`_broadcast_combat_events`](../src/hexengine/server/game_server.py) — separate from INFORM.
 
@@ -116,7 +116,7 @@ Used in dock `actions[]` and in `map_selection_preview.panel_actions`.
 
 ### `StateUpdate.primary_actions` (removed from wire)
 
-The flat `primary_actions` list is no longer sent on `StateUpdate`. Gate rows (disrupt, advance, end phase) are composed inside the turn action dock via `TURN_ACTION_DOCK_FOR_VIEWER` (catalog default or title hook). [`default_primary_actions_for_viewer`](../src/hexengine/hooks/ui_primary_actions.py) remains an internal helper for the engine dock catalog only.
+Gate rows (disrupt, advance, end phase) are composed inside the turn action dock via `TURN_ACTION_DOCK_FOR_VIEWER`, driven by `StateUpdate.current_segment.allowed_actions`.
 
 ### `StateUpdate.map_overlays`
 
@@ -199,15 +199,13 @@ Bind with `@bind_title_hook(UIHook.…)` in the title hooks package. Values matc
 | **`PHASE_BANNER_TEXT_FOR_VIEWER`** | Default message composition | `(ctx: PhaseBannerContext)` | `str` | [`default_phase_banner_text_for_viewer`](../src/hexengine/hooks/ui.py) |
 | **`PHASE_BANNER_HTML_FOR_VIEWER`** | Default message composition | `(ctx: PhaseBannerContext)` | `str` | Omitted — phase row is text-only |
 | **`COMBAT_INSTRUCTION_FOR_VIEWER`** | After combat with retreat context | `(ctx: CombatInteractionContext)` | `(instruction, message)` | [`default_combat_instruction_for_viewer`](../src/hexengine/hooks/ui.py) |
-| **`ADVANCE_GATE_BANNERS_FOR_VIEWER`** | `combat_gate == awaiting_advance` | `(ctx: AdvanceGateInteractionContext)` | `(text_advancing, text_other)` | [`default_advance_gate_banners_for_viewer`](../src/hexengine/hooks/ui.py) |
+| **`ADVANCE_GATE_BANNERS_FOR_VIEWER`** | Active segment kind is advance gate | `(ctx: AdvanceGateInteractionContext)` | `(text_advancing, text_other)` | [`default_advance_gate_banners_for_viewer`](../src/hexengine/hooks/ui.py) |
 | **`POPUP_MESSAGE`** | `InspectRequest` (`unit` / `marker`) | `(state, viewer_faction, target_kind, target_id)` | `dict` | Minimal debug text |
 | **`INFORM_POPUP`** | `InspectRequest` (`inform`) | `(ctx: InformPopupContext)` | `dict` | [`default_inform_popup_for_viewer`](../src/hexengine/hooks/inform_popup.py) |
 | **`MAP_OVERLAYS`** | Every per-player `StateUpdate` | `(state, viewer_faction)` | `list[dict]` | `[]` |
 | **`TURN_ACTION_DOCK_FOR_VIEWER`** | Every per-player `StateUpdate` | `(ctx: TurnActionDockContext)` | `list[dict]` panels | Engine catalog ([`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py)) |
-| **`PRIMARY_ACTIONS_FOR_VIEWER`** | When dock hook not bound | `(ctx: PrimaryActionsContext)` | `list[dict]` | Engine catalog ([`ui_primary_actions`](../src/hexengine/hooks/ui_primary_actions.py)) |
 | **`INTERACTION_PANELS_FOR_VIEWER`** | When dock hook not bound | `(ctx: InteractionPanelsContext)` | `list[dict]` | Engine catalog ([`ui_interaction_panels`](../src/hexengine/hooks/ui_interaction_panels.py)) |
-| **`BLOCKS_ROUTINE_PHASE_ADVANCE`** | Before `NextPhase`, move/attack auto-advance, dock `end_phase` enablement | `(state: GameState)` | `bool` | `False` (catalog: hexdemo gate check when extension key set — prefer title bind) |
-| **`COMBAT_INTERACTION_MESSAGES`** | Default `interaction_messages` combat slice (after phase row) | `(ctx: CombatInteractionMessagesContext)` | `list[dict]` | [`default_combat_interaction_messages`](../src/hexengine/hooks/ui_combat_messages.py) using partial combat/advance hooks |
+| **`COMBAT_INTERACTION_MESSAGES`** | Default `interaction_messages` combat slice (after phase row) | `(ctx: CombatInteractionMessagesContext)` | `list[dict]` | [`default_combat_interaction_messages`](../src/hexengine/hooks/ui_combat_messages.py) using segment kind + partial combat/advance hooks |
 | **`COMBAT_EVENT_SUMMARY`** | After combat, to fan out `combat_event` wires | `(state)` | `CombatEventSummary \| None` | `None` (no `combat_event` broadcast) |
 
 **Partial vs full message hooks**
@@ -216,7 +214,9 @@ Bind with `@bind_title_hook(UIHook.…)` in the title hooks package. Values matc
 - **Full** — `INTERACTION_MESSAGES` replaces the entire list; do not rely on partial hooks when the full hook is bound.
 - **Phase banner** — always provide sensible `text` via `PHASE_BANNER_TEXT_FOR_VIEWER` even when `PHASE_BANNER_HTML_FOR_VIEWER` supplies display HTML.
 
-Context dataclasses: [`CombatInteractionContext`](../src/hexengine/hooks/ui.py), [`AdvanceGateInteractionContext`](../src/hexengine/hooks/ui.py), [`CombatInteractionMessagesContext`](../src/hexengine/hooks/ui_combat_messages.py), [`PhaseBannerContext`](../src/hexengine/hooks/ui.py), [`TurnActionDockContext`](../src/hexengine/hooks/ui_turn_action_dock.py), [`PrimaryActionsContext`](../src/hexengine/hooks/ui_primary_actions.py).
+Context dataclasses: [`CombatInteractionContext`](../src/hexengine/hooks/ui.py), [`AdvanceGateInteractionContext`](../src/hexengine/hooks/ui.py), [`CombatInteractionMessagesContext`](../src/hexengine/hooks/ui_combat_messages.py), [`PhaseBannerContext`](../src/hexengine/hooks/ui.py), [`TurnActionDockContext`](../src/hexengine/hooks/ui_turn_action_dock.py).
+
+**Phase advance blocking:** `NextPhase` legality and End Phase dock enablement derive from `current_segment.allowed_actions` ([`segment_blocks_routine_phase_advance`](../src/hexengine/arcs/segment_wire.py)). Titles with `title_state_extension_key` must bind `ArcHook.TURN_ARC_REGISTRY`.
 
 ### Attack hook inventory (combat policy)
 

@@ -10,6 +10,7 @@ GAMES = str(REPO_ROOT / "games")
 if GAMES not in sys.path:
     sys.path.insert(0, GAMES)
 
+from hexengine.arcs import ArcCursor, with_arc_cursor
 from hexengine.hexes.types import Hex
 from hexengine.gamedef.interactions import InteractionKind
 from hexengine.server.game_server import GameServer
@@ -55,6 +56,8 @@ def test_turn_rules_advertises_map_selection_previews() -> None:
 def test_attack_plan_preview_lists_targets_in_combat() -> None:
     server = _hexdemo_server()
     st = server.action_manager.current_state
+    st = with_arc_cursor(st, ArcCursor(arc_id="union_combat", segment_id="routine"))
+    server.action_manager.replace_state(st)
     raw = compute_map_selection_preview(
         state=st,
         player_faction="union",

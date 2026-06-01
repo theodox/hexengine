@@ -1,11 +1,12 @@
-"""Combat-related interaction message rows and phase-advance blocking policy."""
+"""Combat-related interaction message rows (segment-aware, no gate-string reads)."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from ..arcs.segment_wire import KIND_DOCK_ARC_ADVANCE, KIND_DOCK_ARC_RETREAT
 from ..state import GameState
 from ..state.title_extension import title_bucket
 
@@ -24,36 +25,6 @@ def retreat_owner_faction(
     return None
 
 
-def default_blocks_routine_phase_advance(
-    state: GameState, extension_key: str | None
-) -> bool:
-    """
-    Engine catalog default: block routine phase advance during combat gates or
-    positive ``retreat_obligations`` in the title bucket.
-    """
-
-    ek = str(extension_key or "").strip()
-    if not ek:
-        return False
-    hx = title_bucket(state, ek)
-    gate = str(hx.get("combat_gate", "")).strip()
-    if gate in (
-        "awaiting_retreat",
-        "awaiting_retreat_or_disrupt",
-        "awaiting_advance",
-    ):
-        return True
-    ro = hx.get("retreat_obligations")
-    if isinstance(ro, dict):
-        for raw in ro.values():
-            try:
-                if int(raw) > 0:
-                    return True
-            except (TypeError, ValueError):
-                continue
-    return False
-
-
 @dataclass(frozen=True, slots=True)
 class CombatInteractionMessagesContext:
     """Inputs for ``UIHook.COMBAT_INTERACTION_MESSAGES``."""
@@ -61,6 +32,7 @@ class CombatInteractionMessagesContext:
     state: GameState
     viewer_faction: str | None
     extension_key: str | None
+    current_segment: Mapping[str, Any] | None = None
 
 
 def default_combat_interaction_messages(
@@ -72,8 +44,8 @@ def default_combat_interaction_messages(
     """
     Engine default combat/retreat/advance rows for ``interaction_messages``.
 
-    ``combat_instruction`` and ``advance_gate_banners`` usually delegate to
-    ``UIHooks`` (title copy) or engine defaults.
+    Advance and retreat prompts follow ``current_segment.kind``; the title bucket
+    ``combat_gate`` mirror is not read.
     """
 
     ek = str(ctx.extension_key or "").strip()
@@ -82,6 +54,9 @@ def default_combat_interaction_messages(
     hx = title_bucket(ctx.state, ek)
     if not hx:
         return []
+
+    segment = ctx.current_segment if isinstance(ctx.current_segment, Mapping) else None
+    segment_kind = str(segment.get("kind", "")).strip() if segment else ""
 
     out: list[dict[str, Any]] = []
     viewer = str(ctx.viewer_faction).strip() if ctx.viewer_faction else ""
@@ -95,11 +70,7 @@ def default_combat_interaction_messages(
             ctx.state, outcome, attacker_id, defender_id
         )
         inst, msg = combat_instruction(outcome, retreat_owner)
-        gate = str(hx.get("combat_gate", "")).strip()
-        if inst in ("retreat_required", "wait") and gate not in (
-            "awaiting_retreat",
-            "awaiting_retreat_or_disrupt",
-        ):
+        if inst in ("retreat_required", "wait") and segment_kind not in KIND_DOCK_ARC_RETREAT:
             inst, msg = "resolved", "Combat resolved."
         kind = (
             "retreat"
@@ -125,8 +96,7 @@ def default_combat_interaction_messages(
             }
         )
 
-    gate = str(hx.get("combat_gate", "")).strip()
-    if gate == "awaiting_advance":
+    if segment_kind in KIND_DOCK_ARC_ADVANCE:
         adv = hx.get("advance")
         adv_faction = (
             str(adv.get("faction", "")).strip() if isinstance(adv, dict) else ""
@@ -161,7 +131,6 @@ def default_combat_interaction_messages(
 
 __all__ = [
     "CombatInteractionMessagesContext",
-    "default_blocks_routine_phase_advance",
     "default_combat_interaction_messages",
     "retreat_owner_faction",
 ]

@@ -1,7 +1,11 @@
 """
-Hexdemo combat gate FSM (title-owned; the engine does not enumerate these values).
+Hexdemo combat transition effects (title-owned).
 
-State table (``combat_gate`` in the title bucket):
+Maintains the ``combat_gate`` bucket mirror for debugging and title-local guards.
+The engine reads ``current_segment``, not bucket gate strings.
+
+State table (``combat_gate`` in the title bucket — effect-maintained mirror; engine
+legality reads ``current_segment``, not this field):
 
 | Gate | End phase / auto-advance | Attack planning | Typical entry |
 |------|--------------------------|-----------------|---------------|
@@ -82,17 +86,9 @@ DOCK_ARC_ROUTINE = "routine"
 
 
 def current_combat_gate(state: GameState) -> str:
-    """Normalized ``combat_gate`` string from the hexdemo bucket (``""`` if unset)."""
+    """Normalized ``combat_gate`` mirror in the title bucket (``""`` if unset)."""
 
     return str(title_state.bucket(state).get("combat_gate", "")).strip()
-
-
-def blocks_routine_phase_advance(state: GameState) -> bool:
-    """True when retreat obligations or a combat gate forbid End Phase / auto-advance."""
-
-    if combat.any_retreat_obligation_pending(state):
-        return True
-    return current_combat_gate(state) in GATES_BLOCKING_ROUTINE
 
 
 def attack_planning_blocked_reason(
@@ -105,46 +101,29 @@ def attack_planning_blocked_reason(
     phase = str(state.turn.current_phase).strip()
     if phase not in ("Combat", "Attack"):
         return "Attack planning is only available during Combat"
+
+    from .arc_segment import project_segment_for_faction
+
+    from hexengine.arcs.segment_wire import (
+        KIND_DOCK_ARC_ADVANCE,
+        KIND_DOCK_ARC_RETREAT,
+        segment_allows_action,
+    )
+
+    seg = project_segment_for_faction(state, player_faction)
+    if seg is not None:
+        if segment_allows_action(seg, "Attack"):
+            return None
+        kind = str(seg.get("kind", "")).strip()
+        if kind in KIND_DOCK_ARC_ADVANCE:
+            return "Resolve combat advance before planning an attack"
+        if kind in KIND_DOCK_ARC_RETREAT:
+            return "Resolve retreat before planning an attack"
+        return "Combat obligations must be resolved before planning an attack"
+
     if combat.any_retreat_obligation_pending(state):
         return "Resolve retreat before planning an attack"
-    gate = current_combat_gate(state)
-    if gate == GATE_AWAITING_ADVANCE:
-        return "Resolve combat advance before planning an attack"
-    if gate == GATE_AWAITING_RETREAT_OR_DISRUPT:
-        return "Resolve retreat before planning an attack"
-    if gate == GATE_AWAITING_RETREAT:
-        return "Resolve retreat before planning an attack"
     return None
-
-
-def dock_arc_hint(
-    *,
-    state: GameState,
-    viewer_faction: str | None,
-    viewer_is_turn_owner: bool,
-    current_phase: str,
-    gate_actions: list[dict[str, Any]],
-) -> str:
-    """
-    Turn-action dock arc for the viewer (retreat gate, advance gate, attack-ready, routine).
-    """
-
-    for row in gate_actions:
-        if not isinstance(row, dict):
-            continue
-        at = str(row.get("action_type", "")).strip()
-        if at == "CombatDisruptInsteadOfRetreat":
-            return DOCK_ARC_RETREAT_GATE
-        if at == "CombatAdvance":
-            return DOCK_ARC_ADVANCE_GATE
-    my = str(viewer_faction or "").strip()
-    if my and combat.faction_has_pending_retreat(state, my):
-        return DOCK_ARC_RETREAT_GATE
-    if not viewer_is_turn_owner:
-        return DOCK_ARC_HIDDEN
-    if str(current_phase).strip() == "Combat":
-        return DOCK_ARC_ATTACK_READY
-    return DOCK_ARC_ROUTINE
 
 
 def follow_up_after_attack(ctx: AfterAttackAppliedContext) -> list[StateAction]:
@@ -294,10 +273,8 @@ __all__ = [
     "GATES_BLOCKING_ROUTINE",
     "PHASE_SCOPED_COMBAT_KEYS",
     "attack_planning_blocked_reason",
-    "blocks_routine_phase_advance",
     "clear_combat_state_actions",
     "current_combat_gate",
-    "dock_arc_hint",
     "follow_up_after_attack",
     "on_retreat_obligation_cleared",
 ]

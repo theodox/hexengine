@@ -17,10 +17,7 @@ from types import SimpleNamespace
 from hexengine.arcs import ArcCursor, SetArcCursor, read_arc_cursor
 from hexengine.hexes.types import Hex
 from hexengine.hooks.title import TitleHooks
-from hexengine.hooks.ui_primary_actions import (
-    PrimaryActionsContext,
-    default_primary_actions_for_viewer,
-)
+from hexengine.arcs.segment_wire import action_rows_from_segment
 from hexengine.server.arcs import begin_combat_arc, drive_combat_arc_event
 from hexengine.state import ActionManager, GameState
 from hexengine.state.game_state import UnitState
@@ -249,15 +246,20 @@ def test_drive_falls_back_without_declared_arc() -> None:
 
 
 def test_dock_offers_skip_at_awaiting_advance() -> None:
-    st = _state(
-        combat_transitions.GATE_AWAITING_ADVANCE,
-        advance={"faction": "union"},
-        current="union",
-    )
-    ctx = PrimaryActionsContext(
-        state=st, viewer_faction="union", extension_key="hexdemo", shell_ui={}
-    )
-    rows = default_primary_actions_for_viewer(ctx)
+    segment = {
+        "schema": 1,
+        "arc_id": "combat",
+        "segment_id": combat_arc.SEG_ADVANCE_GATE,
+        "kind": combat_transitions.GATE_AWAITING_ADVANCE,
+        "owner": "union",
+        "allowed_actions": [
+            "CombatAdvance",
+            "MoveUnit",
+            "CombatDeclineAdvance",
+        ],
+        "action_locus": {},
+    }
+    rows = action_rows_from_segment(segment, {})
     types = {r["action_type"] for r in rows}
     assert "CombatAdvance" in types
     assert "CombatDeclineAdvance" in types

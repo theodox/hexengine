@@ -97,7 +97,7 @@ Server prepends `games/` when loading a scenario path; see hexdemo README for lo
 
 Match-scoped title state lives in **`GameState.title_state`** (one bucket per match; pack id in **`GameState.title_bucket_key`** from `GameData.title_state_extension_key`). Read/write through one module (hexdemo: [`title_state.py`](../games/hexdemo/title_state.py)). Engine ephemeral keys live in **`GameState.engine_state`** and must use the `hexengine_` prefix (see [`title_extension.py`](../src/hexengine/state/title_extension.py)).
 
-Hexdemo **`combat_gate`** values and transitions are documented in [`combat_transitions.py`](../games/hexdemo/combat_transitions.py) (FSM table, constants, `blocks_routine_phase_advance`, dock arcs). New pack combat behavior should start there; hook files stay thin `@bind_title_hook` adapters.
+Hexdemo combat cleanup is a **declared arc** ([`combat_arc.py`](../games/hexdemo/combat_arc.py) + [`authoring.patterns.combat`](../src/hexengine/authoring/patterns/combat.py)). The title bucket **`combat_gate`** string is an effect-maintained mirror for debugging; the engine reads **`current_segment`** (arc cursor + declared segment metadata), not bucket gate strings. Transition effects and FSM notes live in [`combat_transitions.py`](../games/hexdemo/combat_transitions.py). Segment helpers: [`arc_segment.py`](../games/hexdemo/arc_segment.py).
 
 Authoritative match state uses **`GameState.title_state`** (title bucket) and **`GameState.engine_state`** (keys prefixed `hexengine_`). Snapshots and `StateUpdate` game_state carry `title_state`, `engine_state`, and `title_bucket_key`. Prefer `title_state.bucket()` / `hexengine.state.title_extension.title_bucket` over reading raw fields when the pack id matters.
 
@@ -111,7 +111,8 @@ Assembled with [`assemble_title_hooks`](../src/hexengine/hooks/wiring.py). Enum 
 |--------|-------------------------|---------------------|
 | **movement** | Step cost, ZoC, retreat obligations, retreat path preview, **auto-advance after move spend** | Movement arc; retreat preview optional; `AUTO_ADVANCE_PHASE_AFTER_MOVE_SPEND` (catalog default: advance when action pool empty) |
 | **attack** | `validate_attack`, `resolve_attack`, attack plan preview, optional **`after_attack_applied`** (follow-up `StateAction`s after `Attack` + effects), **`on_retreat_obligation_cleared`** (optional advance gate after retreat/disrupt), **auto-advance after attack** | **Required** if schedule includes combat (`validate_title_contract`); `AUTO_ADVANCE_PHASE_AFTER_ATTACK` has no catalog default (omit hook = no auto-advance) |
-| **ui** | Banners, dock, popups, overlays, combat banners, **block routine phase advance** | `COMBAT_INTERACTION_MESSAGES`, `BLOCKS_ROUTINE_PHASE_ADVANCE` |
+| **ui** | Banners, dock, popups, overlays, combat banners | `COMBAT_INTERACTION_MESSAGES`, `TURN_ACTION_DOCK_FOR_VIEWER` |
+| **arcs** | Turn registry, combat arc, movement arc | `TURN_ARC_REGISTRY`, `COMBAT_ARC` (required for combat extension packs) |
 
 Return **`ENGINE_DEFAULT`** from a hook to use engine catalog behavior for that slot.
 
@@ -180,6 +181,8 @@ Registry dispatch: [`map_selection_registry.py`](../src/hexengine/hooks/map_sele
 Feature: `server_drag_previews`. Server: [`compute_unit_drag_preview`](../src/hexengine/server/preview.py) / marker equivalent. **No dock Confirm** — drop sends `action_request`.
 
 ### SEQUENCE — multi-step UX (v1)
+
+**Player prompts** (scripted events, season cards, acknowledge-then-continue) are prompt sequences: INFORM on the dock (`headline` / `html`) then DECIDE; blocking is a **prompt segment** in the turn arc. See [`TURN_ACTION_DOCK_CONTRACT.md` § Player prompts](TURN_ACTION_DOCK_CONTRACT.md#player-prompts) and [`COMPOSABLE_ARCS_PLAN.md` § Prompt segments](COMPOSABLE_ARCS_PLAN.md#prompt-segments).
 
 | Source | Responsibility |
 |--------|----------------|

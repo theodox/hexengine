@@ -8,7 +8,7 @@ This folder is where **title policy** lives. The engine calls it through differe
 
 | Lane | Modules here | How the engine reaches it |
 |------|----------------|---------------------------|
-| **`TitleHooks`** (in-match) | `movement.py`, `attack.py`, `ui.py`, `overlays.py` | `HexdemoGameDefinition.hooks` → `build_hooks()` in `__init__.py` |
+| **`TitleHooks`** (in-match) | `movement.py`, `attack.py`, `ui.py`, `overlays.py`, `arcs.py` | `HexdemoGameDefinition.hooks` → `build_hooks()` in `__init__.py` |
 | **Manifest title-load** | `title_load.py` | `hexengine_pack.toml` `[hooks.title_load]` + client connect arc (`SPLASH` / `SETUP` segments) |
 | **Turn schedule** | `turn_schedule.py` | `HexdemoGameDefinition.after_phase_transition` (not `TitleHooks`) |
 
@@ -52,7 +52,8 @@ Longer term, the engine may offer **composable rule pieces** (ZOC, terrain, mora
 | `attack.py` | Validate/resolve combat, CRT helpers | `@bind_title_hook(AttackHook.…)` |
 | `ui.py` | Banners, inspect (`POPUP_MESSAGE`), inform callouts (`INFORM_POPUP`) | `@bind_title_hook(UIHook.…)` |
 | `../inform_popups.py` | Copy for `inform` inspect reasons (attack-plan feedback) | Used by `ui.inform_popup_for_viewer` |
-| `turn_action_dock.py` | Commit dock (`TURN_ACTION_DOCK_FOR_VIEWER`) | `@bind_title_hook(UIHook.TURN_ACTION_DOCK_FOR_VIEWER)` |
+| `turn_action_dock.py` | Commit dock (`TURN_ACTION_DOCK_FOR_VIEWER`) — rows from `current_segment` | `@bind_title_hook(UIHook.TURN_ACTION_DOCK_FOR_VIEWER)` |
+| `arcs.py` | Turn arc registry + combat arc declarations | `@bind_title_hook(ArcHook.…)` |
 | `markers.py` | Place-marker map-selection preview | `@bind_title_hook(UIHook.PLACE_MARKER_PREVIEW)` |
 | `../ui_markup.py` | HTML templates + flag URLs (tier 2–3; `hexengine.ui.display`) | Imported by `ui.py`, `turn_action_dock.py` |
 | `../resources/templates/` | `phase_banner.html`, `unit_inspect.html`, `dock_gate.html` | Loaded by `ui_markup` |

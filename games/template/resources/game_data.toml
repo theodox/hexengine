@@ -1,0 +1,15 @@
+# Declarative title data for the template pack (see hexengine_pack.toml [gamedata]).
+
+gamedata_schema = 1
+movement_budget_attribute_key = "movement"
+
+[faction_display_names]
+blue = "Blue"
+red = "Red"
+
+[faction_css_classes]
+blue = "faction-blue"
+red = "faction-red"
+
+[shell_ui]
+advance_turn_button_label = "End Phase"

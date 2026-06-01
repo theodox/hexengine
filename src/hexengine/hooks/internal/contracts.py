@@ -110,6 +110,17 @@ def validate_title_contract(game_definition: Any) -> None:
                 ),
                 details={"requires_turn_action_dock": True},
             )
+        from ...arcs.registry import TurnArcRegistry
+
+        reg_raw = bundle.arcs.turn_arc_registry_spec()
+        if not isinstance(reg_raw, TurnArcRegistry):
+            raise HookContractError(
+                message=(
+                    "title_state_extension_key requires ArcHook.TURN_ARC_REGISTRY "
+                    "returning a TurnArcRegistry."
+                ),
+                details={"requires_turn_arc_registry": True},
+            )
     if _schedule_expects_attack_hooks(game_definition):
         a = bundle.attack
         if a.validate_attack is None or a.resolve_attack is None:

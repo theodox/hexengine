@@ -27,7 +27,6 @@ from typing import Any
 
 from ..state import GameState
 from .core import ENGINE_DEFAULT, RuleViolation
-from .ui_primary_actions import PrimaryActionsContext
 from .ui_interaction_panels import InteractionPanelsContext
 from .inform_popup import InformPopupContext
 from .ui_combat_messages import CombatInteractionMessagesContext
@@ -46,7 +45,7 @@ class CombatInteractionContext:
 
 @dataclass(frozen=True, slots=True)
 class AdvanceGateInteractionContext:
-    """Context when `combat_gate` is `awaiting_advance` (optional post-retreat advance)."""
+    """Context when the active segment is the optional post-retreat advance window."""
 
     state: GameState
     viewer_faction: str | None
@@ -185,10 +184,6 @@ class UIHooks:
         Callable[[PhaseBannerContext], str | object] | None
     ) = None
 
-    primary_actions_for_viewer: (
-        Callable[[PrimaryActionsContext], list[dict[str, Any]] | object] | None
-    ) = None
-
     interaction_panels_for_viewer: (
         Callable[[InteractionPanelsContext], list[dict[str, Any]] | object] | None
     ) = None
@@ -199,10 +194,6 @@ class UIHooks:
 
     place_marker_preview: (
         Callable[[PlaceMarkerPreviewContext], dict[str, Any] | object] | None
-    ) = None
-
-    blocks_routine_phase_advance: (
-        Callable[[GameState, str | None], bool | object] | None
     ) = None
 
     combat_interaction_messages: (
@@ -270,11 +261,6 @@ class UIHooks:
             return ENGINE_DEFAULT
         return self.phase_banner_html_for_viewer(ctx)
 
-    def primary_actions(self, ctx: PrimaryActionsContext) -> list[dict[str, Any]] | object:
-        if self.primary_actions_for_viewer is None:
-            return ENGINE_DEFAULT
-        return self.primary_actions_for_viewer(ctx)
-
     def interaction_panels(
         self, ctx: InteractionPanelsContext
     ) -> list[dict[str, Any]] | object:
@@ -295,13 +281,6 @@ class UIHooks:
         if self.place_marker_preview is None:
             return ENGINE_DEFAULT
         return self.place_marker_preview(ctx)
-
-    def blocks_routine_phase_advance_for(
-        self, state: GameState, extension_key: str | None
-    ) -> bool | object:
-        if self.blocks_routine_phase_advance is None:
-            return ENGINE_DEFAULT
-        return self.blocks_routine_phase_advance(state, extension_key)
 
     def combat_interaction_messages_for(
         self, ctx: CombatInteractionMessagesContext
@@ -329,11 +308,9 @@ class UIHook(StrEnum):
     ADVANCE_GATE_BANNERS_FOR_VIEWER = "advance_gate_banners_for_viewer"
     PHASE_BANNER_TEXT_FOR_VIEWER = "phase_banner_text_for_viewer"
     PHASE_BANNER_HTML_FOR_VIEWER = "phase_banner_html_for_viewer"
-    PRIMARY_ACTIONS_FOR_VIEWER = "primary_actions_for_viewer"
     INTERACTION_PANELS_FOR_VIEWER = "interaction_panels_for_viewer"
     TURN_ACTION_DOCK_FOR_VIEWER = "turn_action_dock_for_viewer"
     PLACE_MARKER_PREVIEW = "place_marker_preview"
-    BLOCKS_ROUTINE_PHASE_ADVANCE = "blocks_routine_phase_advance"
     COMBAT_INTERACTION_MESSAGES = "combat_interaction_messages"
     COMBAT_EVENT_SUMMARY = "combat_event_summary"
 
@@ -349,9 +326,6 @@ __all__ = [
     "ENGINE_DEFAULT",
     "InteractionPanelsContext",
     "PhaseBannerContext",
-    "PlaceMarkerPreviewContext",
-    "PrimaryActionsContext",
-    "TurnActionDockContext",
     "RuleViolation",
     "UIHook",
     "UIHooks",

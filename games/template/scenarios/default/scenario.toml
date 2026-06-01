@@ -1,0 +1,35 @@
+# Minimal scenario for the template pack (move-only, small board).
+
+name = "Template default"
+description = "Small board for cloning the arc template pack."
+schema_version = 1
+
+[[terrain_types]]
+terrain = "open"
+movement_cost = 1.0
+default = true
+
+[map]
+hex_size = 24
+hex_margin = 0
+hex_stroke = 1
+hex_color = "#44554488"
+hex_columns = 10
+hex_rows = 10
+unit_size_multiplier = 1.25
+
+[[unit_placements]]
+unit_id = "u_blue"
+unit_type = "infantry"
+faction = "blue"
+position = [2, 2]
+health = 4
+active = true
+
+[[unit_placements]]
+unit_id = "u_red"
+unit_type = "infantry"
+faction = "red"
+position = [7, 7]
+health = 4
+active = true

@@ -31,7 +31,7 @@ def effective_turn_dock_arc(
     retreat_path_draft: bool,
     place_marker_draft: bool,
 ) -> str:
-    """Client SEQUENCE step override; falls back to the server ``dock_arc``."""
+    """Client SEQUENCE step override for local draft sub-arcs; falls back to server ``dock_arc``."""
     if attack_draft:
         return "attack_draft"
     if retreat_path_draft:

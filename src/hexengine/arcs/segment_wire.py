@@ -19,7 +19,7 @@ SEGMENT_WIRE_SCHEMA = 1
 
 CLIENT_DRAFT_ACTIONS = frozenset({"Attack"})
 
-# Segment `kind` values that map to legacy dock arc css modifiers.
+# Segment `kind` values that map to turn-dock arc css modifiers (hexdemo gate mirrors).
 KIND_DOCK_ARC_RETREAT = frozenset({"awaiting_retreat", "awaiting_retreat_or_disrupt"})
 KIND_DOCK_ARC_ADVANCE = frozenset({"awaiting_advance"})
 
@@ -95,6 +95,25 @@ def segment_blocks_routine_phase_advance(
     if seg is None:
         return False
     return not segment_allows_action(seg, "NextPhase")
+
+
+def segment_blocks_routine_phase_advance_for_hooks(
+    hooks: Any,
+    state: GameState,
+    *,
+    viewer_faction: str | None = None,
+) -> bool:
+    """Segment-only phase blocking for title hooks that lack a ``GameServer`` host."""
+
+    from types import SimpleNamespace
+
+    from ..server.arcs.authority_arc_runtime import lookup_arc_spec
+
+    host = SimpleNamespace(hooks=hooks, movement_arc_spec=lambda: None)
+    host.lookup_arc_spec = lambda arc_id: lookup_arc_spec(host, arc_id)
+    return segment_blocks_routine_phase_advance(
+        host, state, viewer_faction=viewer_faction
+    )
 
 
 def dock_arc_from_segment(
@@ -228,4 +247,5 @@ __all__ = [
     "project_current_segment",
     "segment_allows_action",
     "segment_blocks_routine_phase_advance",
+    "segment_blocks_routine_phase_advance_for_hooks",
 ]

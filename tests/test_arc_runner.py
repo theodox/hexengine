@@ -10,12 +10,11 @@ from hexengine.arcs import (
     Arc,
     OwnerRef,
     RunResult,
-    arc,
     begin_arc,
-    case,
     read_arc_cursor,
     submit_event,
 )
+from hexengine.authoring import arc, case
 from hexengine.state import GameState
 from hexengine.state.action_manager import ActionManager
 from hexengine.state.actions import PatchTitleBucket

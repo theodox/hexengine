@@ -126,6 +126,15 @@ def test_hexdemo_turn_action_dock_gate_hint_html_escapes() -> None:
         phase_actions_remaining=1,
         viewer_is_turn_owner=True,
         client_contract_features=frozenset(),
+        current_segment={
+            "schema": 1,
+            "arc_id": "combat",
+            "segment_id": "advance_gate",
+            "kind": "awaiting_advance",
+            "owner": "union",
+            "allowed_actions": ["CombatAdvance", "CombatDeclineAdvance"],
+            "action_locus": {},
+        },
     )
     rows = turn_action_dock_for_viewer(ctx)
     assert len(rows) == 1
