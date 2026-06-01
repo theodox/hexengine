@@ -18,9 +18,8 @@ from hexengine.arcs import (
     Arc,
     ArcContext,
     OwnerRef,
-    arc,
-    case,
 )
+from hexengine.authoring import arc, case
 from hexengine.state import GameState
 from hexengine.state.action_manager import StateAction
 from hexengine.state.title_extension import title_bucket

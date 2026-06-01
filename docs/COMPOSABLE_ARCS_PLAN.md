@@ -189,7 +189,7 @@ Split of responsibilities:
 
 ## Open questions (resolve before/within early phases)
 
-1. **Patterns home** — `hexengine.arcs.patterns` submodule vs separate package vs template-only copy-in. (Authoring-ergonomics decision; can be settled within Phase 6 — does not block Phase 0.)
+1. **Patterns home** — **`hexengine.authoring`** (`patterns/`, `builder`, `validate` as siblings). Runtime must not import patterns; see Phase 6 import boundary.
 
 ---
 
@@ -472,10 +472,36 @@ gating, and client draft entry from it instead of ``combat_gate`` string matchin
 existing integration tests.
 
 ### Phase 6 — Importable patterns + templates + validation
-- Extract the common arcs (combat, simple phase, igo-ugo) into the importable patterns namespace; hexdemo imports them.
-- Remove title-shape-reading engine defaults; add loud load-time validation that every segment declares owner + allowed_actions and every referenced arc/segment exists.
-- Add/refresh a template project that composes a working turn from patterns.
-- (Optional, deferrable) An operator-overloading "prettiness" layer that emits the same canonical data — strictly optional, never the canonical path.
+
+**Status:** 6a–6d done; 6e–6f pending.
+
+Author-time construction lives in **`hexengine.authoring`** (builder, patterns, validate).
+Runtime code in `hexengine.arcs` + server drives frozen `Arc` / `ArcSpec` data only.
+
+**Strict import boundary:** engine runtime modules must not import `hexengine.authoring`.
+Only `hooks.internal.authoring_bridge` (movement default assembly) and
+`hooks.internal.contracts` (load-time validate) may import authoring. Enforced by
+`tests/test_authoring_boundary.py`.
+
+#### Sub-steps
+
+1. **6a — `hexengine.authoring` package.** `builder.py` moved from `arcs/`; patterns
+   submodule with `phase`, `schedule`, `movement`; `validate.py` for arc/registry checks.
+2. **6b — Hexdemo consumes patterns.** `turn_arc_schedule.py` uses `interleaved_slots` +
+   `build_turn_registry`; `combat_arc.py` imports builder from `authoring`.
+3. **6c — Load-time validation.** `validate_arc_contract` wired through
+   `validate_title_contract` at `GameServer` init.
+4. **6d — Movement default via bridge.** `build_movement_arc` in
+   `authoring.patterns.movement`; `GameServer.movement_arc_spec()` uses
+   `authoring_bridge.build_default_movement_arc_spec` (not direct authoring import).
+5. **6e (pending)** — Template pack (`games/template/`).
+6. **6f (optional, defer)** — Operator-overloading prettiness layer.
+
+**Resolved:** patterns home is `hexengine.authoring` (patterns as siblings of builder
+and validate), not `hexengine.arcs.patterns`.
+
+**Remaining:** template pack (6e), combat skeleton extraction to `patterns.combat`,
+retire gate-string catalog defaults for registry titles, optional prettiness layer (6f).
 
 ### Phase 7 — Fan-out: fix legacy docs and comments
 After implementation lands, sweep the repo for now-stale references and align them with the arc-FSM model:

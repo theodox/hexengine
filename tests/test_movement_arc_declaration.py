@@ -12,9 +12,9 @@ from hexengine.arcs.movement_arc_decl import (
     SEG_INTERRUPT,
     SEG_INTERRUPT_RESOLVE,
     SEG_STEP_RESOLVE,
-    build_movement_arc,
     resolve_moving_faction,
 )
+from hexengine.authoring.patterns.movement import build_movement_arc
 from hexengine.state import GameState
 from hexengine.state.movement_arc import (
     HEXENGINE_MOVEMENT_ARC_KEY,

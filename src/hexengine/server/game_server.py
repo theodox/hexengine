@@ -287,15 +287,17 @@ class GameServer:
         if override is not ENGINE_DEFAULT:
             return None
         if self._movement_arc_spec_cache is None:
-            from ..arcs.movement_arc_decl import build_movement_arc, resolve_moving_faction
-            from .arcs.movement_arc_effects import MovementArcEffects
+            from ..hooks.internal.authoring_bridge import build_default_movement_arc_spec
 
-            effects = MovementArcEffects(self)
-            self._movement_arc_spec_cache = ArcSpec(
-                arc=build_movement_arc(effects),
-                owner_resolver=resolve_moving_faction,
-            )
+            self._movement_arc_spec_cache = build_default_movement_arc_spec(self)
         return self._movement_arc_spec_cache
+
+    def movement_arc_effects_binding(self):
+        """Host-bound movement arc guards/effects (used by authoring_bridge only)."""
+
+        from .arcs.movement_arc_effects import MovementArcEffects
+
+        return MovementArcEffects(self)
 
     @property
     def game_state(self) -> GameState:

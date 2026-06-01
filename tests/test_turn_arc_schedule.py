@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from hexengine.arcs import read_arc_cursor
-from hexengine.arcs.routine_phase import ROUTINE_SEGMENT
+from hexengine.authoring.patterns import ROUTINE_SEGMENT
 from hexengine.server import GameServer
 from hexengine.server.arcs import schedule_next_phase_info
 from hexengine.state import GameState

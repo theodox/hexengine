@@ -1,22 +1,11 @@
 """Declarative, composable turn arcs (state machines over segments).
 
-This package holds the canonical typed arc spec the engine drives generically. It is
-separate from hexengine.server.arcs (the current imperative arc handlers) and from
-hexengine.state.movement_arc (the movement arc wire keys); those are migrated onto this
-model in later steps. See docs/COMPOSABLE_ARCS_PLAN.md.
+Runtime contract: spec, cursor, runner, schedule types, segment wire projection.
+Author-time construction lives in hexengine.authoring (builder + patterns).
 """
 
 from __future__ import annotations
 
-from .builder import (
-    ArcBuilder,
-    Case,
-    Effect,
-    Guard,
-    SegmentBuilder,
-    arc,
-    case,
-)
 from .cursor import (
     ARC_CURSOR_SCHEMA,
     HEXENGINE_ARC_CURSOR_KEY,
@@ -28,6 +17,7 @@ from .cursor import (
     read_arc_cursor,
     with_arc_cursor,
 )
+from .registry import TurnArcRegistry
 from .runner import (
     ActionSink,
     ArcSpec,
@@ -37,6 +27,7 @@ from .runner import (
     resolve_owner,
     submit_event,
 )
+from .schedule import ArcSchedule, ScheduleSlot
 from .spec import (
     AUTO,
     CURRENT,
@@ -65,20 +56,17 @@ __all__ = [
     "AUTO",
     "ActionSink",
     "Arc",
-    "ArcBuilder",
     "ArcContext",
     "ArcCursor",
+    "ArcSchedule",
     "ArcSpec",
     "AutoTrigger",
     "CURRENT",
-    "Case",
     "DONE",
-    "Effect",
     "Event",
     "Faction",
     "FlowEnd",
     "Goto",
-    "Guard",
     "HEXENGINE_ARC_CURSOR_KEY",
     "Interrupt",
     "NO_OWNER",
@@ -88,16 +76,15 @@ __all__ = [
     "OwnerScope",
     "RESUME",
     "RunResult",
+    "ScheduleSlot",
     "Segment",
-    "SegmentBuilder",
     "SetArcCursor",
     "SuspendedFrame",
     "Target",
     "Transition",
     "Trigger",
-    "arc",
+    "TurnArcRegistry",
     "begin_arc",
-    "case",
     "cursor_from_snapshot",
     "cursor_to_snapshot",
     "read_arc_cursor",

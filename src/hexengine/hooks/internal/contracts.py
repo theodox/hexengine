@@ -110,19 +110,26 @@ def validate_title_contract(game_definition: Any) -> None:
                 ),
                 details={"requires_turn_action_dock": True},
             )
-    if not _schedule_expects_attack_hooks(game_definition):
-        return
-    a = bundle.attack
-    if a.validate_attack is not None and a.resolve_attack is not None:
-        return
-    raise HookContractError(
-        message=(
-            "Turn schedule includes a combat/attack phase but TitleHooks.attack is "
-            "missing validate_attack and/or resolve_attack. Provide callables (they may "
-            "return ENGINE_DEFAULT if attacks are not supported)."
-        ),
-        details={"schedule_requires_attack_hooks": True},
-    )
+    if _schedule_expects_attack_hooks(game_definition):
+        a = bundle.attack
+        if a.validate_attack is None or a.resolve_attack is None:
+            raise HookContractError(
+                message=(
+                    "Turn schedule includes a combat/attack phase but TitleHooks.attack is "
+                    "missing validate_attack and/or resolve_attack. Provide callables (they may "
+                    "return ENGINE_DEFAULT if attacks are not supported)."
+                ),
+                details={"schedule_requires_attack_hooks": True},
+            )
+
+    from .authoring_bridge import validate_declared_arcs
+
+    arc_errors = validate_declared_arcs(game_definition)
+    if arc_errors:
+        raise HookContractError(
+            message="Declared arc contract validation failed: " + "; ".join(arc_errors),
+            details={"arc_contract_errors": arc_errors},
+        )
 
 
 __all__ = ["hook", "validate_title_contract"]

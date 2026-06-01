@@ -73,7 +73,8 @@ class _Host:
         self.broadcasts = 0
         self._movement_arc_spec_cache = None
         from hexengine.arcs import ArcSpec
-        from hexengine.arcs.movement_arc_decl import build_movement_arc, resolve_moving_faction
+        from hexengine.arcs.movement_arc_decl import resolve_moving_faction
+        from hexengine.authoring.patterns.movement import build_movement_arc
         from hexengine.server.arcs.movement_arc_effects import MovementArcEffects
 
         class _MovementHostAdapter:

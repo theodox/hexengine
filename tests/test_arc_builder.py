@@ -21,9 +21,8 @@ from hexengine.arcs import (
     OwnerRef,
     Segment,
     Transition,
-    arc,
-    case,
 )
+from hexengine.authoring import arc, case
 
 
 # Dummy effects/guards stand in for real StateAction-returning hooks; identity matters,
