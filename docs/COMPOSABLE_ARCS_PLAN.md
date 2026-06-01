@@ -473,7 +473,7 @@ existing integration tests.
 
 ### Phase 6 — Importable patterns + templates + validation
 
-**Status:** 6a–6d done; 6e–6f pending.
+**Status:** Phases 0–7 complete. Phase 6f (builder prettiness) deferred — revisit when authoring ergonomics need it.
 
 Author-time construction lives in **`hexengine.authoring`** (builder, patterns, validate).
 Runtime code in `hexengine.arcs` + server drives frozen `Arc` / `ArcSpec` data only.
@@ -486,28 +486,32 @@ Only `hooks.internal.authoring_bridge` (movement default assembly) and
 #### Sub-steps
 
 1. **6a — `hexengine.authoring` package.** `builder.py` moved from `arcs/`; patterns
-   submodule with `phase`, `schedule`, `movement`; `validate.py` for arc/registry checks.
+   submodule with `phase`, `schedule`, `movement`, `combat`; `validate.py` for arc/registry
+   checks.
 2. **6b — Hexdemo consumes patterns.** `turn_arc_schedule.py` uses `interleaved_slots` +
-   `build_turn_registry`; `combat_arc.py` imports builder from `authoring`.
+   `build_turn_registry`; `combat_arc.py` uses `build_combat_cleanup_arc` with title-bound
+   guards/effects and gate kind strings.
 3. **6c — Load-time validation.** `validate_arc_contract` wired through
    `validate_title_contract` at `GameServer` init.
 4. **6d — Movement default via bridge.** `build_movement_arc` in
    `authoring.patterns.movement`; `GameServer.movement_arc_spec()` uses
    `authoring_bridge.build_default_movement_arc_spec` (not direct authoring import).
-5. **6e (pending)** — Template pack (`games/template/`).
-6. **6f (optional, defer)** — Operator-overloading prettiness layer.
+5. **6e — Template pack (`games/template/`).** Minimal copy-in title: manifest, registry,
+   move-only `turn_arc_schedule` via `authoring.patterns.schedule`, `hooks/arcs.py` with
+   `TURN_ARC_REGISTRY`, scenario + game_data stubs. `tests/test_template_pack.py`.
+6. **6f (deferred — revisit later)** — Operator-overloading prettiness layer on the arc builder. Skip until authoring ergonomics become a priority; plain `with arc(...) as a:` builder is the supported surface.
 
 **Resolved:** patterns home is `hexengine.authoring` (patterns as siblings of builder
 and validate), not `hexengine.arcs.patterns`.
 
-**Remaining:** template pack (6e), combat skeleton extraction to `patterns.combat`,
-retire gate-string catalog defaults for registry titles, optional prettiness layer (6f).
+### Phase 7 — Fan-out: docs, comments, orphaned code ✅
 
-### Phase 7 — Fan-out: fix legacy docs and comments
-After implementation lands, sweep the repo for now-stale references and align them with the arc-FSM model:
-- Docs: `engine_game_boundary_matrix.md`, `ENGINE_BOUNDARY_2_PLAN.md`, `PACK_HOOK_CONTRACTS.md`, `TITLE_AUTHORING.md`, `TURN_ACTION_DOCK_CONTRACT.md`, `RULE_COMPOSITION.md` (reconcile the revised non-goal), `SERVER_ARCHITECTURE.md`, `STATE_SYSTEM_SUMMARY.md`, `games/hexdemo/hooks/README.md`.
-- Code comments / docstrings referencing the old gate-string flow, the "arcs vs schedule = separate layers" seam, `ENGINE_DEFAULT` fallbacks for combat, and the ad-hoc client draft override.
-- Grep anchors: `combat_gate`, `awaiting_`, `dock_arc`, `ENGINE_DEFAULT`, "separate layer", "effective_turn_dock_arc".
+**Status:** Done.
+
+- Removed engine gate-string catalog paths (`default_blocks_routine_phase_advance`, `PRIMARY_ACTIONS_FOR_VIEWER`, `BLOCKS_ROUTINE_PHASE_ADVANCE`).
+- Docs updated: `PACK_HOOK_CONTRACTS.md`, `TURN_ACTION_DOCK_CONTRACT.md`, `TITLE_AUTHORING.md`, `engine_game_boundary_matrix.md`, `ENGINE_BOUNDARY_2_PLAN.md` (supersession note), `SERVER_ARCHITECTURE.md`, `hexdemo/hooks/README.md`.
+- Title `combat_gate` bucket field retained as effect mirror only; engine reads `current_segment`.
+- Client draft CSS uses `effective_turn_dock_arc` (client-local sub-arcs); server uses `dock_arc_from_segment`.
 
 ---
 
@@ -525,3 +529,4 @@ After implementation lands, sweep the repo for now-stale references and align th
 - Turn schedule is a composition of arcs; ownership is segment-owned.
 - Common arcs are importable scaffold; no title-shape-reading runtime fallbacks; missing declarations fail at load.
 - Legacy docs/comments reconciled (Phase 7).
+- Phase 6f (optional builder prettiness) explicitly deferred for later revisit.
