@@ -23,22 +23,59 @@ _DOCK_ARC_CSS_RE = re.compile(
     r"\b(hexdemo-turn-dock|hexengine-turn-dock)--[a-z0-9_]+\b"
 )
 
+# Client SEQUENCE step skin when a local draft is active for this ``interaction_mode``.
+_DRAFT_PRESENTATION_BY_MODE: dict[str, str] = {
+    "attack_plan": "attack_draft",
+    "retreat_path": "retreat_path_draft",
+    "place_marker": "place_marker_draft",
+}
 
+
+def effective_turn_dock_presentation_id(
+    server_presentation_id: str,
+    interaction_mode: str | None,
+    *,
+    interaction_draft_active: bool,
+) -> str:
+    """
+    Client SEQUENCE step override for local draft sub-arcs.
+
+    Uses ``current_segment.interaction_mode`` (P3) instead of separate draft booleans.
+    """
+    mode = str(interaction_mode or "").strip()
+    if interaction_draft_active and mode in _DRAFT_PRESENTATION_BY_MODE:
+        return _DRAFT_PRESENTATION_BY_MODE[mode]
+    return str(server_presentation_id or "").strip()
+
+
+# Back-compat alias for tests that still name the old helper.
 def effective_turn_dock_arc(
     server_arc: str,
     *,
-    attack_draft: bool,
-    retreat_path_draft: bool,
-    place_marker_draft: bool,
+    attack_draft: bool = False,
+    retreat_path_draft: bool = False,
+    place_marker_draft: bool = False,
+    interaction_mode: str | None = None,
+    interaction_draft_active: bool | None = None,
 ) -> str:
-    """Client SEQUENCE step override for local draft sub-arcs; falls back to server ``dock_arc``."""
-    if attack_draft:
-        return "attack_draft"
-    if retreat_path_draft:
-        return "retreat_path_draft"
-    if place_marker_draft:
-        return "place_marker_draft"
-    return str(server_arc or "").strip()
+    """Deprecated draft-boolean API; prefer ``effective_turn_dock_presentation_id``."""
+
+    if interaction_draft_active is None:
+        interaction_draft_active = bool(
+            attack_draft or retreat_path_draft or place_marker_draft
+        )
+    if interaction_mode is None:
+        if attack_draft:
+            interaction_mode = "attack_plan"
+        elif retreat_path_draft:
+            interaction_mode = "retreat_path"
+        elif place_marker_draft:
+            interaction_mode = "place_marker"
+    return effective_turn_dock_presentation_id(
+        server_arc,
+        interaction_mode,
+        interaction_draft_active=bool(interaction_draft_active),
+    )
 
 
 def replace_dock_arc_css_class(css_class: str, effective_arc: str) -> str:
@@ -59,24 +96,24 @@ def replace_dock_arc_css_class(css_class: str, effective_arc: str) -> str:
 def turn_dock_sequence_headline(
     *,
     server_headline: str,
-    server_arc: str,
+    server_presentation_id: str,
     preview_status: str,
-    attack_draft: bool,
-    retreat_path_draft: bool,
-    place_marker_draft: bool,
+    interaction_mode: str | None,
+    interaction_draft_active: bool,
     attack_ready_idle: bool,
     attack_pick_target_status: str,
     attack_target_set_status: str,
 ) -> str:
     """Headline for the active SEQUENCE step (preview status or idle coaching copy)."""
     status = str(preview_status or "").strip()
-    if attack_draft:
+    mode = str(interaction_mode or "").strip()
+    if mode == "attack_plan" and interaction_draft_active:
         if status:
             return status
         return str(attack_target_set_status or "").strip() or str(server_headline or "")
-    if retreat_path_draft and status:
+    if mode == "retreat_path" and interaction_draft_active and status:
         return status
-    if place_marker_draft and status:
+    if mode == "place_marker" and interaction_draft_active and status:
         return status
     if attack_ready_idle:
         idle = str(attack_pick_target_status or "").strip()
@@ -97,6 +134,62 @@ class ClientInteractionPanelsMixin:
     _interaction_panel_action_buttons: dict[str, dict[str, Any]]
     _interaction_panel_input_elements: dict[str, dict[str, Any]]
     _interaction_panel_wire_specs: dict[str, dict[str, Any]]
+
+    def _current_segment_wire(self) -> dict[str, Any] | None:
+        client = getattr(self, "client", None)
+        if client is None:
+            return None
+        seg = getattr(client, "current_segment", None)
+        return dict(seg) if isinstance(seg, dict) else None
+
+    def _resolved_inform_kind(self, explicit: str = "") -> str:
+        """
+        INFORM lane id for ``show_inform_popup``.
+
+        Empty ``explicit`` uses ``current_segment.inform_profile`` (P4), then
+        ``interaction_mode``, so the client need not hard-code profile strings.
+        """
+
+        exp = str(explicit or "").strip()
+        if exp:
+            return exp
+        seg = self._current_segment_wire()
+        if seg is not None:
+            profile = str(seg.get("inform_profile", "")).strip()
+            if profile:
+                return profile
+            mode = str(seg.get("interaction_mode", "")).strip()
+            if mode:
+                return mode
+        return ""
+
+    def _segment_interaction_mode(self) -> str | None:
+        """``current_segment.interaction_mode`` with fallbacks for client-only drafts."""
+
+        seg = self._current_segment_wire()
+        if seg is not None:
+            mode = str(seg.get("interaction_mode", "")).strip()
+            if mode:
+                return mode
+        if self._place_marker_relocate_active():
+            return "place_marker"
+        prev = getattr(self, "_map_selection_preview", None)
+        if isinstance(prev, dict):
+            kind = str(prev.get("kind", "")).strip()
+            if kind:
+                return kind
+        return None
+
+    def _interaction_draft_active(self, mode: str | None) -> bool:
+        if not mode:
+            return False
+        if mode == "attack_plan":
+            return self._attack_plan_draft_active()
+        if mode == "retreat_path":
+            return self._retreat_path_draft_active()
+        if mode == "place_marker":
+            return self._place_marker_relocate_active()
+        return False
 
     def _attack_plan_draft_active(self) -> bool:
         if not getattr(self, "_client_has_attack_planning_ui", lambda: False)():
@@ -137,17 +230,8 @@ class ClientInteractionPanelsMixin:
                         order.append(oid)
                     by_id[oid] = dict(row)
 
-        if self._attack_plan_draft_active() and "end_phase" in by_id:
-            ep = dict(by_id["end_phase"])
-            ep["enabled"] = False
-            by_id["end_phase"] = ep
-
-        if self._retreat_path_draft_active() and "end_phase" in by_id:
-            ep = dict(by_id["end_phase"])
-            ep["enabled"] = False
-            by_id["end_phase"] = ep
-
-        if self._place_marker_relocate_active() and "end_phase" in by_id:
+        mode = self._segment_interaction_mode()
+        if self._interaction_draft_active(mode) and "end_phase" in by_id:
             ep = dict(by_id["end_phase"])
             ep["enabled"] = False
             by_id["end_phase"] = ep
@@ -181,6 +265,7 @@ class ClientInteractionPanelsMixin:
         }
         self._interaction_panel_wire_specs[pid] = spec
         self._render_interaction_panel(host, pid, spec)
+
     def _retreat_path_draft_active(self) -> bool:
         fn = getattr(self, "_retreat_path_active", None)
         if callable(fn):
@@ -190,12 +275,20 @@ class ClientInteractionPanelsMixin:
                 return False
         return False
 
+    def _server_turn_dock_presentation_id(self, server_arc: str) -> str:
+        seg = self._current_segment_wire()
+        if seg is not None:
+            pid = str(seg.get("presentation_id", "")).strip()
+            if pid:
+                return pid
+        return str(server_arc or "").strip()
+
     def _client_turn_dock_sequence_arc(self, server_arc: str) -> str:
-        return effective_turn_dock_arc(
-            server_arc,
-            attack_draft=self._attack_plan_draft_active(),
-            retreat_path_draft=self._retreat_path_draft_active(),
-            place_marker_draft=self._place_marker_relocate_active(),
+        mode = self._segment_interaction_mode()
+        return effective_turn_dock_presentation_id(
+            self._server_turn_dock_presentation_id(server_arc),
+            mode,
+            interaction_draft_active=self._interaction_draft_active(mode),
         )
 
     def _shell_ui_status_copy(self, key: str, default: str) -> str:
@@ -214,21 +307,20 @@ class ClientInteractionPanelsMixin:
         preview_status = ""
         if isinstance(prev, dict):
             preview_status = str(prev.get("status_text") or "").strip()
-        attack_draft = self._attack_plan_draft_active()
-        retreat_draft = self._retreat_path_draft_active()
-        place_draft = self._place_marker_relocate_active()
+        mode = self._segment_interaction_mode()
+        draft_active = self._interaction_draft_active(mode)
+        server_pid = self._server_turn_dock_presentation_id(server_arc)
         attack_ready_idle = (
-            str(server_arc or "").strip() == "attack_ready"
-            and not attack_draft
+            server_pid == "attack_ready"
+            and not draft_active
             and getattr(self, "_client_has_attack_planning_ui", lambda: False)()
         )
         return turn_dock_sequence_headline(
             server_headline=server_headline,
-            server_arc=server_arc,
+            server_presentation_id=server_pid,
             preview_status=preview_status,
-            attack_draft=attack_draft,
-            retreat_path_draft=retreat_draft,
-            place_marker_draft=place_draft,
+            interaction_mode=mode,
+            interaction_draft_active=draft_active,
             attack_ready_idle=attack_ready_idle,
             attack_pick_target_status=self._shell_ui_status_copy(
                 "attack_pick_target_status",

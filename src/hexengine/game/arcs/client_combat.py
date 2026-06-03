@@ -308,14 +308,12 @@ class ClientCombatMixin(ClientMapSelectionMixin):
             if valid:
                 t = (int(h.i), int(h.j), int(h.k))
                 if t not in valid:
-                    self.show_inform_popup(
-                        "attack_plan", "no_attackable_enemy", hex=h
-                    )
+                    self.show_inform_popup("", "no_attackable_enemy", hex=h)
                     return
         elif h is not None:
             st = self._interactive_game_state()
             if st is not None and not self._attack_target_hex_has_enemy(st, h):
-                self.show_inform_popup("attack_plan", "no_enemy_on_hex", hex=h)
+                self.show_inform_popup("", "no_enemy_on_hex", hex=h)
                 return
         self.attack_plan_target_hex = h
         self.attack_plan_attacker_ids.clear()
@@ -352,7 +350,7 @@ class ClientCombatMixin(ClientMapSelectionMixin):
             self.attack_plan_attacker_ids.add(unit_id)
         else:
             self.show_inform_popup(
-                "attack_plan",
+                "",
                 "cannot_attack_target",
                 unit_id=str(unit_id),
             )

@@ -28,7 +28,9 @@ from typing import Any
 from ..state import GameState
 from .core import ENGINE_DEFAULT, RuleViolation
 from .ui_interaction_panels import InteractionPanelsContext
+from ..ui.display import InformPopup, TurnDockPanel
 from .inform_popup import InformPopupContext
+from .ui_segment import SegmentPresentationContext
 from .ui_combat_messages import CombatInteractionMessagesContext
 from .ui_turn_action_dock import TurnActionDockContext
 
@@ -161,7 +163,7 @@ class UIHooks:
     ) = None
 
     inform_popup: (
-        Callable[[InformPopupContext], dict[str, Any] | object] | None
+        Callable[[InformPopupContext], InformPopup | dict[str, Any] | object] | None
     ) = None
 
     map_overlays: (
@@ -189,8 +191,18 @@ class UIHooks:
     ) = None
 
     turn_action_dock_for_viewer: (
-        Callable[[TurnActionDockContext], list[dict[str, Any]] | object] | None
+        Callable[
+            [TurnActionDockContext],
+            list[TurnDockPanel | dict[str, Any]] | object,
+        ]
+        | None
     ) = None
+
+    enrich_current_segment: (
+        Callable[[SegmentPresentationContext], dict[str, Any] | object] | None
+    ) = None
+
+    segment_presentation_registry: Callable[[], object] | None = None
 
     place_marker_preview: (
         Callable[[PlaceMarkerPreviewContext], dict[str, Any] | object] | None
@@ -225,7 +237,7 @@ class UIHooks:
 
     def inform_popup_for(
         self, ctx: InformPopupContext
-    ) -> dict[str, Any] | object:
+    ) -> InformPopup | dict[str, Any] | object:
         if self.inform_popup is None:
             return ENGINE_DEFAULT
         return self.inform_popup(ctx)
@@ -275,6 +287,18 @@ class UIHooks:
             return ENGINE_DEFAULT
         return self.turn_action_dock_for_viewer(ctx)
 
+    def enrich_current_segment_for(
+        self, ctx: SegmentPresentationContext
+    ) -> dict[str, Any] | object:
+        if self.enrich_current_segment is None:
+            return ENGINE_DEFAULT
+        return self.enrich_current_segment(ctx)
+
+    def segment_presentation_registry_spec(self) -> object:
+        if self.segment_presentation_registry is None:
+            return ENGINE_DEFAULT
+        return self.segment_presentation_registry()
+
     def place_marker_preview_for(
         self, ctx: PlaceMarkerPreviewContext
     ) -> dict[str, Any] | object:
@@ -310,6 +334,8 @@ class UIHook(StrEnum):
     PHASE_BANNER_HTML_FOR_VIEWER = "phase_banner_html_for_viewer"
     INTERACTION_PANELS_FOR_VIEWER = "interaction_panels_for_viewer"
     TURN_ACTION_DOCK_FOR_VIEWER = "turn_action_dock_for_viewer"
+    ENRICH_CURRENT_SEGMENT = "enrich_current_segment"
+    SEGMENT_PRESENTATION_REGISTRY = "segment_presentation_registry"
     PLACE_MARKER_PREVIEW = "place_marker_preview"
     COMBAT_INTERACTION_MESSAGES = "combat_interaction_messages"
     COMBAT_EVENT_SUMMARY = "combat_event_summary"
@@ -327,6 +353,7 @@ __all__ = [
     "InteractionPanelsContext",
     "PhaseBannerContext",
     "RuleViolation",
+    "SegmentPresentationContext",
     "UIHook",
     "UIHooks",
     "default_advance_gate_banners_for_viewer",

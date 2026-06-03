@@ -79,6 +79,91 @@ Full primitive catalog and path-draft shapes: [`TURN_ACTION_DOCK_CONTRACT.md` §
 
 ---
 
+## Flow vs presentation (authoring model)
+
+Design goals for player UX:
+
+| Goal | Practice |
+|------|----------|
+| **Clear expression** | Declare *match flow* in arcs and a small UI vocabulary; avoid scattered `if dock_arc` / mouse branches. |
+| **Easy customization** | Copy, HTML, and CSS live in `shell_ui`, templates, and keyed helpers — swappable without changing legality. |
+| **Insulate from wire** | Hooks receive **typed contexts** and return **presentation values**; the engine projects them to `StateUpdate` / `ui_popup`. Do not assemble wire dicts in `games/*`. |
+
+Authors work in **two layers only**:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  FLOW (declarative, authoritative)                     │
+│  Arc segments: owner, allowed actions, segment kind        │
+│  + title registry: primitive, interaction mode, skin id  │
+└──────────────────────────┬──────────────────────────────┘
+                           │ engine projects (internal)
+┌──────────────────────────▼──────────────────────────────┐
+│  PRESENTATION (title-owned, swappable)                   │
+│  shell_ui + templates + ui_markup + thin hook adapters   │
+└─────────────────────────────────────────────────────────┘
+```
+
+- **Flow** answers who may act and which RPCs are legal (`current_segment` on the wire is an engine projection of this).
+- **Presentation** answers headlines, banners, dock HTML, button labels, and map coaching strings.
+
+Wire field tables live in [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md) for debugging and client work; treat them as **reference**, not the author API. See [§ Authoring vs wire](PACK_HOOK_CONTRACTS.md#authoring-vs-wire).
+
+---
+
+## Segment presentation registry
+
+**Target pattern** (hexdemo is migrating toward this; not every pack has a single module yet):
+
+One **registry row per segment UX mode**, aligned with the `kind` string on arc segments. Each row ties flow to presentation without duplicating logic across engine, dock hook, and client.
+
+| Registry field | Author meaning | Engine / client use (internal) |
+|----------------|----------------|--------------------------------|
+| **`kind`** | Stable id in the declared arc (e.g. `awaiting_retreat`, `routine_combat`) | `current_segment.kind` |
+| **`presentation_id`** | Skin key for CSS and templates (e.g. `retreat_gate`, `attack_ready`) | `dock_arc`, panel `css_class` modifiers |
+| **`primitive`** | INFORM, SELECT, DECIDE, or SEQUENCE | Which wire lane(s) are active |
+| **`interaction_mode`** | Optional [`InteractionKind`](../src/hexengine/gamedef/interactions.py) (`attack_plan`, `retreat_path`, `place_marker`, or none) | Map-selection preview + client draft skin |
+| **`inform_profile`** | Optional key for default banner / coaching hooks | `COMBAT_INTERACTION_MESSAGES`, phase rows |
+
+**Example (conceptual):**
+
+```python
+# games/<pack>/segment_ui.py — one place to read “what UX mode is this?”
+SegmentUi(
+    kind="awaiting_retreat",
+    presentation_id="retreat_gate",
+    primitive=Primitive.SELECT,
+    interaction_mode="retreat_path",
+    inform_profile="retreat_gate",
+)
+```
+
+Arc declarations use the same `kind` strings. Dock and inform hooks **look up** the row and call pack helpers (`ui_markup`, `shell_ui`); they do not re-derive mode from phase names or bucket strings.
+
+**Presentation customization** (goal b) is keyed by `presentation_id` and `inform_profile`:
+
+| Asset | Edit | Keyed by |
+|-------|------|----------|
+| Short labels | `game_data.toml` → `shell_ui` | `presentation_id` + action id |
+| Dock headline / hint HTML | `ui_markup.py` + `resources/templates/` | `presentation_id` |
+| Banners | message hooks + templates | `inform_profile` or `segment.kind` |
+| Map popups | `presentation/inform.py` + `inform_popups.py` | `inform_profile` + `reason` (from `current_segment` when client omits `inform_kind`) |
+| CSS | pack `resources/ui.css` | `.…-turn-dock--{presentation_id}` |
+
+**Do not** in pack code: build raw wire dicts for dock panels or inform popups (except tests); read `client.interaction_panels` for legality; branch on `combat_gate` for affordances — use [`arc_segment.py`](../games/hexdemo/arc_segment.py) helpers and `current_segment` via hook context.
+
+**Presentation DTOs (P2):** return `TurnDockPanel` / `InformPopup` from `hexengine.authoring.present` (`turn_dock_panel`, `panel_action`, `inform_popup`, …). The engine converts them in `hexengine.hooks.internal.ui_wire` before `StateUpdate` / `ui_popup` — see [`PACK_HOOK_CONTRACTS.md` § Target model](PACK_HOOK_CONTRACTS.md#target-model-not-fully-implemented).
+
+**P3 (done):** `current_segment` on `StateUpdate` carries `presentation_id` and `interaction_mode` (title `enrich_current_segment` hook + engine default). The client turn-dock SEQUENCE skin keys off `interaction_mode`, not separate `*_draft` booleans.
+
+**P4 (done):** INFORM map callouts resolve `inform_profile` from `current_segment` when the client omits `inform_kind` (`hexengine.arcs.inform_wire`). Title copy lives in `presentation/inform.py` keyed by profile + reason; engine `default_inform_popup_for_viewer` uses the same shell key pattern.
+
+**P5 (done):** At server startup, `validate_title_contract` checks every explicit segment `kind` in declared arcs is registered in `PRESENTATION_BY_SEGMENT_KIND` (bind `UIHook.SEGMENT_PRESENTATION_REGISTRY`). Required when `title_state_extension_key` is set.
+
+**Roadmap:** `presentation_id` on `TurnActionDockContext`; action label catalog in `shell_ui`; gesture policy from segment.
+
+---
+
 ## API: pack manifest and discovery
 
 | Item | Location | Notes |
@@ -120,16 +205,27 @@ Hook inventory (signatures, when invoked): [`PACK_HOOK_CONTRACTS.md` § Hook inv
 
 ---
 
-## API: player UX (wire + hooks)
+## API: player UX (hooks; wire is reference)
+
+Hooks are the **author surface**. Return plain dicts today; prefer typed contexts and pack helpers over copying wire schemas from this guide.
+
+| Concern | Author API | Wire (engine only) |
+|---------|------------|-------------------|
+| Banners / popups | `UIHook` INFORM slots, `inform_popups.py` | `interaction_messages`, `ui_popup` |
+| Commit UI | `TURN_ACTION_DOCK_FOR_VIEWER` | `interaction_panels` |
+| Map drafts | `*_PREVIEW` hooks, `InteractionKind` | `map_selection_preview` |
+| Legality | Arc segments + rules modules | `current_segment`, `action_request` |
+
+Full field tables: [`PACK_HOOK_CONTRACTS.md` § UI affordances](PACK_HOOK_CONTRACTS.md#ui-affordances--wire-schemas-and-hooks-v1).
 
 ### INFORM — banners and popups
 
-| Wire | Hook(s) | Return shape |
+| Hook(s) | Typical return (author) |
 |------|---------|--------------|
-| `StateUpdate.interaction_messages` | `PHASE_BANNER_*`, `COMBAT_INSTRUCTION_*`, `ADVANCE_GATE_*`, or full `INTERACTION_MESSAGES` | `list[dict]` rows: `schema`, `kind`, `text`, optional `html`, `dedupe_key`, `ttl_ms`, `css_class` |
-| `ui_popup` (inspect unit/marker) | `POPUP_MESSAGE` | `{text?, html?, kind?, ttl_ms?, css_class?}` + server sets `hex` |
-| `ui_popup` (map feedback) | **`INFORM_POPUP`** via `inspect` + `target_kind=inform` | Same dict; client `Game.show_inform_popup(inform_kind, reason, hex=…, unit_id=…)` |
-| `StateUpdate.map_overlays` | `MAP_OVERLAYS` | `list[dict]` overlay rows |
+| `PHASE_BANNER_*`, `COMBAT_INSTRUCTION_*`, `ADVANCE_GATE_*`, or full `INTERACTION_MESSAGES` | Message rows: `text`, optional `html`, `kind`, `ttl_ms`, … (engine adds `schema` on wire) |
+| `POPUP_MESSAGE` | `{text?, html?, kind?, ttl_ms?, css_class?}` — server sets anchor `hex` |
+| **`INFORM_POPUP`** (client `show_inform_popup` → inspect + `target_kind=inform`) | Same shape as popup dict |
+| `MAP_OVERLAYS` | List of overlay specs (id, kind, hex, text, …) |
 
 **Two `ui_popup` paths, one renderer:** unit/marker double-click → `POPUP_MESSAGE`; transient map callouts (e.g. illegal attack hex) → `INFORM_POPUP`. Both arrive as `ui_popup` on the client (`_handle_ui_popup`). Do not call `popup_manager.create_popup` from title/game client code for player-facing copy.
 
@@ -141,15 +237,15 @@ Hook inventory (signatures, when invoked): [`PACK_HOOK_CONTRACTS.md` § Hook inv
 
 ### DECIDE — turn action dock
 
-| Wire | Hook | Context |
-|------|------|---------|
-| `StateUpdate.interaction_panels` | **`TURN_ACTION_DOCK_FOR_VIEWER`** | [`TurnActionDockContext`](../src/hexengine/hooks/ui_turn_action_dock.py) |
+| Hook | Context |
+|------|---------|
+| **`TURN_ACTION_DOCK_FOR_VIEWER`** | [`TurnActionDockContext`](../src/hexengine/hooks/ui_turn_action_dock.py) — includes `current_segment`, `shell_ui` |
 
-**Required** when `GameData.title_state_extension_key` is set (`validate_title_contract`). Commit UI is **`interaction_panels` only** — the flat `primary_actions` wire path is removed. All buttons live on panel `turn_actions` (host `advance`).
+**Required** when `GameData.title_state_extension_key` is set (`validate_title_contract`). Commit buttons are composed from segment `allowed_actions` (gate rows) plus title presentation; wire panel id is conventionally `turn_actions`.
 
-Panel / action row schemas: [`TURN_ACTION_DOCK_CONTRACT.md` § Panel wire schema](TURN_ACTION_DOCK_CONTRACT.md#panel-wire-schema-schema-1) and [`PACK_HOOK_CONTRACTS.md` § Action row schema](PACK_HOOK_CONTRACTS.md#action-row-schema-shared).
+Panel / action wire schemas (reference): [`TURN_ACTION_DOCK_CONTRACT.md` § Panel wire schema](TURN_ACTION_DOCK_CONTRACT.md#panel-wire-schema-schema-1).
 
-**Opaque skin key:** `dock_arc` (e.g. `routine`, `retreat_gate`, `attack_ready`) — engine does not interpret step graphs; use for CSS/templates/headlines.
+**Skin key:** `dock_arc` / `presentation_id` (e.g. `routine`, `retreat_gate`, `attack_ready`) — opaque to engine; use in CSS, templates, and the [segment presentation registry](#segment-presentation-registry).
 
 ### SELECT — map selection (click → Confirm on dock)
 
@@ -262,9 +358,9 @@ Preview hooks receive `shell_ui` on context objects; dock hook receives it on `T
 
 | Status | Topics |
 |--------|--------|
-| **Stable (v1)** | Three lanes, dock + `panel_actions` merge, registry kinds `attack_plan` / `retreat_path` / `place_marker`, drag previews, `ENGINE_DEFAULT`, HTML ladder tiers 1–3 |
-| **Evolving** | Client-held draft; hexdemo-only SEQUENCE overrides; fault-tolerant title-load |
-| **Planned** | `games/_template/`, stricter manifest validation, server draft on dock context, composable rule catalog ([`RULE_COMPOSITION.md`](RULE_COMPOSITION.md)) |
+| **Stable (v1)** | Three lanes, dock + `panel_actions` merge, registry kinds `attack_plan` / `retreat_path` / `place_marker`, drag previews, `ENGINE_DEFAULT`, HTML ladder tiers 1–3, `current_segment`-driven legality |
+| **Evolving** | Client-held draft; SEQUENCE skin from `current_segment.interaction_mode`; segment registry + `authoring.present` DTOs + `presentation/inform.py` (hexdemo reference) |
+| **Planned** | Action label catalog in `shell_ui`; gesture policy from segment; stricter manifest validation; [`RULE_COMPOSITION.md`](RULE_COMPOSITION.md) |
 
 ---
 

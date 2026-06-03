@@ -80,6 +80,8 @@ def test_project_routine_combat_segment() -> None:
     assert seg["arc_id"] == "union_combat"
     assert "Attack" in seg["allowed_actions"]
     assert seg["action_locus"]["Attack"] == "client_draft"
+    assert seg.get("presentation_id") == "attack_ready"
+    assert seg.get("interaction_mode") == "attack_plan"
 
 
 def test_project_retreat_gate_owner_and_actions() -> None:
@@ -103,6 +105,8 @@ def test_project_retreat_gate_owner_and_actions() -> None:
     assert seg["owner"] == "confederate"
     assert "CombatDisruptInsteadOfRetreat" in seg["allowed_actions"]
     assert "NextPhase" not in seg["allowed_actions"]
+    assert seg.get("presentation_id") == "retreat_gate"
+    assert seg.get("interaction_mode") == "retreat_path"
 
 
 def test_advance_gate_blocks_next_phase() -> None:
@@ -152,6 +156,8 @@ def test_dock_end_phase_follows_segment() -> None:
         client_contract_features=frozenset(),
         current_segment=seg,
     )
-    panels = turn_action_dock_for_viewer(ctx)
+    from hexengine.hooks.internal.ui_wire import turn_action_dock_to_wire
+
+    panels = turn_action_dock_to_wire(turn_action_dock_for_viewer(ctx))
     end = next(a for a in panels[0]["actions"] if a["id"] == "end_phase")
     assert end["enabled"] is False

@@ -97,7 +97,8 @@ class StateUpdate:
     #: Per-recipient projection of the active declared arc segment (Phase 5).
     #:
     #: Each dict includes schema 1, arc_id, segment_id, kind, owner,
-    #: allowed_actions, and action_locus (server vs client_draft per action type).
+    #: allowed_actions, action_locus (server vs client_draft per action type),
+    #: and title-enriched presentation_id / interaction_mode when bound.
     current_segment: dict[str, Any] | None = None
 
 

@@ -12,6 +12,7 @@ for p in (GAMES, SRC):
     if p not in sys.path:
         sys.path.insert(0, p)
 
+from hexengine.hooks.internal.ui_wire import turn_action_dock_to_wire
 from hexengine.hooks.ui import TurnActionDockContext
 from hexengine.hooks.ui_turn_action_dock import default_turn_action_dock_for_viewer
 from hexengine.server.game_server import GameServer
@@ -128,7 +129,7 @@ def test_hexdemo_combat_phase_enables_end_phase_without_gate() -> None:
         client_contract_features=frozenset(),
         current_segment=seg,
     )
-    panels = turn_action_dock_for_viewer(ctx)
+    panels = turn_action_dock_to_wire(turn_action_dock_for_viewer(ctx))
     assert panels[0]["dock_arc"] == "attack_ready"
     end = next(a for a in panels[0]["actions"] if a["id"] == "end_phase")
     assert end["enabled"] is True
@@ -205,7 +206,7 @@ def test_hexdemo_retreat_gate_shows_for_non_turn_owner() -> None:
         client_contract_features=frozenset(),
         current_segment=seg,
     )
-    panels = turn_action_dock_for_viewer(ctx)
+    panels = turn_action_dock_to_wire(turn_action_dock_for_viewer(ctx))
     assert len(panels) == 1
     assert panels[0]["dock_arc"] == "retreat_gate"
     ids = {a["id"] for a in panels[0]["actions"]}
@@ -282,7 +283,7 @@ def test_hexdemo_retreat_obligation_shows_dock_for_non_turn_owner() -> None:
         client_contract_features=frozenset(),
         current_segment=seg,
     )
-    panels = turn_action_dock_for_viewer(ctx)
+    panels = turn_action_dock_to_wire(turn_action_dock_for_viewer(ctx))
     assert len(panels) == 1
     assert panels[0]["dock_arc"] == "retreat_gate"
     assert "end_phase" in {a["id"] for a in panels[0]["actions"]}
@@ -358,7 +359,7 @@ def test_hexdemo_advance_gate_disables_end_phase() -> None:
         client_contract_features=frozenset(),
         current_segment=seg,
     )
-    panels = turn_action_dock_for_viewer(ctx)
+    panels = turn_action_dock_to_wire(turn_action_dock_for_viewer(ctx))
     actions = panels[0]["actions"]
     ids = [a["id"] for a in actions]
     assert "combat_advance" in ids

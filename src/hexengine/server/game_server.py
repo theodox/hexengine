@@ -1225,12 +1225,9 @@ class GameServer:
                     "catalog default"
                 )
             raw = catalog(ctx)
-        if not isinstance(raw, list):
-            raise TypeError(
-                "hooks.ui.turn_action_dock_for_viewer must return "
-                "list[dict] or hooks.ENGINE_DEFAULT"
-            )
-        return raw or None
+        from ..hooks.internal.ui_wire import turn_action_dock_to_wire
+
+        return turn_action_dock_to_wire(raw) or None
 
     def _interaction_panels_for_player_id(
         self, player_id: str
@@ -1797,28 +1794,39 @@ class GameServer:
             return
 
         if target_kind == "inform":
-            inform_kind = ""
+            client_inform_kind = ""
             unit_id: str | None = None
             if isinstance(ctx, dict):
-                inform_kind = str(ctx.get("inform_kind", "")).strip()
+                client_inform_kind = str(ctx.get("inform_kind", "")).strip()
                 uid_raw = ctx.get("unit_id")
                 if uid_raw is not None and str(uid_raw).strip():
                     unit_id = str(uid_raw).strip()
+            from ..arcs.inform_wire import resolve_inform_lane
+
+            lane = resolve_inform_lane(
+                self,
+                state,
+                viewer_faction=viewer_faction,
+                client_inform_kind=client_inform_kind,
+            )
             shell = dict(self.game_data.shell_ui) if self.game_data.shell_ui else {}
             ip_ctx = InformPopupContext(
                 state=state,
                 viewer_faction=viewer_faction,
-                inform_kind=inform_kind,
+                inform_kind=lane.inform_kind,
                 reason=target_id,
                 anchor_hex=anchor_hex,
                 unit_id=unit_id,
                 shell_ui=shell,
+                inform_profile=lane.inform_profile,
+                segment_kind=lane.segment_kind,
             )
             pm = self.hooks.ui.inform_popup_for(ip_ctx)
             if pm is ENGINE_DEFAULT or pm is None:
                 pm = default_inform_popup_for_viewer(ip_ctx)
-            if not isinstance(pm, dict):
-                return
+            from ..hooks.internal.ui_wire import inform_popup_to_wire
+
+            pm = inform_popup_to_wire(pm)
             await self._send_ui_popup_to_player(
                 player_id, anchor_hex=anchor_hex, pm=pm
             )

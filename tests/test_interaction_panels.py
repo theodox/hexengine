@@ -136,7 +136,9 @@ def test_hexdemo_turn_action_dock_gate_hint_html_escapes() -> None:
             "action_locus": {},
         },
     )
-    rows = turn_action_dock_for_viewer(ctx)
+    from hexengine.hooks.internal.ui_wire import turn_action_dock_to_wire
+
+    rows = turn_action_dock_to_wire(turn_action_dock_for_viewer(ctx))
     assert len(rows) == 1
     assert rows[0]["id"] == "turn_actions"
     assert rows[0]["dock_arc"] == "advance_gate"

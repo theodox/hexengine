@@ -529,6 +529,8 @@ and validate), not `hexengine.arcs.patterns`.
 - Title `combat_gate` bucket field retained as effect mirror only; engine reads `current_segment`.
 - Client draft CSS uses `effective_turn_dock_arc` (client-local sub-arcs); server uses `dock_arc_from_segment`.
 
+**Author-facing UX (next):** segment `kind` plus a title **presentation registry** (`presentation_id`, primitive, `interaction_mode`) so hooks and templates stay insulated from wire — see [`TITLE_AUTHORING.md` § Flow vs presentation](TITLE_AUTHORING.md#flow-vs-presentation-authoring-model) and [`PACK_HOOK_CONTRACTS.md` § Authoring vs wire](PACK_HOOK_CONTRACTS.md#authoring-vs-wire).
+
 ---
 
 ## Out of scope

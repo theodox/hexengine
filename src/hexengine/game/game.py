@@ -1163,8 +1163,11 @@ class Game(
         hex_wire: dict[str, int] | None = None
         if isinstance(hex, Hex):
             hex_wire = {"i": int(hex.i), "j": int(hex.j), "k": int(hex.k)}
+        kind = str(inform_kind or "").strip()
+        if not kind and hasattr(self, "_resolved_inform_kind"):
+            kind = self._resolved_inform_kind()  # type: ignore[attr-defined]
         client.send_inform_popup(
-            inform_kind,
+            kind,
             reason,
             hex_wire=hex_wire,
             unit_id=unit_id,
@@ -1197,13 +1200,17 @@ class Game(
 
         mx, my = self.layout.hex_to_pixel(Hex(i, j, k))
         pos = self.canvas.map_space_to_container_pixel(mx, my)
-        ttl_ms: int | None = None
+        ttl_ms: int | None
         raw_ttl = payload.get("ttl_ms")
-        if raw_ttl is not None:
+        if "ttl_ms" not in payload:
+            ttl_ms = 800
+        elif raw_ttl is None:
+            ttl_ms = None
+        else:
             try:
                 ttl_ms = max(0, int(raw_ttl))
             except (TypeError, ValueError):
-                ttl_ms = None
+                ttl_ms = 800
         raw_class = payload.get("css_class")
         css_class = (
             str(raw_class).strip()

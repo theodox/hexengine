@@ -71,6 +71,10 @@ def validate_arc_contract(bundle: TitleHooks) -> list[str]:
         else:
             _validate_arc_spec("movement_arc", movement_raw, errors)
 
+    from .segment_ui_validate import validate_segment_presentation
+
+    errors.extend(validate_segment_presentation(bundle))
+
     return errors
 
 

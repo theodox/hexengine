@@ -21,6 +21,32 @@ Gameplay hooks are **typed in Python** (`MovementHook`, `AttackHook`, `UIHook`, 
 
 **Turn action dock (commit UI):** [`TURN_ACTION_DOCK_CONTRACT.md`](TURN_ACTION_DOCK_CONTRACT.md) — hexdemo binds `TURN_ACTION_DOCK_FOR_VIEWER`. Player primitives (INFORM / SELECT / DECIDE / SEQUENCE): same doc + § Map selection preview below.
 
+## Authoring vs wire
+
+**Title authors** should not treat wire payloads as the primary API. They declare **flow** in arcs (segments, `kind`, allowed actions) and **presentation** in `shell_ui`, templates, pack markup helpers, and thin hook adapters. The engine **projects** hook results and segment state onto wire messages the client renders.
+
+| You author | You do not author (engine internal) |
+|------------|-------------------------------------|
+| Arc segments + segment `kind` strings | `StateUpdate` message assembly |
+| [`TitleHooks`](../src/hexengine/hooks/wiring.py) callables + contexts | WebSocket `schema` / `omit_if_none` rules |
+| `shell_ui`, templates, `presentation_id` / `dock_arc` skin keys | `BrowserWebSocketClient` field parsing for legality |
+| Preview hook: draft in → legality + `commit_payload` out | Client computing legal hex sets locally |
+| Optional **segment presentation registry** (one row per UX mode) | `dock_arc_from_segment` heuristics (being replaced by title `kind` → skin mapping) |
+
+**Hook return shapes:** turn dock and inform popups should return **`TurnDockPanel` / `InformPopup`** from `hexengine.authoring.present` (hexdemo reference). Legacy `dict` rows are still accepted; the engine normalizes via `hexengine.hooks.internal.ui_wire` before wire assembly. Prefer:
+
+- Typed contexts (`TurnActionDockContext`, `InformPopupContext`, …) for inputs.
+- `turn_dock_panel`, `inform_popup`, pack `presentation/` helpers for outputs.
+- No hand-built wire dicts in `games/*` except tests.
+
+**Wire tables below** document what the client receives after projection. Use them when debugging network traffic or extending the engine renderer — not when writing a new title pack. Author workflow: [`TITLE_AUTHORING.md` § Flow vs presentation](TITLE_AUTHORING.md#flow-vs-presentation-authoring-model) and [§ Segment presentation registry](TITLE_AUTHORING.md#segment-presentation-registry).
+
+**P3:** `current_segment` includes `presentation_id` and `interaction_mode` when the title binds `UIHook.ENRICH_CURRENT_SEGMENT` (hexdemo: `hooks/segment_presentation.py`). Engine defaults apply when the hook is omitted.
+
+**P4:** INFORM ``inspect`` resolves ``inform_profile`` from ``current_segment`` when the client omits ``inform_kind`` (`hexengine.arcs.inform_wire`). Title popups key off profile + reason (hexdemo: `presentation/inform.py`).
+
+**P5:** ``validate_arc_contract`` / ``validate_title_contract`` ensure declared arc segment ``kind`` values ⊆ ``segment_presentation_registry`` (`hexengine.authoring.segment_ui_validate`). Titles with ``title_state_extension_key`` must bind ``UIHook.SEGMENT_PRESENTATION_REGISTRY``.
+
 ## UI affordances — wire schemas and hooks (v1)
 
 Per-recipient UI payloads travel on **`StateUpdate`** (banner messages, turn action dock panels, map overlays) or as standalone server messages (**`ui_popup`**). Titles customize copy and affordances through **`UIHook`** callables bound with `@bind_title_hook`; return **`ENGINE_DEFAULT`** to request engine composition or catalog defaults.
@@ -274,6 +300,7 @@ Authors should be able to answer, without reading engine internals:
 1. **Which hooks does my pack implement?** (required vs optional vs engine default)
 2. **What is each hook’s signature and when does it run?** (arc segment, server RPC, client-only, …)
 3. **What fails if I get it wrong?** — prefer **fail at pack load / server start / typecheck**, not mid-match or silent skip.
+4. **Which UX mode is active?** — one **segment presentation registry** row per `kind` (primitive, `presentation_id`, optional `interaction_mode`, inform profile) — see [`TITLE_AUTHORING.md` § Segment presentation registry](TITLE_AUTHORING.md#segment-presentation-registry).
 
 Planned mechanisms (apply across **both** systems over time):
 
@@ -282,6 +309,7 @@ Planned mechanisms (apply across **both** systems over time):
 - **Required vs optional** per hook point (not inferred only from “table present” in TOML).
 - Document **arc segment** (engine) vs **pack hook** (title) for client flows — same vocabulary as [`hexengine.game.arcs.client_title_load`](../src/hexengine/game/arcs/client_title_load.py).
 - Extend `validate_title_contract` (or siblings) for more schedule/hook combinations, not only combat/attack.
+- **Segment UI registry (P5):** every explicit `kind` used in declared arcs has a registry row — enforced at startup when `SEGMENT_PRESENTATION_REGISTRY` is bound.
 
 ### 2. Early validation (“compile-time” in the broad sense)
 

@@ -138,7 +138,8 @@ Shipped:
 | New `InteractionKind` rows | Placement, gate hex-pick when drag is insufficient |
 | `MovementHook` preview override | Custom reach sets without duplicating validation |
 | Server-held draft on dock context | If client-only draft drifts from server |
-| Generalized client SEQUENCE overrides | Today `*_draft` arcs are hexdemo client code |
+| Generalized client SEQUENCE overrides | Today `*_draft` arcs are hexdemo client code; target: `interaction_mode` from segment registry ([`TITLE_AUTHORING.md` § Segment presentation registry](TITLE_AUTHORING.md#segment-presentation-registry)) |
+| Segment presentation registry | One pack module: `kind` → `presentation_id`, primitive, `interaction_mode`; dock/inform hooks lookup instead of parallel if-chains |
 | Retreat path rules tweaks | Step count vs movement budget (title rules; see `retreat_path.py`) |
 | `games/_template/` pack | Scaffold named in [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md) |
 

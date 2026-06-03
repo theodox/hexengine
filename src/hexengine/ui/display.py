@@ -49,8 +49,99 @@ class InteractionMessage:
 
 
 @dataclass(frozen=True, slots=True)
+class PanelAction:
+    """One turn action dock ``actions[]`` row (schema 1)."""
+
+    id: str
+    action_type: str
+    label: str
+    enabled: bool
+    schema: int = 1
+    title: str | None = None
+    payload: dict[str, Any] | None = None
+    css_class: str | None = None
+    group: str | None = None
+    order: int | None = None
+
+    def to_wire_dict(self) -> dict[str, Any]:
+        out: dict[str, Any] = {
+            "schema": int(self.schema),
+            "id": str(self.id).strip(),
+            "action_type": str(self.action_type).strip(),
+            "label": str(self.label),
+            "enabled": bool(self.enabled),
+            "payload": dict(self.payload) if isinstance(self.payload, dict) else {},
+        }
+        if self.title is not None and str(self.title).strip():
+            out["title"] = str(self.title).strip()
+        if self.css_class is not None and str(self.css_class).strip():
+            out["css_class"] = str(self.css_class).strip()
+        if self.group is not None and str(self.group).strip():
+            out["group"] = str(self.group).strip()
+        if self.order is not None:
+            out["order"] = int(self.order)
+        return out
+
+
+@dataclass(frozen=True, slots=True)
+class TurnDockPanel:
+    """Turn action dock panel (``StateUpdate.interaction_panels`` row, schema 1)."""
+
+    presentation_id: str
+    actions: tuple[PanelAction, ...]
+    id: str = "turn_actions"
+    host: str = "user-controls"
+    headline: str = ""
+    html: str | None = None
+    css_class: str | None = None
+    inputs: tuple[dict[str, Any], ...] = ()
+    schema: int = 1
+
+    def to_wire_dict(self) -> dict[str, Any]:
+        out: dict[str, Any] = {
+            "schema": int(self.schema),
+            "id": str(self.id).strip(),
+            "host": str(self.host).strip() or "user-controls",
+            "dock_arc": str(self.presentation_id).strip(),
+            "headline": str(self.headline),
+            "actions": [a.to_wire_dict() for a in self.actions],
+            "inputs": [dict(i) for i in self.inputs if isinstance(i, dict)],
+        }
+        if self.html is not None and str(self.html).strip():
+            out["html"] = str(self.html)
+        if self.css_class is not None and str(self.css_class).strip():
+            out["css_class"] = str(self.css_class).strip()
+        return out
+
+
+@dataclass(frozen=True, slots=True)
+class InformPopup:
+    """Map callout popup (``ui_popup`` wire); server sets anchor ``hex``."""
+
+    text: str
+    kind: str = "info"
+    html: str | None = None
+    ttl_ms: int | None = 800
+    css_class: str | None = None
+
+    def to_wire_dict(self) -> dict[str, Any]:
+        txt = str(self.text).strip()
+        html = None if self.html is None else str(self.html).strip()
+        if not txt and not html:
+            raise ValueError("InformPopup requires non-empty text or html")
+        out: dict[str, Any] = {"kind": str(self.kind).strip() or "info", "text": txt}
+        if html:
+            out["html"] = html
+        if self.ttl_ms is not None:
+            out["ttl_ms"] = max(0, int(self.ttl_ms))
+        if self.css_class is not None and str(self.css_class).strip():
+            out["css_class"] = str(self.css_class).strip()
+        return out
+
+
+@dataclass(frozen=True, slots=True)
 class InteractionPanel:
-    """One ``StateUpdate.interaction_panels`` row (schema 1)."""
+    """Generic ``interaction_panels`` row without turn-dock fields (schema 1)."""
 
     id: str
     host: str = "user-controls"
@@ -96,6 +187,120 @@ def panel_input(
     if options:
         row["options"] = [{"value": o["value"], "label": o["label"]} for o in options]
     return row
+
+
+def panel_action(
+    *,
+    id: str,
+    action_type: str,
+    label: str,
+    enabled: bool = True,
+    title: str | None = None,
+    payload: dict[str, Any] | None = None,
+    css_class: str | None = None,
+    group: str | None = None,
+    order: int | None = None,
+    schema: int = 1,
+) -> PanelAction:
+    """Build one dock action row (author-facing; converted to wire by the engine)."""
+    return PanelAction(
+        id=id,
+        action_type=action_type,
+        label=label,
+        enabled=enabled,
+        title=title,
+        payload=payload,
+        css_class=css_class,
+        group=group,
+        order=order,
+        schema=schema,
+    )
+
+
+def panel_actions_from_dicts(rows: list[dict[str, Any]]) -> tuple[PanelAction, ...]:
+    """Wrap engine-built action dicts (e.g. segment gate rows) as ``PanelAction``."""
+    out: list[PanelAction] = []
+    for raw in rows:
+        if not isinstance(raw, dict):
+            continue
+        out.append(
+            PanelAction(
+                id=str(raw.get("id", "")).strip(),
+                action_type=str(raw.get("action_type", "")).strip(),
+                label=str(raw.get("label", "")),
+                enabled=bool(raw.get("enabled", True)),
+                title=(
+                    str(raw["title"]).strip()
+                    if raw.get("title") is not None
+                    else None
+                ),
+                payload=(
+                    dict(raw["payload"])
+                    if isinstance(raw.get("payload"), dict)
+                    else {}
+                ),
+                css_class=(
+                    str(raw["css_class"]).strip()
+                    if raw.get("css_class") is not None
+                    else None
+                ),
+                group=(
+                    str(raw["group"]).strip() if raw.get("group") is not None else None
+                ),
+                order=(
+                    int(raw["order"])
+                    if raw.get("order") is not None
+                    else None
+                ),
+                schema=int(raw.get("schema", 1)),
+            )
+        )
+    return tuple(out)
+
+
+def turn_dock_panel(
+    *,
+    presentation_id: str,
+    actions: tuple[PanelAction, ...] | list[PanelAction],
+    id: str = "turn_actions",
+    host: str = "user-controls",
+    headline: str = "",
+    html: str | None = None,
+    css_class: str | None = None,
+    inputs: list[dict[str, Any]] | None = None,
+    schema: int = 1,
+) -> TurnDockPanel:
+    """Build one turn action dock panel (author-facing)."""
+    act = tuple(actions) if isinstance(actions, tuple) else tuple(actions)
+    return TurnDockPanel(
+        presentation_id=presentation_id,
+        actions=act,
+        id=id,
+        host=host,
+        headline=headline,
+        html=html,
+        css_class=css_class,
+        inputs=tuple(inputs or ()),
+        schema=schema,
+    )
+
+
+def inform_popup(
+    *,
+    text: str,
+    kind: str = "info",
+    html: str | None = None,
+    ttl_ms: int | None = 800,
+    css_class: str | None = None,
+) -> InformPopup:
+    """Build one map callout popup (author-facing)."""
+    return InformPopup(
+        text=text,
+        kind=kind,
+        html=html,
+        ttl_ms=ttl_ms,
+        css_class=css_class,
+    )
 
 
 def interaction_panel(
@@ -184,14 +389,21 @@ def pack_asset_href(
 
 
 __all__ = [
+    "InformPopup",
     "InteractionMessage",
     "InteractionPanel",
+    "PanelAction",
+    "TurnDockPanel",
     "clear_template_cache",
     "escape",
+    "inform_popup",
     "interaction_message",
     "interaction_panel",
     "load_html_template",
     "pack_asset_href",
+    "panel_action",
+    "panel_actions_from_dicts",
     "panel_input",
     "render_html_template",
+    "turn_dock_panel",
 ]

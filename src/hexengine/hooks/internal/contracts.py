@@ -92,7 +92,8 @@ def validate_title_contract(game_definition: Any) -> None:
     `ENGINE_DEFAULT` from those callables to decline attacks at action time.
 
     When `GameData.title_state_extension_key` is set (title combat extension bucket),
-    `TitleHooks.ui.turn_action_dock_for_viewer` must be bound. Commit UI is delivered
+    `TitleHooks.ui.turn_action_dock_for_viewer` and
+    `TitleHooks.ui.segment_presentation_registry` must be bound. Commit UI is delivered
     only via ``interaction_panels`` (no ``primary_actions`` fallback).
 
     Raises:
@@ -120,6 +121,15 @@ def validate_title_contract(game_definition: Any) -> None:
                     "returning a TurnArcRegistry."
                 ),
                 details={"requires_turn_arc_registry": True},
+            )
+        if bundle.ui.segment_presentation_registry is None:
+            raise HookContractError(
+                message=(
+                    "title_state_extension_key is set but "
+                    "TitleHooks.ui.segment_presentation_registry is not bound. "
+                    "Wire UIHook.SEGMENT_PRESENTATION_REGISTRY (hexdemo: segment_ui.py)."
+                ),
+                details={"requires_segment_presentation_registry": True},
             )
     if _schedule_expects_attack_hooks(game_definition):
         a = bundle.attack

@@ -36,6 +36,72 @@ def _action_locus(action_type: str) -> str:
     return "client_draft" if action_type in CLIENT_DRAFT_ACTIONS else "server"
 
 
+def default_segment_presentation_patch(
+    segment: Mapping[str, Any],
+    *,
+    viewer_may_act: bool,
+    current_phase: str,
+) -> dict[str, str]:
+    """Engine fallback when the title does not bind ``enrich_current_segment``."""
+
+    presentation_id = dock_arc_from_segment(
+        segment,
+        viewer_may_act=viewer_may_act,
+        current_phase=current_phase,
+    )
+    patch: dict[str, str] = {"presentation_id": presentation_id}
+    locus = segment.get("action_locus")
+    if isinstance(locus, Mapping) and str(locus.get("Attack", "")).strip() == "client_draft":
+        patch["interaction_mode"] = "attack_plan"
+    kind = str(segment.get("kind", "")).strip()
+    if kind in KIND_DOCK_ARC_RETREAT:
+        patch["interaction_mode"] = "retreat_path"
+    return patch
+
+
+def enrich_current_segment_wire(
+    host: SegmentProjectorHost,
+    segment: dict[str, Any],
+    state: GameState,
+    *,
+    viewer_faction: str | None,
+    viewer_may_act: bool,
+) -> dict[str, Any]:
+    """Attach ``presentation_id`` / ``interaction_mode`` from title hook or engine default."""
+
+    from ..hooks.core import ENGINE_DEFAULT
+    from ..hooks.ui_segment import (
+        SegmentPresentationContext,
+        merge_segment_presentation,
+    )
+
+    phase = str(state.turn.current_phase).strip()
+    patch = default_segment_presentation_patch(
+        segment,
+        viewer_may_act=viewer_may_act,
+        current_phase=phase,
+    )
+    ui = getattr(getattr(host, "hooks", None), "ui", None)
+    enrich = getattr(ui, "enrich_current_segment", None) if ui is not None else None
+    if callable(enrich):
+        ctx = SegmentPresentationContext(
+            state=state,
+            viewer_faction=viewer_faction,
+            segment=dict(segment),
+            viewer_may_act=viewer_may_act,
+            current_phase=phase,
+        )
+        raw = enrich(ctx)
+        if raw is not ENGINE_DEFAULT and isinstance(raw, dict):
+            for key, value in raw.items():
+                if value is None:
+                    continue
+                text = str(value).strip()
+                if text:
+                    patch[key] = text
+    return merge_segment_presentation(segment, patch)
+
+
 def project_current_segment(
     host: SegmentProjectorHost,
     state: GameState,
@@ -62,7 +128,7 @@ def project_current_segment(
     viewer_may_act = bool(viewer and owner_s and viewer == owner_s)
     allowed = sorted(segment.allowed_actions) if viewer_may_act else []
 
-    return {
+    base = {
         "schema": SEGMENT_WIRE_SCHEMA,
         "arc_id": str(cursor.arc_id),
         "segment_id": str(cursor.segment_id),
@@ -71,6 +137,13 @@ def project_current_segment(
         "allowed_actions": allowed,
         "action_locus": {at: _action_locus(at) for at in allowed},
     }
+    return enrich_current_segment_wire(
+        host,
+        base,
+        state,
+        viewer_faction=viewer_faction,
+        viewer_may_act=viewer_may_act,
+    )
 
 
 def segment_allows_action(segment: Mapping[str, Any] | None, action_type: str) -> bool:
@@ -243,7 +316,9 @@ __all__ = [
     "SEGMENT_WIRE_SCHEMA",
     "SegmentProjectorHost",
     "action_rows_from_segment",
+    "default_segment_presentation_patch",
     "dock_arc_from_segment",
+    "enrich_current_segment_wire",
     "project_current_segment",
     "segment_allows_action",
     "segment_blocks_routine_phase_advance",

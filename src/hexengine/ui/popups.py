@@ -10,6 +10,9 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger("PopupManager")
 
+# Must match ``fadeOut`` duration in ``hexes.css``.
+_FADE_MS = 500
+
 
 class PopupManager:
     def __init__(self, canvas) -> None:
@@ -128,29 +131,44 @@ class Popup:
         canvas.appendChild(root)
         self.element = root
         self.canvas = canvas
-        self.timeout = timeout
+        self.timeout = max(0, int(timeout))
 
-        if self.timeout:
-            if auto_dismiss:
-                js.setTimeout(create_proxy(lambda _: self.do_fade()), self.timeout)
-            else:
-                self.element.addEventListener(
-                    "mouseleave", create_proxy(lambda _: self.do_fade())
-                )
+        if auto_dismiss:
+            delay = self.timeout
+            js.setTimeout(create_proxy(self._dismiss_after_ttl), delay)
+        else:
+            self.element.addEventListener(
+                "mouseleave", create_proxy(self._dismiss_on_mouseleave)
+            )
 
-    def delete(self, *_) -> None:
-        LOGGER.info(f"Removing popup with message: {self.message}")
-        if self.canvas.contains(self.element):
-            self.canvas.removeChild(self.element)
+    def _dismiss_after_ttl(self, *_args: object) -> None:
+        self._begin_fade_out()
 
-    def do_fade(self, *_) -> None:
+    def _dismiss_on_mouseleave(self, *_args: object) -> None:
+        self._begin_fade_out()
+
+    def _begin_fade_out(self) -> None:
         if self.faded:
             return
-        logging.getLogger("Popup").info(f"Fading out {self}")
         self.faded = True
+        el = self.element
+        if el is None:
+            return
+        logging.getLogger("Popup").info("Fading out %s", self)
+        el.classList.add("fade-out")
+        js.setTimeout(create_proxy(self.delete), _FADE_MS)
 
-        def fade_out(*_):
-            self.element.classList.add("fade-out")
-            js.setTimeout(create_proxy(lambda: self.delete()), self.timeout)
+    def delete(self, *_args: object) -> None:
+        LOGGER.info(f"Removing popup with message: {self.message}")
+        el = self.element
+        canvas = self.canvas
+        if el is not None and canvas is not None:
+            try:
+                if canvas.contains(el):
+                    canvas.removeChild(el)
+            except Exception:
+                pass
 
-        js.setTimeout(create_proxy(fade_out), self.timeout)
+    def do_fade(self, *_args: object) -> None:
+        """Legacy entry point; prefer ``_begin_fade_out``."""
+        self._begin_fade_out()
