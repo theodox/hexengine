@@ -23,6 +23,7 @@ from hexengine.state import GameState
 from hexengine.state.map_feature_queries import edges_block_los_predicate
 
 from . import title_state
+from .combat_transitions import attack_planning_blocked_reason
 
 _ATTACK_KIND = "combined"
 _ATTACK_PLAN_KIND = "attack_plan"
@@ -87,16 +88,7 @@ def _enemy_on_hex(state: GameState, h: Hex, attacker_faction: str) -> bool:
 
 
 def _already_attacked_this_phase(state: GameState, unit_id: str) -> bool:
-    prev = title_state.bucket(state).get("attacks_this_phase")
-    if not isinstance(prev, list):
-        return False
-    return unit_id in prev
-
-
-def _planning_blocked_reason(state: GameState, player_faction: str) -> str | None:
-    from .combat_transitions import attack_planning_blocked_reason
-
-    return attack_planning_blocked_reason(state, player_faction)
+    return unit_id in title_state.attacks_this_phase(state)
 
 
 def _parse_target_hex(draft: dict[str, Any]) -> Hex | None:
@@ -313,7 +305,7 @@ def compute_attack_plan_preview(
 
     Returns a JSON-safe dict for ``map_selection_preview`` wire messages.
     """
-    blocked = _planning_blocked_reason(state, player_faction)
+    blocked = attack_planning_blocked_reason(state, player_faction)
     if blocked:
         return {
             "kind": _ATTACK_PLAN_KIND,

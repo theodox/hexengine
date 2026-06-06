@@ -26,10 +26,6 @@ def enrich_current_segment(ctx: SegmentPresentationContext) -> dict[str, Any]:
         out["primitive"] = str(row.primitive.value)
         if row.inform_profile:
             out["inform_profile"] = row.inform_profile
-    elif presentation_id == "attack_ready":
-        out["interaction_mode"] = "attack_plan"
-    elif presentation_id == "retreat_gate":
-        out["interaction_mode"] = "retreat_path"
     return out
 
 

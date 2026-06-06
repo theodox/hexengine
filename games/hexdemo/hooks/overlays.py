@@ -33,10 +33,7 @@ def map_overlays(
     hx = title_state.bucket(state)
     if not hx:
         return ENGINE_DEFAULT
-    atk_n = 0
-    prev_attacks = hx.get("attacks_this_phase")
-    if isinstance(prev_attacks, list):
-        atk_n = len(prev_attacks)
+    atk_n = len(title_state.attacks_this_phase(state))
     lc = hx.get("last_combat")
     if not isinstance(lc, dict):
         return ENGINE_DEFAULT

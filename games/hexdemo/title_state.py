@@ -23,4 +23,13 @@ def bucket(state: GameState) -> dict[str, Any]:
     return _title_bucket(state, PACK_STATE_EXTENSION_KEY)
 
 
-__all__ = ["bucket"]
+def attacks_this_phase(state: GameState) -> list[str]:
+    """Unit ids that have already attacked in the current combat phase."""
+
+    raw = bucket(state).get("attacks_this_phase")
+    if not isinstance(raw, list):
+        return []
+    return [uid for uid in raw if isinstance(uid, str)]
+
+
+__all__ = ["attacks_this_phase", "bucket"]

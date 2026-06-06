@@ -180,7 +180,7 @@ Server prepends `games/` when loading a scenario path; see hexdemo README for lo
 
 ## Title bucket and combat transitions (hexdemo pattern)
 
-Match-scoped title state lives in **`GameState.title_state`** (one bucket per match; pack id in **`GameState.title_bucket_key`** from `GameData.title_state_extension_key`). Read/write through one module (hexdemo: [`title_state.py`](../games/hexdemo/title_state.py)). Engine ephemeral keys live in **`GameState.engine_state`** and must use the `hexengine_` prefix (see [`title_extension.py`](../src/hexengine/state/title_extension.py)).
+Match-scoped title state lives in **`GameState.title_state`** (one bucket per match; pack id in **`GameState.title_bucket_key`** from `GameData.title_state_extension_key`). Read/write through one module (hexdemo: [`title_state.py`](../games/hexdemo/title_state.py) — use `bucket()` and typed helpers such as `attacks_this_phase()` rather than scattering raw key strings). Engine ephemeral keys live in **`GameState.engine_state`** and must use the `hexengine_` prefix (see [`title_extension.py`](../src/hexengine/state/title_extension.py)).
 
 Hexdemo combat cleanup is a **declared arc** ([`combat_arc.py`](../games/hexdemo/combat_arc.py) + [`authoring.patterns.combat`](../src/hexengine/authoring/patterns/combat.py)). The title bucket **`combat_gate`** string is an effect-maintained mirror for debugging; the engine reads **`current_segment`** (arc cursor + declared segment metadata), not bucket gate strings. Transition effects and FSM notes live in [`combat_transitions.py`](../games/hexdemo/combat_transitions.py). Segment helpers: [`arc_segment.py`](../games/hexdemo/arc_segment.py).
 

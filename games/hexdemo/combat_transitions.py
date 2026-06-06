@@ -36,7 +36,7 @@ from hexengine.state.actions import PatchTitleBucket
 
 from . import combat, combat_actions, title_state
 
-# Wire values stored in ``extension[pack_id]["combat_gate"]``.
+# Wire values stored in the title bucket ``combat_gate`` key (effect-maintained mirror).
 GATE_AWAITING_RETREAT = "awaiting_retreat"
 GATE_AWAITING_RETREAT_OR_DISRUPT = "awaiting_retreat_or_disrupt"
 GATE_AWAITING_ADVANCE = "awaiting_advance"
@@ -132,8 +132,7 @@ def follow_up_after_attack(ctx: AfterAttackAppliedContext) -> list[StateAction]:
 
     # Update "attacks_this_phase" (one entry per attacking unit).
     hx0 = title_state.bucket(ctx.state)
-    prev_attacks = hx0.get("attacks_this_phase")
-    attacks = list(prev_attacks) if isinstance(prev_attacks, list) else []
+    attacks = list(title_state.attacks_this_phase(ctx.state))
     for aid in a_ids:
         if isinstance(aid, str) and aid.strip():
             attacks.append(aid.strip())

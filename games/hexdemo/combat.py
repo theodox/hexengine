@@ -1,8 +1,8 @@
 """
 Hexdemo combat extension reads for the match title bucket.
 
-Server and client resolve obligations through optional `GameDefinition` hooks
-on `HexdemoGameDefinition`; per-unit steps use `hexengine.state.pack_extension_retreat`.
+Server and client resolve obligations through title movement hooks; per-unit
+steps use `hexengine.state.pack_extension_retreat` with `PACK_STATE_EXTENSION_KEY`.
 """
 
 from __future__ import annotations

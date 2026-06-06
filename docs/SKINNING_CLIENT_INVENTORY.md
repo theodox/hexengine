@@ -13,7 +13,7 @@ File-level map of how the browser renders title UX. Server owns legality; the cl
 | INFORM | Banner row, inspect popup | [`game.py`](../src/hexengine/game/game.py), `interaction_messages` sync |
 | SELECT | Draft, preview RPC, highlights | [`client_map_selection.py`](../src/hexengine/game/arcs/client_map_selection.py), [`client_map_selection_registry.py`](../src/hexengine/game/arcs/client_map_selection_registry.py), drag via [`server/preview.py`](../src/hexengine/server/preview.py) |
 | DECIDE | Dock panel `actions[]` | [`client_interaction_panels.py`](../src/hexengine/game/arcs/client_interaction_panels.py), [`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py) |
-| SEQUENCE | Server `dock_arc` + client overrides + headline | [`client_interaction_panels.py`](../src/hexengine/game/arcs/client_interaction_panels.py), [`client_combat.py`](../src/hexengine/game/arcs/client_combat.py), [`client_retreat_path.py`](../src/hexengine/game/arcs/client_retreat_path.py) |
+| SEQUENCE | Server `presentation_id` (wire: `dock_arc`) + client `interaction_mode` draft skin + headline | [`client_interaction_panels.py`](../src/hexengine/game/arcs/client_interaction_panels.py), [`client_combat.py`](../src/hexengine/game/arcs/client_combat.py), [`client_retreat_path.py`](../src/hexengine/game/arcs/client_retreat_path.py) |
 
 **Attack plan:** SELECT → `map_selection_preview` → merge `panel_actions` → `Attack` uses `preview_commit` route.
 
@@ -30,7 +30,7 @@ File-level map of how the browser renders title UX. Server owns legality; the cl
 | [`client_interaction_panels.py`](../src/hexengine/game/arcs/client_interaction_panels.py) | Renders `StateUpdate.interaction_panels`; `headline`, `html`, `actions[]`, `inputs[]`; merges preview actions; SEQUENCE skin (`attack_draft`, `retreat_path_draft`, `place_marker_draft`) |
 | [`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py) | `PANEL_ACTION_ROUTES`: local + `preview_commit` dispatch before default RPC |
 | [`game.py`](../src/hexengine/game/game.py) | `_sync_interaction_panels()` on state sync |
-| [`games/hexdemo/hooks/turn_action_dock.py`](../games/hexdemo/hooks/turn_action_dock.py) | Hexdemo server dock rows and baseline `dock_arc` |
+| [`games/hexdemo/hooks/turn_action_dock.py`](../games/hexdemo/hooks/turn_action_dock.py) | Hexdemo server dock rows; copy via [`segment_ui.py`](../games/hexdemo/segment_ui.py) + [`presentation/dock.py`](../games/hexdemo/presentation/dock.py) |
 
 `primary_actions` wire and `_primary_actions_row` sync only run when the title does **not** bind `TURN_ACTION_DOCK_FOR_VIEWER`.
 

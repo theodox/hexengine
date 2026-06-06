@@ -243,14 +243,12 @@ advance / retreat fulfillment): the dispatch-time gate-string prechecks in
 `authority_combat_cleanup` and `game_server` are deleted as each RPC migrates, replaced
 by `submit_event` (owner + `allowed_actions` + guards).
 
-The `combat_gate` string is **not** deleted in Phase 2. It is still read by End-Phase
-blocking (`blocks_routine_phase_advance` / `_resolve_blocks_routine_phase_advance`),
-`attack_planning_blocked_reason`, `dock_arc_hint`, and the client. During Phases 2–4 the
-gate string is demoted to an **effect-maintained mirror** of the cursor (the transition
-effects keep writing it), and it is retired only in Phase 5 (affordances/End-Phase derive
-from the published `current_segment`) and Phase 4 (End-Phase blocking reads the cursor).
-So Phase 2 has the cursor authoritative for dispatch with the gate string as a redundant
-read-model alongside it; this is intentional and temporary.
+The `combat_gate` string is **not** deleted in Phase 2. During Phases 2–4 it is an
+**effect-maintained mirror** of the cursor (transition effects keep writing it). End-Phase
+blocking and dock skin now read **`current_segment`** (via `segment_blocks_routine_phase_advance`
+and the segment presentation registry); legacy reads of `combat_gate` in pack RPC guards
+and `attack_planning_blocked_reason` fallbacks remain until Phase 5 retirement. Removed
+helpers: `blocks_routine_phase_advance`, `dock_arc_hint`, hexdemo `DOCK_ARC_*` constants.
 
 #### The declared combat arc (target shape)
 

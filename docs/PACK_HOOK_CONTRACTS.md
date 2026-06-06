@@ -31,7 +31,7 @@ Gameplay hooks are **typed in Python** (`MovementHook`, `AttackHook`, `UIHook`, 
 | [`TitleHooks`](../src/hexengine/hooks/wiring.py) callables + contexts | WebSocket `schema` / `omit_if_none` rules |
 | `shell_ui`, templates, `presentation_id` / `dock_arc` skin keys | `BrowserWebSocketClient` field parsing for legality |
 | Preview hook: draft in → legality + `commit_payload` out | Client computing legal hex sets locally |
-| Optional **segment presentation registry** (one row per UX mode) | `dock_arc_from_segment` heuristics (being replaced by title `kind` → skin mapping) |
+| Optional **segment presentation registry** (one row per UX mode) | `dock_arc_from_segment` heuristics (engine fallback when a `kind` is unregistered) |
 
 **Hook return shapes:** turn dock and inform popups should return **`TurnDockPanel` / `InformPopup`** from `hexengine.authoring.present` (hexdemo reference). Legacy `dict` rows are still accepted; the engine normalizes via `hexengine.hooks.internal.ui_wire` before wire assembly. Prefer:
 

@@ -161,11 +161,10 @@ def validate_attack(ctx: AttackContext) -> None:
         else:
             raise ValueError(f"Unit type {ut!r} cannot participate in combined attacks")
 
-    prev = title_state.bucket(ctx.state).get("attacks_this_phase")
-    if isinstance(prev, list):
-        for aid in ctx.attacker_ids:
-            if aid in prev:
-                raise ValueError("That unit has already attacked this combat phase")
+    prev = title_state.attacks_this_phase(ctx.state)
+    for aid in ctx.attacker_ids:
+        if aid in prev:
+            raise ValueError("That unit has already attacked this combat phase")
 
     params = ctx.params if isinstance(ctx.params, dict) else {}
     pa = params.get("primary_attacker_id")
@@ -565,13 +564,8 @@ def auto_advance_phase_after_attack(state) -> bool:
     }
     if not active_ids:
         return True
-    raw = title_state.bucket(state).get("attacks_this_phase")
-    if not isinstance(raw, list):
-        return False
     attacked: set[str] = set()
-    for uid in raw:
-        if not isinstance(uid, str):
-            continue
+    for uid in title_state.attacks_this_phase(state):
         u = state.board.units.get(uid)
         if u is not None and u.active and u.faction == faction:
             attacked.add(uid)

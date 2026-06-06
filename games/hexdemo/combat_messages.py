@@ -13,8 +13,8 @@ from hexengine.hooks.ui_combat_messages import (
     default_combat_interaction_messages,
 )
 from hexengine.state import GameState
-from hexengine.state.title_extension import title_bucket
 
+from . import title_state
 from .constants import PACK_STATE_EXTENSION_KEY
 from .hooks import ui as ui_hooks
 
@@ -22,7 +22,7 @@ from .hooks import ui as ui_hooks
 def build_combat_event_summary(state: GameState) -> CombatEventSummary | None:
     """Extract the latest combat result from the hexdemo bucket for `combat_event` wires."""
 
-    hx = title_bucket(state, PACK_STATE_EXTENSION_KEY)
+    hx = title_state.bucket(state)
     last_combat = hx.get("last_combat") if isinstance(hx, dict) else None
     if not isinstance(last_combat, dict):
         return None

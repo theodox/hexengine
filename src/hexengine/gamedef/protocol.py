@@ -33,10 +33,10 @@ class GameDefinition(Protocol):
     minimal attack stubs that return `ENGINE_DEFAULT` unless a title overrides
     `hooks`.
 
-    Optional: title_state_extension_key — prefer `game_data.title_state_extension_key`
-    naming the `GameState.extension` bucket used for title-owned combat and retreat data
-    (for example the string hexdemo). When set, the server publishes it in StateUpdate.turn_rules
-    and runs phase/combat housekeeping against that key. Built-in schedules omit it.
+    Optional: `game_data.title_state_extension_key` names the pack id for
+    `GameState.title_state` / `GameState.title_bucket_key` (title-owned match data).
+    When set, the server publishes it in `StateUpdate.turn_rules` and runs phase/combat
+    housekeeping against that key. Built-in schedules omit it.
 
     Phase auto-advance after combat is provided via `TitleHooks` (attack hooks).
 

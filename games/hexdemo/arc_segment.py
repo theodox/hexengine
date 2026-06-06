@@ -14,13 +14,19 @@ from hexengine.server.arcs.authority_arc_runtime import lookup_arc_spec
 from hexengine.state import GameState
 
 
-def _segment_host():
-    from .hooks import build_hooks
+_SEGMENT_HOST: SimpleNamespace | None = None
 
-    hooks = build_hooks()
-    host = SimpleNamespace(hooks=hooks, movement_arc_spec=lambda: None)
-    host.lookup_arc_spec = lambda arc_id: lookup_arc_spec(host, arc_id)
-    return host
+
+def _segment_host() -> SimpleNamespace:
+    global _SEGMENT_HOST
+    if _SEGMENT_HOST is None:
+        from .hooks import build_hooks
+
+        hooks = build_hooks()
+        host = SimpleNamespace(hooks=hooks, movement_arc_spec=lambda: None)
+        host.lookup_arc_spec = lambda arc_id: lookup_arc_spec(host, arc_id)
+        _SEGMENT_HOST = host
+    return _SEGMENT_HOST
 
 
 def project_segment_for_faction(

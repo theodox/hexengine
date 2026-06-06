@@ -175,7 +175,7 @@
   max-width: none;
   }
 
-/* Turn action dock SEQUENCE steps (client ``dock_arc`` overrides). */
+/* Turn action dock SEQUENCE steps (client draft skin via ``interaction_mode`` / ``presentation_id``). */
 .hexdemo-turn-dock--attack_draft .hexengine-panel__headline,
 .hexdemo-turn-dock--retreat_path_draft .hexengine-panel__headline,
 .hexdemo-turn-dock--place_marker_draft .hexengine-panel__headline {
