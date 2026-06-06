@@ -15,12 +15,6 @@ from hexengine.state.title_extension import title_bucket as _title_bucket
 from .constants import PACK_STATE_EXTENSION_KEY
 
 
-def extension_key() -> str:
-    """Title bucket id for this pack (same as ``GameData.title_state_extension_key``)."""
-
-    return PACK_STATE_EXTENSION_KEY
-
-
 def bucket(state: GameState) -> dict[str, Any]:
     """Copy of the hexdemo title bucket, or ``{}`` if absent."""
 
@@ -29,4 +23,4 @@ def bucket(state: GameState) -> dict[str, Any]:
     return _title_bucket(state, PACK_STATE_EXTENSION_KEY)
 
 
-__all__ = ["bucket", "extension_key"]
+__all__ = ["bucket"]

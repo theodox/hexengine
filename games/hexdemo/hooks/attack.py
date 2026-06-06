@@ -28,8 +28,6 @@ from .. import arc_segment
 from .. import combat
 from .. import combat_transitions
 from .. import title_state
-from ..constants import PACK_STATE_EXTENSION_KEY
-
 # When the board has no explicit or unset-default terrain for a hex, CRT math still
 # needs a stable type (matches legacy tests and minimal `BoardState` fixtures).
 _DEFAULT_TERRAIN_TYPE = "plain"
@@ -583,7 +581,6 @@ def auto_advance_phase_after_attack(state) -> bool:
 @bind_title_hook(AttackHook.ATTACK_PLAN_PREVIEW)
 def attack_plan_preview(ctx: AttackPlanPreviewContext) -> dict[str, Any]:
     from ..combat_planning import compute_attack_plan_preview
-    from hexengine.hexes.types import Hex
 
     st = ctx.state
     seen: set[tuple[int, int, int]] = set()

@@ -11,7 +11,6 @@ from hexengine.hooks.ui import (
 from hexengine.hooks.ui_combat_messages import (
     CombatInteractionMessagesContext,
     default_combat_interaction_messages,
-    retreat_owner_faction,
 )
 from hexengine.state import GameState
 from hexengine.state.title_extension import title_bucket
@@ -111,5 +110,4 @@ def build_combat_interaction_messages(
 __all__ = [
     "build_combat_event_summary",
     "build_combat_interaction_messages",
-    "retreat_owner_faction",
 ]

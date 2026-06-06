@@ -33,7 +33,7 @@ from hexengine.state.logic import adjacent_enemy_zoc_hexes
 from hexengine.state.phase_rules import phase_allows_unit_move
 
 from . import combat
-from .constants import HEXDEMO_FACTIONS, PACK_STATE_EXTENSION_KEY
+from .constants import HEXDEMO_FACTIONS
 
 _HEXDEMO_PACK_ROOT = Path(__file__).resolve().parent
 

@@ -22,7 +22,6 @@ from hexengine.server.preview import hexes_to_wire
 from hexengine.state import GameState
 from hexengine.state.map_feature_queries import edges_block_los_predicate
 
-from . import combat
 from . import title_state
 
 _ATTACK_KIND = "combined"
@@ -328,8 +327,6 @@ def compute_attack_plan_preview(
 
     target = _parse_target_hex(draft)
     attacker_ids = _parse_attacker_ids(draft)
-    blocks = _terrain_blocks_los(state.board)
-    edges_block = edges_block_los_predicate(state.board)
 
     if target is None:
         targets = _valid_target_hexes(

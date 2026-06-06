@@ -41,10 +41,6 @@ GATE_AWAITING_RETREAT = "awaiting_retreat"
 GATE_AWAITING_RETREAT_OR_DISRUPT = "awaiting_retreat_or_disrupt"
 GATE_AWAITING_ADVANCE = "awaiting_advance"
 
-# Short aliases for docs and call sites.
-GATE_RETREAT = GATE_AWAITING_RETREAT
-GATE_ADVANCE = GATE_AWAITING_ADVANCE
-
 GATES_BLOCKING_ROUTINE: frozenset[str] = frozenset(
     {
         GATE_AWAITING_RETREAT,
@@ -76,14 +72,6 @@ def clear_combat_state_actions(state: GameState) -> list[StateAction]:
     return [
         PatchTitleBucket(ek, {}, remove_keys=PHASE_SCOPED_COMBAT_KEYS),
     ]
-
-# Turn-action dock ``dock_arc`` tokens (UI only, not stored in extension).
-DOCK_ARC_HIDDEN = "hidden"
-DOCK_ARC_RETREAT_GATE = "retreat_gate"
-DOCK_ARC_ADVANCE_GATE = "advance_gate"
-DOCK_ARC_ATTACK_READY = "attack_ready"
-DOCK_ARC_ROUTINE = "routine"
-
 
 def current_combat_gate(state: GameState) -> str:
     """Normalized ``combat_gate`` mirror in the title bucket (``""`` if unset)."""
@@ -260,16 +248,9 @@ def on_retreat_obligation_cleared(
 
 
 __all__ = [
-    "DOCK_ARC_ADVANCE_GATE",
-    "DOCK_ARC_ATTACK_READY",
-    "DOCK_ARC_HIDDEN",
-    "DOCK_ARC_RETREAT_GATE",
-    "DOCK_ARC_ROUTINE",
-    "GATE_ADVANCE",
     "GATE_AWAITING_ADVANCE",
     "GATE_AWAITING_RETREAT",
     "GATE_AWAITING_RETREAT_OR_DISRUPT",
-    "GATE_RETREAT",
     "GATES_BLOCKING_ROUTINE",
     "PHASE_SCOPED_COMBAT_KEYS",
     "attack_planning_blocked_reason",
