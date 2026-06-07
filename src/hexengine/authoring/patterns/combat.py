@@ -1,8 +1,8 @@
 """
 Post-attack combat cleanup arc pattern (classify → retreat → resolve loop → advance).
 
-Title packs inject guards and effects via ``CombatArcEffectsBinding`` and supply their
-own ``combat_gate`` wire strings for segment ``kind`` values (parity with the gate FSM).
+Title packs inject guards and effects via ``CombatArcEffectsBinding`` and supply
+segment ``kind`` strings for gate-bearing segments (parity with the title FSM table).
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ Effect = Callable[[ArcContext], list[StateAction]]
 
 @dataclass(frozen=True, slots=True)
 class CombatArcGateKinds:
-    """Title bucket ``combat_gate`` values carried on gate-bearing segments."""
+    """Segment ``kind`` strings for gate-bearing combat arc segments."""
 
     awaiting_retreat: str
     awaiting_retreat_or_disrupt: str

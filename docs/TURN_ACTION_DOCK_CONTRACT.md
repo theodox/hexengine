@@ -381,13 +381,13 @@ Illustrative `dock_arc` values for [`games/hexdemo`](../games/hexdemo/); not enf
 | `dock_arc` | When (title logic) | Typical `actions` | End Phase |
 |------------|-------------------|-------------------|-----------|
 | `hidden` | Not viewer's turn / spectator | `[]` (empty panel list) | — |
-| `routine` | Your turn, no blocking `combat_gate` | `end_phase` | enabled |
-| `attack_ready` | Combat phase, no blocking `combat_gate` (hexdemo) | `end_phase`; preview merge when drafting | enabled (client disables while draft active) |
+| `routine` | Your turn, routine segment (`NextPhase` allowed) | `end_phase` | enabled |
+| `attack_ready` | Combat phase, attack segment (hexdemo) | `end_phase`; preview merge when drafting | enabled (client disables while draft active) |
 | `attack_draft` | **Client override** while attack-plan draft active (server may still send `attack_ready`) | Merged `attack_plan_confirm`, `attack_plan_cancel` | disabled on client |
-| `retreat_gate` | Viewer owes retreat (`combat_gate` and/or `retreat_obligations`) | `combat_disrupt_instead`, `end_phase` (disabled) | disabled |
+| `retreat_gate` | Retreat segment active for viewer (`retreat_obligations` and/or disrupt gate) | `combat_disrupt_instead`, `end_phase` (disabled) | disabled |
 | `retreat_path_draft` | **Client override** while `retreat_path` SELECT active | Merged Confirm / Cancel / Undo | disabled on client |
 | `place_marker_draft` | **Client override** while `place_marker` SELECT active (Shift+click marker) | Merged Confirm / Cancel | disabled on client |
-| `advance_gate` | `combat_gate == awaiting_advance`, viewer is advancing faction | `combat_advance` | disabled |
+| `advance_gate` | Advance segment active, viewer is advancing faction | `combat_advance` | disabled |
 
 **Retreat fulfillment (hexdemo):** Multi-hex mandatory retreat uses **`retreat_path`** click-extend + dock Confirm (stepwise `MoveUnit`). One-hop retreat may still use **unit drag** (`unit_preview`, commit on drop). CRT / phase flavor stays in **`interaction_messages`**; short “what to do” copy is on the dock **`headline`** during gates and drafts.
 

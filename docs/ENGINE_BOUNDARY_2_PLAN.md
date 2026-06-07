@@ -168,8 +168,6 @@ Context: `GameState`, `AttackResolution`, `extension_key`, attacker/defender ids
 | `attack_planning_blocked_reason` | Attack plan preview + validation messaging |
 | `follow_up_after_attack` | `AttackHook.AFTER_ATTACK_APPLIED` bucket patches |
 | `clear_combat_state_actions` | Phase-scoped key clear on `NextPhase` |
-| `current_combat_gate` | Read `combat_gate` mirror (effect-maintained; retirement planned in composable arcs Phase 5) |
-
 Phase advance blocking: [`arc_segment.phase_advance_blocked`](../games/hexdemo/arc_segment.py), not exports from this module.
 
 Dock skin: [`segment_ui.resolve_presentation_id`](../games/hexdemo/segment_ui.py) + `UIHook.ENRICH_CURRENT_SEGMENT`, not `dock_arc_hint`.

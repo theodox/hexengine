@@ -19,12 +19,7 @@ from ...hooks.core import ENGINE_DEFAULT
 from ...hooks.title import TitleHooks
 from ...state import ActionManager, GameState
 from ...state.action_manager import StateAction
-from ...state.actions import (
-    ClearUnitRetreatObligation,
-    MoveUnit,
-    PatchTitleBucket,
-    _retreat_obligations_have_pending,
-)
+from ...state.actions import ClearUnitRetreatObligation, MoveUnit
 from ..protocol import ActionRequest, ActionResult, Message, PlayerInfo
 
 
@@ -342,18 +337,8 @@ def finalize_retreat_fulfillment_stack(
                 MoveUnit(other_uid, from_hex=from_hex, to_hex=to_hex)
             )
     if r_ek:
-        from ...state.title_extension import title_bucket
-
         for moved_uid in to_move:
             host.action_manager.execute(ClearUnitRetreatObligation(moved_uid, r_ek))
-        hx = title_bucket(host.action_manager.current_state, r_ek)
-        ro = hx.get("retreat_obligations") if hx else {}
-        ro = ro if isinstance(ro, dict) else {}
-        if not _retreat_obligations_have_pending(ro):
-            if str(hx.get("combat_gate", "")).strip():
-                host.action_manager.execute(
-                    PatchTitleBucket(r_ek, {}, remove_keys=("combat_gate",))
-                )
         host._on_retreat_obligation_cleared(r_ek, cleared_unit_ids=tuple(to_move))
 
 

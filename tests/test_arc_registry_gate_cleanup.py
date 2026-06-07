@@ -11,7 +11,7 @@ from games.hexdemo.game_config import default_match_config, game_definition_from
 from games.hexdemo import combat_transitions
 
 
-def test_registry_title_ignores_stale_combat_gate_mirror_on_routine() -> None:
+def test_registry_title_ignores_stale_legacy_combat_gate_on_routine() -> None:
     gd = game_definition_from_config(default_match_config())
     st = GameState.create_empty().with_turn(
         TurnState("union", "Move", 4, 1, 0, 0)

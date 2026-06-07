@@ -353,10 +353,9 @@ additionally keep writing the `combat_gate` mirror until Phase 5.
   in `authority_movement.continue_stepwise_move_unit`. Legacy handler remains fallback
   when no arc cursor is active. Tests: `tests/test_combat_arc_runner_2c.py`.
 - **2d (cleanup) — [done].** `ClearUnitRetreatObligation` is gate-agnostic (only pops the
-  obligation entry). The retreat gate mirror is cleared by title effects:
-  `apply_retreat_fulfillment_step` removes `combat_gate` when no obligations remain;
-  legacy `finalize_retreat_fulfillment_stack` does the same before
-  `_on_retreat_obligation_cleared`. Removed engine gate-string prechecks from
+  obligation entry). Post-Phase-B/C: neither pack nor engine writes or clears
+  `combat_gate`; phase advance drops the legacy key via `PHASE_SCOPED_COMBAT_KEYS`.
+  Removed engine gate-string prechecks from
   `handle_combat_disrupt_instead_of_retreat` and `handle_combat_advance_rpc` (runner +
   title effects own legality; legacy handlers remain for titles without a declared arc).
   Routed advance-fulfillment `MoveUnit` through `drive_combat_arc_event`. Tests:
@@ -524,7 +523,7 @@ and validate), not `hexengine.arcs.patterns`.
 
 - Removed engine gate-string catalog paths (`default_blocks_routine_phase_advance`, `PRIMARY_ACTIONS_FOR_VIEWER`, `BLOCKS_ROUTINE_PHASE_ADVANCE`).
 - Docs updated: `PACK_HOOK_CONTRACTS.md`, `TURN_ACTION_DOCK_CONTRACT.md`, `TITLE_AUTHORING.md`, `engine_game_boundary_matrix.md`, `ENGINE_BOUNDARY_2_PLAN.md` (supersession note), `SERVER_ARCHITECTURE.md`, `hexdemo/hooks/README.md`.
-- Title `combat_gate` bucket field retained as effect mirror only; engine reads `current_segment`.
+- Title `combat_gate` bucket field retired (not written); engine and pack read `current_segment`.
 - Client draft CSS uses `effective_turn_dock_arc` (client-local sub-arcs); server uses `dock_arc_from_segment`.
 
 **Author-facing UX (next):** segment `kind` plus a title **presentation registry** (`presentation_id`, primitive, `interaction_mode`) so hooks and templates stay insulated from wire — see [`TITLE_AUTHORING.md` § Flow vs presentation](TITLE_AUTHORING.md#flow-vs-presentation-authoring-model) and [`PACK_HOOK_CONTRACTS.md` § Authoring vs wire](PACK_HOOK_CONTRACTS.md#authoring-vs-wire).
