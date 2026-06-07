@@ -568,9 +568,9 @@ class ClientInteractionPanelsMixin:
             btn.style.display = "" if enabled or label else "none"
             spec_copy = dict(spec)
             btn.onclick = create_proxy(
-                lambda _evt=None,
-                _spec=spec_copy,
-                _pid=panel_id: self._handle_panel_action_click(_spec, _pid)
+                lambda _evt=None, _spec=spec_copy, _pid=panel_id: (
+                    self._handle_panel_action_click(_spec, _pid)
+                )
             )
 
     def _handle_panel_action_click(self, spec: dict[str, Any], panel_id: str) -> None:

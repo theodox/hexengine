@@ -4,10 +4,16 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any
 
-from hexengine.arcs import ArcCursor, SetArcCursor
+from hexengine.arcs import ArcCursor, ArcSpec, SetArcCursor
+from hexengine.authoring.patterns.combat import (
+    CombatArcGateKinds,
+    build_combat_cleanup_arc,
+)
 from hexengine.hexes.types import Hex
+from hexengine.hooks.arcs import ArcsHooks
 from hexengine.hooks.attack import (
     AfterAttackAppliedContext,
     AttackContext,
@@ -95,6 +101,90 @@ class _AttackHost:
         return False
 
 
+class _AuthorityAttackTestEffects:
+    hooks: TitleHooks | None = None
+
+    def attack_arc_effect(self, ctx):
+        from hexengine.server.arcs.authority_attack_commit import (
+            build_attack_context_from_wire,
+            collect_authority_attack_actions,
+            resolve_authority_attack,
+        )
+
+        if self.hooks is None:
+            raise RuntimeError("authority attack test hooks not wired")
+        commit_host = SimpleNamespace(hooks=self.hooks)
+        player_faction = str(ctx.owner_faction or "").strip()
+        attack_ctx = build_attack_context_from_wire(
+            ctx.state, player_faction, dict(ctx.params)
+        )
+        resolution, outcome_from_resolve = resolve_authority_attack(
+            commit_host, attack_ctx
+        )
+        extension_key = str(
+            ctx.extension_key or ctx.state.title_bucket_key or ""
+        ).strip()
+        return collect_authority_attack_actions(
+            commit_host,
+            attack_context=attack_ctx,
+            resolution=resolution,
+            extension_key=extension_key,
+            outcome_from_resolve=outcome_from_resolve,
+        )
+
+    def has_pending_retreat(self, _ctx) -> bool:
+        return False
+
+    def disrupt_offered(self, _ctx) -> bool:
+        return False
+
+    def advance_available(self, _ctx) -> bool:
+        return False
+
+    def is_retreat_fulfillment(self, _ctx) -> bool:
+        return False
+
+    def is_combat_advance_move(self, _ctx) -> bool:
+        return False
+
+    def apply_retreat_step(self, _ctx) -> list:
+        return []
+
+    def disrupt_instead(self, _ctx) -> list:
+        return []
+
+    def open_advance(self, _ctx) -> list:
+        return []
+
+    def resolve_advance(self, _ctx) -> list:
+        return []
+
+    def clear_advance_gate(self, _ctx) -> list:
+        return []
+
+
+_AUTHORITY_ATTACK_TEST_EFFECTS = _AuthorityAttackTestEffects()
+_AUTHORITY_ATTACK_TEST_ARC = ArcSpec(
+    arc=build_combat_cleanup_arc(
+        _AUTHORITY_ATTACK_TEST_EFFECTS,
+        CombatArcGateKinds(
+            awaiting_retreat="awaiting_retreat",
+            awaiting_retreat_or_disrupt="awaiting_retreat_or_disrupt",
+            awaiting_advance="awaiting_advance",
+        ),
+        attack_effect=_AUTHORITY_ATTACK_TEST_EFFECTS.attack_arc_effect,
+    ),
+)
+
+
+def _attack_test_hooks(attack: AttackHooks) -> TitleHooks:
+    _AUTHORITY_ATTACK_TEST_EFFECTS.hooks = TitleHooks(attack=attack)
+    return TitleHooks(
+        arcs=ArcsHooks(combat_arc=lambda: _AUTHORITY_ATTACK_TEST_ARC),
+        attack=attack,
+    )
+
+
 def _two_unit_combat_state() -> GameState:
     board = BoardState(
         units={
@@ -145,8 +235,8 @@ def test_combat_outcome_after_applied_follow_ups_run_before_broadcast() -> None:
         )
 
     host = _AttackHost(
-        hooks=TitleHooks(
-            attack=AttackHooks(
+        hooks=_attack_test_hooks(
+            AttackHooks(
                 validate_attack=validate,
                 resolve_attack=resolve,
                 combat_outcome_after_applied=outcome_after_applied,
@@ -162,7 +252,7 @@ def test_combat_outcome_after_applied_follow_ups_run_before_broadcast() -> None:
             player_faction="union",
             current_state=st0,
             params={
-                "attack_kind": "melee",
+                "attack_kind": "combined",
                 "attacker_id": "a",
                 "defender_id": "d",
             },

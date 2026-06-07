@@ -61,7 +61,6 @@ from ..state.actions import (
     MoveUnit,
     NextPhase,
     PatchUnitAttributes,
-    ResolvePassMovementInterrupt,
     SpendAction,
     WriteHexengineMovementArc,
 )
@@ -92,7 +91,6 @@ from .arcs import (
     resolve_active_segment_owner,
     restore_routine_cursor,
     schedule_next_phase_info,
-    sync_movement_cursor_from_payload,
     try_combat_arc_move_unit,
     try_combat_arc_rpc,
     turn_arc_registry_from_hooks,
@@ -1118,15 +1116,16 @@ class GameServer:
         if combat_raw is ENGINE_DEFAULT:
             combat_rows = default_combat_interaction_messages(
                 msg_ctx,
-                combat_instruction=lambda outcome,
-                ro: self._combat_instruction_for_viewer(
-                    st,
-                    viewer_faction,
-                    outcome=outcome,
-                    retreat_owner_faction=ro,
+                combat_instruction=lambda outcome, ro: (
+                    self._combat_instruction_for_viewer(
+                        st,
+                        viewer_faction,
+                        outcome=outcome,
+                        retreat_owner_faction=ro,
+                    )
                 ),
-                advance_gate_banners=lambda adv_faction: self._advance_gate_banner_text_pair(
-                    st, viewer_faction, adv_faction
+                advance_gate_banners=lambda adv_faction: (
+                    self._advance_gate_banner_text_pair(st, viewer_faction, adv_faction)
                 ),
             )
         elif isinstance(combat_raw, list):
@@ -1414,20 +1413,7 @@ class GameServer:
                 self, player_id, player, "PassMovementInterrupt", {}
             ):
                 return
-            # Legacy fallback when the movement arc cursor is missing or rejects the
-            # event (titles without arc sync). Retire once all extension-key titles
-            # always drive interrupts through the runner.
-            try:
-                self.action_manager.execute(
-                    ResolvePassMovementInterrupt(str(player.faction))
-                )
-            except Exception as e:
-                await self._send_error(player_id, str(e))
-                return
-            sync_movement_cursor_from_payload(self)
-            result = ActionResult(success=True, action_id=str(uuid.uuid4()))
-            await self._send_message(player_id, result.to_message())
-            await self._broadcast_state_update()
+            await self._send_error(player_id, "Movement arc rejected interrupt pass")
             return
 
         if request.action_type == "Attack":

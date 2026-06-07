@@ -23,16 +23,16 @@ from ...hooks.title import TitleHooks
 from ...state import GameState
 from ...state.action_manager import ActionManager
 from .authority_arc_runtime import combat_arc_spec, restore_routine_cursor
-from .authority_attack_commit import (
-    build_attack_context_from_wire,
-    execute_authority_attack_commit,
-    resolve_authority_attack,
-)
+from .authority_attack_commit import build_attack_context_from_wire
 from .authority_attack_wire import (
     dedupe_wire_id_list,
     normalize_attack_party_ids,
     optional_wire_hex_frozenset,
     sorted_unique_hexes_from_unit_ids,
+)
+
+ATTACK_REQUIRES_COMBAT_ARC_MSG = (
+    "This game title does not declare a combat arc Attack segment"
 )
 
 
@@ -103,53 +103,6 @@ class AuthorityAttackHost(Protocol):
         catalog_path: str | None,
         log_reason: str,
     ) -> bool: ...
-
-
-async def _execute_imperative_attack(
-    host: AuthorityAttackHost,
-    *,
-    player_id: str,
-    player_faction: str,
-    current_state: GameState,
-    params: dict[str, Any],
-) -> bool:
-    """Legacy pipeline for titles without a combat-arc ``Attack`` segment."""
-
-    try:
-        ctx = build_attack_context_from_wire(current_state, player_faction, params)
-        if host._title_extension_key():
-            from ...arcs.segment_wire import segment_denies_action_for_faction
-
-            if segment_denies_action_for_faction(
-                host, current_state, player_faction, "Attack"
-            ):
-                raise ValueError(ATTACK_BLOCKED_BY_ACTIVE_SEGMENT_MSG)
-        resolution, outcome_from_resolve = resolve_authority_attack(host, ctx)
-    except Exception as e:
-        await host._send_error(player_id, str(e))
-        return False
-
-    ek = host._title_extension_key()
-    if not ek:
-        await host._send_error(
-            player_id,
-            "This game title does not define a state extension key for combat",
-        )
-        return False
-
-    try:
-        execute_authority_attack_commit(
-            host,
-            attack_context=ctx,
-            resolution=resolution,
-            extension_key=ek,
-            outcome_from_resolve=outcome_from_resolve,
-        )
-    except Exception as e:
-        await host._send_error(player_id, f"Action failed: {e}")
-        return False
-
-    return True
 
 
 async def _execute_arc_attack(
@@ -239,22 +192,17 @@ async def execute_authority_attack_request(
         True if the attack was committed and the caller should send success + state
         broadcast. False if an error was already sent to the player.
     """
-    if _combat_arc_supports_attack_event(host):
-        ok = await _execute_arc_attack(
-            host,
-            player_id=player_id,
-            player_faction=player_faction,
-            current_state=current_state,
-            params=params,
-        )
-    else:
-        ok = await _execute_imperative_attack(
-            host,
-            player_id=player_id,
-            player_faction=player_faction,
-            current_state=current_state,
-            params=params,
-        )
+    if not _combat_arc_supports_attack_event(host):
+        await host._send_error(player_id, ATTACK_REQUIRES_COMBAT_ARC_MSG)
+        return False
+
+    ok = await _execute_arc_attack(
+        host,
+        player_id=player_id,
+        player_faction=player_faction,
+        current_state=current_state,
+        params=params,
+    )
 
     if not ok:
         return False
@@ -277,6 +225,7 @@ async def execute_authority_attack_request(
 
 __all__ = [
     "ATTACK_BLOCKED_BY_ACTIVE_SEGMENT_MSG",
+    "ATTACK_REQUIRES_COMBAT_ARC_MSG",
     "AUTHORITY_ATTACK_PIPELINE",
     "AuthorityAttackHost",
     "AuthorityAttackPipelineStep",

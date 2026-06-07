@@ -20,7 +20,6 @@ _STATE_UPDATE_OMIT_IF_NONE = frozenset(
         "retreat_obligations",
         "interaction_messages",
         "map_overlays",
-        "primary_actions",
         "interaction_panels",
         "current_segment",
     }
@@ -71,18 +70,6 @@ class StateUpdate:
     #: - text: string for glyph kind
     #: - css_class (optional): extra classes for title CSS
     map_overlays: list[dict[str, Any]] | None = None
-    #: Per-recipient primary action buttons (combat advance, disrupt-instead, etc.).
-    #:
-    #: Each entry is a dict with:
-    #: - schema: 1
-    #: - id: stable string (replace prior button with same id)
-    #: - action_type: server RPC name (e.g. CombatAdvance)
-    #: - label: button text
-    #: - title (optional): tooltip
-    #: - payload (optional): dict sent as action params (default {})
-    #: - css_class (optional): extra CSS class on the button
-    #: - enabled: bool — when false, button is shown disabled
-    primary_actions: list[dict[str, Any]] | None = None
     #: Per-recipient rich interaction panels (HTML shell + engine-wired actions/inputs).
     #:
     #: Each entry is a dict with:

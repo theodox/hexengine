@@ -55,7 +55,6 @@ def test_hexdemo_build_hooks_wires_turn_action_dock() -> None:
 
     th = build_hooks()
     assert th.ui.turn_action_dock_for_viewer is not None
-    assert th.ui.interaction_panels_for_viewer is None
 
 
 def test_catalog_default_includes_end_phase_for_turn_owner() -> None:

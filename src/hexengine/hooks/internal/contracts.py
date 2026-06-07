@@ -94,7 +94,7 @@ def validate_title_contract(game_definition: Any) -> None:
     When `GameData.title_state_extension_key` is set (title combat extension bucket),
     `TitleHooks.ui.turn_action_dock_for_viewer` and
     `TitleHooks.ui.segment_presentation_registry` must be bound. Commit UI is delivered
-    only via ``interaction_panels`` (no ``primary_actions`` fallback).
+    only via ``interaction_panels`` (turn action dock).
 
     Raises:
         HookContractError: When an attack-capable schedule has incomplete attack hooks.

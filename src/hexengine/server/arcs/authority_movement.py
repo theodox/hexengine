@@ -239,72 +239,7 @@ async def continue_stepwise_move_unit(
                     host.logger.error(f"Error in turn advancement: {e}", exc_info=True)
         return True
 
-    try:
-        host.action_manager.execute(MoveUnit(unit_id, from_hex, to_hex))
-    except Exception as e:
-        await host._send_error(player_id, f"Action failed: {e}")
-        return True
-
-    new_idx = idx + 1
-    if new_idx >= len(path) - 1:
-        host.action_manager.execute(WriteHexengineMovementArc(None))
-        sync_movement_cursor_from_payload(host)
-        if flow.get("retreat_fulfillment"):
-            fin = flow.get("finalize_request")
-            if isinstance(fin, dict):
-                fin_params = dict(fin)
-                if await _complete_retreat_fulfillment_step(
-                    host,
-                    player_id,
-                    player,
-                    fin_params=fin_params,
-                ):
-                    return True
-        else:
-            try:
-                host._spend_action_after_normal_move_unit()
-            except Exception as e:
-                host.logger.error(f"Error in turn advancement: {e}", exc_info=True)
-        await host._send_move_unit_success_and_broadcast(player_id)
-        return True
-
-    st1 = host.action_manager.current_state
-    step_ctx = MovementStepContext(
-        state=st1,
-        unit_id=unit_id,
-        path=path,
-        arrived_at_index=new_idx,
-        player_faction=str(player.faction),
-    )
-    iq_raw = host.hooks.movement.interrupt_factions_after_step(step_ctx)
-    if iq_raw is ENGINE_DEFAULT:
-        interrupts: tuple[str, ...] = ()
-    else:
-        interrupts = dedupe_faction_ids(tuple(str(x) for x in iq_raw if str(x).strip()))
-
-    new_flow = dict(flow)
-    new_flow["step_index"] = new_idx
-    new_flow["budget_remaining"] = float(new_budget)
-    if interrupts:
-        new_flow["saved_turn"] = turn_state_to_movement_arc_snapshot(st1.turn)
-        new_flow["interrupt_queue"] = list(interrupts)
-        new_flow["gate"] = MOVEMENT_ARC_GATE_AWAITING_INTERRUPT
-        host.action_manager.execute(WriteHexengineMovementArc(new_flow))
-        nt = replace(
-            st1.turn,
-            current_faction=interrupts[0],
-            current_phase=MOVEMENT_INTERRUPT_PHASE,
-            phase_actions_remaining=1,
-        )
-        host.action_manager.execute(SetTurnState(nt))
-    else:
-        new_flow["gate"] = MOVEMENT_ARC_GATE_AWAITING_CONTINUE
-        new_flow["interrupt_queue"] = []
-        new_flow["saved_turn"] = None
-        host.action_manager.execute(WriteHexengineMovementArc(new_flow))
-
-    sync_movement_cursor_from_payload(host)
-    await host._send_move_unit_success_and_broadcast(player_id)
+    await host._send_error(player_id, "Movement arc rejected continuation move")
     return True
 
 

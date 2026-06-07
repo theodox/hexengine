@@ -30,7 +30,6 @@ from ..ui.display import InformPopup, TurnDockPanel
 from .core import ENGINE_DEFAULT, RuleViolation
 from .inform_popup import InformPopupContext
 from .ui_combat_messages import CombatInteractionMessagesContext
-from .ui_interaction_panels import InteractionPanelsContext
 from .ui_segment import SegmentPresentationContext
 from .ui_turn_action_dock import TurnActionDockContext
 
@@ -188,10 +187,6 @@ class UIHooks:
         Callable[[PhaseBannerContext], str | object] | None
     ) = None
 
-    interaction_panels_for_viewer: (
-        Callable[[InteractionPanelsContext], list[dict[str, Any]] | object] | None
-    ) = None
-
     turn_action_dock_for_viewer: (
         Callable[
             [TurnActionDockContext],
@@ -275,13 +270,6 @@ class UIHooks:
             return ENGINE_DEFAULT
         return self.phase_banner_html_for_viewer(ctx)
 
-    def interaction_panels(
-        self, ctx: InteractionPanelsContext
-    ) -> list[dict[str, Any]] | object:
-        if self.interaction_panels_for_viewer is None:
-            return ENGINE_DEFAULT
-        return self.interaction_panels_for_viewer(ctx)
-
     def turn_action_dock(
         self, ctx: TurnActionDockContext
     ) -> list[dict[str, Any]] | object:
@@ -334,7 +322,6 @@ class UIHook(StrEnum):
     ADVANCE_GATE_BANNERS_FOR_VIEWER = "advance_gate_banners_for_viewer"
     PHASE_BANNER_TEXT_FOR_VIEWER = "phase_banner_text_for_viewer"
     PHASE_BANNER_HTML_FOR_VIEWER = "phase_banner_html_for_viewer"
-    INTERACTION_PANELS_FOR_VIEWER = "interaction_panels_for_viewer"
     TURN_ACTION_DOCK_FOR_VIEWER = "turn_action_dock_for_viewer"
     ENRICH_CURRENT_SEGMENT = "enrich_current_segment"
     SEGMENT_PRESENTATION_REGISTRY = "segment_presentation_registry"
@@ -352,7 +339,6 @@ __all__ = [
     "CombatInteractionContext",
     "CombatInteractionMessagesContext",
     "ENGINE_DEFAULT",
-    "InteractionPanelsContext",
     "PhaseBannerContext",
     "RuleViolation",
     "SegmentPresentationContext",

@@ -92,8 +92,6 @@ class BrowserWebSocketClient:
         self.interaction_messages: list[dict[str, Any]] | None = None
         #: Last StateUpdate.map_overlays (per-viewer map-space overlay specs).
         self.map_overlays: list[dict[str, Any]] = []
-        #: Last StateUpdate.primary_actions (per-viewer combat action buttons).
-        self.primary_actions: list[dict[str, Any]] | None = None
         #: Last StateUpdate.interaction_panels (HTML shell + wired actions/inputs).
         self.interaction_panels: list[dict[str, Any]] | None = None
         #: Last StateUpdate.current_segment (per-viewer arc segment descriptor).
@@ -423,13 +421,6 @@ class BrowserWebSocketClient:
         else:
             self.map_overlays = [
                 dict(m) for m in update.map_overlays if isinstance(m, dict)
-            ]
-
-        if update.primary_actions is None:
-            self.primary_actions = None
-        else:
-            self.primary_actions = [
-                dict(m) for m in update.primary_actions if isinstance(m, dict)
             ]
 
         if update.interaction_panels is None:

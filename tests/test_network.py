@@ -51,6 +51,7 @@ _TEST_SEGMENT_KINDS = frozenset(
     {
         "move",
         "attack",
+        "combat",
         "awaiting_retreat",
         "awaiting_retreat_or_disrupt",
         "awaiting_advance",
@@ -111,6 +112,42 @@ def _resolve_network_test_owner(key: str, state: GameState) -> str | None:
 
 
 class _NetworkTestCombatEffects:
+    hooks: TitleHooks | None = None
+
+    def attack_arc_effect(self, ctx):
+        from types import SimpleNamespace
+
+        from hexengine.server.arcs.authority_attack_commit import (
+            build_attack_context_from_wire,
+            collect_authority_attack_actions,
+            resolve_authority_attack,
+        )
+
+        if self.hooks is None:
+            raise RuntimeError("network test combat hooks not wired")
+        host = SimpleNamespace(hooks=self.hooks)
+        player_faction = str(ctx.owner_faction or "").strip()
+        if not player_faction:
+            raise ValueError("Attack requires a resolved segment owner")
+        attack_ctx = build_attack_context_from_wire(
+            ctx.state, player_faction, dict(ctx.params)
+        )
+        resolution, outcome_from_resolve = resolve_authority_attack(host, attack_ctx)
+        extension_key = str(
+            ctx.extension_key or ctx.state.title_bucket_key or ""
+        ).strip()
+        if not extension_key:
+            raise ValueError(
+                "This game title does not define a state extension key for combat"
+            )
+        return collect_authority_attack_actions(
+            host,
+            attack_context=attack_ctx,
+            resolution=resolution,
+            extension_key=extension_key,
+            outcome_from_resolve=outcome_from_resolve,
+        )
+
     def has_pending_retreat(self, ctx):
         return bool(_retreat_obligations(ctx.state))
 
@@ -157,17 +194,26 @@ class _NetworkTestCombatEffects:
         return []
 
 
+_NETWORK_TEST_EFFECTS = _NetworkTestCombatEffects()
+
 _TEST_COMBAT_ARC_SPEC = ArcSpec(
     arc=build_combat_cleanup_arc(
-        _NetworkTestCombatEffects(),
+        _NETWORK_TEST_EFFECTS,
         CombatArcGateKinds(
             awaiting_retreat="awaiting_retreat",
             awaiting_retreat_or_disrupt="awaiting_retreat_or_disrupt",
             awaiting_advance="awaiting_advance",
         ),
+        attack_effect=_NETWORK_TEST_EFFECTS.attack_arc_effect,
     ),
     owner_resolver=_resolve_network_test_owner,
 )
+
+
+def _wire_network_test_hooks(hooks: TitleHooks) -> TitleHooks:
+    _NETWORK_TEST_EFFECTS.hooks = hooks
+    return hooks
+
 
 _TEST_ARCS = ArcsHooks(
     combat_arc=lambda: _TEST_COMBAT_ARC_SPEC,
@@ -568,13 +614,17 @@ class TestGameServer(unittest.TestCase):
                     def _reject(_ctx):
                         raise ValueError("nope")
 
-                    return TitleHooks(
-                        ui=_TEST_TITLE_DOCK_UI,
-                        arcs=_TEST_ARCS,
-                        attack=AttackHooks(
-                            validate_attack=_reject,
-                            resolve_attack=lambda _c: AttackResolution(outcome="miss"),
-                        ),
+                    return _wire_network_test_hooks(
+                        TitleHooks(
+                            ui=_TEST_TITLE_DOCK_UI,
+                            arcs=_TEST_ARCS,
+                            attack=AttackHooks(
+                                validate_attack=_reject,
+                                resolve_attack=lambda _c: AttackResolution(
+                                    outcome="miss"
+                                ),
+                            ),
+                        )
                     )
 
             server = GameServer(state, game_definition=_GD())
@@ -665,16 +715,18 @@ class TestGameServer(unittest.TestCase):
 
                     from games.hexdemo import combat_outcome
 
-                    return TitleHooks(
-                        ui=_TEST_TITLE_DOCK_UI,
-                        arcs=_TEST_ARCS,
-                        attack=AttackHooks(
-                            validate_attack=lambda _c: None,
-                            resolve_attack=resolve,
-                            combat_outcome_after_applied=(
-                                combat_outcome.build_combat_outcome_after_applied
+                    return _wire_network_test_hooks(
+                        TitleHooks(
+                            ui=_TEST_TITLE_DOCK_UI,
+                            arcs=_TEST_ARCS,
+                            attack=AttackHooks(
+                                validate_attack=lambda _c: None,
+                                resolve_attack=resolve,
+                                combat_outcome_after_applied=(
+                                    combat_outcome.build_combat_outcome_after_applied
+                                ),
                             ),
-                        ),
+                        )
                     )
 
             server = GameServer(state, game_definition=_GD())
@@ -747,19 +799,21 @@ class TestGameServer(unittest.TestCase):
 
                 @property
                 def hooks(self) -> TitleHooks:
-                    return TitleHooks(
-                        ui=_TEST_TITLE_DOCK_UI,
-                        arcs=_TEST_ARCS,
-                        movement=MovementHooks(
-                            retreat_obligation_hexes_remaining=lambda st, uid: (
-                                1 if uid == "u" else None
+                    return _wire_network_test_hooks(
+                        TitleHooks(
+                            ui=_TEST_TITLE_DOCK_UI,
+                            arcs=_TEST_ARCS,
+                            movement=MovementHooks(
+                                retreat_obligation_hexes_remaining=lambda st, uid: (
+                                    1 if uid == "u" else None
+                                ),
+                                faction_has_pending_retreat_obligation=lambda _st, fac: (
+                                    fac == "Blue"
+                                ),
+                                retreat_blocked_hexes=lambda _st, _uid: frozenset({h1}),
                             ),
-                            faction_has_pending_retreat_obligation=lambda _st, fac: (
-                                fac == "Blue"
-                            ),
-                            retreat_blocked_hexes=lambda _st, _uid: frozenset({h1}),
-                        ),
-                        attack=attack_hooks_unsupported(),
+                            attack=attack_hooks_unsupported(),
+                        )
                     )
 
             server = GameServer(state, game_definition=_GD())
@@ -829,19 +883,21 @@ class TestGameServer(unittest.TestCase):
                     def allow_any_distance(_ctx, _rem: int) -> None:
                         return None
 
-                    return TitleHooks(
-                        ui=_TEST_TITLE_DOCK_UI,
-                        arcs=_TEST_ARCS,
-                        movement=MovementHooks(
-                            retreat_obligation_hexes_remaining=lambda _st, uid: (
-                                2 if uid == "u" else None
+                    return _wire_network_test_hooks(
+                        TitleHooks(
+                            ui=_TEST_TITLE_DOCK_UI,
+                            arcs=_TEST_ARCS,
+                            movement=MovementHooks(
+                                retreat_obligation_hexes_remaining=lambda _st, uid: (
+                                    2 if uid == "u" else None
+                                ),
+                                faction_has_pending_retreat_obligation=lambda _st, fac: (
+                                    fac == "Blue"
+                                ),
+                                validate_retreat_move=allow_any_distance,
                             ),
-                            faction_has_pending_retreat_obligation=lambda _st, fac: (
-                                fac == "Blue"
-                            ),
-                            validate_retreat_move=allow_any_distance,
-                        ),
-                        attack=attack_hooks_unsupported(),
+                            attack=attack_hooks_unsupported(),
+                        )
                     )
 
             server = GameServer(state, game_definition=_GD())

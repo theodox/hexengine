@@ -2,8 +2,7 @@
 Phase 3b–3c: routing movement RPCs through the generic arc runner.
 
 Covers stepwise continue (MoveUnit) and interrupt pass (PassMovementInterrupt) against
-the engine movement arc. The runner is authoritative only when it accepts; legacy
-handlers remain fallback when the cursor is missing or the runner rejects.
+the engine movement arc. The runner is authoritative; rejections surface as errors.
 """
 
 from __future__ import annotations

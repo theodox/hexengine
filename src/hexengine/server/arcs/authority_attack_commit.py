@@ -1,6 +1,4 @@
-"""
-Shared authority attack commit helpers (imperative pipeline and combat arc effects).
-"""
+"""Shared authority attack commit helpers for combat arc effects."""
 
 from __future__ import annotations
 
@@ -158,30 +156,9 @@ def collect_authority_attack_actions(
     return actions
 
 
-def execute_authority_attack_commit(
-    host: AttackCommitHost,
-    *,
-    attack_context: AttackContext,
-    resolution: AttackResolution,
-    extension_key: str,
-    outcome_from_resolve: CombatOutcome | None = None,
-) -> None:
-    """Apply attack commit actions through the host action manager."""
-
-    for action in collect_authority_attack_actions(
-        host,
-        attack_context=attack_context,
-        resolution=resolution,
-        extension_key=extension_key,
-        outcome_from_resolve=outcome_from_resolve,
-    ):
-        host.action_manager.execute(action)
-
-
 __all__ = [
     "AttackCommitHost",
     "build_attack_context_from_wire",
     "collect_authority_attack_actions",
-    "execute_authority_attack_commit",
     "resolve_authority_attack",
 ]

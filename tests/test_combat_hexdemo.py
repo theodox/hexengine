@@ -699,9 +699,6 @@ def test_combat_event_fanout_retreat_vs_wait(hexdemo_server: GameServer) -> None
     assert su_by_pid["p_c"]["interaction_messages"][-1]["kind"] == "retreat"
     assert "Mandatory retreat" in su_by_pid["p_c"]["interaction_messages"][-1]["text"]
 
-    assert su_by_pid["p_c"].get("primary_actions") is None
-    assert su_by_pid["p_u"].get("primary_actions") is None
-
     panels_c = su_by_pid["p_c"].get("interaction_panels") or []
     assert len(panels_c) == 1
     assert panels_c[0]["id"] == "turn_actions"
@@ -1090,7 +1087,7 @@ def test_builtin_game_rejects_attack() -> None:
 
     err = asyncio.run(run())
     assert err is not None
-    assert "not support" in err.lower()
+    assert "combat arc attack segment" in err.lower()
 
 
 def test_retreat_move_no_spend_action(hexdemo_server: GameServer) -> None:
