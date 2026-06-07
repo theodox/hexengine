@@ -75,7 +75,7 @@ Full primitive catalog and path-draft shapes: [`TURN_ACTION_DOCK_CONTRACT.md` §
 |------|------|---------|-------------------|
 | **`TitleHooks`** | Every in-match RPC / state update | `@bind_title_hook` in `hooks/*.py`, `build_hooks()` | `movement.py`, `turn_action_dock.py` |
 | **Manifest title-load** | Browser connect / server boot | `[hooks.title_load]` in `hexengine_pack.toml` | `hooks/title_load.py` |
-| **Turn schedule** | Phase entry | `GameDefinition.after_phase_transition` | `hooks/turn_schedule.py` |
+| **Turn schedule** | Phase entry | `GameDefinition.after_phase_transition` | `game_config.py` → `combat_transitions` |
 
 **Rules vs hooks:** put reusable `GameState` policy in pack-root modules (`combat.py`, `movement_rules.py`, …); keep `hooks/*.py` thin adapters. See [`games/hexdemo/hooks/README.md`](../games/hexdemo/hooks/README.md).
 

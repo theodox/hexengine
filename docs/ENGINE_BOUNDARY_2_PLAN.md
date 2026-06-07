@@ -93,7 +93,7 @@ Reserved top-level keys: prefix `hexengine_` (e.g. `hexengine_movement_arc`) —
 
 **Objective:** Stop encoding hexdemo combat narrative in `GameServer._interaction_messages_for_player_id`.
 
-**Status (shipped):** `UIHook.COMBAT_INTERACTION_MESSAGES`, `ui_combat_messages.py`, hexdemo `combat_transitions` / `combat_messages.py`, `NextPhase` guard.
+**Status (shipped):** `UIHook.COMBAT_INTERACTION_MESSAGES`, `ui_combat_messages.py`, hexdemo `combat_transitions` / `presentation/interaction_messages.py` (via `hooks/ui.py`), `NextPhase` guard.
 
 **Superseded:** `UIHook.BLOCKS_ROUTINE_PHASE_ADVANCE` and `blocks_routine_phase_advance` — replaced by declared arc segments and [`segment_blocks_routine_phase_advance`](../src/hexengine/arcs/segment_wire.py). Hexdemo auto-advance uses [`arc_segment.phase_advance_blocked`](../games/hexdemo/arc_segment.py).
 

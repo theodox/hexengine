@@ -141,7 +141,6 @@ def combat_interaction_messages(
         )
         return advance_gate_banner_copy(actx, shell_ui=su)
 
-    str(ctx.extension_key or PACK_STATE_EXTENSION_KEY).strip()
     return default_combat_interaction_messages(
         ctx,
         combat_instruction=combat_instruction,
