@@ -102,7 +102,12 @@ class AttackContext:
 
 @dataclass(frozen=True, slots=True)
 class AttackPlanPreviewContext:
-    """Inputs for server map-selection preview while drafting an attack plan."""
+    """
+    Inputs for ``map_selection_preview`` when ``kind`` is ``attack_plan``.
+
+    ``draft`` is a client-supplied snapshot for consultation only, not
+    authoritative state. Commit re-validates via ``validate_attack``.
+    """
 
     state: GameState
     player_faction: str

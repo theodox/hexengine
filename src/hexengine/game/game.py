@@ -738,7 +738,7 @@ class Game(
             local = [h for h in self.retreat_path_hexes if isinstance(h, Hex)]
             if len(local) >= 2:
                 self._sync_retreat_path_polyline(local)
-                # Keep an extended draft across state sync churn.
+                # Draft locus: local path survives state sync until commit/cancel.
                 if len(local) > 1:
                     return
             if self._retreat_path_active():

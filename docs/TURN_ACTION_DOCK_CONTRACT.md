@@ -28,6 +28,30 @@ The **turn action dock** is the title-owned description of that commit UI. The e
 
 ---
 
+## Draft locus (invariant)
+
+Map SELECT drafts are **client-local until commit**. The server never persists in-progress draft in `GameState` or `title_state` by default.
+
+| Layer | Owns | Does not own |
+|-------|------|--------------|
+| **Client** | Draft input, cancel/undo, draft-step skin and headline, `_map_selection_preview` cache | Authoritative match state |
+| **Preview RPC** | Legality opinion on a draft **snapshot** (`status_text`, `panel_actions`, `commit_payload`, highlights) | Stored draft |
+| **Dock hook** | Baseline panel from authoritative segment + turn (`presentation_id`, gate `actions[]`) | Client draft |
+| **Commit** | `action_request` + title validators → `GameState` / bucket / arc cursor | — |
+
+**Rules**
+
+- **Preview consults; commit authorizes.** Each `map_selection_preview_request` sends a snapshot; the preview hook answers for that snapshot only.
+- **`TURN_ACTION_DOCK_FOR_VIEWER` has no draft field** by design ([`TurnActionDockContext`](../src/hexengine/hooks/ui_turn_action_dock.py)).
+- **Ratify buttons** come from preview `panel_actions` merged on the client, or from local panel routes ([`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py)) that still end in `action_request` with re-validation.
+- **Draft-step presentation ids** (e.g. `attack_draft`) are **client-only** skins while a local SELECT is active; the server wire stays at the idle `presentation_id` (`attack_ready`, `retreat_gate`, …).
+
+Titles that need pre-commit server-visible state must opt in explicitly (e.g. `title_state` keys) and document that escape hatch; it is not the default SELECT model.
+
+See also: [`COMPOSABLE_ARCS_PLAN.md` § Drafts are nested client-local sub-arcs](COMPOSABLE_ARCS_PLAN.md#drafts-are-nested-client-local-sub-arcs-not-guards).
+
+---
+
 ## Player interaction primitives
 
 Titles expose many player-facing flows; the engine reuses a small set of **primitives**. Map pick and the dock are two transports; primitives describe **what the player is doing**, not separate wire types.
@@ -39,9 +63,9 @@ Titles expose many player-facing flows; the engine reuses a small set of **primi
 | **INFORM** | Status, narrative, “what’s going on” | `interaction_messages`, optional `ui_popup`; dock `headline` / decorative `html` | None (display only) |
 | **SELECT** | Build or change a **draft** the title will validate | `map_selection_preview_request` / `map_selection_preview` (units and/or map) | Deferred until ratified |
 | **DECIDE** | Choose among discrete options and **commit** | Dock `actions[]` and/or `inputs[]` → `action_request` | Immediate on click (or after inputs merged) |
-| **SEQUENCE** | Ordered steps of INFORM → SELECT → DECIDE (repeat) | Title session + `dock_arc` / step index; not a fifth wire | Per-step commits |
+| **SEQUENCE** | Ordered steps of INFORM → SELECT → DECIDE (repeat) | Title session + `presentation_id` / step index; not a fifth wire | Per-step commits |
 
-**Composition rule:** SEQUENCE is title-orchestrated composition of the other three. The engine does not need a `sequence` RPC; the title advances steps and swaps `dock_arc`, preview `kind`, and banner copy.
+**Composition rule:** SEQUENCE is title-orchestrated composition of the other three. The engine does not need a `sequence` RPC; the title advances steps and swaps `presentation_id`, preview `kind`, and banner copy.
 
 ### Mapping common title flows
 
@@ -67,7 +91,7 @@ Blocking scripted events (season cards, scenario intros, “click Continue”) u
 |-------|-------------|
 | Copy + image | Dock `headline` + `html` from `resources/templates/` (HTML ladder); optional `interaction_messages` for a banner line |
 | Acknowledge / choice | DECIDE: one or more dock action rows (e.g. `AcknowledgeEvent`, branch A / B) |
-| Skin key | `dock_arc` (e.g. `event_prompt`) — opaque to engine; pack CSS may center or modal-style the panel |
+| Skin key | `presentation_id` (e.g. `event_prompt`) — opaque to engine; pack CSS may center or modal-style the panel |
 | Queue / script id | Title bucket (`title_state`); not client-readable for legality |
 
 Do **not** use `ui_popup` for blocking prompts — that lane is hex-anchored, ephemeral INFORM. Do **not** put `onclick` in prompt HTML; every commit is a dock action row.
@@ -136,23 +160,23 @@ New `InteractionKind` values (e.g. `attack_plan`, `place_structure`, `trace_path
 | Move / optional one-hop retreat drag (`unit_preview_request`) | Path-like SELECT for one unit + budget; **commit on drop** (no dock Confirm) |
 | Future path kinds (placement, corridors, …) | Same `map_selection_preview` lane; register kind + client apply handler |
 
-### SELECT → DECIDE ratify (v1 pattern)
+### SELECT → DECIDE ratify
 
-1. Client holds draft locally (v1); sends `map_selection_preview_request` on changes.
+1. Client holds draft locally; sends `map_selection_preview_request` on changes.
 2. Server returns legality, map highlights, `status_text`, `confirm_enabled`, `commit_payload`, optional **`panel_actions`**.
 3. Client merges `panel_actions` into dock `actions[]` (see [Client merge](#client-behavior)).
 4. Confirm dispatches via [`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py): **`preview_commit`** routes (e.g. `Attack` → `commit_payload`) or **`local`** routes (e.g. `retreat_path_confirm` → `confirm_retreat_path()`), else default `action_request` with row `payload` + dock `inputs[]`.
 
-Server dock hook does not receive draft in v1; baseline dock buttons and draft-ratify buttons coexist via merge.
+The dock hook does not receive draft ([draft locus](#draft-locus-invariant)); baseline dock buttons and draft-ratify buttons coexist via client merge.
 
-### SEQUENCE and `dock_arc`
+### Client draft presentation
 
-`dock_arc` is an opaque skin/session key. Titles use it to mark which **step** of a SEQUENCE the viewer is on (`attack_draft`, `retreat_path_draft`, `bombard_confirm`, etc.). Engine does not interpret step graphs; the title hook returns the panel appropriate for `state` + extension + phase.
+`presentation_id` is an opaque skin key on the dock panel wire. The server hook returns the **idle** skin for the active segment (`attack_ready`, `retreat_gate`, …). Engine does not interpret step graphs.
 
-**Client SEQUENCE overrides (hexdemo):** The server wire still sends arcs such as `attack_ready` and `retreat_gate`. While a map SELECT draft is active, the client overrides the effective arc and headline on panel `turn_actions` (CSS modifier + `.hexengine-panel__headline`):
+While a **client-local** map SELECT draft is active, the browser overrides effective `presentation_id` and headline on panel `turn_actions` (CSS modifier + `.hexengine-panel__headline`). These draft skins are not sent by the server hook:
 
-| Server `dock_arc` | Client draft active | Effective `dock_arc` | Headline source |
-|-------------------|---------------------|----------------------|-----------------|
+| Server `presentation_id` | Client draft active | Effective `presentation_id` | Headline source |
+|--------------------------|---------------------|----------------------------|-----------------|
 | `attack_ready` | Attack plan (target and/or attackers) | `attack_draft` | Preview `status_text`, or target-set fallback |
 | `attack_ready` | None (Combat idle) | `attack_ready` | `shell_ui.attack_pick_target_status` |
 | `retreat_gate` | Retreat path picking | `retreat_path_draft` | Preview `status_text` |
@@ -189,9 +213,9 @@ Frozen dataclass in [`ui_turn_action_dock.py`](../src/hexengine/hooks/ui_turn_ac
 | `viewer_is_turn_owner` | `bool` | `viewer_faction == current_faction` |
 | `client_contract_features` | `frozenset[str]` | e.g. `map_selection_previews`, `attack_planning_ui` |
 
-The hook **does not** receive client-local draft state in v1. Attack-plan Confirm/Cancel are merged on the client from the last `map_selection_preview` (see [Client merge](#client-behavior)).
+The hook **does not** receive client-local draft state ([draft locus](#draft-locus-invariant)). Confirm/Cancel rows are merged on the client from the last `map_selection_preview` (see [Client merge](#client-behavior)).
 
-Titles compute an optional opaque **`dock_arc`** string for skinning (engine does not enumerate values).
+Titles set **`presentation_id`** for skinning (engine does not enumerate values).
 
 ---
 
@@ -204,7 +228,7 @@ Each list entry is one panel. v1 uses a single panel on host `user-controls`; mu
 | `schema` | `int` | yes | Always **`1`** |
 | `id` | `str` | yes | Stable panel id (convention: `turn_actions`) |
 | `host` | `str` | yes | DOM host element id. Default **`user-controls`** (`#user-controls` in `hexes.html`) |
-| `dock_arc` | `str` | no | **Title-defined** skin key (e.g. `routine`, `retreat_gate`, `attack_draft`). Opaque to engine. Used for templates/CSS, not for server logic. |
+| `presentation_id` | `str` | no | **Title-defined** idle skin key (e.g. `routine`, `retreat_gate`, `attack_ready`). Opaque to engine. Used for templates/CSS. Draft skins (`attack_draft`, …) are client-only overlays — see [Client draft presentation](#client-draft-presentation). |
 | `headline` | `str` | no | Short dock title (plain text). Long CRT stays in `interaction_messages`. |
 | `html` | `str` | no | Decorative fragment only. Escape dynamic values. |
 | `css_class` | `str` | no | Panel root classes (e.g. `mytitle-dock mytitle-dock--retreat-gate`) |
@@ -222,7 +246,7 @@ Each list entry is one panel. v1 uses a single panel on host `user-controls`; mu
   "schema": 1,
   "id": "turn_actions",
   "host": "user-controls",
-  "dock_arc": "routine",
+  "presentation_id": "routine",
   "headline": "Your turn",
   "html": "<div class=\"hexdemo-dock-hint\">…</div>",
   "css_class": "hexdemo-turn-dock hexdemo-turn-dock--routine",
@@ -306,7 +330,7 @@ state_update.interaction_panels = panels or None
 **Validation (startup / optional runtime):**
 
 - Every `action_type` in default dock for this pack's schedule should be accepted by `GameServer` action handling (document per pack).
-- `dock_arc` is not validated by engine (title vocabulary).
+- `presentation_id` is not validated by engine (title vocabulary).
 
 **Authority:** Only actions the server would accept on `action_request` may appear with `enabled: true`. Titles must not offer Confirm Attack when `validate_attack` would fail.
 
@@ -322,26 +346,24 @@ state_update.interaction_panels = panels or None
 ### Rendering
 
 - Reuse [`ClientInteractionPanelsMixin`](../src/hexengine/game/arcs/client_interaction_panels.py).
-- `.hexengine-panel__headline` — server `headline`, then client SEQUENCE overrides (see above).
+- `.hexengine-panel__headline` — server `headline`, then client draft presentation overrides (see [Client draft presentation](#client-draft-presentation)).
 - `html` → `.hexengine-panel__html` via `innerHTML` (trusted title content).
 - `actions[]` → buttons; click → [`resolve_panel_action_route`](../src/hexengine/game/arcs/client_panel_actions.py) or default RPC.
-- `_sync_turn_action_dock_sequence_skin()` — effective `dock_arc` CSS + `data-dock-arc` on panel root.
+- `_sync_turn_action_dock_sequence_skin()` — effective `presentation_id` CSS + `data-presentation-id` on panel root.
 
 ### Map selection apply handlers
 
 Preview responses are applied by kind via [`client_map_selection_registry.py`](../src/hexengine/game/arcs/client_map_selection_registry.py) (`_MAP_SELECTION_APPLY_METHODS`). New kinds: add a row `(InteractionKind, "_apply_<kind>_preview")` and implement the method on the game mixin.
 
-### Map selection merge (v1)
+### Map selection merge
 
 When **`map_selection_previews`** is in `client_contract.features` and the client holds an active draft for a kind (e.g. `attack_plan`):
 
 1. Client sends `map_selection_preview_request` on draft changes.
 2. On `map_selection_preview`, read optional **`panel_actions`** from response.
 3. **Merge** into the dock panel's action strip: preview actions override same `id`; preview-only ids appended; server dock actions remain unless same `id`.
-4. **End Phase** on the dock is disabled while attack-plan or retreat-path drafts are active (client merge).
+4. **End Phase** on the dock is disabled while attack-plan or retreat-path drafts are active (client policy; see [draft locus](#draft-locus-invariant)).
 5. Confirm uses the panel-action registry (`preview_commit` or local confirm handlers).
-
-Server hook does not receive draft in v1. Optional later: echo `draft` on wire or hold draft server-side so `panel_actions` need not be client-merged only.
 
 ### Feature flags
 
@@ -352,19 +374,19 @@ Server hook does not receive draft in v1. Optional later: echo `draft` on wire o
 
 ---
 
-## Skinning by `dock_arc` (title convention)
+## Skinning by `presentation_id` (title convention)
 
-Engine treats `dock_arc` as an opaque string. Recommended pack layout:
+Engine treats `presentation_id` as an opaque string. Recommended pack layout:
 
 ```
 games/<pack>/resources/
-  templates/dock/<dock_arc>.html   # optional; fallback to generic dock.html
-  ui.css                         # .<pack>-turn-dock--<dock_arc> { … }
+  templates/dock/<presentation_id>.html   # optional; fallback to generic dock.html
+  ui.css                         # .<pack>-turn-dock--<presentation_id> { … }
 ```
 
 | Mechanism | Use |
 |-----------|-----|
-| `dock_arc` | Choose template + CSS modifier |
+| `presentation_id` | Choose template + CSS modifier (idle segment skin from server hook) |
 | `headline` | Plain short title in dock chrome |
 | `html` | Extra hint markup from template |
 | `shell_ui` | Labels keyed by convention, e.g. `dock_<arc>_hint`, `end_phase_label` |
@@ -374,11 +396,11 @@ games/<pack>/resources/
 
 ---
 
-## Hexdemo reference arcs (example vocabulary)
+## Hexdemo reference skins (example vocabulary)
 
-Illustrative `dock_arc` values for [`games/hexdemo`](../games/hexdemo/); not enforced by engine.
+Illustrative `presentation_id` values for [`games/hexdemo`](../games/hexdemo/); not enforced by engine.
 
-| `dock_arc` | When (title logic) | Typical `actions` | End Phase |
+| `presentation_id` | When | Typical `actions` | End Phase |
 |------------|-------------------|-------------------|-----------|
 | `hidden` | Not viewer's turn / spectator | `[]` (empty panel list) | — |
 | `routine` | Your turn, routine segment (`NextPhase` allowed) | `end_phase` | enabled |

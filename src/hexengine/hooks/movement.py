@@ -58,7 +58,12 @@ class MoveContext:
 
 @dataclass(frozen=True, slots=True)
 class RetreatPathPreviewContext:
-    """Inputs for ``map_selection_preview`` when ``kind`` is ``retreat_path``."""
+    """
+    Inputs for ``map_selection_preview`` when ``kind`` is ``retreat_path``.
+
+    ``draft`` is a client-supplied snapshot for consultation only, not
+    authoritative state until commit.
+    """
 
     state: GameState
     player_faction: str

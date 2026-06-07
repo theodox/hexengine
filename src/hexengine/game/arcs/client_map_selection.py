@@ -1,7 +1,10 @@
 """
-Map-selection preview client (draft on map → server preview → ratify on dock).
+Map-selection preview client (client-local draft → server consult → ratify on dock).
 
-Kinds are routed through a small handler table; attack plan is the v1 reference.
+The client owns draft input; each change sends a snapshot via
+``map_selection_preview_request``. Preview responses are consult-only until
+commit. Kinds are routed through a small handler table; attack plan is the
+reference implementation.
 """
 
 from __future__ import annotations

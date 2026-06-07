@@ -1,10 +1,10 @@
 """
 Optional client combat UX (attack planning) gated by `turn_rules.client_contract`.
 
-Attack-plan drafts use server ``map_selection_preview`` when
-``map_selection_previews`` is advertised; confirm/cancel merge into the turn
-action dock via ``panel_actions``. End-phase and gate buttons derive from
-``current_segment`` on the turn action dock.
+Attack-plan draft input is client-local until commit. The client sends snapshots
+via ``map_selection_preview`` when ``map_selection_previews`` is advertised;
+confirm/cancel merge into the turn action dock via ``panel_actions``. Gate
+buttons derive from ``current_segment`` on the server dock wire.
 """
 
 from __future__ import annotations

@@ -196,7 +196,7 @@ Use **`text` + `html`** together; the server forwards `ttl_ms` and optional `css
 
 ### Map selection preview (`map_selection_preview_request` / `map_selection_preview`)
 
-SELECT drafts (map/unit picks before commit) use one RPC pair. The server dispatches by **`kind`** ([`InteractionKind`](../src/hexengine/gamedef/interactions.py)) through [`map_selection_registry`](../src/hexengine/hooks/map_selection_registry.py). Full primitive model: [`TURN_ACTION_DOCK_CONTRACT.md`](TURN_ACTION_DOCK_CONTRACT.md#player-interaction-primitives).
+SELECT drafts (map/unit picks before commit) use one RPC pair. Drafts are **client-local until commit**; preview consults per snapshot, commit authorizes. See [`TURN_ACTION_DOCK_CONTRACT.md` § Draft locus](TURN_ACTION_DOCK_CONTRACT.md#draft-locus-invariant). The server dispatches by **`kind`** ([`InteractionKind`](../src/hexengine/gamedef/interactions.py)) through [`map_selection_registry`](../src/hexengine/hooks/map_selection_registry.py). Full primitive model: [`TURN_ACTION_DOCK_CONTRACT.md`](TURN_ACTION_DOCK_CONTRACT.md#player-interaction-primitives).
 
 **Client request:** [`MapSelectionPreviewRequest`](../src/hexengine/server/protocol/client.py) — `kind`, `draft` object, optional `request_id`.
 
@@ -228,8 +228,7 @@ Bind with `@bind_title_hook(UIHook.…)` in the title hooks package. Values matc
 | **`ADVANCE_GATE_BANNERS_FOR_VIEWER`** | Active segment kind is advance gate | `(ctx: AdvanceGateInteractionContext)` | `(text_advancing, text_other)` | [`default_advance_gate_banners_for_viewer`](../src/hexengine/hooks/ui.py) |
 | **`INFORM_POPUP`** | `InspectRequest` (`unit` / `marker` / `inform`) | `(ctx: InformPopupContext)` | `InformPopup` | [`default_inform_popup_for_viewer`](../src/hexengine/hooks/inform_popup.py) |
 | **`MAP_OVERLAYS`** | Every per-player `StateUpdate` | `(state, viewer_faction)` | `list[dict]` | `[]` |
-| **`TURN_ACTION_DOCK_FOR_VIEWER`** | Every per-player `StateUpdate` | `(ctx: TurnActionDockContext)` | `list[dict]` panels | Engine catalog ([`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py)) |
-| **`INTERACTION_PANELS_FOR_VIEWER`** | When dock hook not bound | `(ctx: InteractionPanelsContext)` | `list[dict]` | Engine catalog ([`ui_interaction_panels`](../src/hexengine/hooks/ui_interaction_panels.py)) |
+| **`TURN_ACTION_DOCK_FOR_VIEWER`** | Every per-player `StateUpdate` | `(ctx: TurnActionDockContext)` | `list[TurnDockPanel]` | Engine catalog ([`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py)). No draft on context — see [draft locus](TURN_ACTION_DOCK_CONTRACT.md#draft-locus-invariant). |
 | **`COMBAT_INTERACTION_MESSAGES`** | Default `interaction_messages` combat slice (after phase row) | `(ctx: CombatInteractionMessagesContext)` | `list[dict]` | [`default_combat_interaction_messages`](../src/hexengine/hooks/ui_combat_messages.py) using segment kind + partial combat/advance hooks |
 | **`COMBAT_EVENT_SUMMARY`** | After combat, to fan out `combat_event` wires | `(state)` | `CombatEventSummary \| None` | `None` (no `combat_event` broadcast) |
 

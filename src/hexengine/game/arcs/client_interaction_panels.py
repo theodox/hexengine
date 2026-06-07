@@ -4,6 +4,10 @@ Turn action dock: HTML shell + wired actions on host ``#user-controls``.
 Title ``html`` is display-only; buttons delegate to ``action_request``. Preview
 ``panel_actions`` merge into the ``turn_actions`` panel when
 ``map_selection_previews`` is active.
+
+Draft locus: map SELECT drafts are client-local until commit. This module applies
+draft-step ``presentation_id`` and headline overlays while a local draft is active;
+the server wire keeps the idle segment skin.
 """
 
 # ruff: noqa: I001
@@ -25,7 +29,7 @@ _DOCK_ARC_CSS_RE = re.compile(
     r"\b(hexdemo-turn-dock|hexengine-turn-dock)--[a-z0-9_]+\b"
 )
 
-# Client SEQUENCE step skin when a local draft is active for this ``interaction_mode``.
+# Client draft presentation when a local SELECT draft is active (see draft locus).
 _DRAFT_PRESENTATION_BY_MODE: dict[str, str] = {
     "attack_plan": "attack_draft",
     "retreat_path": "retreat_path_draft",
@@ -323,7 +327,7 @@ class ClientInteractionPanelsMixin:
         headline_host = getattr(root, "_hexengine_panel_headline", None)
         if headline_host is not None:
             server_hl = str(spec.get("headline", "") or "").strip()
-            headline = self._client_turn_dock_sequence_headline(server_hl, server_arc)
+            headline = self._client_turn_dock_sequence_headline(server_hl, server_pid)
             try:
                 headline_host.textContent = headline
                 headline_host.style.display = "" if headline else "none"

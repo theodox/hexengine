@@ -1,5 +1,10 @@
 """
 Turn action dock presentation keyed by ``presentation_id`` (skin), not wire fields.
+
+Server hook skins (``attack_ready``, ``retreat_gate``, …) are returned from
+``TURN_ACTION_DOCK_FOR_VIEWER``. Draft skins (``attack_draft``, …) are
+client-only overlays while a local SELECT draft is active — see
+``TURN_ACTION_DOCK_CONTRACT.md`` § Draft locus.
 """
 
 from __future__ import annotations
@@ -11,17 +16,25 @@ from hexengine.hooks.ui_turn_action_dock import _shell_ui_label
 
 from ..ui_markup import render_dock_gate_panel_html
 
-# ``presentation_id`` → (shell_ui headline key, default headline, use gate hint html)
-_DOCK_SKINS: dict[str, tuple[str, str, bool]] = {
+# Server idle skins (dock hook / segment registry).
+_SERVER_DOCK_SKINS: dict[str, tuple[str, str, bool]] = {
     "hidden": ("", "", False),
     "routine": ("dock_routine_headline", "Your turn", False),
     "attack_ready": ("dock_attack_ready_headline", "Combat", False),
     "retreat_gate": ("dock_retreat_gate_headline", "Retreat", True),
     "advance_gate": ("dock_advance_gate_headline", "Advance", True),
-    # Client SEQUENCE overrides (effective arc on the browser)
+}
+
+# Client-only draft presentation (never sent by server hook; used by browser overlay).
+_CLIENT_DRAFT_DOCK_SKINS: dict[str, tuple[str, str, bool]] = {
     "attack_draft": ("dock_attack_ready_headline", "Combat", False),
     "retreat_path_draft": ("dock_retreat_gate_headline", "Retreat", False),
     "place_marker_draft": ("dock_routine_headline", "Your turn", False),
+}
+
+_DOCK_SKINS: dict[str, tuple[str, str, bool]] = {
+    **_SERVER_DOCK_SKINS,
+    **_CLIENT_DRAFT_DOCK_SKINS,
 }
 
 

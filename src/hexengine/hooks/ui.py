@@ -75,7 +75,12 @@ class CombatEventSummary:
 
 @dataclass(frozen=True, slots=True)
 class PlaceMarkerPreviewContext:
-    """Inputs for ``map_selection_preview`` when ``kind`` is ``place_marker``."""
+    """
+    Inputs for ``map_selection_preview`` when ``kind`` is ``place_marker``.
+
+    ``draft`` is a client-supplied snapshot for consultation only, not
+    authoritative state until commit.
+    """
 
     state: GameState
     player_faction: str

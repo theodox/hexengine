@@ -57,7 +57,7 @@ Players never “click HTML to commit.” They use three **wire lanes** mapped t
 | **INFORM** | Tell; no commit | `UIHook` message / popup / overlay hooks |
 | **SELECT** | Build a draft; server validates | `map_selection_preview_*` or `unit_preview` / `marker_preview` |
 | **DECIDE** | Discrete commit | Dock `actions[]` → `action_request` |
-| **SEQUENCE** | Ordered steps of the above | Title `dock_arc` + preview `status_text` + client draft skin (v1) |
+| **SEQUENCE** | Ordered steps of the above | Title `presentation_id` + preview `status_text` + client draft skin |
 
 **Authoring rules**
 
@@ -87,7 +87,7 @@ Design goals for player UX:
 
 | Goal | Practice |
 |------|----------|
-| **Clear expression** | Declare *match flow* in arcs and a small UI vocabulary; avoid scattered `if dock_arc` / mouse branches. |
+| **Clear expression** | Declare *match flow* in arcs and a small UI vocabulary; avoid scattered `if presentation_id` / mouse branches. |
 | **Easy customization** | Copy, HTML, and CSS live in `shell_ui`, templates, and keyed helpers — swappable without changing legality. |
 | **Insulate from wire** | Hooks receive **typed contexts** and return **presentation values**; the engine projects them to `StateUpdate` / `ui_popup`. Do not assemble wire dicts in `games/*`. |
 
@@ -162,7 +162,7 @@ Arc declarations use the same `kind` strings. Dock and inform hooks **look up** 
 
 **P5 (done):** At server startup, `validate_title_contract` checks every explicit segment `kind` in declared arcs is registered in `PRESENTATION_BY_SEGMENT_KIND` (bind `UIHook.SEGMENT_PRESENTATION_REGISTRY`). Required when `title_state_extension_key` is set.
 
-**Roadmap:** `presentation_id` on `TurnActionDockContext`; action label catalog in `shell_ui`; gesture policy from segment.
+**Draft locus:** Map SELECT drafts are client-local until commit; preview consults, commit authorizes. See [`TURN_ACTION_DOCK_CONTRACT.md` § Draft locus](TURN_ACTION_DOCK_CONTRACT.md#draft-locus-invariant).
 
 ---
 
@@ -262,7 +262,7 @@ Full field tables: [`PACK_HOOK_CONTRACTS.md` § UI affordances](PACK_HOOK_CONTRA
 
 Panel / action wire schemas (reference): [`TURN_ACTION_DOCK_CONTRACT.md` § Panel wire schema](TURN_ACTION_DOCK_CONTRACT.md#panel-wire-schema-schema-1).
 
-**Skin key:** `dock_arc` / `presentation_id` (e.g. `routine`, `retreat_gate`, `attack_ready`) — opaque to engine; use in CSS, templates, and the [segment presentation registry](#segment-presentation-registry).
+**Skin key:** `presentation_id` (e.g. `routine`, `retreat_gate`, `attack_ready`) — opaque to engine; use in CSS, templates, and the [segment presentation registry](#segment-presentation-registry). Draft skins (`attack_draft`, …) are client-only.
 
 ### SELECT — map selection (click → Confirm on dock)
 
@@ -282,7 +282,7 @@ Panel / action wire schemas (reference): [`TURN_ACTION_DOCK_CONTRACT.md` § Pane
 
 Registry dispatch: [`map_selection_registry.py`](../src/hexengine/hooks/map_selection_registry.py). Server helper: [`compute_map_selection_preview`](../src/hexengine/server/map_selection.py).
 
-**Ratify flow:** client holds draft (v1) → preview on change → merge `panel_actions` into dock → Confirm via [`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py) (`preview_commit`, `local`, or default RPC).
+**Ratify flow:** client holds draft locally → preview on change → merge `panel_actions` into dock → Confirm via [`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py) (`preview_commit`, `local`, or default RPC). See [draft locus](TURN_ACTION_DOCK_CONTRACT.md#draft-locus-invariant).
 
 ### SELECT — drag (commit on drop)
 
@@ -293,17 +293,17 @@ Registry dispatch: [`map_selection_registry.py`](../src/hexengine/hooks/map_sele
 
 Feature: `server_drag_previews`. Server: [`compute_unit_drag_preview`](../src/hexengine/server/preview.py) / marker equivalent. **No dock Confirm** — drop sends `action_request`.
 
-### SEQUENCE — multi-step UX (v1)
+### SEQUENCE — multi-step UX
 
 **Player prompts** (scripted events, season cards, acknowledge-then-continue) are prompt sequences: INFORM on the dock (`headline` / `html`) then DECIDE; blocking is a **prompt segment** in the turn arc. See [`TURN_ACTION_DOCK_CONTRACT.md` § Player prompts](TURN_ACTION_DOCK_CONTRACT.md#player-prompts) and [`COMPOSABLE_ARCS_PLAN.md` § Prompt segments](COMPOSABLE_ARCS_PLAN.md#prompt-segments).
 
 | Source | Responsibility |
 |--------|----------------|
-| Server dock hook | Baseline `dock_arc`, gate buttons, `headline`, decorative `html` |
-| Preview hook | `status_text`, draft `panel_actions`, `confirm_enabled` |
-| Client (hexdemo) | Overrides `attack_draft`, `retreat_path_draft`, `place_marker_draft`; merges headlines; disables `end_phase` during drafts |
+| Server dock hook | Baseline `presentation_id`, gate buttons, `headline`, decorative `html` |
+| Preview hook | `status_text`, draft `panel_actions`, `confirm_enabled` (consult per snapshot) |
+| Client (hexdemo) | Client-local draft input; draft skins (`attack_draft`, …); merges headlines; disables `end_phase` during drafts |
 
-Server dock hook **does not receive client draft** in v1. See [`TURN_ACTION_DOCK_CONTRACT.md` § SEQUENCE](TURN_ACTION_DOCK_CONTRACT.md#sequence-and-dock_arc).
+See [`TURN_ACTION_DOCK_CONTRACT.md` § Draft locus](TURN_ACTION_DOCK_CONTRACT.md#draft-locus-invariant) and [§ Client draft presentation](TURN_ACTION_DOCK_CONTRACT.md#client-draft-presentation).
 
 ### Client-only panel dispatch (engine registry)
 

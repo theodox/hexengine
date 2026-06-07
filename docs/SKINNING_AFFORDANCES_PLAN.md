@@ -23,7 +23,7 @@ Roadmap for title UX: **communicate**, **draft selections**, **commit choices**,
 ├─────────────────────────────────────────────────────────────┤
 │  #user-controls  turn action dock (interaction_panels / turn_actions)│
 │    actions[] from TURN_ACTION_DOCK + preview panel_actions   │
-│    headline + dock_arc (server + client SEQUENCE overrides)  │
+│    headline + presentation_id (server idle + client draft skin) │
 ├─────────────────────────────────────────────────────────────┤
 │  Map: SELECT — map_selection_preview OR unit_preview drag    │
 └─────────────────────────────────────────────────────────────┘
@@ -55,7 +55,7 @@ Roadmap for title UX: **communicate**, **draft selections**, **commit choices**,
 | INFORM | Status, narrative, popups; short prompts on dock `headline` during SEQUENCE |
 | SELECT | Build draft; server returns legality + highlights |
 | DECIDE | Buttons on turn action dock |
-| SEQUENCE | Server `dock_arc` + client overrides (`attack_draft`, `retreat_path_draft`, `place_marker_draft`) while drafts active |
+| SEQUENCE | Server idle `presentation_id` + client draft skins while local SELECT active |
 
 Attack plan: SELECT → preview → merge `panel_actions` → Confirm (`Attack` + `commit_payload`).
 
@@ -115,7 +115,7 @@ Shipped:
 
 | Piece | Location |
 |-------|----------|
-| Client `dock_arc` overrides | `attack_draft`, `retreat_path_draft`, `place_marker_draft` in [`client_interaction_panels.py`](../src/hexengine/game/arcs/client_interaction_panels.py) |
+| Client draft presentation | `attack_draft`, `retreat_path_draft`, `place_marker_draft` in [`client_interaction_panels.py`](../src/hexengine/game/arcs/client_interaction_panels.py) |
 | Dock headline coaching | Preview `status_text` + `shell_ui` idle copy (attack-plan status strip removed) |
 | Panel action registry | [`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py) |
 | Client preview apply registry | [`client_map_selection_registry.py`](../src/hexengine/game/arcs/client_map_selection_registry.py) |
@@ -137,9 +137,8 @@ Shipped:
 |------|--------|
 | New `InteractionKind` rows | Placement, gate hex-pick when drag is insufficient |
 | `MovementHook` preview override | Custom reach sets without duplicating validation |
-| Server-held draft on dock context | If client-only draft drifts from server |
-| Generalized client SEQUENCE overrides | Today `*_draft` arcs are hexdemo client code; target: `interaction_mode` from segment registry ([`TITLE_AUTHORING.md` § Segment presentation registry](TITLE_AUTHORING.md#segment-presentation-registry)) |
-| Segment presentation registry | One pack module: `kind` → `presentation_id`, primitive, `interaction_mode`; dock/inform hooks lookup instead of parallel if-chains |
+| Registry-driven draft skins | Optional `draft_presentation_id` on segment registry; client reads from wire instead of hardcoded map |
+| Preview-driven dock policy | Optional preview fields (e.g. `disable_end_phase`) so server consult shapes client merge without storing draft |
 | Retreat path rules tweaks | Step count vs movement budget (title rules; see `retreat_path.py`) |
 | `games/_template/` pack | Scaffold named in [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md) |
 
@@ -155,7 +154,7 @@ SELECT   →  server map_selection_registry row + title preview hook
            + client_map_selection_registry apply method
 DECIDE   →  TURN_ACTION_DOCK_FOR_VIEWER (panel id turn_actions)
            + optional client_panel_actions route for special commits
-SEQUENCE →  server dock_arc + client draft overrides + shell_ui copy
+SEQUENCE →  server idle presentation_id + client draft skin + shell_ui copy
 ```
 
 ### `shell_ui` (hexdemo examples)

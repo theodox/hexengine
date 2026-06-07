@@ -11,7 +11,7 @@
 `ENGINE_BOUNDARY_2` pushed combat *mutations* and *wire payloads* fully into the title, but left three engine-side readers of the same hexdemo gate strings (`combat_gate`, `retreat_obligations`, `advance`):
 
 1. **Authoritative legality** — RPC prechecks in `authority_combat_cleanup` (`combat_gate == "awaiting_advance"`, …).
-2. **Affordances** — turn action dock skin (`dock_arc_from_segment` + title `ENRICH_CURRENT_SEGMENT`; engine catalog no longer infers gate skins without `current_segment`).
+2. **Affordances** — turn action dock skin (`presentation_id` from title `ENRICH_CURRENT_SEGMENT` + segment registry; engine catalog does not infer gate skins without `current_segment`).
 3. **Phase-advance blocking** — `default_blocks_routine_phase_advance`.
 
 These exist because the arc's transition logic (δ) is **not declared in one place** — each reader re-derives it from gate strings. The fix is structural: declare the state machine once; have legality, affordances, and blocking all read the *current segment* of that declared machine.
@@ -53,6 +53,8 @@ A **segment** is fully described by:
 Both existing server gates and existing client drafts are instances of this one shape. Making `resolution locus` a declared property lets the client stop special-casing draft strings and the server stop special-casing gate strings.
 
 ### Drafts are nested client-local sub-arcs, not guards
+
+**Adopted invariant:** [`TURN_ACTION_DOCK_CONTRACT.md` § Draft locus](TURN_ACTION_DOCK_CONTRACT.md#draft-locus-invariant) — drafts are client-local until commit; preview consults per snapshot; commit authorizes.
 
 A **draft** (assembling a multi-step input — pick target → pick attackers → confirm — before one commit RPC) is a **nested client-local sub-arc**, not a guard on the parent transition. The roles differ by layer:
 
@@ -527,7 +529,7 @@ and validate), not `hexengine.arcs.patterns`.
 - Removed engine gate-string catalog paths (`default_blocks_routine_phase_advance`, `PRIMARY_ACTIONS_FOR_VIEWER`, `BLOCKS_ROUTINE_PHASE_ADVANCE`).
 - Docs updated: `PACK_HOOK_CONTRACTS.md`, `TURN_ACTION_DOCK_CONTRACT.md`, `TITLE_AUTHORING.md`, `engine_game_boundary_matrix.md`, `ENGINE_BOUNDARY_2_PLAN.md` (supersession note), `SERVER_ARCHITECTURE.md`, `hexdemo/hooks/README.md`.
 - Title `combat_gate` bucket field retired (not written); engine and pack read `current_segment`.
-- Client draft CSS uses `effective_turn_dock_presentation_id` (client-local sub-arcs); server uses `dock_arc_from_segment`.
+- Client draft CSS uses `effective_turn_dock_presentation_id` (client-local sub-arcs); server hook uses idle `presentation_id` from enriched `current_segment`. Draft locus: [`TURN_ACTION_DOCK_CONTRACT.md` § Draft locus](TURN_ACTION_DOCK_CONTRACT.md#draft-locus-invariant).
 
 **Author-facing UX (next):** segment `kind` plus a title **presentation registry** (`presentation_id`, primitive, `interaction_mode`) so hooks and templates stay insulated from wire — see [`TITLE_AUTHORING.md` § Flow vs presentation](TITLE_AUTHORING.md#flow-vs-presentation-authoring-model) and [`PACK_HOOK_CONTRACTS.md` § Authoring vs wire](PACK_HOOK_CONTRACTS.md#authoring-vs-wire).
 

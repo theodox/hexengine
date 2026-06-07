@@ -17,6 +17,7 @@ from .runner import resolve_owner
 
 SEGMENT_WIRE_SCHEMA = 1
 
+# Action types assembled client-side before commit (wire ``action_locus``).
 CLIENT_DRAFT_ACTIONS = frozenset({"Attack"})
 
 
