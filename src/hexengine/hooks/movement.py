@@ -21,6 +21,12 @@ Thin clients do not execute these hooks. Drag previews use `unit_preview_request
 (see `hexengine.server.preview`). Clients read `turn_rules.movement_budget` only to rebuild
 a thin `GameDefinition` for advance-turn UI, not to compute move highlights locally.
 
+**Author layout:** implement policy in pack-root ``movement_rules.py`` (see
+``MovementRulesBinding`` in `hexengine.hooks.movement_rules`). Keep ``hooks/movement.py``
+as thin ``bind_title_hook`` adapters; preview hooks may stay in hooks. Stepwise payload
+and movement arc cursor sync are engine-owned (``authority_movement``, movement arc
+runner).
+
 **Title wiring:** import `MovementHook` and `hexengine.hooks.wiring.bind_title_hook`.
 Use `@bind_title_hook(MovementHook.MOVEMENT_BUDGET_FOR_UNIT)` (and siblings) so hook
 slots are not stringly-typed at call sites. Legacy `\"movement.field\"` paths still work.

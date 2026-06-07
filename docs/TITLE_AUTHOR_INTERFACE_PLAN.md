@@ -64,6 +64,8 @@ Authors work in **three layers** only (aligned with [`TITLE_AUTHORING.md` § Flo
 | Retreat / advance / disrupt | Same binding as cleanup (arc effects) |
 | Buttons / map mode | Segment registry + `presentation/` |
 | Auto-advance phase after attack / move | Optional policy methods on binding or tiny hooks |
+| Move budget / ZoC / retreat legality? | `movement_rules.py` (`MovementRulesBinding`) |
+| Stepwise path / interrupts? | Engine movement arc bridge (authors supply step cost + interrupt factions hooks only) |
 
 **Engine-owned (authors never implement):** `execute_authority_attack_request` wire normalize + `submit_event`, `begin_combat_arc` (cleanup-only entry), `Attack` / `ApplyCombatEffects` assembly helpers, movement payload bridge, wire projection.
 
@@ -177,7 +179,7 @@ Full combat integration suite + replay/undo tests if present.
 
 ### Phase E — Movement author interface (same pattern)
 
-**Status:** not started.
+**Status:** done.
 
 **Goal:** One `MovementRulesBinding`; engine owns stepwise payload bridge until movement arc is fully runner-driven.
 

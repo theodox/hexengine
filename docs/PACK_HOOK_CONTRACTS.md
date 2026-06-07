@@ -270,7 +270,9 @@ For packs with `title_state_extension_key`, the engine rejects `Attack` when `cu
 
 **Undoable title bucket patches:** prefer [`PatchTitleBucket`](../src/hexengine/state/actions.py) in hook follow-up lists over ad-hoc copies. Read bucket via [`title_bucket`](../src/hexengine/state/title_extension.py) / pack `title_state` module.
 
-**Reference pack:** [`games/hexdemo/hooks/`](../games/hexdemo/hooks/) (`attack.py`, `movement.py`, `turn_action_dock.py`, `ui.py`); policy modules [`combat_transitions.py`](../games/hexdemo/combat_transitions.py), [`title_state.py`](../games/hexdemo/title_state.py); markup in [`games/hexdemo/ui_markup.py`](../games/hexdemo/ui_markup.py); assets in [`games/hexdemo/resources/`](../games/hexdemo/resources/) (`templates/`, `flags/`, `ui.css`). Inventory: [`SKINNING_CLIENT_INVENTORY.md`](SKINNING_CLIENT_INVENTORY.md). Boundary matrix: [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md).
+**Movement author layout:** policy in pack-root [`movement_rules.py`](../games/hexdemo/movement_rules.py) implementing [`MovementRulesBinding`](../src/hexengine/hooks/movement_rules.py); [`hooks/movement.py`](../games/hexdemo/hooks/movement.py) binds slots. Stepwise payload and arc cursor sync stay in `authority_movement` / movement arc runner.
+
+**Reference pack:** [`games/hexdemo/hooks/`](../games/hexdemo/hooks/) (`attack.py`, `movement.py`, `turn_action_dock.py`, `ui.py`); policy modules [`movement_rules.py`](../games/hexdemo/movement_rules.py), [`combat_transitions.py`](../games/hexdemo/combat_transitions.py), [`title_state.py`](../games/hexdemo/title_state.py); markup in [`games/hexdemo/ui_markup.py`](../games/hexdemo/ui_markup.py); assets in [`games/hexdemo/resources/`](../games/hexdemo/resources/) (`templates/`, `flags/`, `ui.css`). Inventory: [`SKINNING_CLIENT_INVENTORY.md`](SKINNING_CLIENT_INVENTORY.md). Boundary matrix: [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md).
 
 ### Client contract features (not wire rows)
 

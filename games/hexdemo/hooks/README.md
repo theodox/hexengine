@@ -29,7 +29,7 @@ These are **layers**, not two different species of title code.
 **Healthy pattern:** hooks stay thin; they call into **rules** modules.
 
 ```text
-MoveUnit / movement arc  →  MovementHook.*  →  hooks/movement.py  →  ../combat.py (retreat state)
+MoveUnit / movement arc  →  MovementHook.*  →  hooks/movement.py  →  ../movement_rules.py (+ ../combat.py retreat state)
 Attack RPC               →  AttackHook.*     →  hooks/attack.py    →  ../combat.py (validate, resolve, follow_up)
 Combat cleanup RPCs      →  combat arc       →  ../combat_arc.py   →  ../combat_actions.py
 ```
@@ -41,7 +41,7 @@ Hexdemo today:
 | `../combat.py` — CRT, retreat extension state | `attack.py`, `movement.py` |
 | `../marker_rules.py` — `MarkerPlacementRule` factory | Injected on `GameServer`, not `TitleHooks` |
 
-Keep **one coherent policy** in pack-root modules when it is reused (server validation + client preview + unit tests). Movement legality slices (budget, ZoC, retreat) live in `movement.py` for now; see `docs/engine_game_boundary_matrix.md` and `docs/RULE_COMPOSITION.md` for future delegation.
+Keep **one coherent policy** in pack-root modules when it is reused (server validation + client preview + unit tests). Movement legality lives in [`movement_rules.py`](../movement_rules.py); `hooks/movement.py` is adapters only.
 
 Longer term, the engine may offer **composable rule pieces** (ZOC, terrain, morale, …) that titles assemble declaratively, with custom rules alongside — see `docs/RULE_COMPOSITION.md` (planning only; not implemented).
 
@@ -49,7 +49,8 @@ Longer term, the engine may offer **composable rule pieces** (ZOC, terrain, mora
 
 | Module | Role | Wired via |
 |--------|------|-----------|
-| `movement.py` | Step cost, ZoC, retreat obligations, … | `@bind_title_hook(MovementHook.…)` |
+| `movement.py` | Thin adapters to `movement_rules.py`; retreat path preview | `@bind_title_hook(MovementHook.…)` |
+| `../movement_rules.py` | Budget, ZoC, retreat constraints, step cost, auto-advance | Called from hooks; tests import directly |
 | `attack.py` | Validate/resolve combat, CRT, `combat_outcome_after_applied`, auto-advance | `@bind_title_hook(AttackHook.…)` — not cleanup slots (deprecated) |
 | `../combat_arc.py` | Combat cleanup guards/effects + `detect_combat_advance_move` on `ArcSpec` | Wired via `arcs.py` → `ArcHook.COMBAT_ARC` |
 | `ui.py` | Phase/combat banners, inspect, inform popups, combat event summary | `@bind_title_hook(UIHook.…)`; copy from `presentation/` |

@@ -1413,6 +1413,9 @@ class GameServer:
                 self, player_id, player, "PassMovementInterrupt", {}
             ):
                 return
+            # Legacy fallback when the movement arc cursor is missing or rejects the
+            # event (titles without arc sync). Retire once all extension-key titles
+            # always drive interrupts through the runner.
             try:
                 self.action_manager.execute(
                     ResolvePassMovementInterrupt(str(player.faction))
