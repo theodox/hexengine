@@ -153,6 +153,7 @@ def test_validate_title_contract_requires_combat_arc_with_extension_key() -> Non
             ui=UIHooks(
                 turn_action_dock_for_viewer=empty_turn_action_dock_for_viewer,
                 segment_presentation_registry=lambda: frozenset({"move", "attack"}),
+                enrich_current_segment=lambda _ctx: {},
             ),
             arcs=ArcsHooks(turn_arc_registry=lambda: turn_registry),
         )
@@ -198,6 +199,7 @@ def test_validate_title_contract_checks_combat_rules_binding_methods() -> None:
             ui=UIHooks(
                 turn_action_dock_for_viewer=empty_turn_action_dock_for_viewer,
                 segment_presentation_registry=lambda: frozenset({"combat"}),
+                enrich_current_segment=lambda _ctx: {},
             ),
             arcs=ArcsHooks(
                 turn_arc_registry=lambda: reg,

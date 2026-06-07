@@ -54,7 +54,7 @@ Authors work in **three layers** only (aligned with [`TITLE_AUTHORING.md` § Flo
 ┌─────────────────────────────────────────────────────────┐
 │  RULES (pack root)                                       │
 │  Pure policy: GameState (+ typed contexts) → outcomes   │
-│  e.g. combat.py, title_state.py, movement_rules.py      │
+│  e.g. title_state.py, combat_rules.py, movement_rules.py │
 └──────────────────────────┬──────────────────────────────┘
                            │ called from
 ┌──────────────────────────▼──────────────────────────────┐
@@ -155,7 +155,7 @@ Authors work in **three layers** only (aligned with [`TITLE_AUTHORING.md` § Flo
 1. **Add** `hexengine.authoring.combat_outcome` (or `hexengine.hooks.attack_outcome`): `CombatOutcome` dataclass + `apply_outcome(outcome, ctx) -> list[StateAction]` engine helper (or title-scoped adapter interface).
 2. **Extend** `CombatRulesBinding` / pattern: `resolve_attack(ctx) -> CombatOutcome` (authors may still return `AttackResolution` during deprecation window via adapter).
 3. **Engine:** After `Attack` + `ApplyCombatEffects`, call `outcome.to_state_actions(ctx)` instead of `follow_up_after_attack`; then `begin_combat_arc` unchanged.
-4. **Hexdemo:** Move `follow_up_after_attack` body into `CombatOutcome` builder in `combat.py` or `combat_transitions.py`; delete `AttackHook.AFTER_ATTACK_APPLIED` from author path when adapter is sole caller.
+4. **Hexdemo:** Move `follow_up_after_attack` body into `CombatOutcome` builder in `combat_outcome.py` or `combat_transitions.py`; delete `AttackHook.AFTER_ATTACK_APPLIED` from author path when adapter is sole caller.
 5. **Deprecate** `AttackHook.AFTER_ATTACK_APPLIED` in docs; remove from `validate_title_contract` requirements.
 
 #### Author migration (hexdemo)

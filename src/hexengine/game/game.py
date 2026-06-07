@@ -150,21 +150,10 @@ class Game(
         self._interaction_panel_wire_specs: dict[str, dict[str, Any]] = {}
 
         self.logger = logging.getLogger("game")
-        self.logger.info("Game initialized")
 
-        self.logger.info(
-            f"[Game.__init__] Registering on_mouse_down: {self.on_mouse_down}"
-        )
         self.canvas.on_mouse_down < self.on_mouse_down
-        self.logger.info("[Game.__init__] Registered on_mouse_down")
-
-        self.logger.info(f"[Game.__init__] Registering on_mouse_up: {self.on_mouse_up}")
         self.canvas.on_mouse_up < self.on_mouse_up
-        self.logger.info("[Game.__init__] Registered on_mouse_up")
-
-        self.logger.info(f"[Game.__init__] Registering on_drag: {self.on_drag}")
         self.canvas.on_drag < self.on_drag
-        self.logger.info("[Game.__init__] Registered on_drag")
 
         self._register_hotkeys()
 
@@ -848,17 +837,6 @@ class Game(
                 el.className = ""
 
         if not rows:
-            # Prefer replicated turn state when there are no server messages (e.g. all TTL-expired
-            # rows from an older server build, or empty interaction_messages).
-            st_fb = self.action_mgr.current_state
-            if st_fb is not None and client is not None:
-                t = st_fb.turn
-                text_fb = (
-                    f"{wire_str(t.current_faction)}: {wire_str(t.current_phase)} "
-                    f"(actions: {t.phase_actions_remaining})"
-                )
-                paint_interaction_banner(text_fb, "", "interaction-msg--phase")
-                return
             clear_interaction_banner()
             return
 
@@ -886,14 +864,7 @@ class Game(
                 best_p = p
                 best = r
         if best is None:
-            st_fb = self.action_mgr.current_state
-            if st_fb is not None and client is not None:
-                t = st_fb.turn
-                text_fb = (
-                    f"{wire_str(t.current_faction)}: {wire_str(t.current_phase)} "
-                    f"(actions: {t.phase_actions_remaining})"
-                )
-                paint_interaction_banner(text_fb, "", "interaction-msg--phase")
+            clear_interaction_banner()
             return
         text = wire_str(best.get("text")).strip()
         html = wire_str(best.get("html")).strip()

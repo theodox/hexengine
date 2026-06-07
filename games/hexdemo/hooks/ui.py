@@ -156,7 +156,9 @@ def combat_event_summary(state: GameState) -> CombatEventSummary | None:
 @bind_title_hook(UIHook.INFORM_POPUP)
 def inform_popup_for_viewer(ctx: InformPopupContext):
     if not isinstance(ctx, InformPopupContext):
-        return {"text": "", "kind": "info", "ttl_ms": 800}
+        from hexengine.authoring.present import inform_popup
+
+        return inform_popup(text="", kind="info", ttl_ms=800)
     profile = str(ctx.inform_profile or ctx.inform_kind or "").strip()
     if profile:
         return inform_popup_for_profile(ctx.shell_ui, profile, ctx.reason)

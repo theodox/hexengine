@@ -38,31 +38,33 @@ def test_turn_dock_panel_to_wire_dict() -> None:
     )
     wire = panel.to_wire_dict()
     assert wire["schema"] == 1
-    assert wire["dock_arc"] == "attack_ready"
+    assert wire["presentation_id"] == "attack_ready"
     assert wire["host"] == "user-controls"
     assert wire["actions"][0]["id"] == "end_phase"
 
 
-def test_turn_action_dock_to_wire_accepts_dto_and_dict() -> None:
-    dto = turn_dock_panel(
-        presentation_id="hidden",
-        actions=(),
-        headline="",
-    )
+def test_turn_action_dock_to_wire_rejects_dict_rows() -> None:
     legacy = {"schema": 1, "id": "legacy", "host": "user-controls", "actions": []}
-    out = turn_action_dock_to_wire([dto, legacy])
-    assert len(out) == 2
-    assert out[0]["dock_arc"] == "hidden"
-    assert out[1]["id"] == "legacy"
+    try:
+        turn_action_dock_to_wire([legacy])
+    except TypeError as exc:
+        assert "TurnDockPanel" in str(exc)
+    else:
+        raise AssertionError("expected TypeError")
 
 
-def test_inform_popup_to_wire_accepts_dto_and_dict() -> None:
+def test_inform_popup_to_wire_rejects_dict() -> None:
+    try:
+        inform_popup_to_wire({"text": "x", "kind": "info", "ttl_ms": 100})
+    except TypeError as exc:
+        assert "InformPopup" in str(exc)
+    else:
+        raise AssertionError("expected TypeError")
+
+
+def test_inform_popup_dto_round_trip() -> None:
     dto = inform_popup(text="hello", ttl_ms=750)
     assert inform_popup_to_wire(dto)["ttl_ms"] == 750
-    assert (
-        inform_popup_to_wire({"text": "x", "kind": "info", "ttl_ms": 100})["ttl_ms"]
-        == 100
-    )
 
 
 def test_hexdemo_turn_action_dock_returns_dtos() -> None:
@@ -86,10 +88,16 @@ def test_hexdemo_turn_action_dock_returns_dtos() -> None:
         phase_actions_remaining=2,
         viewer_is_turn_owner=True,
         client_contract_features=frozenset(),
+        current_segment={
+            "schema": 1,
+            "kind": "combat",
+            "presentation_id": "attack_ready",
+            "allowed_actions": ["Attack", "NextPhase"],
+        },
     )
     panels = turn_action_dock_for_viewer(ctx)
     assert len(panels) == 1
     assert isinstance(panels[0], TurnDockPanel)
     wire = turn_action_dock_to_wire(panels)[0]
     assert wire["id"] == "turn_actions"
-    assert isinstance(wire.get("dock_arc"), str) and wire["dock_arc"]
+    assert wire.get("presentation_id") == "attack_ready"

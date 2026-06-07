@@ -8,7 +8,6 @@ from games.hexdemo import combat_transitions
 from games.hexdemo.arc_segment import phase_advance_blocked
 
 from hexengine.arcs import ArcCursor, with_arc_cursor
-from hexengine.arcs.segment_wire import dock_arc_from_segment
 from hexengine.state import GameState
 
 
@@ -24,18 +23,22 @@ def test_phase_advance_allowed_on_routine_move_segment() -> None:
     assert phase_advance_blocked(st) is False
 
 
-def test_dock_arc_from_segment_retreat_gate() -> None:
+def test_segment_registry_maps_retreat_gate_kind() -> None:
+    from games.hexdemo.segment_ui import resolve_presentation_id
+
     segment = {
         "schema": 1,
         "kind": combat_transitions.GATE_AWAITING_RETREAT_OR_DISRUPT,
         "allowed_actions": ["CombatDisruptInsteadOfRetreat"],
     }
-    arc = dock_arc_from_segment(
-        segment,
-        viewer_may_act=True,
-        current_phase="Combat",
+    assert (
+        resolve_presentation_id(
+            segment,
+            viewer_may_act=True,
+            current_phase="Combat",
+        )
+        == "retreat_gate"
     )
-    assert arc == "retreat_gate"
 
 
 def test_attack_planning_blocked_on_advance_segment() -> None:

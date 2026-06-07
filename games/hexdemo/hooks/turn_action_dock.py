@@ -19,7 +19,6 @@ from hexengine.hooks.wiring import bind_title_hook
 from hexengine.ui.display import TurnDockPanel
 
 from ..presentation.dock import dock_headline, dock_panel_html
-from ..segment_ui import resolve_presentation_id
 
 
 def _segment_shows_dock(presentation_id: str, gate_actions: list[dict]) -> bool:
@@ -43,12 +42,7 @@ def turn_action_dock_for_viewer(
     if seg is not None:
         presentation_id = str(seg.get("presentation_id", "")).strip()
     if not presentation_id:
-        presentation_id = resolve_presentation_id(
-            seg,
-            viewer_may_act=ctx.viewer_is_turn_owner,
-            current_phase=ctx.current_phase,
-            extra_gate_actions=gate_actions,
-        )
+        presentation_id = "hidden" if not ctx.viewer_is_turn_owner else "routine"
 
     if not ctx.viewer_is_turn_owner and not _segment_shows_dock(
         presentation_id, gate_actions

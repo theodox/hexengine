@@ -1,8 +1,8 @@
 """
 Convert title UI hook results to wire dicts (single engine adapter).
 
-Title hooks may return presentation dataclasses from ``hexengine.ui.display`` or
-legacy ``dict`` rows; this module is the only place that should know both shapes.
+Title hooks return presentation dataclasses from ``hexengine.ui.display``; this
+module is the only place that serializes them for ``StateUpdate`` / ``ui_popup``.
 """
 
 from __future__ import annotations
@@ -25,12 +25,10 @@ def turn_action_dock_to_wire(raw: object) -> list[dict[str, Any]]:
             out.append(item.to_wire_dict())
         elif isinstance(item, InteractionPanel):
             out.append(item.to_wire_dict())
-        elif isinstance(item, dict):
-            out.append(dict(item))
         else:
             raise TypeError(
-                "turn_action_dock_for_viewer items must be TurnDockPanel, "
-                f"InteractionPanel, or dict, got {type(item).__name__}"
+                "turn_action_dock_for_viewer items must be TurnDockPanel or "
+                f"InteractionPanel, got {type(item).__name__}"
             )
     return out
 
@@ -38,13 +36,11 @@ def turn_action_dock_to_wire(raw: object) -> list[dict[str, Any]]:
 def inform_popup_to_wire(raw: object) -> dict[str, Any]:
     """Normalize ``INFORM_POPUP`` / ``inform_popup`` hook output to a wire popup dict."""
 
-    if isinstance(raw, InformPopup):
-        return raw.to_wire_dict()
-    if isinstance(raw, dict):
-        return dict(raw)
-    raise TypeError(
-        f"inform_popup hook must return InformPopup or dict, got {type(raw).__name__}"
-    )
+    if not isinstance(raw, InformPopup):
+        raise TypeError(
+            f"inform_popup hook must return InformPopup, got {type(raw).__name__}"
+        )
+    return raw.to_wire_dict()
 
 
 __all__ = ["inform_popup_to_wire", "turn_action_dock_to_wire"]

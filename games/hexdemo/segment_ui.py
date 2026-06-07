@@ -13,8 +13,6 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from hexengine.arcs.segment_wire import dock_arc_from_segment
-
 from .combat_transitions import (
     GATE_AWAITING_ADVANCE,
     GATE_AWAITING_RETREAT,
@@ -99,22 +97,16 @@ def resolve_presentation_id(
     current_phase: str,
     extra_gate_actions: list[dict[str, Any]] | None = None,
 ) -> str:
-    """
-    Skin key for the turn action dock (``dock_arc`` on the wire).
+    """Skin key for the turn action dock from the segment presentation registry."""
 
-    Prefer registry ``presentation_id``; fall back to engine ``dock_arc_from_segment``
-    for unregistered kinds (e.g. ``hidden``, transient segments).
-    """
-
+    _ = (current_phase, extra_gate_actions)
     row = segment_presentation(segment)
     if row is not None:
         return row.presentation_id
-    return dock_arc_from_segment(
-        segment,
-        viewer_may_act=viewer_may_act,
-        current_phase=current_phase,
-        extra_gate_actions=extra_gate_actions,
-    )
+    if not segment:
+        return "hidden" if not viewer_may_act else "routine"
+    kind = str(segment.get("kind", "")).strip() or "(unknown)"
+    raise ValueError(f"No segment presentation registered for kind {kind!r}")
 
 
 __all__ = [

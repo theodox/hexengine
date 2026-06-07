@@ -960,7 +960,7 @@ def test_combat_advance_after_defender_retreat(hexdemo_server: GameServer) -> No
         panels_u = server._interaction_panels_for_player_id("p_u")
         assert panels_u is not None and len(panels_u) == 1
         assert panels_u[0]["id"] == "turn_actions"
-        assert panels_u[0]["dock_arc"] == "advance_gate"
+        assert panels_u[0]["presentation_id"] == "advance_gate"
         action_ids = {a["id"] for a in panels_u[0].get("actions") or []}
         assert "combat_advance" in action_ids
 

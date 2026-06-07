@@ -83,11 +83,7 @@ def attack_planning_blocked_reason(state: GameState, player_faction: str) -> str
     if phase not in ("Combat", "Attack"):
         return "Attack planning is only available during Combat"
 
-    from hexengine.arcs.segment_wire import (
-        KIND_DOCK_ARC_ADVANCE,
-        KIND_DOCK_ARC_RETREAT,
-        segment_allows_action,
-    )
+    from hexengine.arcs.segment_wire import segment_allows_action
 
     from . import arc_segment
 
@@ -97,9 +93,9 @@ def attack_planning_blocked_reason(state: GameState, player_faction: str) -> str
     if segment_allows_action(seg, "Attack"):
         return None
     kind = str(seg.get("kind", "")).strip()
-    if kind in KIND_DOCK_ARC_ADVANCE:
+    if kind == GATE_AWAITING_ADVANCE:
         return "Resolve combat advance before planning an attack"
-    if kind in KIND_DOCK_ARC_RETREAT:
+    if kind in (GATE_AWAITING_RETREAT, GATE_AWAITING_RETREAT_OR_DISRUPT):
         return "Resolve retreat before planning an attack"
     return "Combat obligations must be resolved before planning an attack"
 

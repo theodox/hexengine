@@ -11,8 +11,7 @@ Hook surface for title-authored rules (`hexengine.hooks`).
    `AttackHooks` / `UIHooks` field names).
 2. Import `bind_title_hook` from `hexengine.hooks.wiring`.
 3. Decorate each implementation with `@bind_title_hook(MovementHook.SOME_FIELD)` (etc.)
-   so call sites are **not** stringly-typed. Legacy `\"bundle.field\"` strings still work.
-4. Build `TitleHooks` with `assemble_title_hooks` from your hook modules (unchanged).
+4. Build `TitleHooks` with `assemble_title_hooks` from your hook modules.
 
 This package root exposes a **small convenience**: `ENGINE_DEFAULT` and `TitleHooks`.
 

@@ -188,11 +188,7 @@ class UIHooks:
     ) = None
 
     turn_action_dock_for_viewer: (
-        Callable[
-            [TurnActionDockContext],
-            list[TurnDockPanel | dict[str, Any]] | object,
-        ]
-        | None
+        Callable[[TurnActionDockContext], list[TurnDockPanel] | object] | None
     ) = None
 
     enrich_current_segment: (

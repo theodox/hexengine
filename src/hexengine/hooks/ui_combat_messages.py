@@ -6,8 +6,10 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..arcs.segment_wire import KIND_DOCK_ARC_ADVANCE, KIND_DOCK_ARC_RETREAT
 from ..state import GameState
+
+_SEGMENT_KIND_RETREAT = frozenset({"awaiting_retreat", "awaiting_retreat_or_disrupt"})
+_SEGMENT_KIND_ADVANCE = frozenset({"awaiting_advance"})
 from ..state.title_extension import title_bucket
 
 
@@ -72,7 +74,7 @@ def default_combat_interaction_messages(
         inst, msg = combat_instruction(outcome, retreat_owner)
         if (
             inst in ("retreat_required", "wait")
-            and segment_kind not in KIND_DOCK_ARC_RETREAT
+            and segment_kind not in _SEGMENT_KIND_RETREAT
         ):
             inst, msg = "resolved", "Combat resolved."
         kind = (
@@ -99,7 +101,7 @@ def default_combat_interaction_messages(
             }
         )
 
-    if segment_kind in KIND_DOCK_ARC_ADVANCE:
+    if segment_kind in _SEGMENT_KIND_ADVANCE:
         adv = hx.get("advance")
         adv_faction = (
             str(adv.get("faction", "")).strip() if isinstance(adv, dict) else ""

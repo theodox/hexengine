@@ -11,7 +11,7 @@
 `ENGINE_BOUNDARY_2` pushed combat *mutations* and *wire payloads* fully into the title, but left three engine-side readers of the same hexdemo gate strings (`combat_gate`, `retreat_obligations`, `advance`):
 
 1. **Authoritative legality** — RPC prechecks in `authority_combat_cleanup` (`combat_gate == "awaiting_advance"`, …).
-2. **Affordances** — `default_primary_actions_for_viewer` / `_dock_arc_for_viewer`.
+2. **Affordances** — turn action dock skin (`dock_arc_from_segment` + title `ENRICH_CURRENT_SEGMENT`; engine catalog no longer infers gate skins without `current_segment`).
 3. **Phase-advance blocking** — `default_blocks_routine_phase_advance`.
 
 These exist because the arc's transition logic (δ) is **not declared in one place** — each reader re-derives it from gate strings. The fix is structural: declare the state machine once; have legality, affordances, and blocking all read the *current segment* of that declared machine.
@@ -136,7 +136,7 @@ This revises a `RULE_COMPOSITION.md` non-goal ("hooks and **arcs** stay [as fixe
 - Engine gate-string literals in `authority_combat_cleanup` prechecks (boundary item #1/#2) — gone.
 - `ClearUnitRetreatObligation`'s hardcoded `combat_gate` removal — becomes a declared transition effect.
 - The client `effective_turn_dock_presentation_id` draft override — becomes an entry-guarded client-local sub-arc.
-- `default_primary_actions_for_viewer` / `default_blocks_routine_phase_advance` gate string-matching — derived from the segment instead.
+- `default_primary_actions_for_viewer` / pre-segment gate action string-matching in the engine dock catalog — removed; skin and rows derive from `current_segment` (titles bind `ENRICH_CURRENT_SEGMENT` for gate modes).
 
 ---
 

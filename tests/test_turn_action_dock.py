@@ -74,12 +74,13 @@ def test_catalog_default_includes_end_phase_for_turn_owner() -> None:
     panels = default_turn_action_dock_for_viewer(ctx)
     assert len(panels) == 1
     panel = panels[0]
-    assert panel["id"] == "turn_actions"
-    ids = [a["id"] for a in panel["actions"]]
+    assert panel.id == "turn_actions"
+    assert panel.presentation_id == "routine"
+    ids = [a.id for a in panel.actions]
     assert "end_phase" in ids
-    end = next(a for a in panel["actions"] if a["id"] == "end_phase")
-    assert end["action_type"] == "NextPhase"
-    assert end["enabled"] is True
+    end = next(a for a in panel.actions if a.id == "end_phase")
+    assert end.action_type == "NextPhase"
+    assert end.enabled is True
 
 
 def test_hexdemo_state_update_uses_turn_action_dock_panels() -> None:
@@ -144,7 +145,7 @@ def test_hexdemo_combat_phase_enables_end_phase_without_gate() -> None:
         current_segment=seg,
     )
     panels = turn_action_dock_to_wire(turn_action_dock_for_viewer(ctx))
-    assert panels[0]["dock_arc"] == "attack_ready"
+    assert panels[0]["presentation_id"] == "attack_ready"
     end = next(a for a in panels[0]["actions"] if a["id"] == "end_phase")
     assert end["enabled"] is True
 
@@ -224,7 +225,7 @@ def test_hexdemo_retreat_gate_shows_for_non_turn_owner() -> None:
     )
     panels = turn_action_dock_to_wire(turn_action_dock_for_viewer(ctx))
     assert len(panels) == 1
-    assert panels[0]["dock_arc"] == "retreat_gate"
+    assert panels[0]["presentation_id"] == "retreat_gate"
     ids = {a["id"] for a in panels[0]["actions"]}
     assert "combat_disrupt_instead" in ids
 
@@ -298,7 +299,7 @@ def test_hexdemo_retreat_obligation_shows_dock_for_non_turn_owner() -> None:
     )
     panels = turn_action_dock_to_wire(turn_action_dock_for_viewer(ctx))
     assert len(panels) == 1
-    assert panels[0]["dock_arc"] == "retreat_gate"
+    assert panels[0]["presentation_id"] == "retreat_gate"
     assert "end_phase" in {a["id"] for a in panels[0]["actions"]}
 
 

@@ -29,11 +29,12 @@ Gameplay hooks are **typed in Python** (`MovementHook`, `AttackHook`, `UIHook`, 
 |------------|-------------------------------------|
 | Arc segments + segment `kind` strings | `StateUpdate` message assembly |
 | [`TitleHooks`](../src/hexengine/hooks/wiring.py) callables + contexts | WebSocket `schema` / `omit_if_none` rules |
-| `shell_ui`, templates, `presentation_id` / `dock_arc` skin keys | `BrowserWebSocketClient` field parsing for legality |
+| `shell_ui`, templates, `presentation_id` skin keys | `BrowserWebSocketClient` field parsing for legality |
 | Preview hook: draft in → legality + `commit_payload` out | Client computing legal hex sets locally |
-| Optional **segment presentation registry** (one row per UX mode) | `dock_arc_from_segment` heuristics (engine fallback when a `kind` is unregistered) |
+| **Segment presentation registry** (one row per UX mode) | `UIHook.SEGMENT_PRESENTATION_REGISTRY` |
+| **Segment wire enrichment** | `UIHook.ENRICH_CURRENT_SEGMENT` (required when `title_state_extension_key` is set) |
 
-**Hook return shapes:** turn dock and inform popups should return **`TurnDockPanel` / `InformPopup`** from `hexengine.authoring.present` (hexdemo reference). Legacy `dict` rows are still accepted; the engine normalizes via `hexengine.hooks.internal.ui_wire` before wire assembly. Prefer:
+**Hook return shapes:** turn dock and INFORM map popups **must** return **`TurnDockPanel` / `InformPopup`** from `hexengine.authoring.present`. The engine serializes via `hexengine.hooks.internal.ui_wire` only. **`bind_title_hook` accepts hook enums only.** Prefer:
 
 - Typed contexts (`TurnActionDockContext`, `InformPopupContext`, …) for inputs.
 - `turn_dock_panel`, `inform_popup`, pack `presentation/` helpers for outputs.
@@ -41,7 +42,7 @@ Gameplay hooks are **typed in Python** (`MovementHook`, `AttackHook`, `UIHook`, 
 
 **Wire tables below** document what the client receives after projection. Use them when debugging network traffic or extending the engine renderer — not when writing a new title pack. Author workflow: [`TITLE_AUTHORING.md` § Flow vs presentation](TITLE_AUTHORING.md#flow-vs-presentation-authoring-model) and [§ Segment presentation registry](TITLE_AUTHORING.md#segment-presentation-registry).
 
-**P3:** `current_segment` includes `presentation_id` and `interaction_mode` when the title binds `UIHook.ENRICH_CURRENT_SEGMENT` (hexdemo: `hooks/segment_presentation.py`). Engine defaults apply when the hook is omitted.
+**P3:** `current_segment` includes `presentation_id` and `interaction_mode` when the title binds `UIHook.ENRICH_CURRENT_SEGMENT` (hexdemo: `hooks/segment_presentation.py`). Required for packs with `title_state_extension_key`.
 
 **P4:** INFORM ``inspect`` resolves ``inform_profile`` from ``current_segment`` when the client omits ``inform_kind`` (`hexengine.arcs.inform_wire`). Title popups key off profile + reason (hexdemo: `presentation/inform.py`).
 
@@ -112,14 +113,14 @@ Commit UI on host `#user-controls`. Full panel and action schemas: [`TURN_ACTION
 | `schema` | `int` | yes | **`1`** |
 | `id` | `str` | yes | Stable id (convention: `turn_actions`) |
 | `host` | `str` | yes | DOM element id (default `user-controls`) |
-| `dock_arc` | `str` | no | Title-defined skin key (opaque to engine) |
+| `presentation_id` | `str` | no | Title-defined skin key (matches `current_segment.presentation_id`) |
 | `headline` | `str` | no | Short dock title |
 | `html` | `str` | no | Decorative fragment only (no inline handlers) |
 | `css_class` | `str` | no | Panel root class |
 | `actions` | `list` | yes | Action rows (schema below) |
 | `inputs` | `list` | no | `{id, kind, label, name, default?, options?}` — merged into action `payload` on click |
 
-**Dispatch:** `TURN_ACTION_DOCK_FOR_VIEWER(ctx)` → `list[dict]` or `ENGINE_DEFAULT` → [`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py). Hexdemo: [`games/hexdemo/hooks/turn_action_dock.py`](../games/hexdemo/hooks/turn_action_dock.py).
+**Dispatch:** `TURN_ACTION_DOCK_FOR_VIEWER(ctx)` → `list[dict]` or `ENGINE_DEFAULT` → [`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py). Hexdemo: [`games/hexdemo/hooks/turn_action_dock.py`](../games/hexdemo/hooks/turn_action_dock.py). Engine catalog gate skins require `ctx.current_segment` (bind `UIHook.ENRICH_CURRENT_SEGMENT` for combat gate modes).
 
 When `title_state_extension_key` is set, **`TURN_ACTION_DOCK_FOR_VIEWER` is required**; the server never emits **`StateUpdate.primary_actions`** ([`ClientInteractionPanelsMixin`](../src/hexengine/game/arcs/client_interaction_panels.py)).
 

@@ -19,10 +19,6 @@ SEGMENT_WIRE_SCHEMA = 1
 
 CLIENT_DRAFT_ACTIONS = frozenset({"Attack"})
 
-# Segment `kind` values that map to turn-dock arc css modifiers (hexdemo gate mirrors).
-KIND_DOCK_ARC_RETREAT = frozenset({"awaiting_retreat", "awaiting_retreat_or_disrupt"})
-KIND_DOCK_ARC_ADVANCE = frozenset({"awaiting_advance"})
-
 
 class SegmentProjectorHost(Protocol):
     """Minimal host surface for segment lookup (GameServer satisfies this)."""
@@ -36,32 +32,6 @@ def _action_locus(action_type: str) -> str:
     return "client_draft" if action_type in CLIENT_DRAFT_ACTIONS else "server"
 
 
-def default_segment_presentation_patch(
-    segment: Mapping[str, Any],
-    *,
-    viewer_may_act: bool,
-    current_phase: str,
-) -> dict[str, str]:
-    """Engine fallback when the title does not bind ``enrich_current_segment``."""
-
-    presentation_id = dock_arc_from_segment(
-        segment,
-        viewer_may_act=viewer_may_act,
-        current_phase=current_phase,
-    )
-    patch: dict[str, str] = {"presentation_id": presentation_id}
-    locus = segment.get("action_locus")
-    if (
-        isinstance(locus, Mapping)
-        and str(locus.get("Attack", "")).strip() == "client_draft"
-    ):
-        patch["interaction_mode"] = "attack_plan"
-    kind = str(segment.get("kind", "")).strip()
-    if kind in KIND_DOCK_ARC_RETREAT:
-        patch["interaction_mode"] = "retreat_path"
-    return patch
-
-
 def enrich_current_segment_wire(
     host: SegmentProjectorHost,
     segment: dict[str, Any],
@@ -70,7 +40,7 @@ def enrich_current_segment_wire(
     viewer_faction: str | None,
     viewer_may_act: bool,
 ) -> dict[str, Any]:
-    """Attach ``presentation_id`` / ``interaction_mode`` from title hook or engine default."""
+    """Attach ``presentation_id`` / ``interaction_mode`` from ``ENRICH_CURRENT_SEGMENT``."""
 
     from ..hooks.core import ENGINE_DEFAULT
     from ..hooks.ui_segment import (
@@ -79,29 +49,32 @@ def enrich_current_segment_wire(
     )
 
     phase = str(state.turn.current_phase).strip()
-    patch = default_segment_presentation_patch(
-        segment,
+    ui = getattr(getattr(host, "hooks", None), "ui", None)
+    enrich = getattr(ui, "enrich_current_segment", None) if ui is not None else None
+    if not callable(enrich):
+        return dict(segment)
+    ctx = SegmentPresentationContext(
+        state=state,
+        viewer_faction=viewer_faction,
+        segment=dict(segment),
         viewer_may_act=viewer_may_act,
         current_phase=phase,
     )
-    ui = getattr(getattr(host, "hooks", None), "ui", None)
-    enrich = getattr(ui, "enrich_current_segment", None) if ui is not None else None
-    if callable(enrich):
-        ctx = SegmentPresentationContext(
-            state=state,
-            viewer_faction=viewer_faction,
-            segment=dict(segment),
-            viewer_may_act=viewer_may_act,
-            current_phase=phase,
+    raw = enrich(ctx)
+    if raw is ENGINE_DEFAULT:
+        return dict(segment)
+    if not isinstance(raw, dict):
+        raise TypeError(
+            "enrich_current_segment must return dict or ENGINE_DEFAULT, "
+            f"got {type(raw).__name__}"
         )
-        raw = enrich(ctx)
-        if raw is not ENGINE_DEFAULT and isinstance(raw, dict):
-            for key, value in raw.items():
-                if value is None:
-                    continue
-                text = str(value).strip()
-                if text:
-                    patch[key] = text
+    patch: dict[str, str] = {}
+    for key, value in raw.items():
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            patch[key] = text
     return merge_segment_presentation(segment, patch)
 
 
@@ -206,47 +179,6 @@ def segment_blocks_routine_phase_advance_for_hooks(
     )
 
 
-def dock_arc_from_segment(
-    segment: Mapping[str, Any] | None,
-    *,
-    viewer_may_act: bool,
-    current_phase: str,
-    extra_gate_actions: list[dict[str, Any]] | None = None,
-) -> str:
-    """Map a segment descriptor to a turn-dock arc css modifier."""
-
-    if segment is None:
-        return "routine" if viewer_may_act else "hidden"
-
-    kind = str(segment.get("kind", "")).strip()
-    if kind in KIND_DOCK_ARC_RETREAT:
-        return "retreat_gate"
-    if kind in KIND_DOCK_ARC_ADVANCE:
-        return "advance_gate"
-
-    allowed = segment.get("allowed_actions")
-    if isinstance(allowed, list):
-        for at in allowed:
-            if str(at) == "CombatDisruptInsteadOfRetreat":
-                return "retreat_gate"
-            if str(at) == "CombatAdvance":
-                return "advance_gate"
-
-    if extra_gate_actions:
-        for row in extra_gate_actions:
-            at = str(row.get("action_type", "")).strip()
-            if at == "CombatDisruptInsteadOfRetreat":
-                return "retreat_gate"
-            if at == "CombatAdvance":
-                return "advance_gate"
-
-    if not viewer_may_act and not allowed:
-        return "hidden"
-    if str(current_phase).strip() == "Combat" and viewer_may_act:
-        return "attack_ready"
-    return "routine"
-
-
 def action_rows_from_segment(
     segment: Mapping[str, Any] | None,
     shell_ui: Mapping[str, Any],
@@ -330,13 +262,9 @@ def action_rows_from_segment(
 
 __all__ = [
     "CLIENT_DRAFT_ACTIONS",
-    "KIND_DOCK_ARC_ADVANCE",
-    "KIND_DOCK_ARC_RETREAT",
     "SEGMENT_WIRE_SCHEMA",
     "SegmentProjectorHost",
     "action_rows_from_segment",
-    "default_segment_presentation_patch",
-    "dock_arc_from_segment",
     "enrich_current_segment_wire",
     "project_current_segment",
     "segment_allows_action",

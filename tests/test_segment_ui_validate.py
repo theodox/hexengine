@@ -93,3 +93,29 @@ def test_validate_title_contract_requires_segment_registry_with_extension_key() 
 
     with pytest.raises(HookContractError, match="segment_presentation_registry"):
         validate_title_contract(PackPartial())
+
+
+def test_validate_title_contract_requires_enrich_current_segment() -> None:
+    from games.hexdemo.turn_arc_schedule import build_hexdemo_turn_arc_registry
+
+    from hexengine.gamedef.game_data import GameData
+    from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer
+
+    class PackWithoutEnrich:
+        @property
+        def game_data(self) -> GameData:
+            return GameData.empty().replacing(title_state_extension_key="pack")
+
+        hooks = TitleHooks(
+            ui=UIHooks(
+                turn_action_dock_for_viewer=empty_turn_action_dock_for_viewer,
+                segment_presentation_registry=lambda: frozenset({"move"}),
+            ),
+            arcs=ArcsHooks(turn_arc_registry=lambda: build_hexdemo_turn_arc_registry()),
+        )
+
+        def turn_order(self):
+            return []
+
+    with pytest.raises(HookContractError, match="enrich_current_segment"):
+        validate_title_contract(PackWithoutEnrich())

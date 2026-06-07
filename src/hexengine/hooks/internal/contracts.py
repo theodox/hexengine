@@ -131,6 +131,15 @@ def validate_title_contract(game_definition: Any) -> None:
                 ),
                 details={"requires_segment_presentation_registry": True},
             )
+        if bundle.ui.enrich_current_segment is None:
+            raise HookContractError(
+                message=(
+                    "title_state_extension_key is set but "
+                    "TitleHooks.ui.enrich_current_segment is not bound. "
+                    "Wire UIHook.ENRICH_CURRENT_SEGMENT (hexdemo: segment_presentation.py)."
+                ),
+                details={"requires_enrich_current_segment": True},
+            )
         from ...arcs import ArcSpec
 
         combat_raw = bundle.arcs.combat_arc_spec()

@@ -22,20 +22,24 @@ _BUNDLE_TYPES: dict[str, type[Any]] = {
     "arcs": ArcsHooks,
 }
 
-TitleHookMarker = str | MovementHook | AttackHook | UIHook | ArcHook
+TitleHookMarker = MovementHook | AttackHook | UIHook | ArcHook
 
 
 def _bundle_field_from_marker(marker: TitleHookMarker) -> tuple[str, str]:
-    if isinstance(marker, Enum):
-        bundle = getattr(type(marker), "_hexengine_hook_bundle", None)
-        if not isinstance(bundle, str) or not bundle.strip():
-            msg = (
-                f"Hook enum {type(marker).__name__!r} is missing _hexengine_hook_bundle"
-            )
-            raise HookContractError(message=msg, details={"marker": repr(marker)})
-        field = str(marker.value)
-        return bundle.strip(), field
-    return _parse_title_path(str(marker))
+    if not isinstance(marker, Enum):
+        raise HookContractError(
+            message=(
+                "bind_title_hook requires a hook enum member "
+                "(MovementHook, AttackHook, UIHook, or ArcHook)"
+            ),
+            details={"marker": repr(marker)},
+        )
+    bundle = getattr(type(marker), "_hexengine_hook_bundle", None)
+    if not isinstance(bundle, str) or not bundle.strip():
+        msg = f"Hook enum {type(marker).__name__!r} is missing _hexengine_hook_bundle"
+        raise HookContractError(message=msg, details={"marker": repr(marker)})
+    field = str(marker.value)
+    return bundle.strip(), field
 
 
 def bind_title_hook(
@@ -49,15 +53,12 @@ def bind_title_hook(
     - `hexengine.hooks.attack.AttackHook` — `AttackHooks` fields
     - `hexengine.hooks.ui.UIHook` — `UIHooks` fields
 
-    Legacy **string** paths `\"bundle.field\"` (e.g. `\"movement.validate_move\"`) are
-    still accepted for compatibility.
-
     Use `assemble_title_hooks` to collect decorated functions from one or more
     modules into a frozen `TitleHooks` instance.
 
     Raises:
         ValueError: If `fn` is already bound to another path.
-        HookContractError: If a string path is malformed or an enum is misconfigured.
+        HookContractError: If the enum is misconfigured.
     """
 
     bundle, field = _bundle_field_from_marker(marker)
@@ -72,21 +73,6 @@ def bind_title_hook(
         return fn
 
     return decorator
-
-
-def _parse_title_path(path: str) -> tuple[str, str]:
-    parts = path.split(".", 1)
-    if (
-        len(parts) != 2
-        or not parts[0].strip()
-        or not parts[1].strip()
-        or "." in parts[1]
-    ):
-        raise HookContractError(
-            message=f"Invalid title hook path {path!r} (expected 'bundle.field')",
-            details={"path": path},
-        )
-    return parts[0].strip(), parts[1].strip()
 
 
 def _validate_bundle_field(bundle: str, field: str) -> None:
@@ -139,8 +125,8 @@ def assemble_title_hooks(
     """Build a `TitleHooks` bundle from decorated module callables.
 
     Scans each module's public attributes for callables marked with
-    `__hexengine_title_field__` (via `bind_title_hook` with a hook enum or legacy
-    string path, or `@hook(title_field=…)`).
+    `__hexengine_title_field__` (via `bind_title_hook` with a hook enum, or
+    engine `@hook(title_field=…)` on catalog entries).
 
     Optional `movement`, `attack`, and `ui` keyword arguments are merged on top
     (same keys as `MovementHooks` / `AttackHooks` / `UIHooks`

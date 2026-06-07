@@ -102,7 +102,7 @@ class TurnDockPanel:
             "schema": int(self.schema),
             "id": str(self.id).strip(),
             "host": str(self.host).strip() or "user-controls",
-            "dock_arc": str(self.presentation_id).strip(),
+            "presentation_id": str(self.presentation_id).strip(),
             "headline": str(self.headline),
             "actions": [a.to_wire_dict() for a in self.actions],
             "inputs": [dict(i) for i in self.inputs if isinstance(i, dict)],

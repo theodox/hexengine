@@ -19,7 +19,7 @@ The **turn action dock** is the title-owned description of that commit UI. The e
 | Lane | Transport | Title owns | Engine owns |
 |------|-----------|------------|-------------|
 | **Tell** | `StateUpdate.interaction_messages` (+ optional `ui_popup`) | Copy, banner HTML, priority/kinds | Merge partial hooks; client picks one visible row |
-| **Commit** | `StateUpdate.interaction_panels` via **`TURN_ACTION_DOCK_FOR_VIEWER`** | Full dock: panels, actions, enablement, `dock_arc` skin | Render panel; wire buttons to `action_request` |
+| **Commit** | `StateUpdate.interaction_panels` via **`TURN_ACTION_DOCK_FOR_VIEWER`** | Full dock: panels, actions, enablement, `presentation_id` skin | Render panel; wire buttons to `action_request` |
 | **Map pick** | `map_selection_preview_request` / `map_selection_preview` | Per-`InteractionKind` legality + `commit_payload` | RPC routing; optional `panel_actions` on preview |
 
 **Rule:** Tell is for status and narrative. The dock is for buttons. Map pick validates drafts; the dock (or preview `panel_actions`) ratifies them.
@@ -285,7 +285,7 @@ When the hook returns `ENGINE_DEFAULT`, the server uses [`default_turn_action_do
 
 1. Gate rows from `ctx.current_segment.allowed_actions` via [`action_rows_from_segment`](../src/hexengine/arcs/segment_wire.py).
 2. **`end_phase`** (`NextPhase`) when `NextPhase` is in the segment's allowed set (or when no segment descriptor is present).
-3. One panel: `id: turn_actions`, `host: user-controls`, `dock_arc` from [`dock_arc_from_segment`](../src/hexengine/arcs/segment_wire.py).
+3. One panel: `id: turn_actions`, `host: user-controls`, `presentation_id` from enriched `current_segment` when present; otherwise `routine` (turn owner) or `hidden`. Titles with `title_state_extension_key` must bind `ENRICH_CURRENT_SEGMENT`.
 
 Titles that bind **`TURN_ACTION_DOCK_FOR_VIEWER`** replace this composition.
 

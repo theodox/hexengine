@@ -72,11 +72,10 @@ Branch: `engine_boundary_2` (from skinning squash on `main`).
 
 Reserved top-level keys: prefix `hexengine_` (e.g. `hexengine_movement_arc`) — engine only.
 
-### A.3 Hexdemo consolidation
+### A.3 Hexdemo consolidation ✅
 
-- Add `games/hexdemo/title_state.py` (name TBD): all reads/writes of `PACK_STATE_EXTENSION_KEY`.
-- Refactor `combat.py`, hooks (`attack`, `movement`, `turn_action_dock`, `overlays`), `combat_planning.py` to import from there.
-- Hooks stay thin: delegate to `title_state` / `combat_transitions`.
+- `games/hexdemo/title_state.py` — all reads of `PACK_STATE_EXTENSION_KEY` (retreat helpers merged from removed `combat.py`).
+- Hooks stay thin: delegate to `title_state` / `combat_transitions` / `combat_rules`.
 
 ### A.4 Client
 

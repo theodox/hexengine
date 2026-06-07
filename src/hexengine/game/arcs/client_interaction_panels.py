@@ -229,7 +229,7 @@ class ClientInteractionPanelsMixin:
             "schema": 1,
             "id": pid,
             "host": USER_CONTROLS_HOST_ID,
-            "dock_arc": "preview",
+            "presentation_id": "preview",
             "headline": stxt,
             "css_class": "hexengine-turn-dock hexengine-turn-dock--preview",
             "actions": [],
@@ -305,18 +305,18 @@ class ClientInteractionPanelsMixin:
         )
 
     def _sync_turn_action_dock_sequence_skin(self) -> None:
-        """Apply client SEQUENCE ``dock_arc`` + headline overrides on ``turn_actions``."""
+        """Apply client SEQUENCE ``presentation_id`` + headline overrides on ``turn_actions``."""
         pid = TURN_ACTIONS_PANEL_ID
         spec = self._interaction_panel_wire_specs.get(pid)
         root = self._interaction_panel_roots.get(pid)
         if spec is None or root is None:
             return
-        server_arc = str(spec.get("dock_arc", "")).strip()
-        effective_arc = self._client_turn_dock_sequence_arc(server_arc)
+        server_pid = str(spec.get("presentation_id", "")).strip()
+        effective_arc = self._client_turn_dock_sequence_arc(server_pid)
         css = replace_dock_arc_css_class(str(spec.get("css_class", "")), effective_arc)
         apply_css_classes(root, css, base="hexengine-interaction-panel")
         try:
-            root.dataset.dockArc = effective_arc
+            root.dataset.presentationId = effective_arc
         except Exception:
             pass
 

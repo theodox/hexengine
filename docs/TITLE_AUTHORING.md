@@ -122,7 +122,7 @@ One **registry row per segment UX mode**, aligned with the `kind` string on arc 
 | Registry field | Author meaning | Engine / client use (internal) |
 |----------------|----------------|--------------------------------|
 | **`kind`** | Stable id in the declared arc (e.g. `awaiting_retreat`, `routine_combat`) | `current_segment.kind` |
-| **`presentation_id`** | Skin key for CSS and templates (e.g. `retreat_gate`, `attack_ready`) | `dock_arc`, panel `css_class` modifiers |
+| **`presentation_id`** | Skin key for CSS and templates (e.g. `retreat_gate`, `attack_ready`) | panel `css_class` modifiers and wire `presentation_id` |
 | **`primitive`** | INFORM, SELECT, DECIDE, or SEQUENCE | Which wire lane(s) are active |
 | **`interaction_mode`** | Optional [`InteractionKind`](../src/hexengine/gamedef/interactions.py) (`attack_plan`, `retreat_path`, `place_marker`, or none) | Map-selection preview + client draft skin |
 | **`inform_profile`** | Optional key for default banner / coaching hooks | `COMBAT_INTERACTION_MESSAGES`, phase rows |

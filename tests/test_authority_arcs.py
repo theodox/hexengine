@@ -83,6 +83,7 @@ def test_move_unit_is_combat_advance_fulfillment_true_when_matched() -> None:
                 "unit_ids": ["u1"],
             },
         },
+        title_bucket_key="hexdemo",
     )
     params = {
         "unit_id": "u1",
@@ -93,5 +94,5 @@ def test_move_unit_is_combat_advance_fulfillment_true_when_matched() -> None:
         st,
         params,
         player_faction="union",
-        extension_key="title",
+        extension_key="hexdemo",
     )
