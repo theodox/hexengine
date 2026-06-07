@@ -28,7 +28,6 @@ from __future__ import annotations
 from typing import Any
 
 from hexengine.authoring.patterns.combat import CombatArcGateKinds
-from hexengine.hooks.attack import AfterAttackAppliedContext
 from hexengine.state import GameState
 from hexengine.state.action_manager import StateAction
 from hexengine.state.actions import PatchTitleBucket
@@ -111,15 +110,6 @@ def attack_planning_blocked_reason(
     return "Combat obligations must be resolved before planning an attack"
 
 
-def follow_up_after_attack(ctx: AfterAttackAppliedContext) -> list[StateAction]:
-    """Compatibility helper: same bucket patch as ``build_combat_outcome_after_applied``."""
-
-    from . import combat_outcome
-
-    built = combat_outcome.build_combat_outcome_after_applied(ctx)
-    return built.follow_up_state_actions(ctx.extension_key)
-
-
 __all__ = [
     "COMBAT_ARC_GATE_KINDS",
     "GATE_AWAITING_ADVANCE",
@@ -129,5 +119,4 @@ __all__ = [
     "PHASE_SCOPED_COMBAT_KEYS",
     "attack_planning_blocked_reason",
     "clear_combat_state_actions",
-    "follow_up_after_attack",
 ]

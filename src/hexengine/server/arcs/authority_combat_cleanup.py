@@ -12,11 +12,8 @@ from typing import Any, Protocol
 
 from ...hexes.types import Hex
 from ...hooks.attack import CombatAdvanceMoveContext
-from ...hooks.core import ENGINE_DEFAULT
 from ...hooks.title import TitleHooks
-from ...hooks.core import ENGINE_DEFAULT
 from ...state import ActionManager, GameState
-from ...state.action_manager import StateAction
 from ..protocol import ActionRequest, PlayerInfo
 
 
@@ -44,26 +41,6 @@ class AuthorityCombatCleanupHost(Protocol):
     ) -> int | None: ...
 
 
-def execute_hook_state_actions(
-    host: AuthorityCombatCleanupHost,
-    raw: list[StateAction] | object,
-    *,
-    hook_name: str,
-) -> None:
-    """Apply title hook ``StateAction`` list on the authoritative action manager."""
-
-    if raw is ENGINE_DEFAULT:
-        raise ValueError(f"This game title does not implement {hook_name}")
-    if not isinstance(raw, list):
-        raise TypeError(
-            f"{hook_name} must return list[StateAction] or hooks.ENGINE_DEFAULT"
-        )
-    for action in raw:
-        if not isinstance(action, StateAction):
-            raise TypeError(f"{hook_name} entries must be StateAction instances")
-        host.action_manager.execute(action)
-
-
 def move_unit_is_combat_advance_fulfillment(
     hooks: TitleHooks,
     state: GameState,
@@ -72,12 +49,7 @@ def move_unit_is_combat_advance_fulfillment(
     player_faction: str,
     extension_key: str | None,
 ) -> bool:
-    """
-    True when this `MoveUnit` wire is the title-declared advance into the vacated hex.
-
-    Prefers ``ArcSpec.advance_move_detector`` on the declared combat arc when
-    ``AttackHook.IS_COMBAT_ADVANCE_MOVE`` is not bound (deprecated hook).
-    """
+    """True when this `MoveUnit` wire is the title-declared advance into the vacated hex."""
 
     if not extension_key:
         return False
@@ -87,9 +59,6 @@ def move_unit_is_combat_advance_fulfillment(
         extension_key=extension_key,
         player_faction=str(player_faction),
     )
-    raw = hooks.attack.detect_combat_advance_move(ctx)
-    if raw is not ENGINE_DEFAULT:
-        return bool(raw)
     from .authority_arc_runtime import combat_arc_spec
 
     spec = combat_arc_spec(hooks)
@@ -166,7 +135,6 @@ def validate_retreat_fulfillment_stack(
 
 __all__ = [
     "AuthorityCombatCleanupHost",
-    "execute_hook_state_actions",
     "move_unit_is_combat_advance_fulfillment",
     "retreat_stack_unit_ids",
     "validate_retreat_fulfillment_stack",

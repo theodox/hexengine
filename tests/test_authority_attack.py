@@ -176,58 +176,6 @@ def test_combat_outcome_after_applied_follow_ups_run_before_broadcast() -> None:
     assert hx.get("after_attack_hook") is True
 
 
-def test_after_attack_applied_follow_ups_run_before_broadcast() -> None:
-    st0 = _two_unit_combat_state()
-    mgr = ActionManager(st0)
-    marker = {"patch_applied": False}
-
-    def validate(_ctx: AttackContext) -> None:
-        return None
-
-    def resolve(_ctx: AttackContext) -> AttackResolution:
-        return AttackResolution(outcome="none")
-
-    def after_applied(ctx: AfterAttackAppliedContext) -> list:
-        marker["patch_applied"] = True
-        return [
-            PatchTitleBucket(
-                ctx.extension_key,
-                {"after_attack_hook": True},
-            )
-        ]
-
-    host = _AttackHost(
-        hooks=TitleHooks(
-            attack=AttackHooks(
-                validate_attack=validate,
-                resolve_attack=resolve,
-                after_attack_applied=after_applied,
-            )
-        ),
-        action_manager=mgr,
-    )
-
-    ok = asyncio.run(
-        execute_authority_attack_request(
-            host,
-            player_id="p1",
-            player_faction="union",
-            current_state=st0,
-            params={
-                "attack_kind": "melee",
-                "attacker_id": "a",
-                "defender_id": "d",
-            },
-        )
-    )
-    assert ok is True
-    assert marker["patch_applied"] is True
-    assert host.broadcasted is True
-    hx = title_bucket(mgr.current_state, "testpack")
-    assert isinstance(hx, dict)
-    assert hx.get("after_attack_hook") is True
-
-
 def test_attack_rejected_on_retreat_gate_before_title_validate() -> None:
     """Engine segment gate runs before ``validate_attack`` for extension-key titles."""
     import dataclasses

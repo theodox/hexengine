@@ -1,4 +1,4 @@
-"""CombatOutcome bucket handoff parity with legacy follow-up helpers."""
+"""CombatOutcome bucket handoff."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from hexengine.hooks.attack import (
 from hexengine.state import BoardState, GameState, TurnState, UnitState
 from hexengine.state.actions import PatchTitleBucket
 
-from games.hexdemo import combat_outcome, combat_transitions
+from games.hexdemo import combat_outcome
 
 
 def _follow_ctx(
@@ -83,32 +83,21 @@ def _patch_from_outcome(ctx: AfterAttackAppliedContext):
     return actions[0]
 
 
-def _patch_from_legacy(ctx: AfterAttackAppliedContext):
-    actions = combat_transitions.follow_up_after_attack(ctx)
-    assert len(actions) == 1
-    return actions[0]
-
-
-def test_combat_outcome_matches_legacy_retreat_follow_up() -> None:
+def test_combat_outcome_retreat_follow_up() -> None:
     ctx = _follow_ctx()
-    legacy = _patch_from_legacy(ctx)
     outcome = _patch_from_outcome(ctx)
-    assert isinstance(legacy, PatchTitleBucket)
     assert isinstance(outcome, PatchTitleBucket)
-    assert outcome.extension_key == legacy.extension_key
-    assert outcome.patch == legacy.patch
-    assert outcome.remove_keys == legacy.remove_keys
+    assert outcome.extension_key == "hexdemo"
+    assert "last_combat" in outcome.patch
+    assert "retreat_obligations" in outcome.patch
 
 
-def test_combat_outcome_disrupt_instead_flag_parity() -> None:
+def test_combat_outcome_disrupt_instead_flag() -> None:
     ctx = _follow_ctx(
         effects={
             "retreat": {"allow_disrupt_instead": True},
         }
     )
-    legacy = _patch_from_legacy(ctx)
     outcome = _patch_from_outcome(ctx)
     assert outcome.patch.get("disrupt_instead_offered") is True
-    assert legacy.patch.get("disrupt_instead_offered") is True
     assert outcome.remove_keys == ()
-    assert legacy.remove_keys == ()

@@ -658,9 +658,7 @@ class TestGameServer(unittest.TestCase):
                             rng_entry={"op": "test"},
                         )
 
-                    # Title owns post-attack bucket bookkeeping; reuse hexdemo's
-                    # follow-up to populate last_combat / retreat_obligations.
-                    from games.hexdemo import combat_transitions
+                    from games.hexdemo import combat_outcome
 
                     return TitleHooks(
                         ui=_TEST_TITLE_DOCK_UI,
@@ -668,7 +666,9 @@ class TestGameServer(unittest.TestCase):
                         attack=AttackHooks(
                             validate_attack=lambda _c: None,
                             resolve_attack=resolve,
-                            after_attack_applied=combat_transitions.follow_up_after_attack,
+                            combat_outcome_after_applied=(
+                                combat_outcome.build_combat_outcome_after_applied
+                            ),
                         ),
                     )
 

@@ -9,9 +9,7 @@ Role in turn resolution:
   - whether the attack is legal (`validate_attack`)
   - what the outcome is (`resolve_attack`)
   - whether the phase should auto-advance after applying it (`auto_advance_phase_after_attack`)
-  - optional post-attack bucket outcome (`combat_outcome_after_applied`; deprecated `after_attack_applied`)
-  - deprecated cleanup slots (use declared combat arc binding instead; see
-    `TITLE_AUTHOR_INTERFACE_PLAN.md` Phase A)
+  - optional post-attack bucket outcome (`combat_outcome_after_applied`)
 - The engine then applies the outcome as a deterministic state action and broadcasts:
   - per-recipient combat/retreat instructions
   - updated `StateUpdate` snapshots
@@ -32,7 +30,6 @@ from typing import Any
 
 from ..hexes.types import Hex
 from ..state import GameState, UnitState
-from ..state.action_manager import StateAction
 from .core import ENGINE_DEFAULT, RuleViolation
 
 
@@ -123,8 +120,7 @@ class AttackResolution:
     before building `Attack` and `ApplyCombatEffects`.
 
     The server uses this to build an engine `Attack` state action plus optional follow-up
-    actions from `AttackHook.COMBAT_OUTCOME_AFTER_APPLIED` (or deprecated
-    `AFTER_ATTACK_APPLIED`). The engine is responsible for applying
+    actions from `AttackHook.COMBAT_OUTCOME_AFTER_APPLIED`. The engine is responsible for applying
     **engine-mechanical** effects (unit deletion, rng log entry, and any effect schema
     the engine supports) while titles own the structure and storage of title-bucket combat
     bookkeeping (gates, obligations, last_combat).
@@ -162,24 +158,6 @@ class AfterAttackAppliedContext:
 
 
 @dataclass(frozen=True, slots=True)
-class RetreatObligationClearedContext:
-    """State after retreat obligations were cleared (move fulfillment or disrupt)."""
-
-    state: GameState
-    extension_key: str
-    cleared_unit_ids: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True, slots=True)
-class CombatCleanupContext:
-    """Inputs for combat cleanup RPCs (disrupt-instead, advance resolve)."""
-
-    state: GameState
-    extension_key: str
-    player_faction: str
-
-
-@dataclass(frozen=True, slots=True)
 class CombatAdvanceMoveContext:
     """Inputs for detecting whether a `MoveUnit` wire fulfills a combat advance."""
 
@@ -196,26 +174,11 @@ class AttackHooks:
     validate_attack: Callable[[AttackContext], None | object] | None = None
     resolve_attack: Callable[[AttackContext], AttackResolution | object] | None = None
     auto_advance_phase_after_attack: Callable[[GameState], bool | object] | None = None
-    on_retreat_obligation_cleared: (
-        Callable[[RetreatObligationClearedContext], list[StateAction] | object] | None
-    ) = None
-    combat_disrupt_instead_of_retreat: (
-        Callable[[CombatCleanupContext], list[StateAction] | object] | None
-    ) = None
-    combat_resolve_advance: (
-        Callable[[CombatCleanupContext], list[StateAction] | object] | None
-    ) = None
-    is_combat_advance_move: (
-        Callable[[CombatAdvanceMoveContext], bool | object] | None
-    ) = None
     attack_plan_preview: (
         Callable[[AttackPlanPreviewContext], dict[str, Any] | object] | None
     ) = None
     combat_outcome_after_applied: (
         Callable[[AfterAttackAppliedContext], object] | None
-    ) = None
-    after_attack_applied: (
-        Callable[[AfterAttackAppliedContext], list[StateAction] | object] | None
     ) = None
 
     def validate(self, ctx: AttackContext) -> None | object:
@@ -233,45 +196,6 @@ class AttackHooks:
             return ENGINE_DEFAULT
         return self.auto_advance_phase_after_attack(state)
 
-    def advance_after_retreat(
-        self,
-        state: GameState,
-        extension_key: str,
-        *,
-        cleared_unit_ids: tuple[str, ...] = (),
-    ) -> list[StateAction] | object:
-        """Policy for follow-up actions after retreat obligations clear."""
-
-        ctx = RetreatObligationClearedContext(
-            state=state,
-            extension_key=extension_key,
-            cleared_unit_ids=cleared_unit_ids,
-        )
-        if self.on_retreat_obligation_cleared is not None:
-            return self.on_retreat_obligation_cleared(ctx)
-        return ENGINE_DEFAULT
-
-    def disrupt_instead_of_retreat(
-        self, ctx: CombatCleanupContext
-    ) -> list[StateAction] | object:
-        if self.combat_disrupt_instead_of_retreat is None:
-            return ENGINE_DEFAULT
-        return self.combat_disrupt_instead_of_retreat(ctx)
-
-    def resolve_combat_advance(
-        self, ctx: CombatCleanupContext
-    ) -> list[StateAction] | object:
-        if self.combat_resolve_advance is None:
-            return ENGINE_DEFAULT
-        return self.combat_resolve_advance(ctx)
-
-    def detect_combat_advance_move(
-        self, ctx: CombatAdvanceMoveContext
-    ) -> bool | object:
-        if self.is_combat_advance_move is None:
-            return ENGINE_DEFAULT
-        return self.is_combat_advance_move(ctx)
-
     def build_combat_outcome_after_applied(
         self, ctx: AfterAttackAppliedContext
     ) -> object:
@@ -279,34 +203,15 @@ class AttackHooks:
             return ENGINE_DEFAULT
         return self.combat_outcome_after_applied(ctx)
 
-    def follow_up_after_attack(
-        self, ctx: AfterAttackAppliedContext
-    ) -> list[StateAction] | object:
-        if self.after_attack_applied is None:
-            return ENGINE_DEFAULT
-        return self.after_attack_applied(ctx)
-
 
 class AttackHook(StrEnum):
-    """Stable slot ids for `bind_title_hook` (values match `AttackHooks` field names).
-
-    Deprecated (cleanup belongs on ``ArcHook.COMBAT_ARC`` binding): ``ON_RETREAT_OBLIGATION_CLEARED``,
-    ``COMBAT_DISRUPT_INSTEAD_OF_RETREAT``, ``COMBAT_RESOLVE_ADVANCE``, ``IS_COMBAT_ADVANCE_MOVE``.
-    Deprecated (use ``COMBAT_OUTCOME_AFTER_APPLIED``): ``AFTER_ATTACK_APPLIED``.
-    Use ``ArcSpec.advance_move_detector`` for advance ``MoveUnit`` pre-routing when unbinding
-    ``IS_COMBAT_ADVANCE_MOVE``.
-    """
+    """Stable slot ids for `bind_title_hook` (values match `AttackHooks` field names)."""
 
     VALIDATE_ATTACK = "validate_attack"
     RESOLVE_ATTACK = "resolve_attack"
     AUTO_ADVANCE_PHASE_AFTER_ATTACK = "auto_advance_phase_after_attack"
-    ON_RETREAT_OBLIGATION_CLEARED = "on_retreat_obligation_cleared"
-    COMBAT_DISRUPT_INSTEAD_OF_RETREAT = "combat_disrupt_instead_of_retreat"
-    COMBAT_RESOLVE_ADVANCE = "combat_resolve_advance"
-    IS_COMBAT_ADVANCE_MOVE = "is_combat_advance_move"
     ATTACK_PLAN_PREVIEW = "attack_plan_preview"
     COMBAT_OUTCOME_AFTER_APPLIED = "combat_outcome_after_applied"
-    AFTER_ATTACK_APPLIED = "after_attack_applied"
 
 
 AttackHook._hexengine_hook_bundle = "attack"
@@ -332,8 +237,6 @@ def attack_hooks_unsupported() -> AttackHooks:
 __all__ = [
     "AfterAttackAppliedContext",
     "CombatAdvanceMoveContext",
-    "CombatCleanupContext",
-    "RetreatObligationClearedContext",
     "AttackContext",
     "AttackHook",
     "AttackHooks",

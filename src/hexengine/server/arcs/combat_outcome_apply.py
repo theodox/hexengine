@@ -46,37 +46,21 @@ def follow_up_state_actions_after_attack(
     Collect post-attack bucket follow-up actions.
 
     Priority: ``CombatOutcome`` from ``resolve_attack``, then
-    ``COMBAT_OUTCOME_AFTER_APPLIED``, then deprecated ``AFTER_ATTACK_APPLIED``.
+    ``COMBAT_OUTCOME_AFTER_APPLIED``.
     """
 
     if outcome_from_resolve is not None:
         return outcome_from_resolve.follow_up_state_actions(ctx.extension_key)
 
     raw_outcome = hooks.attack.build_combat_outcome_after_applied(ctx)
-    if raw_outcome is not ENGINE_DEFAULT:
-        if not isinstance(raw_outcome, CombatOutcome):
-            raise TypeError(
-                "hooks.attack.combat_outcome_after_applied must return "
-                "CombatOutcome or hooks.ENGINE_DEFAULT"
-            )
-        return raw_outcome.follow_up_state_actions(ctx.extension_key)
-
-    raw_legacy = hooks.attack.follow_up_after_attack(ctx)
-    if raw_legacy is ENGINE_DEFAULT:
+    if raw_outcome is ENGINE_DEFAULT:
         return []
-    if not isinstance(raw_legacy, list):
+    if not isinstance(raw_outcome, CombatOutcome):
         raise TypeError(
-            "hooks.attack.after_attack_applied must return list[StateAction] or "
-            "hooks.ENGINE_DEFAULT"
+            "hooks.attack.combat_outcome_after_applied must return "
+            "CombatOutcome or hooks.ENGINE_DEFAULT"
         )
-    actions: list[StateAction] = []
-    for action in raw_legacy:
-        if not isinstance(action, StateAction):
-            raise TypeError(
-                "hooks.attack.after_attack_applied entries must be StateAction"
-            )
-        actions.append(action)
-    return actions
+    return raw_outcome.follow_up_state_actions(ctx.extension_key)
 
 
 __all__ = [

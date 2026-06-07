@@ -80,9 +80,8 @@ class ArcSpec:
     resolves any OwnerRef in the arc; it may be None for arcs that use only CURRENT /
     NO_OWNER / explicit factions.
 
-    advance_move_detector is an optional bridge for engine MoveUnit pre-routing when
-    AttackHook.IS_COMBAT_ADVANCE_MOVE is not bound (deprecated hook; prefer this field
-    on the declared combat ArcSpec).
+    advance_move_detector is an optional bridge for engine MoveUnit pre-routing on the
+    declared combat arc (advance fulfillment detection before the arc runs).
     """
 
     arc: Arc

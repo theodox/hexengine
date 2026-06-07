@@ -41,12 +41,6 @@ class AuthorityAttackPipelineStep(StrEnum):
 
     NORMALIZE_WIRE_AND_PARTIES = "normalize_wire_and_parties"
     SUBMIT_ATTACK_EVENT = "submit_attack_event"
-    HOOK_VALIDATE = "hook_validate"
-    HOOK_RESOLVE = "hook_resolve"
-    REQUIRE_TITLE_EXTENSION_KEY = "require_title_extension_key"
-    COMMIT_ATTACK_AND_EFFECTS = "commit_attack_and_effects"
-    COMBAT_OUTCOME_AFTER_APPLIED = "combat_outcome_after_applied"
-    AFTER_ATTACK_APPLIED = "after_attack_applied"
     BROADCAST_COMBAT_EVENTS = "broadcast_combat_events"
     MAYBE_AUTO_ADVANCE_PHASE = "maybe_auto_advance_phase"
 
