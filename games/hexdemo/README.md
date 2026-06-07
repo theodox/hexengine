@@ -49,7 +49,8 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `presentation/` | Viewer copy (`dock.py`, `inform.py`, `interaction_messages.py`) |
 | `segment_ui.py` | Segment `kind` → presentation registry (`PRESENTATION_BY_SEGMENT_KIND`) |
 | `arc_segment.py` | Project `current_segment` per viewer; `phase_advance_blocked` for auto-advance |
-| `combat_arc.py` | Declared combat-cleanup arc (composable arcs) |
+| `combat_rules.py` | `HexdemoCombatRules` binding (CRT, outcome, arc cleanup) |
+| `combat_arc.py` | `combat_rules_binding_to_arc_spec` + owner resolver |
 | `combat_transitions.py` | Combat FSM effects (`disrupt_instead_offered`, `attacks_this_phase`, phase-scoped clear) |
 | `combat_actions.py` | Pack-local RPC follow-ups (disrupt, advance, retreat fulfillment) |
 | `combat_planning.py` | Attack plan preview (shared by `hooks/attack` and tests) |

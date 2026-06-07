@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from hexengine.authoring.patterns.combat import CombatArcGateKinds
 from hexengine.hooks.attack import AfterAttackAppliedContext
 from hexengine.state import GameState
 from hexengine.state.action_manager import StateAction
@@ -38,6 +39,12 @@ from . import combat_actions, title_state
 GATE_AWAITING_RETREAT = "awaiting_retreat"
 GATE_AWAITING_RETREAT_OR_DISRUPT = "awaiting_retreat_or_disrupt"
 GATE_AWAITING_ADVANCE = "awaiting_advance"
+
+COMBAT_ARC_GATE_KINDS = CombatArcGateKinds(
+    awaiting_retreat=GATE_AWAITING_RETREAT,
+    awaiting_retreat_or_disrupt=GATE_AWAITING_RETREAT_OR_DISRUPT,
+    awaiting_advance=GATE_AWAITING_ADVANCE,
+)
 
 GATES_BLOCKING_ROUTINE: frozenset[str] = frozenset(
     {
@@ -114,6 +121,7 @@ def follow_up_after_attack(ctx: AfterAttackAppliedContext) -> list[StateAction]:
 
 
 __all__ = [
+    "COMBAT_ARC_GATE_KINDS",
     "GATE_AWAITING_ADVANCE",
     "GATE_AWAITING_RETREAT",
     "GATE_AWAITING_RETREAT_OR_DISRUPT",

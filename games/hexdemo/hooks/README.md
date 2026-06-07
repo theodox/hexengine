@@ -30,8 +30,8 @@ These are **layers**, not two different species of title code.
 
 ```text
 MoveUnit / movement arc  →  MovementHook.*  →  hooks/movement.py  →  ../movement_rules.py (+ ../combat.py retreat state)
-Attack RPC               →  AttackHook.*     →  hooks/attack.py    →  ../combat.py (validate, resolve, follow_up)
-Combat cleanup RPCs      →  combat arc       →  ../combat_arc.py   →  ../combat_actions.py
+Attack RPC               →  AttackHook.*     →  hooks/attack.py    →  ../combat_rules.py
+Combat cleanup RPCs      →  combat arc       →  ../combat_arc.py   →  ../combat_rules.BINDING (+ ../combat_actions.py)
 ```
 
 Hexdemo today:
@@ -51,8 +51,9 @@ Longer term, the engine may offer **composable rule pieces** (ZOC, terrain, mora
 |--------|------|-----------|
 | `movement.py` | Thin adapters to `movement_rules.py`; retreat path preview | `@bind_title_hook(MovementHook.…)` |
 | `../movement_rules.py` | Budget, ZoC, retreat constraints, step cost, auto-advance | Called from hooks; tests import directly |
-| `attack.py` | Validate/resolve combat, CRT, `combat_outcome_after_applied`, auto-advance | `@bind_title_hook(AttackHook.…)` — not cleanup slots (deprecated) |
-| `../combat_arc.py` | Combat cleanup guards/effects + `detect_combat_advance_move` on `ArcSpec` | Wired via `arcs.py` → `ArcHook.COMBAT_ARC` |
+| `attack.py` | Thin adapters + attack plan preview, auto-advance | `@bind_title_hook(AttackHook.…)` |
+| `../combat_rules.py` | `HexdemoCombatRules` (`CombatRulesBinding`): CRT, outcome, arc cleanup | `BINDING`; `ArcHook.COMBAT_RULES_BINDING` |
+| `../combat_arc.py` | `combat_rules_binding_to_arc_spec` + owner resolver | `ArcHook.COMBAT_ARC` via `hooks/arcs.py` |
 | `ui.py` | Phase/combat banners, inspect, inform popups, combat event summary | `@bind_title_hook(UIHook.…)`; copy from `presentation/` |
 | `../presentation/inform.py` | INFORM map callouts keyed by `inform_profile` + `reason` | Used by `ui.inform_popup_for_viewer` |
 | `../presentation/interaction_messages.py` | Combat/advance banner copy for `interaction_messages` | Used by `ui.combat_interaction_messages` |

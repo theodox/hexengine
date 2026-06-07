@@ -69,22 +69,16 @@ def test_combat_cleanup_pattern_segment_owners() -> None:
 
 
 def test_hexdemo_combat_arc_matches_pattern() -> None:
-    """Hexdemo binding produces the same graph as calling the pattern directly."""
+    """Hexdemo binding produces the same graph as calling the pattern helper."""
 
-    from games.hexdemo.combat_arc import (
-        _HEXDEMO_COMBAT_EFFECTS,
-        _HEXDEMO_COMBAT_GATES,
-    )
+    from hexengine.authoring.patterns.combat import combat_rules_binding_to_arc_spec
 
-    from games.hexdemo import combat_actions
+    from games.hexdemo.combat_arc import BINDING, build_hexdemo_combat_arc_spec
+    from games.hexdemo import combat_transitions
 
-    from_pattern = build_combat_cleanup_arc(
-        _HEXDEMO_COMBAT_EFFECTS,
-        _HEXDEMO_COMBAT_GATES,
-        attack_effect=combat_actions.authority_attack_arc_effect,
-    )
-    from_hexdemo = combat_arc.build_combat_arc()
-    assert from_pattern == from_hexdemo
+    arc = build_hexdemo_combat_arc_spec().arc
+    arc.validate()
+    assert arc == combat_arc.build_combat_arc()
 
 
 def test_hexdemo_gate_kinds_on_segments() -> None:
