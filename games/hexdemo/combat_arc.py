@@ -16,7 +16,6 @@ from hexengine.authoring.patterns.combat import (
     SEG_RETREAT_OR_DISRUPT_GATE,
     combat_rules_binding_to_arc_spec,
 )
-from hexengine.hooks.attack import CombatAdvanceMoveContext
 from hexengine.state import GameState
 from hexengine.state.title_extension import title_bucket
 
@@ -52,10 +51,6 @@ def resolve_owner_ref(key: str, state: GameState) -> str | None:
     return None
 
 
-def detect_combat_advance_move(ctx: CombatAdvanceMoveContext) -> bool:
-    return BINDING.detect_combat_advance_move(ctx)
-
-
 def build_hexdemo_combat_arc_spec():
     global _COMBAT_ARC_SPEC
     if _COMBAT_ARC_SPEC is None:
@@ -86,7 +81,6 @@ __all__ = [
     "SEG_RETREAT_OR_DISRUPT_GATE",
     "build_combat_arc",
     "build_hexdemo_combat_arc_spec",
-    "detect_combat_advance_move",
     "resolve_owner_ref",
     "retreating_faction",
 ]

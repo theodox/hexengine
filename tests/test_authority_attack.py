@@ -13,7 +13,6 @@ from hexengine.hooks.attack import (
     AttackResolution,
     AfterAttackAppliedContext,
 )
-from hexengine.hooks.core import ENGINE_DEFAULT
 from hexengine.hooks.title import TitleHooks
 from hexengine.arcs import ArcCursor, SetArcCursor
 from hexengine.server.arcs.authority_attack import (
@@ -27,7 +26,6 @@ from hexengine.server.arcs.authority_attack import (
 from hexengine.state import GameState
 from hexengine.state.title_extension import title_bucket
 from hexengine.state.action_manager import ActionManager
-from hexengine.state.actions import PatchTitleBucket
 from hexengine.state.game_state import BoardState, TurnState, UnitState
 
 EXPECTED_ORDER = (

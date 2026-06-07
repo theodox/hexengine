@@ -3,11 +3,12 @@ Title combat outcome: bucket follow-up after ``Attack`` + ``ApplyCombatEffects``
 
 ``CombatOutcome`` is the author-facing shape for match-state updates that feed combat
 arc classify (``retreat_obligations``, ``last_combat``, etc.). The engine applies it as
-``PatchTitleBucket`` actions before ``begin_combat_arc``.
+``PatchTitleBucket`` actions during the attack commit path (arc ``attack`` segment or
+authority attack assembly), before classify auto-advances cleanup segments.
 
 Titles may return ``CombatOutcome`` (with embedded ``AttackResolution``) from
-``resolve_attack`` during migration, or bind ``AttackHook.COMBAT_OUTCOME_AFTER_APPLIED``
-to build an outcome from ``AfterAttackAppliedContext`` after board effects commit.
+``resolve_attack``, or bind ``AttackHook.COMBAT_OUTCOME_AFTER_APPLIED`` to build an
+outcome from ``AfterAttackAppliedContext`` after board effects commit.
 """
 
 from __future__ import annotations

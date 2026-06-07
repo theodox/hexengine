@@ -94,7 +94,3 @@ def attack_plan_preview(ctx: AttackPlanPreviewContext) -> dict[str, Any]:
     )
 
 
-# CRT helpers re-exported for any legacy imports.
-get_combat_factor = combat_rules.get_combat_factor
-check_morale = combat_rules.check_morale
-CrtCombatOutcome = combat_rules.CrtCombatOutcome

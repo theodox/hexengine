@@ -25,14 +25,12 @@ Transitions:
 
 from __future__ import annotations
 
-from typing import Any
-
 from hexengine.authoring.patterns.combat import CombatArcGateKinds
 from hexengine.state import GameState
 from hexengine.state.action_manager import StateAction
 from hexengine.state.actions import PatchTitleBucket
 
-from . import combat_actions, title_state
+from . import title_state
 
 # Segment ``kind`` values on gate-bearing combat arc segments.
 GATE_AWAITING_RETREAT = "awaiting_retreat"
