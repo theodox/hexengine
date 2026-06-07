@@ -45,8 +45,7 @@ def default_combat_interaction_messages(
     """
     Engine default combat/retreat/advance rows for ``interaction_messages``.
 
-    Advance and retreat prompts follow ``current_segment.kind``; the title bucket
-    ``combat_gate`` mirror is not read.
+    Advance and retreat prompts follow ``current_segment.kind`` on the arc cursor.
     """
 
     ek = str(ctx.extension_key or "").strip()

@@ -30,14 +30,14 @@ def test_title_bucket_missing_or_invalid() -> None:
 
 def test_title_bucket_reads_title_state() -> None:
     st = GameState.create_empty().with_title_state(
-        {"combat_gate": "awaiting_advance", "n": 1},
+        {"marker": "a", "n": 1},
         title_bucket_key="hexdemo",
     )
     hx = title_bucket(st, "hexdemo")
-    assert hx["combat_gate"] == "awaiting_advance"
+    assert hx["marker"] == "a"
     assert hx["n"] == 1
-    hx["combat_gate"] = "mutated"
-    assert title_bucket(st, "hexdemo")["combat_gate"] == "awaiting_advance"
+    hx["marker"] = "mutated"
+    assert title_bucket(st, "hexdemo")["marker"] == "a"
 
 
 def test_with_title_bucket() -> None:
@@ -49,22 +49,22 @@ def test_with_title_bucket() -> None:
 
 def test_patch_title_bucket_action_undo() -> None:
     st = GameState.create_empty().with_title_state(
-        {"combat_gate": "routine", "keep": True},
+        {"marker": "before", "keep": True},
         title_bucket_key="hexdemo",
     )
     mgr = ActionManager(st)
     mgr.execute(
         PatchTitleBucket(
-            "hexdemo", {"combat_gate": "awaiting_advance"}, remove_keys=("keep",)
+            "hexdemo", {"marker": "after"}, remove_keys=("keep",)
         )
     )
     after = mgr.current_state
     hx = title_bucket(after, "hexdemo")
-    assert hx["combat_gate"] == "awaiting_advance"
+    assert hx["marker"] == "after"
     assert "keep" not in hx
     mgr.undo()
     restored = title_bucket(mgr.current_state, "hexdemo")
-    assert restored["combat_gate"] == "routine"
+    assert restored["marker"] == "before"
     assert restored["keep"] is True
 
 

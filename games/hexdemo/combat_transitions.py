@@ -52,11 +52,9 @@ GATES_BLOCKING_ROUTINE: frozenset[str] = frozenset(
 )
 
 # Title bucket keys cleared on phase advance (`after_phase_transition`).
-# ``combat_gate`` is legacy-only (retired mirror); still removed so old saves stay clean.
 PHASE_SCOPED_COMBAT_KEYS: tuple[str, ...] = (
     "attacks_this_phase",
     "retreat_obligations",
-    "combat_gate",
     "disrupt_instead_offered",
     "last_combat",
     "advance",
