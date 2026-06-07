@@ -155,6 +155,20 @@ def segment_allows_action(segment: Mapping[str, Any] | None, action_type: str) -
     return str(action_type) in {str(x) for x in raw}
 
 
+def segment_denies_action_for_faction(
+    host: SegmentProjectorHost,
+    state: GameState,
+    viewer_faction: str | None,
+    action_type: str,
+) -> bool:
+    """True when a segment is active and omits ``action_type`` for this viewer."""
+
+    seg = project_current_segment(host, state, viewer_faction=viewer_faction)
+    if seg is None:
+        return False
+    return not segment_allows_action(seg, action_type)
+
+
 def segment_blocks_routine_phase_advance(
     host: SegmentProjectorHost,
     state: GameState,
@@ -321,6 +335,7 @@ __all__ = [
     "enrich_current_segment_wire",
     "project_current_segment",
     "segment_allows_action",
+    "segment_denies_action_for_faction",
     "segment_blocks_routine_phase_advance",
     "segment_blocks_routine_phase_advance_for_hooks",
 ]

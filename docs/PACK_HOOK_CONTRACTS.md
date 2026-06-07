@@ -250,7 +250,9 @@ Bind with `@bind_title_hook(AttackHook.…)`. Values match [`AttackHook`](../src
 
 | Hook | When invoked | Signature / context | Return | `ENGINE_DEFAULT` behavior |
 |------|--------------|---------------------|--------|---------------------------|
-| **`VALIDATE_ATTACK`** | Before resolve in attack arc | `(ctx: AttackContext)` | `None` or raise | Unsupported attack |
+| **`VALIDATE_ATTACK`** | After engine segment gate (extension-key titles), before resolve | `(ctx: AttackContext)` | `None` or raise | Unsupported attack |
+
+For packs with `title_state_extension_key`, the engine rejects `Attack` when `current_segment` omits it for the actor **before** `validate_attack` runs (`ATTACK_BLOCKED_BY_ACTIVE_SEGMENT_MSG` in `authority_attack.py`). Title validate is rules-only (phase, LOS, CRT inputs, etc.).
 | **`RESOLVE_ATTACK`** | Attack arc | `(ctx: AttackContext)` | `AttackResolution` | Unsupported attack |
 | **`ATTACK_PLAN_PREVIEW`** | `map_selection_preview` kind `attack_plan` | `(ctx: AttackPlanPreviewContext)` | preview dict | Empty/minimal preview |
 | **`AUTO_ADVANCE_PHASE_AFTER_ATTACK`** | After attack applied + broadcast | `(state: GameState)` | `bool` | No auto-advance |

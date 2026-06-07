@@ -112,8 +112,6 @@ def validate_attack(ctx: AttackContext) -> None:
         raise ValueError("Attacks are only allowed during the combat phase")
     if ctx.player_faction != ctx.state.turn.current_faction:
         raise ValueError("Not your turn")
-    if arc_segment.segment_denies_action(ctx.state, ctx.player_faction, "Attack"):
-        raise ValueError("Resolve combat obligations before issuing another attack")
 
     att_primary = ctx.state.board.units.get(ctx.attacker_unit_id)
     if att_primary is None or not att_primary.active:

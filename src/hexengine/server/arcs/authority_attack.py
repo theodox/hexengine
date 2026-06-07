@@ -107,6 +107,11 @@ class AuthorityAttackPipelineStep(StrEnum):
     MAYBE_AUTO_ADVANCE_PHASE = "maybe_auto_advance_phase"
 
 
+ATTACK_BLOCKED_BY_ACTIVE_SEGMENT_MSG = (
+    "Resolve combat obligations before issuing another attack"
+)
+
+
 AUTHORITY_ATTACK_PIPELINE: tuple[AuthorityAttackPipelineStep, ...] = (
     AuthorityAttackPipelineStep.NORMALIZE_WIRE_AND_PARTIES,
     AuthorityAttackPipelineStep.HOOK_VALIDATE,
@@ -131,6 +136,8 @@ class AuthorityAttackHost(Protocol):
     def _title_extension_key(self) -> str | None: ...
 
     async def _broadcast_combat_events(self, state: GameState) -> None: ...
+
+    def lookup_arc_spec(self, arc_id: str) -> object: ...
 
     def _get_next_phase(self) -> dict[str, Any]: ...
 
@@ -207,6 +214,13 @@ async def execute_authority_attack_request(
             attack_kind=attack_kind,
             params=params,
         )
+        if host._title_extension_key():
+            from ...arcs.segment_wire import segment_denies_action_for_faction
+
+            if segment_denies_action_for_faction(
+                host, current_state, player_faction, "Attack"
+            ):
+                raise ValueError(ATTACK_BLOCKED_BY_ACTIVE_SEGMENT_MSG)
         hv = host.hooks.attack.validate(ctx)
         if hv is ENGINE_DEFAULT:
             raise ValueError("This game title does not support Attack actions")
@@ -307,6 +321,7 @@ async def execute_authority_attack_request(
 
 
 __all__ = [
+    "ATTACK_BLOCKED_BY_ACTIVE_SEGMENT_MSG",
     "AUTHORITY_ATTACK_PIPELINE",
     "AuthorityAttackHost",
     "AuthorityAttackPipelineStep",

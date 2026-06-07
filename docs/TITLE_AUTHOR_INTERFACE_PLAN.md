@@ -106,19 +106,19 @@ Authors work in **three layers** only (aligned with [`TITLE_AUTHORING.md` § Flo
 
 ### Phase B — Engine-owned segment gate before title validate
 
-**Status:** not started.
+**Status:** done.
 
 **Goal:** Authors do not import `arc_segment` in `validate_attack`.
 
-#### Sub-steps
+#### Sub-steps (completed)
 
-1. In `execute_authority_attack_request`, before `hooks.attack.validate`: if title has `title_state_extension_key` and active segment denies `Attack`, reject with a stable engine message (same semantics as hexdemo `segment_denies_action`).
-2. Remove `arc_segment.segment_denies_action` from hexdemo `validate_attack`.
-3. Document: segment legality is engine default for extension-key titles; title validate is rules-only (LOS, phase, CRT inputs, etc.).
+1. `execute_authority_attack_request` calls `segment_denies_action_for_faction` before `validate_attack` when `title_state_extension_key` is set; message `ATTACK_BLOCKED_BY_ACTIVE_SEGMENT_MSG`.
+2. Removed segment deny from hexdemo `validate_attack`; `arc_segment.segment_denies_action` delegates to `segment_wire`.
+3. Documented in [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md) and [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md).
 
 #### Tests
 
-Add contract test: attack rejected on retreat gate without calling title validate. Keep `test_combat_hexdemo` green.
+`test_authority_attack.test_attack_rejected_on_retreat_gate_before_title_validate`; `test_combat_hexdemo` and `test_arc_segment` unchanged.
 
 ---
 

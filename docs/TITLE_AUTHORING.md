@@ -197,7 +197,7 @@ Assembled with [`assemble_title_hooks`](../src/hexengine/hooks/wiring.py). Enum 
 | Bundle | Typical responsibilities | Contract / validation |
 |--------|-------------------------|---------------------|
 | **movement** | Step cost, ZoC, retreat obligations, retreat path preview, **auto-advance after move spend** | Movement arc; retreat preview optional; `AUTO_ADVANCE_PHASE_AFTER_MOVE_SPEND` (catalog default: advance when action pool empty) |
-| **attack** | `validate_attack`, `resolve_attack`, attack plan preview, optional **`after_attack_applied`**, **auto-advance after attack** | **Required** if schedule includes combat (`validate_title_contract`); `AUTO_ADVANCE_PHASE_AFTER_ATTACK` has no catalog default (omit hook = no auto-advance) |
+| **attack** | `validate_attack` (rules only — segment legality is engine-default when extension key is set), `resolve_attack`, attack plan preview, optional **`after_attack_applied`**, **auto-advance after attack** | **Required** if schedule includes combat (`validate_title_contract`); `AUTO_ADVANCE_PHASE_AFTER_ATTACK` has no catalog default (omit hook = no auto-advance) |
 | **ui** | Banners, dock, popups, overlays, combat banners | `COMBAT_INTERACTION_MESSAGES`, `TURN_ACTION_DOCK_FOR_VIEWER` |
 | **arcs** | Turn registry, **combat arc** (retreat / disrupt / advance cleanup), movement arc | `TURN_ARC_REGISTRY`, `COMBAT_ARC` (required for combat extension packs); bind guards/effects in `combat_arc.py` — not deprecated `AttackHook` cleanup slots |
 

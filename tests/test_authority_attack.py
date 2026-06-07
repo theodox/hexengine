@@ -15,7 +15,9 @@ from hexengine.hooks.attack import (
 )
 from hexengine.hooks.core import ENGINE_DEFAULT
 from hexengine.hooks.title import TitleHooks
+from hexengine.arcs import ArcCursor, SetArcCursor
 from hexengine.server.arcs.authority_attack import (
+    ATTACK_BLOCKED_BY_ACTIVE_SEGMENT_MSG,
     AUTHORITY_ATTACK_PIPELINE,
     AuthorityAttackPipelineStep,
     dedupe_wire_id_list,
@@ -63,12 +65,21 @@ class _AttackHost:
     action_manager: ActionManager
     broadcasted: bool = False
     auto_advance_called: bool = False
+    errors: list[str] | None = None
 
     async def _send_error(self, player_id: str, message: str) -> None:
+        if self.errors is not None:
+            self.errors.append(message)
+            return
         raise AssertionError(f"{player_id}: {message}")
 
     def _title_extension_key(self) -> str | None:
         return "testpack"
+
+    def lookup_arc_spec(self, arc_id: str):
+        from hexengine.server.arcs.authority_arc_runtime import lookup_arc_spec
+
+        return lookup_arc_spec(self, arc_id)
 
     async def _broadcast_combat_events(self, state: GameState) -> None:
         self.broadcasted = True
@@ -168,3 +179,86 @@ def test_after_attack_applied_follow_ups_run_before_broadcast() -> None:
     hx = title_bucket(mgr.current_state, "testpack")
     assert isinstance(hx, dict)
     assert hx.get("after_attack_hook") is True
+
+
+def test_attack_rejected_on_retreat_gate_before_title_validate() -> None:
+    """Engine segment gate runs before ``validate_attack`` for extension-key titles."""
+    import dataclasses
+
+    from games.hexdemo import combat_arc
+    from games.hexdemo.hooks import build_hooks
+
+    board = BoardState(
+        units={
+            "u_att": UnitState(
+                unit_id="u_att",
+                unit_type="inf",
+                faction="union",
+                position=Hex(0, 0, 0),
+                active=True,
+            ),
+            "u_def": UnitState(
+                unit_id="u_def",
+                unit_type="inf",
+                faction="confederate",
+                position=Hex(1, 0, -1),
+                active=True,
+            ),
+        }
+    )
+    turn = TurnState(
+        current_faction="union",
+        current_phase="Combat",
+        phase_actions_remaining=1,
+        turn_number=1,
+        schedule_index=0,
+        global_tick=0,
+    )
+    st = GameState(
+        board=board,
+        turn=turn,
+        title_state={"retreat_obligations": {"u_def": 1}},
+        title_bucket_key="hexdemo",
+        rng_log=(),
+    )
+    mgr = ActionManager(st)
+    mgr.execute(
+        SetArcCursor(
+            ArcCursor(arc_id="combat", segment_id=combat_arc.SEG_RETREAT_GATE)
+        )
+    )
+    st_gate = mgr.current_state
+
+    validate_called: list[int] = []
+    base_hooks = build_hooks()
+
+    def _tracking_validate(_ctx: AttackContext) -> None:
+        validate_called.append(1)
+
+    hooks = dataclasses.replace(
+        base_hooks,
+        attack=dataclasses.replace(
+            base_hooks.attack,
+            validate_attack=_tracking_validate,
+            resolve_attack=lambda _ctx: AttackResolution(outcome="none"),
+        ),
+    )
+    errors: list[str] = []
+    host = _AttackHost(hooks=hooks, action_manager=mgr, errors=errors)
+
+    ok = asyncio.run(
+        execute_authority_attack_request(
+            host,
+            player_id="p1",
+            player_faction="union",
+            current_state=st_gate,
+            params={
+                "attack_kind": "combined",
+                "attacker_id": "u_att",
+                "defender_id": "u_def",
+            },
+        )
+    )
+    assert ok is False
+    assert not validate_called
+    assert errors == [ATTACK_BLOCKED_BY_ACTIVE_SEGMENT_MSG]

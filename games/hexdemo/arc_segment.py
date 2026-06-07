@@ -7,7 +7,6 @@ from typing import Any
 
 from hexengine.arcs.segment_wire import (
     project_current_segment,
-    segment_allows_action,
     segment_blocks_routine_phase_advance,
 )
 from hexengine.server.arcs.authority_arc_runtime import lookup_arc_spec
@@ -56,10 +55,11 @@ def segment_denies_action(
 ) -> bool:
     """True when a segment is active and omits ``action_type`` from allowed_actions."""
 
-    seg = project_segment_for_faction(state, viewer_faction)
-    if seg is None:
-        return False
-    return not segment_allows_action(seg, action_type)
+    from hexengine.arcs.segment_wire import segment_denies_action_for_faction
+
+    return segment_denies_action_for_faction(
+        _segment_host(), state, viewer_faction, action_type
+    )
 
 
 def segment_kind(state: GameState, viewer_faction: str | None) -> str:
@@ -77,6 +77,8 @@ def segment_allows(
     action_type: str,
 ) -> bool:
     """True when the projected segment lists ``action_type`` in ``allowed_actions``."""
+
+    from hexengine.arcs.segment_wire import segment_allows_action
 
     seg = project_segment_for_faction(state, viewer_faction)
     if seg is None:
