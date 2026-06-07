@@ -18,26 +18,27 @@ from hexengine.hooks.ui_turn_action_dock import _end_phase_row
 from hexengine.hooks.wiring import bind_title_hook
 from hexengine.ui.display import TurnDockPanel
 
-from .. import combat
 from ..presentation.dock import dock_headline, dock_panel_html
 from ..segment_ui import resolve_presentation_id
+
+
+def _segment_shows_dock(presentation_id: str, gate_actions: list[dict]) -> bool:
+    """True when the viewer should see a turn dock panel from segment presentation."""
+
+    if gate_actions:
+        return True
+    pid = str(presentation_id or "").strip()
+    return bool(pid) and pid != "hidden"
 
 
 @bind_title_hook(UIHook.TURN_ACTION_DOCK_FOR_VIEWER)
 def turn_action_dock_for_viewer(
     ctx: TurnActionDockContext,
 ) -> list[TurnDockPanel]:
-    gate_actions = action_rows_from_segment(ctx.current_segment, ctx.shell_ui)
-
-    has_retreat_ob = bool(
-        ctx.viewer_faction
-        and combat.faction_has_pending_retreat(ctx.state, str(ctx.viewer_faction))
-    )
-    if not ctx.viewer_is_turn_owner and not gate_actions and not has_retreat_ob:
-        return []
+    seg = ctx.current_segment if isinstance(ctx.current_segment, dict) else None
+    gate_actions = action_rows_from_segment(seg, ctx.shell_ui)
 
     action_rows: list[dict] = [dict(a) for a in gate_actions]
-    seg = ctx.current_segment if isinstance(ctx.current_segment, dict) else None
     presentation_id = ""
     if seg is not None:
         presentation_id = str(seg.get("presentation_id", "")).strip()
@@ -48,8 +49,11 @@ def turn_action_dock_for_viewer(
             current_phase=ctx.current_phase,
             extra_gate_actions=gate_actions,
         )
-    if presentation_id == "hidden" and has_retreat_ob:
-        presentation_id = "retreat_gate"
+
+    if not ctx.viewer_is_turn_owner and not _segment_shows_dock(
+        presentation_id, gate_actions
+    ):
+        return []
 
     end_enabled = segment_allows_action(ctx.current_segment, "NextPhase")
     action_rows.append(_end_phase_row(ctx, enabled=end_enabled))

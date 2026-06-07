@@ -965,6 +965,7 @@ class GameServer:
             viewer_faction=recipient_faction,
             outcome=outcome,
             retreat_owner_faction=retreat_owner_faction,
+            shell_ui=dict(self.game_data.shell_ui),
         )
         raw = self.hooks.ui.combat_instruction(ctx)
         if raw is ENGINE_DEFAULT:
@@ -992,6 +993,7 @@ class GameServer:
             state=state,
             viewer_faction=viewer_faction,
             advancing_faction=advancing_faction,
+            shell_ui=dict(self.game_data.shell_ui),
         )
         raw = self.hooks.ui.advance_gate_banners(ctx)
         if raw is ENGINE_DEFAULT:
@@ -1107,6 +1109,7 @@ class GameServer:
             current_segment=self.project_current_segment(
                 st, viewer_faction=viewer_faction
             ),
+            shell_ui=dict(self.game_data.shell_ui),
         )
         combat_raw = self.hooks.ui.combat_interaction_messages_for(msg_ctx)
         if combat_raw is ENGINE_DEFAULT:

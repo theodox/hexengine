@@ -146,8 +146,8 @@ Arc declarations use the same `kind` strings. Dock and inform hooks **look up** 
 |-------|------|----------|
 | Short labels | `game_data.toml` → `shell_ui` | `presentation_id` + action id |
 | Dock headline / hint HTML | `ui_markup.py` + `resources/templates/` | `presentation_id` |
-| Banners | message hooks + templates | `inform_profile` or `segment.kind` |
-| Map popups | `presentation/inform.py` + `inform_popups.py` | `inform_profile` + `reason` (from `current_segment` when client omits `inform_kind`) |
+| Banners | `presentation/interaction_messages.py` + thin `UIHook` adapters | `segment.kind` (combat/advance gates) and combat outcome |
+| Map popups | `presentation/inform.py` via `hooks/ui.inform_popup_for_viewer` | `inform_profile` + `reason` (from `current_segment` when client omits `inform_kind`) |
 | CSS | pack `resources/ui.css` | `.…-turn-dock--{presentation_id}` |
 
 **Do not** in pack code: build raw wire dicts for dock panels or inform popups (except tests); read `client.interaction_panels` for legality; branch on `combat_gate` for affordances — use [`arc_segment.py`](../games/hexdemo/arc_segment.py) helpers and `current_segment` via hook context.
@@ -211,7 +211,7 @@ Hooks are the **author surface**. Return plain dicts today; prefer typed context
 
 | Concern | Author API | Wire (engine only) |
 |---------|------------|-------------------|
-| Banners / popups | `UIHook` INFORM slots, `inform_popups.py` | `interaction_messages`, `ui_popup` |
+| Banners / popups | `UIHook` slots in `hooks/ui.py` | `interaction_messages`, `ui_popup` |
 | Commit UI | `TURN_ACTION_DOCK_FOR_VIEWER` | `interaction_panels` |
 | Map drafts | `*_PREVIEW` hooks, `InteractionKind` | `map_selection_preview` |
 | Legality | Arc segments + rules modules | `current_segment`, `action_request` |
@@ -229,7 +229,7 @@ Full field tables: [`PACK_HOOK_CONTRACTS.md` § UI affordances](PACK_HOOK_CONTRA
 
 **Two `ui_popup` paths, one renderer:** unit/marker double-click → `POPUP_MESSAGE`; transient map callouts (e.g. illegal attack hex) → `INFORM_POPUP`. Both arrive as `ui_popup` on the client (`_handle_ui_popup`). Do not call `popup_manager.create_popup` from title/game client code for player-facing copy.
 
-**Inform request:** `InspectRequest` with `target_kind: "inform"`, `target_id: <reason>`, `context: { inform_kind, hex?, unit_id? }`. Hexdemo: [`inform_popups.py`](../games/hexdemo/inform_popups.py), `shell_ui` keys `attack_plan_*`.
+**Inform request:** `InspectRequest` with `target_kind: "inform"`, `target_id: <reason>`, `context: { inform_kind, hex?, unit_id? }`. Hexdemo: [`hooks/ui.py`](../games/hexdemo/hooks/ui.py) + [`presentation/inform.py`](../games/hexdemo/presentation/inform.py); `shell_ui` keys `attack_plan_*`.
 
 **Dev console repeater (optional):** When the dev console is initialized (`#status-line`), `Game.repeat_ui_popup_to_dev_console` (default `True`) mirrors each `ui_popup` plain-text line on the status strip via [`dev_console.repeat_ui_popup_to_status`](../src/hexengine/dev_console.py). This is for debugging only — not a player-facing channel. Do not call `dev_console.set_status` for routine INFORM copy; use the repeater or log lines instead. Server/connection errors may still set status directly.
 

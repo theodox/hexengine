@@ -47,7 +47,7 @@ def _hexdemo_server() -> GameServer:
 
 
 def test_hexdemo_inform_popup_attack_plan_shell_ui() -> None:
-    from games.hexdemo.inform_popups import inform_popup
+    from games.hexdemo.hooks.ui import inform_popup_for_viewer
 
     server = _hexdemo_server()
     st = server.action_manager.current_state
@@ -64,7 +64,7 @@ def test_hexdemo_inform_popup_attack_plan_shell_ui() -> None:
     )
     from hexengine.hooks.internal.ui_wire import inform_popup_to_wire
 
-    pm = inform_popup_to_wire(inform_popup(ctx))
+    pm = inform_popup_to_wire(inform_popup_for_viewer(ctx))
     assert "attackable" in str(pm.get("text", "")).lower()
     assert pm.get("ttl_ms") == 750
 

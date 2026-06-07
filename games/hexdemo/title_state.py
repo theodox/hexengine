@@ -32,4 +32,31 @@ def attacks_this_phase(state: GameState) -> list[str]:
     return [uid for uid in raw if isinstance(uid, str)]
 
 
-__all__ = ["attacks_this_phase", "bucket"]
+def last_combat(state: GameState) -> dict[str, Any] | None:
+    """Latest combat result payload from the title bucket, if present."""
+
+    raw = bucket(state).get("last_combat")
+    return dict(raw) if isinstance(raw, dict) else None
+
+
+def retreat_obligations(state: GameState) -> dict[str, Any]:
+    """Per-unit mandatory retreat steps remaining (unit id → steps)."""
+
+    raw = bucket(state).get("retreat_obligations")
+    return dict(raw) if isinstance(raw, dict) else {}
+
+
+def advance_offer(state: GameState) -> dict[str, Any] | None:
+    """Optional post-retreat advance window metadata (``faction``, …)."""
+
+    raw = bucket(state).get("advance")
+    return dict(raw) if isinstance(raw, dict) else None
+
+
+__all__ = [
+    "advance_offer",
+    "attacks_this_phase",
+    "bucket",
+    "last_combat",
+    "retreat_obligations",
+]

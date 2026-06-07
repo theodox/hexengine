@@ -2,6 +2,8 @@
 Map callout copy keyed by ``inform_profile`` (from ``segment_ui`` / ``current_segment``).
 
 Shell keys follow ``{profile}_{reason}`` in ``game_data.toml`` → ``shell_ui``.
+Profiles without rows in ``_REASONS_BY_PROFILE`` still get CSS from ``_CSS_BY_PROFILE``
+and generic shell/fallback text until client lanes add reason ids.
 """
 
 from __future__ import annotations

@@ -21,7 +21,7 @@ override UI locally on the client and do not require title hooks.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
@@ -43,6 +43,7 @@ class CombatInteractionContext:
     viewer_faction: str | None
     outcome: str
     retreat_owner_faction: str | None
+    shell_ui: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +53,7 @@ class AdvanceGateInteractionContext:
     state: GameState
     viewer_faction: str | None
     advancing_faction: str
+    shell_ui: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)

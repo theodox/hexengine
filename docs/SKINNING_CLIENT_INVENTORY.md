@@ -87,7 +87,7 @@ Drag relocate unchanged: `marker_preview_request` on [`server/preview.py`](../sr
 | [`ui_markup.py`](../games/hexdemo/ui_markup.py) | Hexdemo templates + flag URLs (`/pack/hexdemo/…`) |
 | `POPUP_MESSAGE` → `ui_popup` | Unit/marker inspect (double-click / Enter) |
 | `INFORM_POPUP` → `ui_popup` | Map callouts: `Game.show_inform_popup` → `inspect` + `target_kind=inform` |
-| [`inform_popups.py`](../games/hexdemo/inform_popups.py) | Hexdemo copy for inform reasons (`shell_ui` `attack_plan_*`) |
+| [`hooks/ui.py`](../games/hexdemo/hooks/ui.py) + [`presentation/inform.py`](../games/hexdemo/presentation/inform.py) | Inform map callouts (`shell_ui` `attack_plan_*`) |
 
 Use `<img src="…">` for flags in banner HTML (not `url()` in CSS against the page URL).
 

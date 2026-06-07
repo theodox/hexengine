@@ -13,7 +13,7 @@ from hexengine.state.pack_extension_retreat import (
 )
 
 from .constants import PACK_STATE_EXTENSION_KEY
-from .title_state import bucket
+from . import title_state
 
 
 def retreat_hexes_remaining(state: GameState, unit_id: str) -> int | None:
@@ -23,10 +23,7 @@ def retreat_hexes_remaining(state: GameState, unit_id: str) -> int | None:
 
 def any_retreat_obligation_pending(state: GameState) -> bool:
     """True if any unit still has a positive retreat obligation."""
-    obligations = bucket(state).get("retreat_obligations")
-    if not isinstance(obligations, dict):
-        return False
-    for v in obligations.values():
+    for v in title_state.retreat_obligations(state).values():
         try:
             if int(v) > 0:
                 return True
@@ -37,10 +34,7 @@ def any_retreat_obligation_pending(state: GameState) -> bool:
 
 def faction_has_pending_retreat(state: GameState, faction: str) -> bool:
     """True if `faction` owns any active unit with a positive retreat obligation."""
-    pending_retreat = bucket(state).get("retreat_obligations")
-    if not isinstance(pending_retreat, dict):
-        return False
-    for uid, v in pending_retreat.items():
+    for uid, v in title_state.retreat_obligations(state).items():
         try:
             if int(v) <= 0:
                 continue

@@ -46,19 +46,17 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `hooks/` | Title policy adapters — see [`hooks/README.md`](hooks/README.md) (`TitleHooks`, title-load, turn schedule) |
 | `hooks/title_load.py` | Splash/setup/server-log (`[hooks.title_load]` in manifest) |
 | `hooks/turn_schedule.py` | Phase-entry callbacks from `HexdemoGameDefinition` |
-| `presentation/` | Viewer copy keyed by `presentation_id` / `inform_profile` (`dock.py`, `inform.py`) |
+| `presentation/` | Viewer copy (`dock.py`, `inform.py`, `interaction_messages.py`) |
 | `segment_ui.py` | Segment `kind` → presentation registry (`PRESENTATION_BY_SEGMENT_KIND`) |
 | `arc_segment.py` | Project `current_segment` per viewer; `phase_advance_blocked` for auto-advance |
 | `combat_arc.py` | Declared combat-cleanup arc (composable arcs) |
 | `combat_transitions.py` | Combat FSM effects (`combat_gate` mirror, `attacks_this_phase`, phase-scoped clear) |
 | `combat_actions.py` | Pack-local RPC follow-ups (disrupt, advance, retreat fulfillment) |
 | `combat_planning.py` | Attack plan preview (shared by `hooks/attack` and tests) |
-| `combat_messages.py` | `combat_event` summary + `interaction_messages` banner adapters |
 | `combat.py` | Retreat obligation reads from the title bucket |
 | `title_state.py` | Match bucket accessor (`bucket`, `attacks_this_phase`) |
 | `turn_arc_schedule.py` | Turn arc registry builder (move/combat schedule slots) |
 | `focus.py` | Suggested unit focus after state sync |
-| `inform_popups.py` | `InformPopup` hook adapter |
 | `shell_ui.py` | Shell UI string keys for dock and previews |
 | `constants.py` | `PACK_STATE_EXTENSION_KEY`, `HEXDEMO_FACTIONS` |
 | `resources/splash.html` | HTML fragment for the client loading overlay |

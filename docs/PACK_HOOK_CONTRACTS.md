@@ -83,7 +83,7 @@ Transient turn banner rows. Omitted from wire when `None`. Client shows **one** 
 **Server composition:** unless `UIHook.INTERACTION_MESSAGES` returns a full list, the server merges:
 
 1. **Phase row** — `PHASE_BANNER_TEXT_FOR_VIEWER` → `text`; optional `PHASE_BANNER_HTML_FOR_VIEWER` → `html`
-2. **Combat rows** — `UIHook.COMBAT_INTERACTION_MESSAGES` → `list[dict]` (hexdemo: [`combat_messages.py`](../games/hexdemo/combat_messages.py)). When the hook returns `ENGINE_DEFAULT`, the engine builds rows from `current_segment.kind` plus `COMBAT_INSTRUCTION_FOR_VIEWER` and `ADVANCE_GATE_BANNERS_FOR_VIEWER` ([`ui_combat_messages.py`](../src/hexengine/hooks/ui_combat_messages.py)). The engine does not read title bucket `combat_gate` for banners.
+2. **Combat rows** — `UIHook.COMBAT_INTERACTION_MESSAGES` → `list[dict]` (hexdemo: [`hooks/ui.py`](../games/hexdemo/hooks/ui.py)). Context includes `shell_ui` from `game_data.toml`. When the hook returns `ENGINE_DEFAULT`, the engine builds rows from `current_segment.kind` plus `COMBAT_INSTRUCTION_FOR_VIEWER` and `ADVANCE_GATE_BANNERS_FOR_VIEWER` ([`ui_combat_messages.py`](../src/hexengine/hooks/ui_combat_messages.py)). The engine does not read title bucket `combat_gate` for banners.
 
 `game_server` does not parse `last_combat` / `combat_gate` directly for banners (engine boundary 2). **`combat_event`** messages for retreat UI still use `last_combat` in [`_broadcast_combat_events`](../src/hexengine/server/game_server.py) — separate from INFORM.
 

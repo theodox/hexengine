@@ -50,9 +50,9 @@ Longer term, the engine may offer **composable rule pieces** (ZOC, terrain, mora
 |--------|------|-----------|
 | `movement.py` | Step cost, ZoC, retreat obligations, … | `@bind_title_hook(MovementHook.…)` |
 | `attack.py` | Validate/resolve combat, CRT helpers | `@bind_title_hook(AttackHook.…)` |
-| `ui.py` | Banners, inspect (`POPUP_MESSAGE`), inform callouts (`INFORM_POPUP`) | `@bind_title_hook(UIHook.…)` |
-| `../inform_popups.py` | `InformPopup` hook adapter | Used by `ui.inform_popup_for_viewer` |
-| `../presentation/inform.py` | INFORM copy + TTL keyed by `inform_profile` + `reason` | Used by `inform_popups.py` |
+| `ui.py` | Phase/combat banners, inspect, inform popups, combat event summary | `@bind_title_hook(UIHook.…)`; copy from `presentation/` |
+| `../presentation/inform.py` | INFORM map callouts keyed by `inform_profile` + `reason` | Used by `ui.inform_popup_for_viewer` |
+| `../presentation/interaction_messages.py` | Combat/advance banner copy for `interaction_messages` | Used by `ui.combat_interaction_messages` |
 | `turn_action_dock.py` | Commit dock — returns `TurnDockPanel` from `hexengine.authoring.present`; copy via [`segment_ui.py`](../segment_ui.py) + [`presentation/`](../presentation/) | `@bind_title_hook(UIHook.TURN_ACTION_DOCK_FOR_VIEWER)` |
 | `segment_presentation.py` | `presentation_id` / `interaction_mode` on `current_segment` wire | `@bind_title_hook(UIHook.ENRICH_CURRENT_SEGMENT)` |
 | `segment_ui_registry.py` | Exposes `PRESENTATION_BY_SEGMENT_KIND` for P5 load-time validation | `@bind_title_hook(UIHook.SEGMENT_PRESENTATION_REGISTRY)` |

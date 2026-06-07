@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from ..arcs.segment_wire import KIND_DOCK_ARC_ADVANCE, KIND_DOCK_ARC_RETREAT
@@ -33,6 +33,7 @@ class CombatInteractionMessagesContext:
     viewer_faction: str | None
     extension_key: str | None
     current_segment: Mapping[str, Any] | None = None
+    shell_ui: Mapping[str, Any] = field(default_factory=dict)
 
 
 def default_combat_interaction_messages(

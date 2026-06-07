@@ -30,12 +30,11 @@ def map_overlays(
     """
     After combat, show a marker on defender hex(es) (even if defenders were destroyed).
     """
-    hx = title_state.bucket(state)
-    if not hx:
+    if not title_state.bucket(state):
         return ENGINE_DEFAULT
     atk_n = len(title_state.attacks_this_phase(state))
-    lc = hx.get("last_combat")
-    if not isinstance(lc, dict):
+    lc = title_state.last_combat(state)
+    if lc is None:
         return ENGINE_DEFAULT
 
     rows = lc.get("defender_hexes")
