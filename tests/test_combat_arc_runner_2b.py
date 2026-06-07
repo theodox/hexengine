@@ -3,9 +3,8 @@ Phase 2b: routing combat RPCs through the generic arc runner.
 
 These drive the engine arc-runtime bridge (`begin_combat_arc` / `drive_combat_arc_event`)
 against the real hexdemo combat arc. They assert that the Attack follow-up classifies into
-the right gate, that the runner is authoritative only when it accepts (advancing the
-cursor and updating the gate mirror), and that it falls back (returns False) on a stale
-cursor, the wrong owner, or a title that declares no arc.
+the right gate, that the runner accepts valid RPCs, and that it returns False on a stale
+cursor, wrong owner, or undeclared arc (no legacy fallback when a combat arc is bound).
 """
 
 from __future__ import annotations
@@ -146,7 +145,7 @@ def test_disrupt_through_runner_clears_obligation_and_cursor() -> None:
     assert cur is None or cur.arc_id != "combat"
 
 
-def test_disrupt_by_wrong_faction_falls_back() -> None:
+def test_disrupt_by_wrong_faction_rejected() -> None:
     host = _Host(
         _state(
             combat_transitions.GATE_AWAITING_RETREAT_OR_DISRUPT,
@@ -162,7 +161,7 @@ def test_disrupt_by_wrong_faction_falls_back() -> None:
         )
     )
 
-    assert handled is False  # wrong owner -> fall back to legacy handler
+    assert handled is False  # wrong owner -> rejected (no legacy handler)
     assert host.broadcasts == 0
     # Runner made no state change on rejection.
     assert read_arc_cursor(host.action_manager.current_state) == cursor_before
@@ -197,7 +196,7 @@ def test_decline_advance_through_runner_clears_gate_and_cursor() -> None:
     assert cur is None or cur.arc_id != "combat"
 
 
-def test_decline_advance_by_non_current_faction_falls_back() -> None:
+def test_decline_advance_by_non_current_faction_rejected() -> None:
     host = _Host(
         _state(
             combat_transitions.GATE_AWAITING_ADVANCE,
@@ -217,15 +216,15 @@ def test_decline_advance_by_non_current_faction_falls_back() -> None:
     assert host.broadcasts == 0
 
 
-def test_drive_falls_back_without_active_cursor() -> None:
+def test_drive_rejects_without_active_cursor() -> None:
     host = _Host(_state(combat_transitions.GATE_AWAITING_ADVANCE, advance={"faction": "union"}))
     handled = asyncio.run(
         drive_combat_arc_event(host, "p1", _player("union"), "CombatDeclineAdvance")
     )
-    assert handled is False  # no cursor set -> legacy path owns it
+    assert handled is False  # no cursor set -> dispatch rejects (see test_combat_arc_dispatch)
 
 
-def test_drive_falls_back_without_declared_arc() -> None:
+def test_drive_not_declared_without_combat_arc() -> None:
     host = _Host(
         _state(
             combat_transitions.GATE_AWAITING_RETREAT_OR_DISRUPT,

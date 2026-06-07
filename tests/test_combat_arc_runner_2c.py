@@ -2,8 +2,7 @@
 Phase 2c: retreat-fulfillment MoveUnit through the generic arc runner.
 
 Covers the title ``apply_retreat_step`` effect, stacked retreats, cursor advancement
-through the auto ``resolve`` segment, and the game-server routing hook (arc first, legacy
-fallback when no cursor).
+through the auto ``resolve`` segment, and arc-only dispatch when a combat arc is declared.
 """
 
 from __future__ import annotations
@@ -174,7 +173,7 @@ def test_partial_retreat_loops_cursor_to_retreat_gate() -> None:
     assert cur.segment_id == combat_arc.SEG_RETREAT_GATE
 
 
-def test_retreat_without_cursor_falls_back() -> None:
+def test_retreat_without_cursor_rejected() -> None:
     h0, h1 = Hex(0, 0, 0), Hex(1, -1, 0)
     host = _Host(
         _state_with_stack(
@@ -244,7 +243,7 @@ def test_retreat_or_disrupt_gate_accepts_moveunit() -> None:
     assert host.action_manager.current_state.board.units["u1"].position == h1
 
 
-def test_wrong_owner_retreat_move_falls_back() -> None:
+def test_wrong_owner_retreat_move_rejected() -> None:
     h0, h1 = Hex(0, 0, 0), Hex(1, -1, 0)
     host = _Host(
         _state_with_stack(

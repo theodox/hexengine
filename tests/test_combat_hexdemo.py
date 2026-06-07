@@ -311,6 +311,9 @@ def test_hexdemo_retreat_moves_entire_stack() -> None:
         await server.handle_message(
             "p1", JoinGameRequest(player_name="Alice", faction="union").to_message()
         )
+        from hexengine.server.arcs import begin_combat_arc
+
+        begin_combat_arc(server)
         req = ActionRequest(
             action_type="MoveUnit",
             params={
@@ -366,6 +369,9 @@ def test_retreat_stack_rejected_before_partial_move() -> None:
         await server.handle_message(
             "p1", JoinGameRequest(player_name="Alice", faction="union").to_message()
         )
+        from hexengine.server.arcs import begin_combat_arc
+
+        begin_combat_arc(server)
         req = ActionRequest(
             action_type="MoveUnit",
             params={
@@ -1077,6 +1083,9 @@ def test_retreat_move_no_spend_action(hexdemo_server: GameServer) -> None:
     server.action_manager.replace_state(
         st.with_title_state(hx, title_bucket_key="hexdemo")
     )
+    from hexengine.server.arcs import begin_combat_arc
+
+    begin_combat_arc(server)
 
     server.players["p_u"] = PlayerInfo(
         player_id="p_u", player_name="U", faction="union", connected=True

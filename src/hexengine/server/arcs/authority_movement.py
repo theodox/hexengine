@@ -27,21 +27,21 @@ from ...state.movement_arc import (
     MOVEMENT_INTERRUPT_PHASE,
     turn_state_to_movement_arc_snapshot,
 )
-from ..protocol import ActionRequest, PlayerInfo
+from ..protocol import ActionRequest, Message, PlayerInfo
 from ...retreat_path import parse_wire_path, validate_retreat_path
 from ...state.movement_arc import (
     MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
     MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
 )
 from .authority_arc_runtime import (
-    drive_combat_arc_event,
+    COMBAT_ARC_REQUIRED_MSG,
+    CombatArcDispatch,
     drive_movement_arc_event,
+    finish_combat_arc_dispatch,
     sync_movement_cursor_from_payload,
+    try_combat_arc_move_unit,
 )
-from .authority_combat_cleanup import (
-    finalize_retreat_fulfillment_stack,
-    validate_retreat_fulfillment_stack,
-)
+from .authority_combat_cleanup import validate_retreat_fulfillment_stack
 
 
 def dedupe_faction_ids(items: tuple[str, ...]) -> tuple[str, ...]:
@@ -93,6 +93,10 @@ class AuthorityMovementHost(Protocol):
 
     async def _send_error(self, player_id: str, message: str) -> None: ...
 
+    async def _send_message(self, player_id: str, message: Message) -> None: ...
+
+    async def _broadcast_state_update(self) -> None: ...
+
     async def _send_move_unit_success_and_broadcast(self, player_id: str) -> None: ...
 
     def _validate_move_unit_request(
@@ -123,6 +127,34 @@ class AuthorityMovementHost(Protocol):
     ) -> float: ...
 
     def _spend_action_after_normal_move_unit(self) -> None: ...
+
+
+async def _complete_retreat_fulfillment_step(
+    host: AuthorityMovementHost,
+    player_id: str,
+    player: PlayerInfo,
+    *,
+    fin_params: dict[str, Any],
+) -> bool:
+    """
+    Finish a stepwise retreat through the combat arc when declared.
+
+    Returns True when the RPC is fully handled (arc success or error).
+    """
+
+    outcome = await try_combat_arc_move_unit(
+        host,
+        player_id,
+        player,
+        fin_params,
+        is_retreat_fulfillment=True,
+        is_advance_fulfillment=False,
+    )
+    if outcome == CombatArcDispatch.NOT_DECLARED:
+        await host._send_error(player_id, COMBAT_ARC_REQUIRED_MSG)
+        return True
+    await finish_combat_arc_dispatch(host, player_id, outcome)
+    return True
 
 
 async def continue_stepwise_move_unit(
@@ -196,24 +228,14 @@ async def continue_stepwise_move_unit(
             if flow.get("retreat_fulfillment"):
                 fin = flow.get("finalize_request")
                 if isinstance(fin, dict):
-                    uid = str(flow.get("unit_id", "")).strip()
                     fin_params = dict(fin)
-                    if await drive_combat_arc_event(
-                        host, player_id, player, "MoveUnit", fin_params
-                    ):
-                        return True
-                    fin_req = ActionRequest(
-                        action_type="MoveUnit",
-                        player_id=player_id,
-                        params=fin_params,
-                    )
-                    finalize_retreat_fulfillment_stack(
+                    await _complete_retreat_fulfillment_step(
                         host,
-                        uid_for_move=uid,
-                        player=player,
-                        request=fin_req,
-                        st_before=current_state,
+                        player_id,
+                        player,
+                        fin_params=fin_params,
                     )
+                    return True
             elif not flow.get("retreat_fulfillment"):
                 try:
                     host._spend_action_after_normal_move_unit()
@@ -234,25 +256,14 @@ async def continue_stepwise_move_unit(
         if flow.get("retreat_fulfillment"):
             fin = flow.get("finalize_request")
             if isinstance(fin, dict):
-                uid = str(flow.get("unit_id", "")).strip()
                 fin_params = dict(fin)
-                if await drive_combat_arc_event(
-                    host, player_id, player, "MoveUnit", fin_params
-                ):
-                    await host._send_move_unit_success_and_broadcast(player_id)
-                    return True
-                fin_req = ActionRequest(
-                    action_type="MoveUnit",
-                    player_id=player_id,
-                    params=fin_params,
-                )
-                finalize_retreat_fulfillment_stack(
+                if await _complete_retreat_fulfillment_step(
                     host,
-                    uid_for_move=uid,
-                    player=player,
-                    request=fin_req,
-                    st_before=current_state,
-                )
+                    player_id,
+                    player,
+                    fin_params=fin_params,
+                ):
+                    return True
         else:
             try:
                 host._spend_action_after_normal_move_unit()

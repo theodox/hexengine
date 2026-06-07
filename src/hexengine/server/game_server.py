@@ -82,25 +82,23 @@ from ..state.snapshot import game_state_from_wire_dict, game_state_to_wire_dict
 from .map_selection import compute_map_selection_preview
 from .preview import compute_marker_drag_preview, compute_unit_drag_preview
 from .arcs import (
+    COMBAT_ARC_REQUIRED_MSG,
     begin_routine_slot,
-    drive_combat_arc_event,
     drive_movement_arc_event,
     execute_authority_attack_request,
-    finalize_retreat_fulfillment_stack,
+    finish_combat_arc_dispatch,
     handle_authority_move_unit_normal,
     handle_authority_retreat_path_move_unit,
-    handle_combat_advance_rpc,
-    handle_combat_disrupt_instead_of_retreat,
-    handle_move_unit_combat_advance_resolution,
     lookup_arc_spec,
     move_unit_is_combat_advance_fulfillment,
     read_movement_arc,
     resolve_active_segment_owner,
     restore_routine_cursor,
-    retreat_stack_unit_ids,
     schedule_next_phase_info,
     sync_movement_cursor_from_payload,
     turn_arc_registry_from_hooks,
+    try_combat_arc_move_unit,
+    try_combat_arc_rpc,
     validate_retreat_fulfillment_stack,
 )
 from .protocol import (
@@ -1371,25 +1369,30 @@ class GameServer:
             )
 
         if request.action_type == "CombatDisruptInsteadOfRetreat":
-            if await drive_combat_arc_event(
+            outcome = await try_combat_arc_rpc(
                 self, player_id, player, "CombatDisruptInsteadOfRetreat"
-            ):
+            )
+            if await finish_combat_arc_dispatch(self, player_id, outcome):
                 return
-            await handle_combat_disrupt_instead_of_retreat(self, player_id, player)
+            await self._send_error(player_id, COMBAT_ARC_REQUIRED_MSG)
             return
 
         if request.action_type == "CombatAdvance":
-            if await drive_combat_arc_event(self, player_id, player, "CombatAdvance"):
+            outcome = await try_combat_arc_rpc(
+                self, player_id, player, "CombatAdvance"
+            )
+            if await finish_combat_arc_dispatch(self, player_id, outcome):
                 return
-            await handle_combat_advance_rpc(self, player_id, player)
+            await self._send_error(player_id, COMBAT_ARC_REQUIRED_MSG)
             return
 
         if request.action_type == "CombatDeclineAdvance":
-            if await drive_combat_arc_event(
+            outcome = await try_combat_arc_rpc(
                 self, player_id, player, "CombatDeclineAdvance"
-            ):
+            )
+            if await finish_combat_arc_dispatch(self, player_id, outcome):
                 return
-            await self._send_error(player_id, "No combat advance to skip right now")
+            await self._send_error(player_id, COMBAT_ARC_REQUIRED_MSG)
             return
 
         if request.action_type == "PassMovementInterrupt":
@@ -1455,10 +1458,43 @@ class GameServer:
             )
             is_retreat_fulfillment = retreat_rem is not None
 
+        if request.action_type == "MoveUnit" and is_retreat_fulfillment:
+            unit = current_state.board.units.get(uid_for_move or "")
+            if unit is None or unit.faction != player.faction:
+                await self._send_error(player_id, "That unit is not yours")
+                return
+            try:
+                self._validate_move_unit_request(
+                    current_state,
+                    request.params,
+                    player,
+                    is_retreat_fulfillment=True,
+                )
+                if uid_for_move is not None:
+                    validate_retreat_fulfillment_stack(
+                        self,
+                        st_before=current_state,
+                        uid_for_move=uid_for_move,
+                        player=player,
+                        request=request,
+                    )
+            except ValueError as e:
+                await self._send_error(player_id, str(e))
+                return
+
         if request.action_type == "MoveUnit":
-            if await drive_combat_arc_event(
-                self, player_id, player, "MoveUnit", request.params
-            ):
+            move_outcome = await try_combat_arc_move_unit(
+                self,
+                player_id,
+                player,
+                dict(request.params),
+                is_retreat_fulfillment=is_retreat_fulfillment,
+                is_advance_fulfillment=is_advance_fulfillment,
+            )
+            if await finish_combat_arc_dispatch(self, player_id, move_outcome):
+                return
+            if is_retreat_fulfillment or is_advance_fulfillment:
+                await self._send_error(player_id, COMBAT_ARC_REQUIRED_MSG)
                 return
 
         if not is_retreat_fulfillment:
@@ -1468,16 +1504,6 @@ class GameServer:
                     f"Not your turn (current: {self._segment_owner_faction(current_state)})",
                 )
                 return
-        else:
-            unit = current_state.board.units.get(uid_for_move or "")
-            if unit is None or unit.faction != player.faction:
-                await self._send_error(player_id, "That unit is not yours")
-                return
-
-        # Optional advance path: MoveUnit into the advance hex resolves CombatAdvance.
-        if request.action_type == "MoveUnit" and is_advance_fulfillment:
-            await handle_move_unit_combat_advance_resolution(self, player_id, player)
-            return
 
         if request.action_type == "MoveMarker":
             try:
@@ -1582,29 +1608,16 @@ class GameServer:
                     self, player_id, player, request, current_state
                 ):
                     return
-            try:
-                self._validate_move_unit_request(
-                    current_state,
-                    request.params,
-                    player,
-                    is_retreat_fulfillment=is_retreat_fulfillment,
-                )
-                if is_retreat_fulfillment and uid_for_move is not None:
-                    validate_retreat_fulfillment_stack(
-                        self,
-                        st_before=current_state,
-                        uid_for_move=uid_for_move,
-                        player=player,
-                        request=request,
+            if not is_retreat_fulfillment:
+                try:
+                    self._validate_move_unit_request(
+                        current_state,
+                        request.params,
+                        player,
+                        is_retreat_fulfillment=False,
                     )
-            except ValueError as e:
-                await self._send_error(player_id, str(e))
-                return
-
-            if is_retreat_fulfillment and uid_for_move is not None:
-                if await drive_combat_arc_event(
-                    self, player_id, player, "MoveUnit", request.params
-                ):
+                except ValueError as e:
+                    await self._send_error(player_id, str(e))
                     return
 
         # Create action from request (NextPhase is always server-authoritative)
@@ -1632,22 +1645,6 @@ class GameServer:
             return
 
         # Execute action
-        retreat_stack_ids: list[str] = []
-        if request.action_type == "MoveUnit" and is_retreat_fulfillment:
-            fh = request.params.get("from_hex")
-            if isinstance(fh, dict) and uid_for_move is not None:
-                try:
-                    from_hex = Hex(**fh)
-                    retreat_stack_ids = retreat_stack_unit_ids(
-                        self,
-                        current_state,
-                        from_hex,
-                        player,
-                        uid_for_move,
-                    )
-                except Exception:
-                    retreat_stack_ids = [uid_for_move]
-
         try:
             self.action_manager.execute(action)
             self.logger.info(
@@ -1656,17 +1653,6 @@ class GameServer:
 
             if isinstance(action, NextPhase):
                 self._after_next_phase_applied()
-
-            if request.action_type == "MoveUnit" and is_retreat_fulfillment:
-                if uid_for_move is None:
-                    raise RuntimeError("MoveUnit retreat without unit_id")
-                finalize_retreat_fulfillment_stack(
-                    self,
-                    uid_for_move=uid_for_move,
-                    player=player,
-                    request=request,
-                    st_before=current_state,
-                )
 
             # Spend an action for normal moves (retreat fulfillment never spends)
             if request.action_type == "MoveUnit" and not is_retreat_fulfillment:
@@ -1683,10 +1669,6 @@ class GameServer:
             await self._broadcast_state_update()
 
         except Exception as e:
-            if request.action_type == "MoveUnit" and is_retreat_fulfillment:
-                self._rollback_retreat_fulfillment_attempt(
-                    current_state, retreat_stack_ids
-                )
             self.logger.error(f"Action execution failed: {e}")
             await self._send_error(player_id, f"Action failed: {e}")
 
@@ -2288,36 +2270,6 @@ class GameServer:
             log_reason="after move spend",
         )
 
-    def _rollback_retreat_fulfillment_attempt(
-        self,
-        snapshot: GameState,
-        unit_ids: list[str],
-        *,
-        max_undo: int = 32,
-    ) -> None:
-        """Undo partial retreat moves so server state matches clients after a failed stack."""
-
-        def positions_match() -> bool:
-            st = self.action_manager.current_state
-            for uid in unit_ids:
-                a = st.board.units.get(uid)
-                b = snapshot.board.units.get(uid)
-                if a is None or b is None or a.position != b.position:
-                    return False
-            return True
-
-        for _ in range(max_undo):
-            if positions_match():
-                return
-            if not self.action_manager.can_undo():
-                break
-            self.action_manager.undo()
-        if not positions_match():
-            self.logger.error(
-                "Retreat rollback incomplete; restoring pre-request snapshot"
-            )
-            self.action_manager.replace_state(snapshot)
-
     def _validate_move_unit_request(
         self,
         state: GameState,
@@ -2536,10 +2488,10 @@ class GameServer:
                 "hooks.attack.on_retreat_obligation_cleared must return "
                 "list[StateAction] or hooks.ENGINE_DEFAULT"
             )
-        from .arcs.authority_combat_cleanup import _execute_hook_state_actions
+        from .arcs.authority_combat_cleanup import execute_hook_state_actions
 
         if actions:
-            _execute_hook_state_actions(
+            execute_hook_state_actions(
                 self,
                 actions,
                 hook_name="hooks.attack.on_retreat_obligation_cleared",

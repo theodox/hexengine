@@ -23,6 +23,12 @@ from hexengine.hooks.title import TitleHooks
 from hexengine.hooks.ui import UIHooks
 from hexengine.hooks.arcs import ArcsHooks
 from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer
+from hexengine.arcs import ArcSpec
+from hexengine.authoring.patterns.combat import (
+    OWNER_RETREATING,
+    CombatArcGateKinds,
+    build_combat_cleanup_arc,
+)
 from hexengine.authoring.patterns.schedule import build_turn_registry, interleaved_slots
 from hexengine.server import (
     ActionRequest,
@@ -41,9 +47,19 @@ def _hex_wire(h: Hex) -> dict[str, int]:
     return {"i": h.i, "j": h.j, "k": h.k}
 
 
+_TEST_SEGMENT_KINDS = frozenset(
+    {
+        "move",
+        "attack",
+        "awaiting_retreat",
+        "awaiting_retreat_or_disrupt",
+        "awaiting_advance",
+    }
+)
+
 _TEST_TITLE_DOCK_UI = UIHooks(
     turn_action_dock_for_viewer=empty_turn_action_dock_for_viewer,
-    segment_presentation_registry=lambda: frozenset({"move", "attack"}),
+    segment_presentation_registry=lambda: _TEST_SEGMENT_KINDS,
 )
 
 _TEST_TURN_ARC_REGISTRY = build_turn_registry(
@@ -61,7 +77,101 @@ _TEST_TURN_ARC_REGISTRY = build_turn_registry(
     ),
 )
 
-_TEST_ARCS = ArcsHooks(turn_arc_registry=lambda: _TEST_TURN_ARC_REGISTRY)
+def _retreat_obligations(state: GameState) -> dict[str, int]:
+    ek = state.title_bucket_key
+    if not ek:
+        return {}
+    ro = title_bucket(state, ek).get("retreat_obligations")
+    if not isinstance(ro, dict):
+        return {}
+    out: dict[str, int] = {}
+    for uid, raw in ro.items():
+        try:
+            n = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if n > 0:
+            out[str(uid)] = n
+    return out
+
+
+def _retreating_faction(state: GameState) -> str | None:
+    for uid in _retreat_obligations(state):
+        unit = state.board.units.get(uid)
+        if unit is not None and unit.active:
+            return str(unit.faction)
+    return None
+
+
+def _resolve_network_test_owner(key: str, state: GameState) -> str | None:
+    if key == OWNER_RETREATING:
+        return _retreating_faction(state)
+    return None
+
+
+class _NetworkTestCombatEffects:
+    def has_pending_retreat(self, ctx):
+        return bool(_retreat_obligations(ctx.state))
+
+    def disrupt_offered(self, _ctx):
+        return False
+
+    def advance_available(self, _ctx):
+        return False
+
+    def is_retreat_fulfillment(self, ctx):
+        uid = ctx.params.get("unit_id")
+        if not isinstance(uid, str):
+            return False
+        return uid in _retreat_obligations(ctx.state)
+
+    def is_combat_advance_move(self, _ctx):
+        return False
+
+    def apply_retreat_step(self, ctx):
+        from hexengine.state.actions import ClearUnitRetreatObligation, MoveUnit
+
+        uid = ctx.params.get("unit_id")
+        if not isinstance(uid, str) or not ctx.extension_key:
+            return []
+        fh, th = ctx.params.get("from_hex"), ctx.params.get("to_hex")
+        if not isinstance(fh, dict) or not isinstance(th, dict):
+            return []
+        from_hex = Hex(int(fh["i"]), int(fh["j"]), int(fh["k"]))
+        to_hex = Hex(int(th["i"]), int(th["j"]), int(th["k"]))
+        actions: list = [MoveUnit(uid, from_hex=from_hex, to_hex=to_hex)]
+        actions.append(ClearUnitRetreatObligation(uid, ctx.extension_key))
+        return actions
+
+    def disrupt_instead(self, _ctx):
+        return []
+
+    def open_advance(self, _ctx):
+        return []
+
+    def resolve_advance(self, _ctx):
+        return []
+
+    def clear_advance_gate(self, _ctx):
+        return []
+
+
+_TEST_COMBAT_ARC_SPEC = ArcSpec(
+    arc=build_combat_cleanup_arc(
+        _NetworkTestCombatEffects(),
+        CombatArcGateKinds(
+            awaiting_retreat="awaiting_retreat",
+            awaiting_retreat_or_disrupt="awaiting_retreat_or_disrupt",
+            awaiting_advance="awaiting_advance",
+        ),
+    ),
+    owner_resolver=_resolve_network_test_owner,
+)
+
+_TEST_ARCS = ArcsHooks(
+    combat_arc=lambda: _TEST_COMBAT_ARC_SPEC,
+    turn_arc_registry=lambda: _TEST_TURN_ARC_REGISTRY,
+)
 
 
 def _test_game_definition() -> InterleavedTwoFactionGameDefinition:
@@ -730,6 +840,9 @@ class TestGameServer(unittest.TestCase):
                     )
 
             server = GameServer(state, game_definition=_GD())
+            from hexengine.server.arcs import begin_combat_arc
+
+            begin_combat_arc(server)
             errors: list[str] = []
 
             def capture(_pid: str, m: Message) -> None:

@@ -131,6 +131,17 @@ def validate_title_contract(game_definition: Any) -> None:
                 ),
                 details={"requires_segment_presentation_registry": True},
             )
+        from ...arcs import ArcSpec
+
+        combat_raw = bundle.arcs.combat_arc_spec()
+        if not isinstance(combat_raw, ArcSpec):
+            raise HookContractError(
+                message=(
+                    "title_state_extension_key requires ArcHook.COMBAT_ARC "
+                    "returning an ArcSpec."
+                ),
+                details={"requires_combat_arc": True},
+            )
     if _schedule_expects_attack_hooks(game_definition):
         a = bundle.attack
         if a.validate_attack is None or a.resolve_attack is None:

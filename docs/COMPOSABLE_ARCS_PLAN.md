@@ -355,9 +355,11 @@ additionally keep writing the `combat_gate` mirror until Phase 5.
 - **2d (cleanup) — [done].** `ClearUnitRetreatObligation` is gate-agnostic (only pops the
   obligation entry). Post-Phase-B/C: neither pack nor engine writes or clears
   `combat_gate`; phase advance drops the legacy key via `PHASE_SCOPED_COMBAT_KEYS`.
-  Removed engine gate-string prechecks from
-  `handle_combat_disrupt_instead_of_retreat` and `handle_combat_advance_rpc` (runner +
-  title effects own legality; legacy handlers remain for titles without a declared arc).
+  Legacy `handle_combat_*` RPC handlers and `finalize_retreat_fulfillment_stack` are
+  removed. When a title binds `ArcHook.COMBAT_ARC`, `try_combat_arc_rpc` /
+  `try_combat_arc_move_unit` are authoritative (errors on stale cursor or rejected
+  segment). Titles with `title_state_extension_key` must declare `COMBAT_ARC`; otherwise
+  combat cleanup RPCs receive `COMBAT_ARC_REQUIRED_MSG`.
   Routed advance-fulfillment `MoveUnit` through `drive_combat_arc_event`. Tests:
   `tests/test_combat_arc_runner_2d.py`.
 
@@ -383,7 +385,7 @@ additionally keep writing the `combat_gate` mirror until Phase 5.
 4. **Stacking-limit stays a server pre-guard (for now).** The stacked-retreat
    stacking-limit check (`validate_retreat_fulfillment_stack` → specific `ValueError`)
    must reject before any mutation and carries descriptive messaging + the
-   `_rollback_retreat_fulfillment_attempt` path, so 2c keeps it as a server pre-guard run
+   server pre-guard run before `submit_event`, so 2c keeps it as a server pre-guard run
    before `submit_event`. The runner owns segment/owner/`allowed_actions` legality; the
    stacked moves + per-unit obligation clears are the transition effect. (Candidate to
    fold into the effect later as an atomic raise-before-return, once messaging parity is
