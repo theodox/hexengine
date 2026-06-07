@@ -283,7 +283,9 @@ def _panel_actions(
             "id": "attack_plan_cancel",
             "action_type": "AttackPlanCancel",
             "label": _shell_label(shell_ui, "attack_cancel_label", "Cancel"),
-            "title": _shell_label(shell_ui, "attack_cancel_label", "Cancel attack plan"),
+            "title": _shell_label(
+                shell_ui, "attack_cancel_label", "Cancel attack plan"
+            ),
             "payload": {},
             "css_class": "hexengine-primary-action--cancel",
             "enabled": True,
@@ -360,16 +362,12 @@ def compute_attack_plan_preview(
     eligible = _eligible_attacker_ids(state, target, player_faction=player_faction)
     selected = [uid for uid in attacker_ids if uid in eligible]
     commit = (
-        build_attack_commit_payload(
-            state, target_hex=target, attacker_ids=selected
-        )
+        build_attack_commit_payload(state, target_hex=target, attacker_ids=selected)
         if selected
         else None
     )
     err = (
-        _try_validate_commit(
-            state, player_faction, commit, attack_hooks=attack_hooks
-        )
+        _try_validate_commit(state, player_faction, commit, attack_hooks=attack_hooks)
         if commit
         else "Select at least one attacker"
     )

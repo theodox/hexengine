@@ -41,8 +41,8 @@ def test_validate_title_contract_runs_arc_validation() -> None:
 
 
 def test_validate_title_contract_fails_on_broken_combat_arc() -> None:
-    from hexengine.arcs import Arc, ArcSpec, NO_OWNER, Segment
-    from hexengine.arcs.spec import Goto, Transition, Event
+    from hexengine.arcs import NO_OWNER, Arc, Segment
+    from hexengine.arcs.spec import Event, Goto, Transition
 
     bad_arc = Arc(
         id="bad",

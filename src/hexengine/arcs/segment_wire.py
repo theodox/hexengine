@@ -51,7 +51,10 @@ def default_segment_presentation_patch(
     )
     patch: dict[str, str] = {"presentation_id": presentation_id}
     locus = segment.get("action_locus")
-    if isinstance(locus, Mapping) and str(locus.get("Attack", "")).strip() == "client_draft":
+    if (
+        isinstance(locus, Mapping)
+        and str(locus.get("Attack", "")).strip() == "client_draft"
+    ):
         patch["interaction_mode"] = "attack_plan"
     kind = str(segment.get("kind", "")).strip()
     if kind in KIND_DOCK_ARC_RETREAT:
@@ -276,7 +279,9 @@ def action_rows_from_segment(
                     "schema": 1,
                     "id": "combat_disrupt_instead",
                     "action_type": at,
-                    "label": _label("disrupt_instead_label", "Disrupt instead of retreat"),
+                    "label": _label(
+                        "disrupt_instead_label", "Disrupt instead of retreat"
+                    ),
                     "title": _label(
                         "disrupt_instead_title",
                         "Take disruption on your retreating stack and waive "

@@ -6,6 +6,9 @@ import asyncio
 from dataclasses import replace
 from types import SimpleNamespace
 
+from games.hexdemo import combat_arc
+from games.hexdemo.hooks import build_hooks
+
 from hexengine.arcs import read_arc_cursor
 from hexengine.hexes.types import Hex
 from hexengine.hooks.title import TitleHooks
@@ -18,9 +21,6 @@ from hexengine.server.arcs import (
 )
 from hexengine.state import ActionManager, GameState
 from hexengine.state.game_state import UnitState
-
-from games.hexdemo import combat_arc, combat_transitions
-from games.hexdemo.hooks import build_hooks
 
 HOOKS = build_hooks()
 

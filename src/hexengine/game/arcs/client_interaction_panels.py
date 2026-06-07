@@ -14,7 +14,10 @@ from typing import Any
 
 from ...document import create_proxy, element, js
 from ...ui.dom import apply_css_classes
-from .client_panel_actions import dispatch_panel_action_route, resolve_panel_action_route
+from .client_panel_actions import (
+    dispatch_panel_action_route,
+    resolve_panel_action_route,
+)
 
 TURN_ACTIONS_PANEL_ID = "turn_actions"
 USER_CONTROLS_HOST_ID = "user-controls"
@@ -370,7 +373,9 @@ class ClientInteractionPanelsMixin:
             return
         raw = spec.get("actions")
         server_rows = (
-            [dict(a) for a in raw if isinstance(a, dict)] if isinstance(raw, list) else []
+            [dict(a) for a in raw if isinstance(a, dict)]
+            if isinstance(raw, list)
+            else []
         )
         merged = self._merged_turn_action_dock_actions(server_rows)
         self._sync_panel_actions(actions_host, TURN_ACTIONS_PANEL_ID, merged)
@@ -378,8 +383,14 @@ class ClientInteractionPanelsMixin:
     def _sync_interaction_panels(self) -> None:
         """Render ``StateUpdate.interaction_panels`` on the user controls host."""
         client = getattr(self, "client", None)
-        raw = getattr(client, "interaction_panels", None) if client is not None else None
-        panels = [dict(p) for p in raw if isinstance(p, dict)] if isinstance(raw, list) else []
+        raw = (
+            getattr(client, "interaction_panels", None) if client is not None else None
+        )
+        panels = (
+            [dict(p) for p in raw if isinstance(p, dict)]
+            if isinstance(raw, list)
+            else []
+        )
         advance_panels = [
             p
             for p in panels
@@ -428,7 +439,9 @@ class ClientInteractionPanelsMixin:
         self._interaction_panel_input_elements.pop(panel_id, None)
         self._interaction_panel_wire_specs.pop(panel_id, None)
 
-    def _render_interaction_panel(self, host, panel_id: str, spec: dict[str, Any]) -> None:
+    def _render_interaction_panel(
+        self, host, panel_id: str, spec: dict[str, Any]
+    ) -> None:
         root = self._interaction_panel_roots.get(panel_id)
         if root is None:
             root = js.document.createElement("div")
@@ -494,7 +507,9 @@ class ClientInteractionPanelsMixin:
 
         actions = spec.get("actions")
         action_rows = (
-            [dict(a) for a in actions if isinstance(a, dict)] if isinstance(actions, list) else []
+            [dict(a) for a in actions if isinstance(a, dict)]
+            if isinstance(actions, list)
+            else []
         )
         if panel_id == TURN_ACTIONS_PANEL_ID:
             action_rows = self._merged_turn_action_dock_actions(action_rows)
@@ -504,7 +519,11 @@ class ClientInteractionPanelsMixin:
             self._sync_turn_action_dock_sequence_skin()
 
         inputs = spec.get("inputs")
-        input_rows = [dict(i) for i in inputs if isinstance(i, dict)] if isinstance(inputs, list) else []
+        input_rows = (
+            [dict(i) for i in inputs if isinstance(i, dict)]
+            if isinstance(inputs, list)
+            else []
+        )
         self._sync_panel_inputs(inputs_host, panel_id, input_rows)
 
     def _sync_panel_actions(
@@ -549,14 +568,12 @@ class ClientInteractionPanelsMixin:
             btn.style.display = "" if enabled or label else "none"
             spec_copy = dict(spec)
             btn.onclick = create_proxy(
-                lambda _evt=None, _spec=spec_copy, _pid=panel_id: self._handle_panel_action_click(
-                    _spec, _pid
-                )
+                lambda _evt=None,
+                _spec=spec_copy,
+                _pid=panel_id: self._handle_panel_action_click(_spec, _pid)
             )
 
-    def _handle_panel_action_click(
-        self, spec: dict[str, Any], panel_id: str
-    ) -> None:
+    def _handle_panel_action_click(self, spec: dict[str, Any], panel_id: str) -> None:
         route = resolve_panel_action_route(spec)
         if route is not None and dispatch_panel_action_route(self, spec, route):
             return
@@ -614,7 +631,10 @@ class ClientInteractionPanelsMixin:
 
             kind = str(spec.get("kind", "text")).strip().lower()
             control = getattr(block, "_hexengine_control", None)
-            if control is None or str(getattr(control, "dataset", {}).get("kind", "")) != kind:
+            if (
+                control is None
+                or str(getattr(control, "dataset", {}).get("kind", "")) != kind
+            ):
                 if control is not None:
                     try:
                         control.remove()
@@ -650,11 +670,15 @@ class ClientInteractionPanelsMixin:
 
     def _collect_panel_input_payload(self, panel_id: str) -> dict[str, Any]:
         out: dict[str, Any] = {}
-        for iid, block in self._interaction_panel_input_elements.get(panel_id, {}).items():
+        for iid, block in self._interaction_panel_input_elements.get(
+            panel_id, {}
+        ).items():
             control = getattr(block, "_hexengine_control", None)
             if control is None:
                 continue
-            name = str(getattr(block, "dataset", {}).get("inputName", iid)).strip() or iid
+            name = (
+                str(getattr(block, "dataset", {}).get("inputName", iid)).strip() or iid
+            )
             kind = str(getattr(control, "dataset", {}).get("kind", "text"))
             if kind == "checkbox":
                 out[name] = bool(control.checked)

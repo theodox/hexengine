@@ -17,7 +17,6 @@ from hexengine.arcs import (
 from hexengine.state import GameState
 from hexengine.state.action_manager import ActionManager
 
-
 # ---- Pure cursor transitions ----------------------------------------------
 
 

@@ -11,8 +11,8 @@ if GAMES not in sys.path:
     sys.path.insert(0, GAMES)
 
 from hexengine.arcs import ArcCursor, with_arc_cursor
-from hexengine.hexes.types import Hex
 from hexengine.gamedef.interactions import InteractionKind
+from hexengine.hexes.types import Hex
 from hexengine.server.game_server import GameServer
 from hexengine.server.map_selection import compute_map_selection_preview
 
@@ -26,7 +26,9 @@ def _hexdemo_server() -> GameServer:
     from hexengine.scenarios import load_scenario
     from hexengine.scenarios.loader import scenario_to_initial_state
 
-    scenario_path = REPO_ROOT / "games" / "hexdemo" / "scenarios" / "default" / "scenario.toml"
+    scenario_path = (
+        REPO_ROOT / "games" / "hexdemo" / "scenarios" / "default" / "scenario.toml"
+    )
     scenario_data = load_scenario(scenario_path)
     gd = HexdemoGameDefinition(game_definition_from_config(default_match_config()))
     first = {"faction": "union", "phase": "Combat", "max_actions": 4}

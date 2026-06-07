@@ -11,13 +11,13 @@ from games.hexdemo.game_config import default_match_config, game_definition_from
 from hexengine.gamedef.builtin import default_game_definition
 from hexengine.hexes.math import neighbors
 from hexengine.hexes.types import Hex
+from hexengine.hooks.attack import AfterAttackAppliedContext
 from hexengine.server.game_server import GameServer
 from hexengine.server.protocol import ActionRequest, CombatEventWire, PlayerInfo
 from hexengine.state import GameState
-from hexengine.state.title_extension import title_bucket
 from hexengine.state.actions import Attack, NextPhase
-from hexengine.hooks.attack import AfterAttackAppliedContext
 from hexengine.state.game_state import BoardState, TurnState, UnitState
+from hexengine.state.title_extension import title_bucket
 
 
 def _hexdemo_outcome_follow_up_actions(ctx: AfterAttackAppliedContext) -> list:
@@ -58,7 +58,9 @@ def _hexdemo_combat_state() -> GameState:
         turn_number=1,
         schedule_index=1,
     )
-    return GameState(board=board, turn=turn, title_state={}, title_bucket_key="hexdemo", rng_log=())
+    return GameState(
+        board=board, turn=turn, title_state={}, title_bucket_key="hexdemo", rng_log=()
+    )
 
 
 def _hexdemo_two_union_vs_one_def() -> GameState:
@@ -101,7 +103,9 @@ def _hexdemo_two_union_vs_one_def() -> GameState:
         turn_number=1,
         schedule_index=1,
     )
-    return GameState(board=board, turn=turn, title_state={}, title_bucket_key="hexdemo", rng_log=())
+    return GameState(
+        board=board, turn=turn, title_state={}, title_bucket_key="hexdemo", rng_log=()
+    )
 
 
 def _hexdemo_artillery_ranged_vs_infantry() -> GameState:
@@ -148,7 +152,9 @@ def _hexdemo_artillery_ranged_vs_infantry() -> GameState:
         turn_number=1,
         schedule_index=1,
     )
-    return GameState(board=board, turn=turn, title_state={}, title_bucket_key="hexdemo", rng_log=())
+    return GameState(
+        board=board, turn=turn, title_state={}, title_bucket_key="hexdemo", rng_log=()
+    )
 
 
 def test_pack_extension_retreat_reads_custom_key() -> None:
@@ -164,7 +170,6 @@ def test_pack_extension_retreat_reads_custom_key() -> None:
 def test_hexdemo_retreat_reads_extension() -> None:
     """Mandatory retreat steps live in extension; engine helper has no UI imports."""
     from hexengine.state.pack_extension_retreat import retreat_hexes_remaining
-
     from hexengine.state.title_extension import title_bucket
 
     st = _hexdemo_combat_state()
@@ -227,7 +232,9 @@ def test_hexdemo_stacking_limit_rejects_move() -> None:
         phase_actions_remaining=2,
         schedule_index=0,
     )
-    st = GameState(board=board, turn=turn, title_state={}, title_bucket_key="hexdemo", rng_log=())
+    st = GameState(
+        board=board, turn=turn, title_state={}, title_bucket_key="hexdemo", rng_log=()
+    )
     gd = game_definition_from_config(default_match_config())
     server = GameServer(initial_state=st, game_definition=gd)
 
@@ -279,7 +286,8 @@ def test_hexdemo_move_can_pass_through_friendly_stack() -> None:
         turn=TurnState(
             current_faction="union", current_phase="Move", phase_actions_remaining=2
         ),
-        title_state={}, title_bucket_key="hexdemo",
+        title_state={},
+        title_bucket_key="hexdemo",
         rng_log=(),
     )
     moves = compute_valid_moves(st, "m", 2.0, max_active_units_per_hex=3)
@@ -391,9 +399,9 @@ def test_retreat_stack_rejected_before_partial_move() -> None:
         )
         await server.handle_message("p1", req.to_message())
         errors = [p.get("error") for p in out if isinstance(p, dict)]
-        assert any(
-            isinstance(e, str) and "stacking" in e.lower() for e in errors
-        ), f"Expected stacking rejection, got: {errors!r}"
+        assert any(isinstance(e, str) and "stacking" in e.lower() for e in errors), (
+            f"Expected stacking rejection, got: {errors!r}"
+        )
         after = server.action_manager.current_state
         assert after.board.units["u1"].position == h0
         assert after.board.units["u2"].position == h0
@@ -404,7 +412,6 @@ def test_retreat_stack_rejected_before_partial_move() -> None:
 def test_server_suggested_focus_unit_id_for_player(hexdemo_server: GameServer) -> None:
     """`GameServer` fills `StateUpdate.suggested_focus_unit_id` from the title hook."""
     from hexengine.server.protocol import PlayerInfo
-
     from hexengine.state.title_extension import title_bucket
 
     st = hexdemo_server.action_manager.current_state
@@ -595,7 +602,7 @@ def test_attack_updates_extension_and_rng() -> None:
         rng_entry={"op": "adjacent_attack", "outcome": "none"},
     ).apply(st)
 
-    from hexengine.hooks.attack import AttackResolution, AttackContext
+    from hexengine.hooks.attack import AttackContext, AttackResolution
 
     att_hex = st.board.units["u_att"].position
     follow_ctx = AfterAttackAppliedContext(
@@ -608,7 +615,11 @@ def test_attack_updates_extension_and_rng() -> None:
             defender_hexes=(def_hex,),
             player_faction="union",
             attack_kind="combined",
-            params={"attacker_id": "u_att", "defender_id": "u_def", "attack_kind": "combined"},
+            params={
+                "attacker_id": "u_att",
+                "defender_id": "u_def",
+                "attack_kind": "combined",
+            },
         ),
         resolution=AttackResolution(outcome="none"),
         extension_key="hexdemo",
@@ -695,7 +706,9 @@ def test_combat_event_fanout_retreat_vs_wait(hexdemo_server: GameServer) -> None
     assert len(panels_c) == 1
     assert panels_c[0]["id"] == "turn_actions"
     panel_action_ids = {
-        row.get("id") for row in (panels_c[0].get("actions") or []) if isinstance(row, dict)
+        row.get("id")
+        for row in (panels_c[0].get("actions") or [])
+        if isinstance(row, dict)
     }
     assert "combat_disrupt_instead" in panel_action_ids
 
@@ -860,7 +873,9 @@ def test_advance_opens_when_wire_primary_is_ranged_but_adjacent_infantry_in_part
         },
         "retreat_obligations": {},
     }
-    st = GameState(board=board, turn=turn, title_state=hx, title_bucket_key="hexdemo", rng_log=())
+    st = GameState(
+        board=board, turn=turn, title_state=hx, title_bucket_key="hexdemo", rng_log=()
+    )
     gd = game_definition_from_config(default_match_config())
     server = GameServer(initial_state=st, game_definition=gd)
 
@@ -1124,8 +1139,11 @@ def test_retreat_move_no_spend_action(hexdemo_server: GameServer) -> None:
 
 def test_clear_hexdemo_combat_on_next_phase(hexdemo_server: GameServer) -> None:
     server = hexdemo_server
-    from games.hexdemo import combat_transitions
-    from hexengine.hooks.attack import AfterAttackAppliedContext, AttackResolution, AttackContext
+    from hexengine.hooks.attack import (
+        AfterAttackAppliedContext,
+        AttackContext,
+        AttackResolution,
+    )
 
     before = server.action_manager.current_state
     att_hex = before.board.units["u_att"].position
@@ -1151,7 +1169,11 @@ def test_clear_hexdemo_combat_on_next_phase(hexdemo_server: GameServer) -> None:
             defender_hexes=(def_hex,),
             player_faction="union",
             attack_kind="adjacent",
-            params={"attacker_id": "u_att", "defender_id": "u_def", "attack_kind": "adjacent"},
+            params={
+                "attacker_id": "u_att",
+                "defender_id": "u_def",
+                "attack_kind": "adjacent",
+            },
         ),
         resolution=AttackResolution(outcome="none"),
         extension_key="hexdemo",
@@ -1161,9 +1183,7 @@ def test_clear_hexdemo_combat_on_next_phase(hexdemo_server: GameServer) -> None:
         server.action_manager.execute(a)
     from hexengine.state.title_extension import title_bucket as tb
 
-    assert tb(server.action_manager.current_state, "hexdemo").get(
-        "attacks_this_phase"
-    )
+    assert tb(server.action_manager.current_state, "hexdemo").get("attacks_this_phase")
     info = server._get_next_phase()
     server.action_manager.execute(
         NextPhase(
@@ -1287,10 +1307,10 @@ def test_two_union_units_require_two_attacks_before_advance() -> None:
 
 
 def test_advance_opens_after_defender_destroyed_outcome() -> None:
+    from games.hexdemo import combat_actions, combat_arc
+
     from hexengine.arcs import read_arc_cursor
     from hexengine.server.arcs import begin_combat_arc
-
-    from games.hexdemo import combat_actions, combat_arc
 
     h_att, h_def = Hex(0, 0, 0), Hex(1, -1, 0)
     board = BoardState(
@@ -1349,9 +1369,9 @@ def test_advance_opens_after_defender_destroyed_outcome() -> None:
 def test_advance_opens_when_defender_eliminated_via_step_loss() -> None:
     """LOSS removes the defender but leaves ``last_combat.outcome`` as ``none``."""
 
-    from hexengine.state.actions import DeleteUnit
-
     from games.hexdemo import combat_actions
+
+    from hexengine.state.actions import DeleteUnit
 
     h_att, h_def = Hex(0, 0, 0), Hex(1, -1, 0)
     board = BoardState(

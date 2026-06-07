@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from hexengine.hooks.inform_popup import InformPopupContext
 from hexengine.hooks.ui import (
+    ENGINE_DEFAULT,
     AdvanceGateInteractionContext,
     CombatEventSummary,
     CombatInteractionContext,
     CombatInteractionMessagesContext,
-    ENGINE_DEFAULT,
     PhaseBannerContext,
     UIHook,
 )
@@ -26,6 +26,8 @@ from ..constants import PACK_STATE_EXTENSION_KEY
 from ..presentation.inform import inform_popup_for_profile
 from ..presentation.interaction_messages import (
     advance_gate_banners_for_viewer as advance_gate_banner_copy,
+)
+from ..presentation.interaction_messages import (
     combat_instruction_for_viewer as combat_instruction_copy,
 )
 from ..ui_markup import (
@@ -89,7 +91,9 @@ def combat_instruction_for_viewer(ctx: CombatInteractionContext) -> tuple[str, s
 
 
 @bind_title_hook(UIHook.ADVANCE_GATE_BANNERS_FOR_VIEWER)
-def advance_gate_banners_for_viewer(ctx: AdvanceGateInteractionContext) -> tuple[str, str]:
+def advance_gate_banners_for_viewer(
+    ctx: AdvanceGateInteractionContext,
+) -> tuple[str, str]:
     return advance_gate_banner_copy(ctx, shell_ui=ctx.shell_ui)
 
 
@@ -137,7 +141,7 @@ def combat_interaction_messages(
         )
         return advance_gate_banner_copy(actx, shell_ui=su)
 
-    ek = str(ctx.extension_key or PACK_STATE_EXTENSION_KEY).strip()
+    str(ctx.extension_key or PACK_STATE_EXTENSION_KEY).strip()
     return default_combat_interaction_messages(
         ctx,
         combat_instruction=combat_instruction,

@@ -20,12 +20,12 @@ from hexengine.state.game_state import (
     UnitState,
 )
 from hexengine.state.logic import is_valid_move, shortest_move_path
-from hexengine.state.title_extension import engine_bucket
 from hexengine.state.movement_arc import (
     HEXENGINE_MOVEMENT_ARC_KEY,
     MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
     MOVEMENT_INTERRUPT_PHASE,
 )
+from hexengine.state.title_extension import engine_bucket
 
 
 def _loc(h: Hex) -> LocationState:

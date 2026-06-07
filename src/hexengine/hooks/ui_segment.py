@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..state import GameState
-from .core import ENGINE_DEFAULT
 
 SEGMENT_PRESENTATION_KEYS = frozenset(
     {"presentation_id", "interaction_mode", "primitive", "inform_profile"}

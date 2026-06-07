@@ -11,7 +11,6 @@ import random
 from dataclasses import dataclass
 from enum import Enum, auto
 from types import SimpleNamespace
-from typing import Any
 
 from hexengine.arcs import ArcContext
 from hexengine.hexes.los import has_line_of_sight
@@ -31,12 +30,13 @@ from hexengine.server.arcs.authority_attack_commit import (
     collect_authority_attack_actions,
     resolve_authority_attack,
 )
-from hexengine.state import GameState, UnitState
+from hexengine.state import UnitState
 from hexengine.state.action_manager import StateAction
 from hexengine.state.map_feature_queries import edges_block_los_predicate
 from hexengine.state.title_extension import title_bucket
 
 from . import combat, combat_actions, combat_outcome, title_state
+
 # When the board has no explicit or unset-default terrain for a hex, CRT math still
 # needs a stable type (matches legacy tests and minimal `BoardState` fixtures).
 _DEFAULT_TERRAIN_TYPE = "plain"
@@ -228,7 +228,9 @@ class CombatResult:
     failed: CrtCombatOutcome | None
 
 
-AX = CombatResult(side="a", passed=CrtCombatOutcome.LOSS, failed=CrtCombatOutcome.DISRUPT)
+AX = CombatResult(
+    side="a", passed=CrtCombatOutcome.LOSS, failed=CrtCombatOutcome.DISRUPT
+)
 AR = CombatResult(side="a", passed=CrtCombatOutcome.RETREAT, failed=None)
 AC_NE = CombatResult(
     side="a", passed=CrtCombatOutcome.NO_EFFECT, failed=CrtCombatOutcome.RETREAT
@@ -239,7 +241,9 @@ AC_EX = CombatResult(
 AM_R = CombatResult(
     side="a", passed=CrtCombatOutcome.RETREAT, failed=CrtCombatOutcome.ROUT
 )
-DX = CombatResult(side="d", passed=CrtCombatOutcome.LOSS, failed=CrtCombatOutcome.DISRUPT)
+DX = CombatResult(
+    side="d", passed=CrtCombatOutcome.LOSS, failed=CrtCombatOutcome.DISRUPT
+)
 DR = CombatResult(side="d", passed=CrtCombatOutcome.RETREAT, failed=None)
 DC_NE = CombatResult(
     side="d", passed=CrtCombatOutcome.NO_EFFECT, failed=CrtCombatOutcome.RETREAT
@@ -247,14 +251,18 @@ DC_NE = CombatResult(
 DC_DR = CombatResult(
     side="d", passed=CrtCombatOutcome.RETREAT, failed=CrtCombatOutcome.DISRUPT
 )
-DC_DX = CombatResult(side="d", passed=CrtCombatOutcome.LOSS, failed=CrtCombatOutcome.ROUT)
+DC_DX = CombatResult(
+    side="d", passed=CrtCombatOutcome.LOSS, failed=CrtCombatOutcome.ROUT
+)
 DC_EX = CombatResult(
     side="d", passed=CrtCombatOutcome.EXCHANGE, failed=CrtCombatOutcome.RETREAT
 )
 DM_R = CombatResult(
     side="d", passed=CrtCombatOutcome.RETREAT, failed=CrtCombatOutcome.ROUT
 )
-DM_X = CombatResult(side="d", passed=CrtCombatOutcome.LOSS, failed=CrtCombatOutcome.ROUT)
+DM_X = CombatResult(
+    side="d", passed=CrtCombatOutcome.LOSS, failed=CrtCombatOutcome.ROUT
+)
 
 
 def check_morale(unit: UnitState) -> bool:
@@ -515,7 +523,7 @@ def combat_outcome_after_applied(
     return combat_outcome.build_combat_outcome_after_applied(ctx)
 
 
-def _attack_commit_host(rules: "HexdemoCombatRules"):
+def _attack_commit_host(rules: HexdemoCombatRules):
     return SimpleNamespace(
         hooks=TitleHooks(
             attack=AttackHooks(
@@ -555,7 +563,9 @@ class HexdemoCombatRules:
         if not ctx.extension_key:
             return False
         return bool(
-            combat_actions.maybe_open_advance_after_retreat(ctx.state, ctx.extension_key)
+            combat_actions.maybe_open_advance_after_retreat(
+                ctx.state, ctx.extension_key
+            )
         )
 
     def is_retreat_fulfillment(self, ctx: ArcContext) -> bool:
@@ -614,7 +624,9 @@ class HexdemoCombatRules:
             ctx.state, player_faction, dict(ctx.params)
         )
         resolution, outcome_from_resolve = resolve_authority_attack(host, attack_ctx)
-        extension_key = str(ctx.extension_key or ctx.state.title_bucket_key or "").strip()
+        extension_key = str(
+            ctx.extension_key or ctx.state.title_bucket_key or ""
+        ).strip()
         if not extension_key:
             raise ValueError(
                 "This game title does not define a state extension key for combat"

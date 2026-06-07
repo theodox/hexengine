@@ -17,8 +17,7 @@ def turn_action_dock_to_wire(raw: object) -> list[dict[str, Any]]:
 
     if not isinstance(raw, list):
         raise TypeError(
-            "turn_action_dock_for_viewer must return list, "
-            f"got {type(raw).__name__}"
+            f"turn_action_dock_for_viewer must return list, got {type(raw).__name__}"
         )
     out: list[dict[str, Any]] = []
     for item in raw:

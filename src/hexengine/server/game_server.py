@@ -20,6 +20,8 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
+from ..arcs import ArcSpec
+from ..arcs.registry import TurnArcRegistry
 from ..game_log import GameLogger, game_logger_scope
 from ..game_packs.resources import (
     infer_pack_id_from_root,
@@ -35,13 +37,11 @@ from ..gamedef.unit_attributes import (
 from ..hexes.math import distance
 from ..hexes.types import Hex, HexColRow
 from ..hooks.core import ENGINE_DEFAULT
-from ..arcs import ArcSpec
-from ..arcs.registry import TurnArcRegistry
+from ..hooks.inform_popup import InformPopupContext, default_inform_popup_for_viewer
 from ..hooks.internal import get_engine_catalog_hook, validate_title_contract
 from ..hooks.map_selection_registry import bound_map_selection_kinds
 from ..hooks.movement import MoveContext
 from ..hooks.title import TitleHooks, read_title_hooks_from_definition
-from ..hooks.inform_popup import InformPopupContext, default_inform_popup_for_viewer
 from ..hooks.ui import (
     AdvanceGateInteractionContext,
     CombatEventSummary,
@@ -67,7 +67,6 @@ from ..state.actions import (
 )
 from ..state.logic import (
     DEFAULT_MOVEMENT_BUDGET,
-    compute_valid_moves,
     is_valid_move,
 )
 from ..state.marker_placement import (
@@ -79,8 +78,6 @@ from ..state.phase_rules import (
     phase_allows_unit_move,
 )
 from ..state.snapshot import game_state_from_wire_dict, game_state_to_wire_dict
-from .map_selection import compute_map_selection_preview
-from .preview import compute_marker_drag_preview, compute_unit_drag_preview
 from .arcs import (
     COMBAT_ARC_REQUIRED_MSG,
     begin_routine_slot,
@@ -96,11 +93,13 @@ from .arcs import (
     restore_routine_cursor,
     schedule_next_phase_info,
     sync_movement_cursor_from_payload,
-    turn_arc_registry_from_hooks,
     try_combat_arc_move_unit,
     try_combat_arc_rpc,
+    turn_arc_registry_from_hooks,
     validate_retreat_fulfillment_stack,
 )
+from .map_selection import compute_map_selection_preview
+from .preview import compute_marker_drag_preview, compute_unit_drag_preview
 from .protocol import (
     ActionRequest,
     ActionResult,
@@ -224,9 +223,7 @@ class GameServer:
         self._server_package_version = hexes_package_version()
         self._game_definition = game_definition
         self._pack_id = (pack_id or "").strip() or None
-        self._pack_root = (
-            Path(pack_root).resolve() if pack_root is not None else None
-        )
+        self._pack_root = Path(pack_root).resolve() if pack_root is not None else None
         self._pack_context_ready = False
         self.hooks = self._bind_title_hooks()
         self.game_data = self._game_definition.game_data
@@ -255,7 +252,9 @@ class GameServer:
             self.turn_order = self._game_definition.turn_order()
         self.logger.info(f"Turn order: {self.turn_order}")
 
-        self.begin_routine_slot(int(self.action_manager.current_state.turn.schedule_index))
+        self.begin_routine_slot(
+            int(self.action_manager.current_state.turn.schedule_index)
+        )
 
     def turn_arc_registry(self) -> TurnArcRegistry | None:
         return turn_arc_registry_from_hooks(self.hooks)
@@ -273,7 +272,9 @@ class GameServer:
         st = state if state is not None else self.action_manager.current_state
         return resolve_active_segment_owner(self, st) or str(st.turn.current_faction)
 
-    def _actor_may_act(self, player_faction: str, state: GameState | None = None) -> bool:
+    def _actor_may_act(
+        self, player_faction: str, state: GameState | None = None
+    ) -> bool:
         return str(player_faction) == self._segment_owner_faction(state)
 
     def movement_arc_spec(self) -> ArcSpec | None:
@@ -285,7 +286,9 @@ class GameServer:
         if override is not ENGINE_DEFAULT:
             return None
         if self._movement_arc_spec_cache is None:
-            from ..hooks.internal.authoring_bridge import build_default_movement_arc_spec
+            from ..hooks.internal.authoring_bridge import (
+                build_default_movement_arc_spec,
+            )
 
             self._movement_arc_spec_cache = build_default_movement_arc_spec(self)
         return self._movement_arc_spec_cache
@@ -617,7 +620,9 @@ class GameServer:
                     out_shell[k] = v.strip()
             if len(out_shell) > 1:
                 out["shell_ui"] = out_shell
-        kind_styles = dict(gd.interaction_kind_styles) if gd.interaction_kind_styles else None
+        kind_styles = (
+            dict(gd.interaction_kind_styles) if gd.interaction_kind_styles else None
+        )
         if kind_styles:
             out["interaction_kind_styles"] = {
                 str(k).strip(): str(v).strip()
@@ -685,7 +690,7 @@ class GameServer:
         if isinstance(raw, list) and raw:
             out: list[Hex] = []
             for item in raw:
-                if isinstance(item, (list, tuple)) and len(item) == 3:
+                if isinstance(item, list | tuple) and len(item) == 3:
                     try:
                         out.append(Hex(int(item[0]), int(item[1]), int(item[2])))
                     except Exception:
@@ -1113,7 +1118,8 @@ class GameServer:
         if combat_raw is ENGINE_DEFAULT:
             combat_rows = default_combat_interaction_messages(
                 msg_ctx,
-                combat_instruction=lambda outcome, ro: self._combat_instruction_for_viewer(
+                combat_instruction=lambda outcome,
+                ro: self._combat_instruction_for_viewer(
                     st,
                     viewer_faction,
                     outcome=outcome,
@@ -1149,9 +1155,7 @@ class GameServer:
 
         return project_current_segment(self, state, viewer_faction=viewer_faction)
 
-    def _current_segment_for_player_id(
-        self, player_id: str
-    ) -> dict[str, Any] | None:
+    def _current_segment_for_player_id(self, player_id: str) -> dict[str, Any] | None:
         player = self.players.get(player_id)
         if player is None or not player.connected:
             return None
@@ -1355,7 +1359,6 @@ class GameServer:
             return
 
         current_state = self.action_manager.current_state
-        current_faction = current_state.turn.current_faction
 
         # Treat MoveUnit to the vacated defender hex as an optional combat advance.
         is_advance_fulfillment = False
@@ -1378,9 +1381,7 @@ class GameServer:
             return
 
         if request.action_type == "CombatAdvance":
-            outcome = await try_combat_arc_rpc(
-                self, player_id, player, "CombatAdvance"
-            )
+            outcome = await try_combat_arc_rpc(self, player_id, player, "CombatAdvance")
             if await finish_combat_arc_dispatch(self, player_id, outcome):
                 return
             await self._send_error(player_id, COMBAT_ARC_REQUIRED_MSG)
@@ -1815,9 +1816,7 @@ class GameServer:
             from ..hooks.internal.ui_wire import inform_popup_to_wire
 
             pm = inform_popup_to_wire(pm)
-            await self._send_ui_popup_to_player(
-                player_id, anchor_hex=anchor_hex, pm=pm
-            )
+            await self._send_ui_popup_to_player(player_id, anchor_hex=anchor_hex, pm=pm)
             return
 
         pm = self.hooks.ui.popup(state, viewer_faction, target_kind, target_id)
@@ -1836,9 +1835,7 @@ class GameServer:
 
         if not isinstance(pm, dict):
             return
-        await self._send_ui_popup_to_player(
-            player_id, anchor_hex=anchor_hex, pm=pm
-        )
+        await self._send_ui_popup_to_player(player_id, anchor_hex=anchor_hex, pm=pm)
 
     async def _handle_marker_preview_request(
         self, player_id: str, message: Message
@@ -2532,7 +2529,9 @@ class GameServer:
                         player_id
                     ),
                     map_overlays=self._map_overlays_for_player_id(player_id),
-                    interaction_panels=self._interaction_panels_for_player_id(player_id),
+                    interaction_panels=self._interaction_panels_for_player_id(
+                        player_id
+                    ),
                     current_segment=self._current_segment_for_player_id(player_id),
                 )
                 await self._send_message(player_id, update.to_message())

@@ -9,7 +9,6 @@ from hexengine.arcs import (
     NO_OWNER,
     Arc,
     OwnerRef,
-    RunResult,
     begin_arc,
     read_arc_cursor,
     submit_event,
@@ -89,7 +88,9 @@ def test_full_combat_walk() -> None:
     begin_arc(a, mgr, resolver=_retreating_is_blue)
 
     # Red attacks -> suspend into the defender's retreat gate.
-    r1 = submit_event(a, mgr, action_type="Attack", actor="Red", resolver=_retreating_is_blue)
+    r1 = submit_event(
+        a, mgr, action_type="Attack", actor="Red", resolver=_retreating_is_blue
+    )
     assert r1.ok
     cur = read_arc_cursor(mgr.current_state)
     assert (cur.segment_id, cur.is_suspended) == ("retreat_gate", True)
@@ -120,7 +121,9 @@ def test_wrong_owner_rejected() -> None:
     a = _combat_arc()
     mgr = _manager()
     begin_arc(a, mgr, resolver=_retreating_is_blue)
-    res = submit_event(a, mgr, action_type="Attack", actor="Blue", resolver=_retreating_is_blue)
+    res = submit_event(
+        a, mgr, action_type="Attack", actor="Blue", resolver=_retreating_is_blue
+    )
     assert res.ok is False
     assert "not segment owner" in res.reason
     # No state change: still at entry.
@@ -131,7 +134,9 @@ def test_disallowed_action_rejected() -> None:
     a = _combat_arc()
     mgr = _manager()
     begin_arc(a, mgr, resolver=_retreating_is_blue)
-    res = submit_event(a, mgr, action_type="Nope", actor="Red", resolver=_retreating_is_blue)
+    res = submit_event(
+        a, mgr, action_type="Nope", actor="Red", resolver=_retreating_is_blue
+    )
     assert res.ok is False
     assert "not allowed" in res.reason
 
@@ -140,7 +145,9 @@ def test_owner_resolution_for_owner_ref() -> None:
     a = _combat_arc()
     mgr = _manager()
     begin_arc(a, mgr, resolver=_retreating_is_blue)
-    submit_event(a, mgr, action_type="Attack", actor="Red", resolver=_retreating_is_blue)
+    submit_event(
+        a, mgr, action_type="Attack", actor="Red", resolver=_retreating_is_blue
+    )
     # Now at retreat_gate owned by Blue (resolved from OwnerRef("retreating")).
     red_try = submit_event(
         a, mgr, action_type="RetreatUnit", actor="Red", resolver=_retreating_is_blue
@@ -151,7 +158,9 @@ def test_owner_resolution_for_owner_ref() -> None:
 def test_no_active_arc_rejected() -> None:
     a = _combat_arc()
     mgr = _manager()
-    res = submit_event(a, mgr, action_type="Attack", actor="Red", resolver=_retreating_is_blue)
+    res = submit_event(
+        a, mgr, action_type="Attack", actor="Red", resolver=_retreating_is_blue
+    )
     assert res.ok is False and res.reason == "no active arc"
 
 
@@ -220,7 +229,9 @@ def test_event_is_undoable() -> None:
     mgr = _manager()
     begin_arc(a, mgr, resolver=_retreating_is_blue)
     before = mgr.current_state
-    submit_event(a, mgr, action_type="Attack", actor="Red", resolver=_retreating_is_blue)
+    submit_event(
+        a, mgr, action_type="Attack", actor="Red", resolver=_retreating_is_blue
+    )
     assert title_bucket(mgr.current_state, EK).get("attacked") is True
 
     # Attack produced two actions: the effect patch and the cursor move. Undo both.

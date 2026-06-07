@@ -60,9 +60,10 @@ def test_turn_action_dock_to_wire_accepts_dto_and_dict() -> None:
 def test_inform_popup_to_wire_accepts_dto_and_dict() -> None:
     dto = inform_popup(text="hello", ttl_ms=750)
     assert inform_popup_to_wire(dto)["ttl_ms"] == 750
-    assert inform_popup_to_wire({"text": "x", "kind": "info", "ttl_ms": 100})[
-        "ttl_ms"
-    ] == 100
+    assert (
+        inform_popup_to_wire({"text": "x", "kind": "info", "ttl_ms": 100})["ttl_ms"]
+        == 100
+    )
 
 
 def test_hexdemo_turn_action_dock_returns_dtos() -> None:
@@ -71,6 +72,7 @@ def test_hexdemo_turn_action_dock_returns_dtos() -> None:
         sys.path.insert(0, GAMES)
 
     from games.hexdemo.hooks.turn_action_dock import turn_action_dock_for_viewer
+
     from hexengine.hooks.ui import TurnActionDockContext
     from hexengine.state import GameState
 

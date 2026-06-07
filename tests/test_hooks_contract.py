@@ -127,13 +127,13 @@ def test_validate_title_contract_requires_turn_action_dock_when_extension_key() 
 
 
 def test_validate_title_contract_requires_combat_arc_with_extension_key() -> None:
-    from hexengine.gamedef.game_data import GameData
-    from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer
     from hexengine.authoring.patterns.schedule import (
         build_turn_registry,
         interleaved_slots,
     )
+    from hexengine.gamedef.game_data import GameData
     from hexengine.hooks.arcs import ArcsHooks
+    from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer
 
     turn_registry = build_turn_registry(
         interleaved_slots(
@@ -166,16 +166,21 @@ def test_validate_title_contract_requires_combat_arc_with_extension_key() -> Non
 
 def test_validate_title_contract_checks_combat_rules_binding_methods() -> None:
     from hexengine.arcs import ArcSpec
-    from hexengine.hooks.arcs import ArcsHooks
-    from hexengine.authoring.patterns.schedule import build_turn_registry, interleaved_slots
+    from hexengine.authoring.patterns.schedule import (
+        build_turn_registry,
+        interleaved_slots,
+    )
     from hexengine.gamedef.game_data import GameData
+    from hexengine.hooks.arcs import ArcsHooks
     from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer
 
     slots = interleaved_slots(
         ("blue", "red"),
         (("Combat", 1, "combat"),),
     )
-    reg = build_turn_registry(slots, allowed_actions_for_phase=lambda _p: frozenset({"Attack"}))
+    reg = build_turn_registry(
+        slots, allowed_actions_for_phase=lambda _p: frozenset({"Attack"})
+    )
 
     class IncompleteBinding:
         def validate_attack(self, _ctx):
@@ -209,7 +214,9 @@ def test_validate_title_contract_checks_combat_rules_binding_methods() -> None:
         validate_title_contract(PackWithIncompleteBinding())
 
 
-def test_validate_title_contract_requires_turn_arc_registry_with_extension_key() -> None:
+def test_validate_title_contract_requires_turn_arc_registry_with_extension_key() -> (
+    None
+):
     from hexengine.gamedef.game_data import GameData
     from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer
 

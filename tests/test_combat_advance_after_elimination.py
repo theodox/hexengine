@@ -5,14 +5,15 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import patch
 
+from games.hexdemo.hooks import attack as attack_hooks
+from tests.test_combat_hexdemo import _hexdemo_combat_state
+
+pytest_plugins = ("tests.test_combat_hexdemo",)
+
 from hexengine.arcs import ArcCursor, with_arc_cursor
 from hexengine.server.game_server import GameServer
 from hexengine.server.protocol import ActionRequest, JoinGameRequest, PlayerInfo
 from hexengine.state.title_extension import title_bucket
-
-from games.hexdemo import combat_transitions
-from games.hexdemo.hooks import attack as attack_hooks
-from tests.test_combat_hexdemo import _hexdemo_combat_state, hexdemo_server
 
 
 def test_auto_advance_blocked_while_awaiting_advance_gate() -> None:
@@ -23,9 +24,7 @@ def test_auto_advance_blocked_while_awaiting_advance_gate() -> None:
         },
         title_bucket_key="hexdemo",
     )
-    st = with_arc_cursor(
-        st, ArcCursor(arc_id="combat", segment_id="advance_gate")
-    )
+    st = with_arc_cursor(st, ArcCursor(arc_id="combat", segment_id="advance_gate"))
     assert attack_hooks.auto_advance_phase_after_attack(st) is False
 
 

@@ -230,14 +230,10 @@ def panel_actions_from_dicts(rows: list[dict[str, Any]]) -> tuple[PanelAction, .
                 label=str(raw.get("label", "")),
                 enabled=bool(raw.get("enabled", True)),
                 title=(
-                    str(raw["title"]).strip()
-                    if raw.get("title") is not None
-                    else None
+                    str(raw["title"]).strip() if raw.get("title") is not None else None
                 ),
                 payload=(
-                    dict(raw["payload"])
-                    if isinstance(raw.get("payload"), dict)
-                    else {}
+                    dict(raw["payload"]) if isinstance(raw.get("payload"), dict) else {}
                 ),
                 css_class=(
                     str(raw["css_class"]).strip()
@@ -247,11 +243,7 @@ def panel_actions_from_dicts(rows: list[dict[str, Any]]) -> tuple[PanelAction, .
                 group=(
                     str(raw["group"]).strip() if raw.get("group") is not None else None
                 ),
-                order=(
-                    int(raw["order"])
-                    if raw.get("order") is not None
-                    else None
-                ),
+                order=(int(raw["order"]) if raw.get("order") is not None else None),
                 schema=int(raw.get("schema", 1)),
             )
         )

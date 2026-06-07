@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from hexengine.arcs import ArcCursor, SetArcCursor, read_arc_cursor
+from games.hexdemo import combat_arc
+from games.hexdemo.hooks import build_hooks
+
+from hexengine.arcs import ArcCursor, SetArcCursor
 from hexengine.arcs.segment_wire import (
     action_rows_from_segment,
     project_current_segment,
-    segment_allows_action,
     segment_blocks_routine_phase_advance,
 )
 from hexengine.hexes.types import Hex
@@ -14,9 +16,6 @@ from hexengine.hooks.ui import TurnActionDockContext
 from hexengine.server import GameServer
 from hexengine.state import ActionManager, GameState
 from hexengine.state.game_state import BoardState, TurnState, UnitState
-
-from games.hexdemo import combat_arc, combat_transitions
-from games.hexdemo.hooks import build_hooks
 
 
 def _state_on_combat_segment(
@@ -48,9 +47,7 @@ def _state_on_combat_segment(
         bucket["advance"] = advance
     st = st.with_title_state(bucket, title_bucket_key="hexdemo")
     am = ActionManager(st)
-    am.execute(
-        SetArcCursor(ArcCursor(arc_id="combat", segment_id=gate_segment))
-    )
+    am.execute(SetArcCursor(ArcCursor(arc_id="combat", segment_id=gate_segment)))
     return am.current_state
 
 
@@ -64,16 +61,12 @@ class _ProjectHost:
 
 
 def test_project_routine_combat_segment() -> None:
-    from hexengine.server.arcs import begin_routine_slot
-
     gd = __import__(
         "games.hexdemo.game_config",
         fromlist=["game_definition_from_config", "default_match_config"],
     )
     gd_fn = gd.game_definition_from_config(gd.default_match_config())
-    st = GameState.create_empty().with_turn(
-        TurnState("union", "Combat", 2, 1, 1, 0)
-    )
+    st = GameState.create_empty().with_turn(TurnState("union", "Combat", 2, 1, 1, 0))
     server = GameServer(st, game_definition=gd_fn)
     seg = project_current_segment(server, server.game_state, viewer_faction="union")
     assert seg is not None
@@ -116,7 +109,9 @@ def test_advance_gate_blocks_next_phase() -> None:
         advance={"faction": "union"},
     )
     host = _ProjectHost()
-    assert segment_blocks_routine_phase_advance(host, st, viewer_faction="union") is True
+    assert (
+        segment_blocks_routine_phase_advance(host, st, viewer_faction="union") is True
+    )
 
 
 def test_action_rows_from_advance_segment() -> None:

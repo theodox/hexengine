@@ -13,8 +13,8 @@ if GAMES not in sys.path:
 from hexengine.hexes.types import Hex
 from hexengine.hooks.inform_popup import InformPopupContext
 from hexengine.server.game_server import GameServer
-from hexengine.state import GameState
 from hexengine.server.protocol import InspectRequest
+from hexengine.state import GameState
 
 
 def _hexdemo_server() -> GameServer:
@@ -23,10 +23,13 @@ def _hexdemo_server() -> GameServer:
         default_match_config,
         game_definition_from_config,
     )
+
     from hexengine.scenarios import load_scenario
     from hexengine.scenarios.loader import scenario_to_initial_state
 
-    scenario_path = REPO_ROOT / "games" / "hexdemo" / "scenarios" / "default" / "scenario.toml"
+    scenario_path = (
+        REPO_ROOT / "games" / "hexdemo" / "scenarios" / "default" / "scenario.toml"
+    )
     scenario_data = load_scenario(scenario_path)
     gd = HexdemoGameDefinition(game_definition_from_config(default_match_config()))
     first = {"faction": "union", "phase": "Combat", "max_actions": 4}
@@ -118,11 +121,10 @@ def _hexdemo_combat_segment_server() -> GameServer:
         default_match_config,
         game_definition_from_config,
     )
+
     from hexengine.state.game_state import TurnState
 
-    st = GameState.create_empty().with_turn(
-        TurnState("union", "Combat", 4, 1, 1, 0)
-    )
+    st = GameState.create_empty().with_turn(TurnState("union", "Combat", 4, 1, 1, 0))
     return GameServer(
         initial_state=st,
         game_definition=game_definition_from_config(default_match_config()),

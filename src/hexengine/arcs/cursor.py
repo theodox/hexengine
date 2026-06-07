@@ -71,9 +71,7 @@ class ArcCursor:
         """
 
         if self.suspended is not None:
-            raise ValueError(
-                "arc cursor already has a suspended frame (depth-1 only)"
-            )
+            raise ValueError("arc cursor already has a suspended frame (depth-1 only)")
         return replace(
             self,
             segment_id=str(segment_id),

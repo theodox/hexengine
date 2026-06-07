@@ -131,7 +131,9 @@ def _first_passing(
 
     for t in transitions:
         if action_type is not None:
-            if not (isinstance(t.trigger, Event) and t.trigger.action_type == action_type):
+            if not (
+                isinstance(t.trigger, Event) and t.trigger.action_type == action_type
+            ):
                 continue
         if t.guard is None or t.guard(ctx):
             return t
@@ -186,9 +188,7 @@ def _auto_advance(
                 f"automatic segment {arc.id}.{segment.id} has no firable transition "
                 f"(all guards failed)"
             )
-        _apply_transition(
-            sink, cursor, transition, owner_faction=None, params={}
-        )
+        _apply_transition(sink, cursor, transition, owner_faction=None, params={})
     raise RuntimeError(
         f"arc {arc.id!r} exceeded {_MAX_AUTO_STEPS} automatic steps (declared loop?)"
     )
@@ -241,9 +241,7 @@ def submit_event(
 
     owner_faction = resolve_owner(segment.owner, state, resolver)
     if owner_faction is None:
-        return RunResult(
-            False, state, f"segment {segment.id} has no resolved owner"
-        )
+        return RunResult(False, state, f"segment {segment.id} has no resolved owner")
     if actor != owner_faction:
         return RunResult(
             False,
@@ -304,9 +302,7 @@ def event_allowed(
 
     owner_faction = resolve_owner(segment.owner, state, resolver)
     if owner_faction is None:
-        return RunResult(
-            False, state, f"segment {segment.id} has no resolved owner"
-        )
+        return RunResult(False, state, f"segment {segment.id} has no resolved owner")
     if actor != owner_faction:
         return RunResult(
             False,

@@ -10,7 +10,7 @@ from ...gamedef.interactions import InteractionKind
 from ...hexes.types import Hex
 
 if TYPE_CHECKING:
-    from ..game import Game
+    pass
 
 
 class ClientPlaceMarkerMixin:

@@ -10,13 +10,12 @@ GAMES = str(REPO_ROOT / "games")
 if GAMES not in sys.path:
     sys.path.insert(0, GAMES)
 
-from hexengine.hooks.ui import AdvanceGateInteractionContext, CombatInteractionContext
-from hexengine.state import GameState
-
 from hexdemo.presentation.interaction_messages import (
     advance_gate_banners_for_viewer,
     combat_instruction_for_viewer,
 )
+from hexengine.hooks.ui import AdvanceGateInteractionContext, CombatInteractionContext
+from hexengine.state import GameState
 
 
 def test_combat_instruction_retreat_owner_gets_required() -> None:

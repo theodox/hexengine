@@ -26,12 +26,12 @@ from enum import StrEnum
 from typing import Any
 
 from ..state import GameState
-from .core import ENGINE_DEFAULT, RuleViolation
-from .ui_interaction_panels import InteractionPanelsContext
 from ..ui.display import InformPopup, TurnDockPanel
+from .core import ENGINE_DEFAULT, RuleViolation
 from .inform_popup import InformPopupContext
-from .ui_segment import SegmentPresentationContext
 from .ui_combat_messages import CombatInteractionMessagesContext
+from .ui_interaction_panels import InteractionPanelsContext
+from .ui_segment import SegmentPresentationContext
 from .ui_turn_action_dock import TurnActionDockContext
 
 

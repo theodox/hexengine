@@ -6,15 +6,15 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any
 
+from hexengine.arcs import ArcCursor, SetArcCursor
 from hexengine.hexes.types import Hex
 from hexengine.hooks.attack import (
+    AfterAttackAppliedContext,
     AttackContext,
     AttackHooks,
     AttackResolution,
-    AfterAttackAppliedContext,
 )
 from hexengine.hooks.title import TitleHooks
-from hexengine.arcs import ArcCursor, SetArcCursor
 from hexengine.server.arcs.authority_attack import (
     ATTACK_BLOCKED_BY_ACTIVE_SEGMENT_MSG,
     AUTHORITY_ATTACK_PIPELINE,
@@ -24,9 +24,9 @@ from hexengine.server.arcs.authority_attack import (
     normalize_attack_party_ids,
 )
 from hexengine.state import GameState
-from hexengine.state.title_extension import title_bucket
 from hexengine.state.action_manager import ActionManager
 from hexengine.state.game_state import BoardState, TurnState, UnitState
+from hexengine.state.title_extension import title_bucket
 
 EXPECTED_ORDER = (
     AuthorityAttackPipelineStep.NORMALIZE_WIRE_AND_PARTIES,
@@ -120,7 +120,9 @@ def _two_unit_combat_state() -> GameState:
         turn_number=1,
         phase_actions_remaining=1,
     )
-    return GameState(board=board, turn=turn, title_state={}, title_bucket_key="testpack")
+    return GameState(
+        board=board, turn=turn, title_state={}, title_bucket_key="testpack"
+    )
 
 
 def test_combat_outcome_after_applied_follow_ups_run_before_broadcast() -> None:
@@ -216,9 +218,7 @@ def test_attack_rejected_on_retreat_gate_before_title_validate() -> None:
     )
     mgr = ActionManager(st)
     mgr.execute(
-        SetArcCursor(
-            ArcCursor(arc_id="combat", segment_id=combat_arc.SEG_RETREAT_GATE)
-        )
+        SetArcCursor(ArcCursor(arc_id="combat", segment_id=combat_arc.SEG_RETREAT_GATE))
     )
     st_gate = mgr.current_state
 

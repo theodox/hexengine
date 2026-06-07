@@ -6,6 +6,9 @@ import asyncio
 from dataclasses import replace
 from types import SimpleNamespace
 
+from games.hexdemo import combat_actions, combat_arc
+from games.hexdemo.hooks import build_hooks
+
 from hexengine.arcs import ArcCursor, SetArcCursor, read_arc_cursor
 from hexengine.hexes.types import Hex
 from hexengine.server.arcs import drive_combat_arc_event
@@ -13,9 +16,6 @@ from hexengine.state import ActionManager, GameState
 from hexengine.state.actions import ClearUnitRetreatObligation
 from hexengine.state.game_state import UnitState
 from hexengine.state.title_extension import title_bucket
-
-from games.hexdemo import combat_actions, combat_arc, combat_transitions
-from games.hexdemo.hooks import build_hooks
 
 
 def test_clear_unit_retreat_obligation_does_not_touch_segment_state() -> None:
@@ -92,9 +92,7 @@ def test_advance_moveunit_through_runner() -> None:
     )
     host = _Host(st)
     host.action_manager.execute(
-        SetArcCursor(
-            ArcCursor(arc_id="combat", segment_id=combat_arc.SEG_ADVANCE_GATE)
-        )
+        SetArcCursor(ArcCursor(arc_id="combat", segment_id=combat_arc.SEG_ADVANCE_GATE))
     )
     cur = read_arc_cursor(host.action_manager.current_state)
     assert cur is not None

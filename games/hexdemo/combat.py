@@ -12,8 +12,8 @@ from hexengine.state.pack_extension_retreat import (
     retreat_hexes_remaining as _pack_steps,
 )
 
-from .constants import PACK_STATE_EXTENSION_KEY
 from . import title_state
+from .constants import PACK_STATE_EXTENSION_KEY
 
 
 def retreat_hexes_remaining(state: GameState, unit_id: str) -> int | None:

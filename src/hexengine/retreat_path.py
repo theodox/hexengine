@@ -166,9 +166,7 @@ def compute_retreat_path_highlight_sets(
     through: set[Hex] = set()
     end: set[Hex] = set()
     for h in reachable.keys():
-        if any(
-            x.faction != player_faction for x in state.board.active_units_at_hex(h)
-        ):
+        if any(x.faction != player_faction for x in state.board.active_units_at_hex(h)):
             continue
         if (
             max_active_units_per_hex is not None

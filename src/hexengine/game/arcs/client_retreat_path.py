@@ -15,7 +15,7 @@ from ...hexes.types import Hex
 from ...state import GameState
 
 if TYPE_CHECKING:
-    from ..game import Game
+    pass
 
 
 class ClientRetreatPathMixin:
@@ -61,10 +61,14 @@ class ClientRetreatPathMixin:
                 pass
         return self._retreat_path_svg_group
 
-    def _retreat_path_polyline_hexes(self, payload: dict[str, Any] | None = None) -> list[Hex]:
+    def _retreat_path_polyline_hexes(
+        self, payload: dict[str, Any] | None = None
+    ) -> list[Hex]:
         """Prefer the local draft; fall back to server ``preview_path_hexes``."""
         local = [
-            h for h in (getattr(self, "retreat_path_hexes", None) or []) if isinstance(h, Hex)
+            h
+            for h in (getattr(self, "retreat_path_hexes", None) or [])
+            if isinstance(h, Hex)
         ]
         wire: list[Hex] = []
         if isinstance(payload, dict):
@@ -198,7 +202,9 @@ class ClientRetreatPathMixin:
     def _sync_retreat_obligation_unit_highlights(self, state: GameState) -> None:
         """Secondary-select every unit on this viewer's faction that owes a retreat."""
         client = getattr(self, "client", None)
-        ro = getattr(client, "retreat_obligations", None) if client is not None else None
+        ro = (
+            getattr(client, "retreat_obligations", None) if client is not None else None
+        )
         if not isinstance(ro, dict) or not ro:
             return
         fac = str(getattr(client, "faction", "") or "").strip()
@@ -290,9 +296,7 @@ class ClientRetreatPathMixin:
             for row in raw_through:
                 if isinstance(row, dict):
                     try:
-                        through.add(
-                            Hex(int(row["i"]), int(row["j"]), int(row["k"]))
-                        )
+                        through.add(Hex(int(row["i"]), int(row["j"]), int(row["k"])))
                     except (KeyError, TypeError, ValueError):
                         pass
         path_hexes = self._retreat_path_polyline_hexes(payload)

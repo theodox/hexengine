@@ -12,11 +12,11 @@ engine movement bridge; authors do not implement the payload or arc runner direc
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Protocol
 
 from ..hexes.types import Hex
 from ..state import GameState
-from .movement import MoveContext, MovementStepContext, RetreatPathPreviewContext
+from .movement import MoveContext
 
 
 class MovementRulesBinding(Protocol):

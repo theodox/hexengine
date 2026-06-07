@@ -27,7 +27,6 @@ def _wire_message(
     *,
     omit_if_none: frozenset[str] | None = None,
 ) -> Any:
-
     def decorator(cls: type[_WirePayloadT]) -> type[_WirePayloadT]:
         if message_type in _WIRE_MESSAGE_REGISTRY:
             raise ValueError(

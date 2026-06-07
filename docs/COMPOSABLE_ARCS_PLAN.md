@@ -201,7 +201,7 @@ Split of responsibilities:
 - **Default authoring surface = a context-manager builder** (`with arc(...) as a: with a.segment(...) as s: ...`) that is a thin, side-effect-free **emitter** of that data. Chosen for readability of nested/interrupt-heavy arcs, programmatic/looped construction, discoverability, localized build-time errors, and a clean seam for imported patterns (`pattern.apply(a)`).
 - **Guardrail:** the canonical data type stays **public and directly usable** — authors may handcraft or machine-generate the data (tests, generated tables), and the built spec can be serialized for snapshot tests / docs / review diffs. The builder must never be the *only* way to express an arc.
 - **Sugar discipline:** apply the typed-friendly sugars (derive `allowed_actions` from transitions; `branch(...)` for automatic ownerless forks; `interrupt(...)` / `resume`). **No operator-overloading or decorator magic on the canonical path** (they fight pyright on `games/*`). Operator-overloading "prettiness" may be added **later as a strictly optional** layer that emits the same data — never required.
-- **Effects attach** to transitions as references to existing `StateAction`-returning functions (e.g. `combat_transitions.follow_up_after_attack`, `combat_actions.*`); guards are pure `GameState` predicates.
+- **Effects attach** to transitions as references to existing `StateAction`-returning functions (e.g. `combat_rules.BINDING` effect methods delegating to `combat_actions.*`); guards are pure predicates over `ArcContext` / `GameState`.
 
 ## Open questions (resolve before/within early phases)
 
@@ -288,11 +288,10 @@ express the loop (it would pop on the first hop), and `advance_gate` is attacker
 (`CURRENT`) like the routine state, so there is nothing meaningful to "resume" to. The
 earlier `attack → retreat_gate interrupt → advance_gate` sketch is superseded for combat.
 
-Effects reuse the existing title functions verbatim (they already return
-`list[StateAction]`): `combat_transitions.follow_up_after_attack`,
-`combat_actions.disrupt_instead_of_retreat`, `combat_actions.resolve_combat_advance`,
-`combat_actions.maybe_open_advance_after_retreat`, `ClearUnitRetreatObligation`. They
-additionally keep writing the `combat_gate` mirror until Phase 5.
+Effects reuse title functions (return `list[StateAction]`): `combat_rules.BINDING`
+methods delegating to `combat_actions.*`; post-attack bucket handoff is
+`combat_outcome.build_combat_outcome_after_applied` → `CombatOutcome` inside the arc
+`attack` effect. **`combat_gate` mirror is retired**; segment `kind` on the arc cursor is authoritative.
 
 #### New engine/title surfaces needed
 
@@ -307,8 +306,10 @@ additionally keep writing the `combat_gate` mirror until Phase 5.
   that must reject before any mutation (the stacked-retreat stacking-limit check in
   `validate_retreat_fulfillment_stack`) stays as a server pre-guard or becomes a
   transition `guard`; the actual moves/clears become the transition effect.
-- **`begin_arc`** is invoked from the `Attack` pipeline (`execute_authority_attack_request`,
-  right where `follow_up_after_attack` runs) when the outcome yields obligations.
+- **Attack RPC (Phase D, done):** `execute_authority_attack_request` sets `SEG_ATTACK` and
+  `submit_event("Attack")`; the effect applies `CombatOutcome` and `classify` auto-advances.
+  `restore_routine_cursor` runs when the overlay completes. `begin_combat_arc` is cleanup-only
+  (tests / bucket already set).
 
 #### Sub-steps (each keeps pytest green)
 

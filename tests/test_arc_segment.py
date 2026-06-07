@@ -12,13 +12,13 @@ for p in (GAMES, SRC):
     if p not in sys.path:
         sys.path.insert(0, p)
 
+from games.hexdemo import arc_segment, combat_arc
+
 from hexengine.arcs import ArcCursor, SetArcCursor
 from hexengine.hexes.types import Hex
 from hexengine.state import GameState
 from hexengine.state.action_manager import ActionManager
 from hexengine.state.game_state import BoardState, TurnState, UnitState
-
-from games.hexdemo import arc_segment, combat_arc
 
 
 def _retreat_gate_state() -> GameState:
@@ -53,9 +53,7 @@ def _retreat_gate_state() -> GameState:
     )
     am = ActionManager(st)
     am.execute(
-        SetArcCursor(
-            ArcCursor(arc_id="combat", segment_id=combat_arc.SEG_RETREAT_GATE)
-        )
+        SetArcCursor(ArcCursor(arc_id="combat", segment_id=combat_arc.SEG_RETREAT_GATE))
     )
     return am.current_state
 

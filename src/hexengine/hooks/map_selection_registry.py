@@ -12,17 +12,25 @@ from typing import Any
 
 from ..gamedef.interactions import InteractionKind
 from .attack import AttackPlanPreviewContext
-from .movement import RetreatPathPreviewContext
-from .ui import PlaceMarkerPreviewContext
 from .core import ENGINE_DEFAULT
+from .movement import RetreatPathPreviewContext
 from .title import TitleHooks
+from .ui import PlaceMarkerPreviewContext
 
 MapSelectionPreviewFn = Callable[..., dict[str, Any] | object]
 BoundCheckFn = Callable[[TitleHooks], bool]
 
-_ATTACK_PLAN_BOUND: BoundCheckFn = lambda h: h.attack.attack_plan_preview is not None
-_RETREAT_PATH_BOUND: BoundCheckFn = lambda h: h.movement.retreat_path_preview is not None
-_PLACE_MARKER_BOUND: BoundCheckFn = lambda h: h.ui.place_marker_preview is not None
+
+def _ATTACK_PLAN_BOUND(h):
+    return h.attack.attack_plan_preview is not None
+
+
+def _RETREAT_PATH_BOUND(h):
+    return h.movement.retreat_path_preview is not None
+
+
+def _PLACE_MARKER_BOUND(h):
+    return h.ui.place_marker_preview is not None
 
 
 def _attack_plan_preview(

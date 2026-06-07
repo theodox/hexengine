@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from .combat import (
     COMBAT_ARC_ID,
-    CombatArcEffectsBinding,
-    CombatArcGateKinds,
     OWNER_RETREATING,
     SEG_ADVANCE_GATE,
     SEG_CLASSIFY,
     SEG_RESOLVE,
     SEG_RETREAT_GATE,
     SEG_RETREAT_OR_DISRUPT_GATE,
+    CombatArcEffectsBinding,
+    CombatArcGateKinds,
     build_combat_cleanup_arc,
     build_mandatory_retreat_then_optional_advance_arc,
 )

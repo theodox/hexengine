@@ -4,21 +4,17 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-import pytest
+from games.hexdemo import combat_transitions
+from games.hexdemo.arc_segment import phase_advance_blocked
 
 from hexengine.arcs import ArcCursor, with_arc_cursor
 from hexengine.arcs.segment_wire import dock_arc_from_segment
 from hexengine.state import GameState
 
-from games.hexdemo import combat_transitions
-from games.hexdemo.arc_segment import phase_advance_blocked
-
 
 def test_phase_advance_blocked_on_combat_retreat_segment() -> None:
     st = GameState.create_empty().with_title_bucket_key("hexdemo")
-    st = with_arc_cursor(
-        st, ArcCursor(arc_id="combat", segment_id="retreat_gate")
-    )
+    st = with_arc_cursor(st, ArcCursor(arc_id="combat", segment_id="retreat_gate"))
     assert phase_advance_blocked(st) is True
 
 
@@ -52,9 +48,7 @@ def test_attack_planning_blocked_on_advance_segment() -> None:
             phase_actions_remaining=1,
         )
     ).with_title_bucket_key("hexdemo")
-    st = with_arc_cursor(
-        st, ArcCursor(arc_id="combat", segment_id="advance_gate")
-    )
+    st = with_arc_cursor(st, ArcCursor(arc_id="combat", segment_id="advance_gate"))
     reason = combat_transitions.attack_planning_blocked_reason(st, "union")
     assert reason is not None
     assert "advance" in reason.lower()

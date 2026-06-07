@@ -13,17 +13,17 @@ import asyncio
 from dataclasses import replace
 from types import SimpleNamespace
 
+from games.hexdemo import combat_arc, combat_transitions
+from games.hexdemo.hooks import build_hooks
+
 from hexengine.arcs import ArcCursor, SetArcCursor, read_arc_cursor
+from hexengine.arcs.segment_wire import action_rows_from_segment
 from hexengine.hexes.types import Hex
 from hexengine.hooks.title import TitleHooks
-from hexengine.arcs.segment_wire import action_rows_from_segment
 from hexengine.server.arcs import begin_combat_arc, drive_combat_arc_event
 from hexengine.state import ActionManager, GameState
 from hexengine.state.game_state import UnitState
 from hexengine.state.title_extension import title_bucket
-
-from games.hexdemo import combat_arc, combat_transitions
-from games.hexdemo.hooks import build_hooks
 
 HOOKS = build_hooks()
 
@@ -109,7 +109,9 @@ def test_begin_with_no_gate_finishes_immediately() -> None:
 
 def test_begin_is_noop_without_declared_arc() -> None:
     host = _Host(
-        _state(combat_transitions.GATE_AWAITING_RETREAT_OR_DISRUPT, obligations={"u1": 1}),
+        _state(
+            combat_transitions.GATE_AWAITING_RETREAT_OR_DISRUPT, obligations={"u1": 1}
+        ),
         hooks=TitleHooks(),
     )
     begin_combat_arc(host)
@@ -217,11 +219,15 @@ def test_decline_advance_by_non_current_faction_rejected() -> None:
 
 
 def test_drive_rejects_without_active_cursor() -> None:
-    host = _Host(_state(combat_transitions.GATE_AWAITING_ADVANCE, advance={"faction": "union"}))
+    host = _Host(
+        _state(combat_transitions.GATE_AWAITING_ADVANCE, advance={"faction": "union"})
+    )
     handled = asyncio.run(
         drive_combat_arc_event(host, "p1", _player("union"), "CombatDeclineAdvance")
     )
-    assert handled is False  # no cursor set -> dispatch rejects (see test_combat_arc_dispatch)
+    assert (
+        handled is False
+    )  # no cursor set -> dispatch rejects (see test_combat_arc_dispatch)
 
 
 def test_drive_not_declared_without_combat_arc() -> None:

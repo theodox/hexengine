@@ -7,14 +7,14 @@ Kinds are routed through a small handler table; attack plan is the v1 reference.
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
-from ...document import element, js
 from ...gamedef.interactions import InteractionKind
 from .client_map_selection_registry import map_selection_preview_handlers
 
 if TYPE_CHECKING:
-    from ..game import Game
+    pass
 
 PreviewHandler = Callable[[dict[str, Any]], None]
 
@@ -35,9 +35,7 @@ class ClientMapSelectionMixin:
             in self._client_title_data().client_contract_features
         )
 
-    def _request_map_selection_preview(
-        self, kind: str, draft: dict[str, Any]
-    ) -> None:
+    def _request_map_selection_preview(self, kind: str, draft: dict[str, Any]) -> None:
         if not self._client_has_map_selection_previews():
             return
         client = getattr(self, "client", None)

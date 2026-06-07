@@ -89,7 +89,9 @@ def _dock_arc_for_viewer(
     return "routine"
 
 
-def empty_turn_action_dock_for_viewer(_ctx: TurnActionDockContext) -> list[dict[str, Any]]:
+def empty_turn_action_dock_for_viewer(
+    _ctx: TurnActionDockContext,
+) -> list[dict[str, Any]]:
     """Minimal dock hook for tests or titles with no commit buttons on ``#user-controls``."""
 
     return []

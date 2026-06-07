@@ -32,7 +32,6 @@ def _ensure_games_on_path() -> None:
 def test_title_load_headless_callables_do_not_crash() -> None:
     _ensure_games_on_path()
     from hexdemo.hooks import title_load as boot
-
     from hexengine.gamedef.title_load import TitleLoadContext
 
     boot.present_splash("<b>test</b>")

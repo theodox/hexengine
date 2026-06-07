@@ -8,7 +8,7 @@ stay title-driven while the generic runner owns segment legality and cursor moti
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from ...arcs import ArcContext
 from ...arcs.movement_arc_decl import path_tuple_from_payload, read_movement_payload
@@ -19,7 +19,6 @@ from ...state.action_manager import StateAction
 from ...state.actions import (
     MoveUnit,
     ResolvePassMovementInterrupt,
-    SetTurnState,
     WriteHexengineMovementArc,
 )
 from ...state.game_state import GameState
@@ -32,6 +31,7 @@ from ...state.movement_arc import (
 )
 from .authority_movement import AuthorityMovementHost, dedupe_faction_ids
 
+
 class _AdvanceMovementArcAfterStep(StateAction):
     """After one hex step, update the movement arc payload and maybe open interrupts."""
 
@@ -42,8 +42,8 @@ class _AdvanceMovementArcAfterStep(StateAction):
         self._prev_turn = None
 
     def apply(self, state: GameState) -> GameState:
-        from ...state.title_extension import with_engine_bucket
         from ...state.movement_arc import HEXENGINE_MOVEMENT_ARC_KEY
+        from ...state.title_extension import with_engine_bucket
 
         self._prev_ext = dict(state.engine_state)
         self._prev_turn = state.turn
@@ -162,8 +162,8 @@ class MovementArcEffects:
             return []
 
         unit_id = str(flow.get("unit_id", "")).strip()
-        path = path_tuple_from_payload(flow)
-        idx = int(flow.get("step_index", -1))
+        path_tuple_from_payload(flow)
+        int(flow.get("step_index", -1))
         fh, th = ctx.params.get("from_hex"), ctx.params.get("to_hex")
         if not isinstance(fh, dict) or not isinstance(th, dict):
             return []

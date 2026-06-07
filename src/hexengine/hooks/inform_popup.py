@@ -9,7 +9,6 @@ from typing import Any
 from ..hexes.types import Hex
 from ..state import GameState
 from ..ui.display import InformPopup, inform_popup
-from .core import ENGINE_DEFAULT
 
 
 @dataclass(frozen=True, slots=True)

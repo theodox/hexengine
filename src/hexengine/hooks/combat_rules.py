@@ -19,7 +19,6 @@ from .attack import (
     CombatAdvanceMoveContext,
 )
 from .combat_outcome import CombatOutcome
-from .movement import MoveContext
 from .movement_rules import MovementRulesBinding
 
 

@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
+from games.hexdemo import combat_arc, combat_transitions
+
 from hexengine.arcs import CURRENT, NO_OWNER, OwnerRef
 from hexengine.authoring.patterns.combat import (
-    CombatArcGateKinds,
     OWNER_RETREATING,
     SEG_ADVANCE_GATE,
     SEG_CLASSIFY,
     SEG_RETREAT_GATE,
+    CombatArcGateKinds,
     build_combat_cleanup_arc,
 )
-from games.hexdemo import combat_arc, combat_transitions
 
 
 class _StubEffects:
@@ -71,10 +72,7 @@ def test_combat_cleanup_pattern_segment_owners() -> None:
 def test_hexdemo_combat_arc_matches_pattern() -> None:
     """Hexdemo binding produces the same graph as calling the pattern helper."""
 
-    from hexengine.authoring.patterns.combat import combat_rules_binding_to_arc_spec
-
-    from games.hexdemo.combat_arc import BINDING, build_hexdemo_combat_arc_spec
-    from games.hexdemo import combat_transitions
+    from games.hexdemo.combat_arc import build_hexdemo_combat_arc_spec
 
     arc = build_hexdemo_combat_arc_spec().arc
     arc.validate()

@@ -126,7 +126,7 @@ class WriteHexengineMovementArc(StateAction):
         self._prev_value: Any = None
 
     def apply(self, state: GameState) -> GameState:
-        from .title_extension import engine_bucket, with_engine_bucket
+        from .title_extension import with_engine_bucket
 
         self._had_key = HEXENGINE_MOVEMENT_ARC_KEY in state.engine_state
         self._prev_value = state.engine_state.get(HEXENGINE_MOVEMENT_ARC_KEY)
@@ -134,9 +134,7 @@ class WriteHexengineMovementArc(StateAction):
             es = dict(state.engine_state)
             es.pop(HEXENGINE_MOVEMENT_ARC_KEY, None)
             return state.with_engine_state(es)
-        return with_engine_bucket(
-            state, HEXENGINE_MOVEMENT_ARC_KEY, dict(self.payload)
-        )
+        return with_engine_bucket(state, HEXENGINE_MOVEMENT_ARC_KEY, dict(self.payload))
 
     def revert(self, state: GameState) -> GameState:
         from .title_extension import with_engine_bucket
@@ -194,9 +192,9 @@ class ResolvePassMovementInterrupt(StateAction):
             arc["interrupt_queue"] = []
             arc["gate"] = MOVEMENT_ARC_GATE_AWAITING_CONTINUE
             arc["saved_turn"] = None
-            return with_engine_bucket(
-                state, HEXENGINE_MOVEMENT_ARC_KEY, arc
-            ).with_turn(restored)
+            return with_engine_bucket(state, HEXENGINE_MOVEMENT_ARC_KEY, arc).with_turn(
+                restored
+            )
 
         next_f = rest[0]
         arc["interrupt_queue"] = rest
@@ -873,15 +871,14 @@ class Attack(StateAction):
             if attacker0.faction == d.faction:
                 raise ValueError("Cannot attack same faction")
             defenders.append(d)
-        defender0 = defenders[0]
-        dpos0 = defender0.position
-        defender_hexes_sorted = tuple(
+        defenders[0]
+        tuple(
             sorted(
                 {d.position for d in defenders},
                 key=lambda h: (int(h.i), int(h.j), int(h.k)),
             )
         )
-        attacker_hexes_sorted = tuple(
+        tuple(
             sorted(
                 {a.position for a in attackers},
                 key=lambda h: (int(h.i), int(h.j), int(h.k)),

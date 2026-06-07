@@ -323,7 +323,9 @@ class BrowserWebSocketClient:
             draft=dict(draft),
             request_id=request_id or str(getattr(self, "_preview_req_counter", 0) + 1),
         )
-        self._preview_req_counter = int(req.request_id) if req.request_id.isdigit() else 0
+        self._preview_req_counter = (
+            int(req.request_id) if req.request_id.isdigit() else 0
+        )
         self._send_message(req.to_message())
 
     def is_connected(self) -> bool:

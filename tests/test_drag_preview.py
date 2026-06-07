@@ -11,10 +11,8 @@ if GAMES not in sys.path:
     sys.path.insert(0, GAMES)
 
 from hexengine.hexes.types import Hex
-from hexengine.hooks.core import ENGINE_DEFAULT
 from hexengine.server.game_server import GameServer
 from hexengine.server.preview import compute_unit_drag_preview
-from hexengine.state import GameState
 from hexengine.state.logic import is_valid_move
 
 
@@ -24,10 +22,13 @@ def _hexdemo_server() -> GameServer:
         default_match_config,
         game_definition_from_config,
     )
+
     from hexengine.scenarios import load_scenario
     from hexengine.scenarios.loader import scenario_to_initial_state
 
-    scenario_path = REPO_ROOT / "games" / "hexdemo" / "scenarios" / "default" / "scenario.toml"
+    scenario_path = (
+        REPO_ROOT / "games" / "hexdemo" / "scenarios" / "default" / "scenario.toml"
+    )
     scenario_data = load_scenario(scenario_path)
     gd = HexdemoGameDefinition(game_definition_from_config(default_match_config()))
     first = {"faction": "union", "phase": "Move", "max_actions": 4}
@@ -61,9 +62,7 @@ def test_unit_preview_endpoints_pass_move_validation() -> None:
     server = _hexdemo_server()
     st = server.action_manager.current_state
     unit_id = next(
-        uid
-        for uid, u in st.board.units.items()
-        if u.active and u.faction == "union"
+        uid for uid, u in st.board.units.items() if u.active and u.faction == "union"
     )
     player_faction = "union"
     preview = compute_unit_drag_preview(

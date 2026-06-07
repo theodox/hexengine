@@ -12,8 +12,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from hexengine.authoring.present import InformPopup, inform_popup as build_inform_popup
-
+from hexengine.authoring.present import InformPopup
+from hexengine.authoring.present import inform_popup as build_inform_popup
 from hexengine.hooks.ui_turn_action_dock import _shell_ui_label
 
 

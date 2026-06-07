@@ -53,7 +53,9 @@ def dock_panel_html(
     spec = _DOCK_SKINS.get(pid)
     if spec is None or not spec[2]:
         return ""
-    hint = shell_ui.get("dock_gate_panel_hint") if isinstance(shell_ui, Mapping) else None
+    hint = (
+        shell_ui.get("dock_gate_panel_hint") if isinstance(shell_ui, Mapping) else None
+    )
     hint_s = str(hint).strip() if isinstance(hint, str) else ""
     if not hint_s:
         return ""

@@ -13,7 +13,12 @@ from dataclasses import replace
 from types import SimpleNamespace
 
 from hexengine.arcs import ArcCursor, SuspendedFrame, read_arc_cursor
-from hexengine.arcs.movement_arc_decl import MOVEMENT_ARC_ID, SEG_CONTINUE, SEG_INTERRUPT
+from hexengine.arcs.movement_arc_decl import (
+    MOVEMENT_ARC_ID,
+    SEG_CONTINUE,
+    SEG_INTERRUPT,
+)
+from hexengine.gamedef.builtin import InterleavedTwoFactionGameDefinition
 from hexengine.hexes.types import Hex
 from hexengine.hooks.movement import MoveContext, MovementHooks, MovementStepContext
 from hexengine.hooks.title import TitleHooks
@@ -23,7 +28,6 @@ from hexengine.server.arcs import (
     sync_movement_cursor_from_payload,
 )
 from hexengine.server.protocol import ActionRequest, JoinGameRequest
-from hexengine.gamedef.builtin import InterleavedTwoFactionGameDefinition
 from hexengine.state import ActionManager, GameState
 from hexengine.state.game_state import BoardState, LocationState, TurnState, UnitState
 from hexengine.state.movement_arc import (
@@ -32,7 +36,6 @@ from hexengine.state.movement_arc import (
     MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
     MOVEMENT_INTERRUPT_PHASE,
 )
-from hexengine.state.title_extension import engine_bucket
 
 
 def _loc(h: Hex) -> LocationState:
@@ -134,7 +137,11 @@ def _flow_payload(
 
 def test_sync_cursor_maps_continue_gate() -> None:
     st = GameState.create_empty().with_engine_state(
-        {HEXENGINE_MOVEMENT_ARC_KEY: _flow_payload(gate=MOVEMENT_ARC_GATE_AWAITING_CONTINUE)}
+        {
+            HEXENGINE_MOVEMENT_ARC_KEY: _flow_payload(
+                gate=MOVEMENT_ARC_GATE_AWAITING_CONTINUE
+            )
+        }
     )
     host = _Host(st, StepwiseInterleaved(MovementHooks()).hooks)
     sync_movement_cursor_from_payload(host)
@@ -241,18 +248,22 @@ def test_server_stepwise_move_routes_through_runner() -> None:
 
 
 def test_drive_rejects_wrong_interrupt_owner() -> None:
-    st = GameState.create_empty().with_engine_state(
-        {
-            HEXENGINE_MOVEMENT_ARC_KEY: _flow_payload(
-                gate=MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
-                interrupt_queue=["Blue"],
+    st = (
+        GameState.create_empty()
+        .with_engine_state(
+            {
+                HEXENGINE_MOVEMENT_ARC_KEY: _flow_payload(
+                    gate=MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
+                    interrupt_queue=["Blue"],
+                )
+            }
+        )
+        .with_turn(
+            replace(
+                GameState.create_empty().turn,
+                current_faction="Blue",
+                current_phase=MOVEMENT_INTERRUPT_PHASE,
             )
-        }
-    ).with_turn(
-        replace(
-            GameState.create_empty().turn,
-            current_faction="Blue",
-            current_phase=MOVEMENT_INTERRUPT_PHASE,
         )
     )
     host = _Host(st, StepwiseInterleaved(MovementHooks()).hooks)

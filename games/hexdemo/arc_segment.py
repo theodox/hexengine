@@ -12,7 +12,6 @@ from hexengine.arcs.segment_wire import (
 from hexengine.server.arcs.authority_arc_runtime import lookup_arc_spec
 from hexengine.state import GameState
 
-
 _SEGMENT_HOST: SimpleNamespace | None = None
 
 

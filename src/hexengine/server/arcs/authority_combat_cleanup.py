@@ -109,9 +109,7 @@ def validate_retreat_fulfillment_stack(
         raise ValueError("MoveUnit requires from_hex and to_hex")
     from_hex = Hex(**fh)
     to_hex = Hex(**th)
-    to_move = retreat_stack_unit_ids(
-        host, st_before, from_hex, player, uid_for_move
-    )
+    to_move = retreat_stack_unit_ids(host, st_before, from_hex, player, uid_for_move)
     for uid in to_move:
         host._validate_move_unit_request(
             st_before,

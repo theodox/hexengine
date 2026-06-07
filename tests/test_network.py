@@ -9,10 +9,18 @@ from __future__ import annotations
 import asyncio
 import unittest
 
+from hexengine.arcs import ArcSpec
+from hexengine.authoring.patterns.combat import (
+    OWNER_RETREATING,
+    CombatArcGateKinds,
+    build_combat_cleanup_arc,
+)
+from hexengine.authoring.patterns.schedule import build_turn_registry, interleaved_slots
 from hexengine.gamedef.builtin import InterleavedTwoFactionGameDefinition
 from hexengine.gamedef.game_data import GameData
 from hexengine.hexes.math import neighbors
 from hexengine.hexes.types import Hex, HexColRow
+from hexengine.hooks.arcs import ArcsHooks
 from hexengine.hooks.attack import (
     AttackHooks,
     AttackResolution,
@@ -21,15 +29,7 @@ from hexengine.hooks.attack import (
 from hexengine.hooks.movement import MovementHooks
 from hexengine.hooks.title import TitleHooks
 from hexengine.hooks.ui import UIHooks
-from hexengine.hooks.arcs import ArcsHooks
 from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer
-from hexengine.arcs import ArcSpec
-from hexengine.authoring.patterns.combat import (
-    OWNER_RETREATING,
-    CombatArcGateKinds,
-    build_combat_cleanup_arc,
-)
-from hexengine.authoring.patterns.schedule import build_turn_registry, interleaved_slots
 from hexengine.server import (
     ActionRequest,
     GameServer,
@@ -37,10 +37,10 @@ from hexengine.server import (
 )
 from hexengine.server.protocol import JoinGameRequest, StateUpdate
 from hexengine.state import GameState
-from hexengine.state.title_extension import title_bucket
 from hexengine.state.actions import MoveUnit
 from hexengine.state.game_state import BoardState, TurnState, UnitState
 from hexengine.state.snapshot import game_state_to_wire_dict
+from hexengine.state.title_extension import title_bucket
 
 
 def _hex_wire(h: Hex) -> dict[str, int]:
@@ -76,6 +76,7 @@ _TEST_TURN_ARC_REGISTRY = build_turn_registry(
         else frozenset({"NextPhase"})
     ),
 )
+
 
 def _retreat_obligations(state: GameState) -> dict[str, int]:
     ek = state.title_bucket_key
@@ -553,7 +554,9 @@ class TestGameServer(unittest.TestCase):
                 phase_actions_remaining=2,
                 schedule_index=1,
             )
-            state = GameState(board=board, turn=turn, title_state={}, title_bucket_key="t", rng_log=())
+            state = GameState(
+                board=board, turn=turn, title_state={}, title_bucket_key="t", rng_log=()
+            )
 
             class _GD(InterleavedTwoFactionGameDefinition):
                 @property
@@ -638,7 +641,9 @@ class TestGameServer(unittest.TestCase):
                 phase_actions_remaining=2,
                 schedule_index=1,
             )
-            state = GameState(board=board, turn=turn, title_state={}, title_bucket_key="t", rng_log=())
+            state = GameState(
+                board=board, turn=turn, title_state={}, title_bucket_key="t", rng_log=()
+            )
 
             class _GD(InterleavedTwoFactionGameDefinition):
                 @property

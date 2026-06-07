@@ -35,7 +35,7 @@ def normalize_snapshot_value(obj: Any) -> Any:
     """
     if obj is None or isinstance(obj, bool):
         return obj
-    if isinstance(obj, (int, str)):
+    if isinstance(obj, int | str):
         return obj
     if isinstance(obj, float):
         if not math.isfinite(obj):
@@ -49,7 +49,7 @@ def normalize_snapshot_value(obj: Any) -> Any:
         return normalize_snapshot_value(asdict(obj))
     if isinstance(obj, dict):
         return {str(k): normalize_snapshot_value(v) for k, v in obj.items()}
-    if isinstance(obj, Mapping) and not isinstance(obj, (str, bytes, bytearray)):
+    if isinstance(obj, Mapping) and not isinstance(obj, str | bytes | bytearray):
         return {str(k): normalize_snapshot_value(v) for k, v in obj.items()}
     if isinstance(obj, list):
         return [normalize_snapshot_value(x) for x in obj]

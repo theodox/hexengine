@@ -92,5 +92,3 @@ def attack_plan_preview(ctx: AttackPlanPreviewContext) -> dict[str, Any]:
         board_hexes=board_hexes,
         attack_hooks=pack_attack,
     )
-
-

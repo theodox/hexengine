@@ -46,15 +46,14 @@ def test_pack_resource_site_href_under_repo_static_root() -> None:
 
 
 def test_turn_rules_asset_base_url_hexdemo() -> None:
-    from hexengine.server.game_server import GameServer
-    from hexengine.scenarios import load_scenario
-    from hexengine.scenarios.loader import scenario_to_initial_state
-
     from hexdemo.game_config import (
         HexdemoGameDefinition,
         default_match_config,
         game_definition_from_config,
     )
+    from hexengine.scenarios import load_scenario
+    from hexengine.scenarios.loader import scenario_to_initial_state
+    from hexengine.server.game_server import GameServer
 
     scenario_path = HEXDEMO_ROOT / "scenarios" / "default" / "scenario.toml"
     scenario_data = load_scenario(scenario_path)

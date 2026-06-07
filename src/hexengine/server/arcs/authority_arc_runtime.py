@@ -12,7 +12,6 @@ import uuid
 from enum import Enum
 from typing import Any, Protocol
 
-from ...hooks.core import ENGINE_DEFAULT
 from ...arcs import (
     ArcCursor,
     ArcSpec,
@@ -30,6 +29,7 @@ from ...arcs.movement_arc_decl import (
     read_movement_payload,
 )
 from ...arcs.registry import TurnArcRegistry
+from ...hooks.core import ENGINE_DEFAULT
 from ...hooks.title import TitleHooks
 from ...state import ActionManager, GameState
 from ...state.movement_arc import MOVEMENT_ARC_GATE_AWAITING_INTERRUPT
@@ -67,9 +67,7 @@ COMBAT_ARC_REQUIRED_MSG = (
 )
 
 
-def active_combat_arc_cursor(
-    state: GameState, hooks: TitleHooks
-) -> ArcCursor | None:
+def active_combat_arc_cursor(state: GameState, hooks: TitleHooks) -> ArcCursor | None:
     """Active cursor when it points at the title's declared combat arc."""
 
     spec = combat_arc_spec(hooks)
@@ -213,9 +211,7 @@ async def try_combat_arc_rpc(
         return CombatArcDispatch.NOT_DECLARED
     if active_combat_arc_cursor(host.action_manager.current_state, host.hooks) is None:
         return CombatArcDispatch.NO_CURSOR
-    if await drive_combat_arc_event(
-        host, player_id, player, action_type, params
-    ):
+    if await drive_combat_arc_event(host, player_id, player, action_type, params):
         return CombatArcDispatch.HANDLED
     return CombatArcDispatch.REJECTED
 
@@ -245,11 +241,7 @@ async def try_combat_arc_move_unit(
         return CombatArcDispatch.NOT_DECLARED
 
     wire_path = params.get("path")
-    if (
-        is_retreat_fulfillment
-        and isinstance(wire_path, list)
-        and len(wire_path) > 2
-    ):
+    if is_retreat_fulfillment and isinstance(wire_path, list) and len(wire_path) > 2:
         return CombatArcDispatch.NOT_DECLARED
 
     cur = active_combat_arc_cursor(host.action_manager.current_state, host.hooks)

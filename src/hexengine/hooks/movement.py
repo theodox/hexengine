@@ -117,9 +117,9 @@ class MovementHooks:
     retreat_path_preview: (
         Callable[[RetreatPathPreviewContext], dict[str, Any] | object] | None
     ) = None
-    auto_advance_phase_after_move_spend: (
-        Callable[[GameState], bool | object] | None
-    ) = None
+    auto_advance_phase_after_move_spend: Callable[[GameState], bool | object] | None = (
+        None
+    )
 
     def budget(self, state: GameState, unit_id: str) -> float | object:
         if self.movement_budget_for_unit is None:

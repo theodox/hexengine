@@ -18,10 +18,9 @@ from ..gamedef.client_title_data import ClientTitleData
 from ..gamedef.protocol import GameDefinition
 from ..hexes.types import Hex
 from ..map import Map
-from ..state import ActionManager, DEFAULT_MOVEMENT_BUDGET, GameState
+from ..state import DEFAULT_MOVEMENT_BUDGET, ActionManager, GameState
 from ..state.snapshot import SNAPSHOT_FORMAT_VERSION, game_state_to_wire_dict
 from ..ui import MapOverlayManager, PopupManager
-from ..ui.dom import apply_css_classes
 from .arcs.client_combat import ClientCombatMixin
 from .arcs.client_interaction_panels import ClientInteractionPanelsMixin
 from .arcs.client_place_marker import ClientPlaceMarkerMixin
@@ -773,7 +772,11 @@ class Game(
             return
         if getattr(self, "retreat_path_unit_id", None) != uid_s:
             local_len = len(
-                [h for h in getattr(self, "retreat_path_hexes", []) if isinstance(h, Hex)]
+                [
+                    h
+                    for h in getattr(self, "retreat_path_hexes", [])
+                    if isinstance(h, Hex)
+                ]
             )
             if local_len <= 1:
                 self.begin_retreat_path_for_unit(uid_s)

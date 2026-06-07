@@ -21,11 +21,14 @@ def _hexdemo_server():
         default_match_config,
         game_definition_from_config,
     )
+
     from hexengine.scenarios import load_scenario
     from hexengine.scenarios.loader import scenario_to_initial_state
     from hexengine.server.game_server import GameServer
 
-    scenario_path = REPO_ROOT / "games" / "hexdemo" / "scenarios" / "default" / "scenario.toml"
+    scenario_path = (
+        REPO_ROOT / "games" / "hexdemo" / "scenarios" / "default" / "scenario.toml"
+    )
     scenario_data = load_scenario(scenario_path)
     gd = HexdemoGameDefinition(game_definition_from_config(default_match_config()))
     first = {"faction": "union", "phase": "Move", "max_actions": 4}

@@ -1,8 +1,9 @@
 # Engine boundary 2 — implementation plan
 
-> **Historical — boundary-2 branch.** Combat flow and affordances are now described in
-> [`COMPOSABLE_ARCS_PLAN.md`](COMPOSABLE_ARCS_PLAN.md) and [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md)
-> (segment presentation P1–P5). Removed APIs referenced below (`BLOCKS_ROUTINE_PHASE_ADVANCE`,
+> **Historical — boundary-2 branch.** Current author interface: [`TITLE_AUTHOR_INTERFACE_PLAN.md`](TITLE_AUTHOR_INTERFACE_PLAN.md)
+> (implemented) and [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md). Arc runtime: [`COMPOSABLE_ARCS_PLAN.md`](COMPOSABLE_ARCS_PLAN.md).
+> Removed APIs referenced below (`BLOCKS_ROUTINE_PHASE_ADVANCE`, `follow_up_after_attack`,
+> `AttackHook.AFTER_ATTACK_APPLIED`, attack cleanup hook slots,
 > `blocks_routine_phase_advance`, `dock_arc_hint`, `GATE_RETREAT` / `GATE_ADVANCE` aliases,
 > `DOCK_ARC_*` UI tokens) are **not** part of the current hexdemo pack. Legality and End Phase
 > blocking use `current_segment.allowed_actions` via

@@ -17,7 +17,9 @@ def _shell_label(shell_ui: dict[str, Any], key: str, default: str) -> str:
     return default
 
 
-def _marker_by_id(markers: tuple[dict[str, Any], ...], mid: str) -> dict[str, Any] | None:
+def _marker_by_id(
+    markers: tuple[dict[str, Any], ...], mid: str
+) -> dict[str, Any] | None:
     for row in markers:
         if str(row.get("id", "")).strip() == mid:
             return row
@@ -54,13 +56,17 @@ def _parse_hex_wire(raw: Any) -> Hex | None:
         return None
 
 
-def _panel_actions(shell_ui: dict[str, Any], *, confirm_enabled: bool) -> list[dict[str, Any]]:
+def _panel_actions(
+    shell_ui: dict[str, Any], *, confirm_enabled: bool
+) -> list[dict[str, Any]]:
     return [
         {
             "schema": 1,
             "id": "place_marker_confirm",
             "action_type": "MoveMarker",
-            "label": _shell_label(shell_ui, "place_marker_confirm_label", "Confirm move"),
+            "label": _shell_label(
+                shell_ui, "place_marker_confirm_label", "Confirm move"
+            ),
             "title": _shell_label(
                 shell_ui,
                 "place_marker_confirm_title",
@@ -174,7 +180,8 @@ def place_marker_preview(ctx) -> dict[str, Any]:
         "status_text": status,
         "confirm_enabled": confirm,
         "valid_target_hexes": legal_wire,
-        "preview_path_hexes": [_hex_wire(from_hex)] + ([_hex_wire(to_hex)] if to_hex != from_hex else []),
+        "preview_path_hexes": [_hex_wire(from_hex)]
+        + ([_hex_wire(to_hex)] if to_hex != from_hex else []),
         "commit_payload": commit,
         "panel_actions": _panel_actions(su, confirm_enabled=confirm),
     }

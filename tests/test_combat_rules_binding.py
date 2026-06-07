@@ -3,17 +3,16 @@
 from __future__ import annotations
 
 import pytest
+from games.template.combat_arc import BINDING, TemplateCombatRules
 
 from hexengine.authoring.patterns.combat import (
-    CombatArcGateKinds,
     SEG_ATTACK,
     SEG_CLASSIFY,
+    CombatArcGateKinds,
     combat_rules_binding_missing_methods,
     combat_rules_binding_satisfies,
     combat_rules_binding_to_arc_spec,
 )
-
-from games.template.combat_arc import BINDING, TemplateCombatRules
 
 
 def test_template_binding_satisfies_protocol() -> None:

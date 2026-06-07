@@ -1,28 +1,48 @@
 # Title author interface — implementation plan
 
-**Status:** design / planning.
+**Status:** **implemented** (Phases A–F complete; hexdemo is the reference layout).
 
 **One-line goal:** Give title authors **one coherent programming interface** for match flow — rules in pack-root modules, a single combat binding into declared arcs, presentation in a segment registry — so authors do not need to learn engine pipelines, bucket handoff protocols, or duplicate hook surfaces.
 
-**Related:** [`COMPOSABLE_ARCS_PLAN.md`](COMPOSABLE_ARCS_PLAN.md) (arc runtime, mostly done for cleanup), [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) (author hub), [`RULE_COMPOSITION.md`](RULE_COMPOSITION.md) (future reusable rule pieces).
+**Author hub:** [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md). **Hexdemo map:** [`games/hexdemo/hooks/README.md`](../games/hexdemo/hooks/README.md).
+
+**Related:** [`COMPOSABLE_ARCS_PLAN.md`](COMPOSABLE_ARCS_PLAN.md) (arc runtime), [`RULE_COMPOSITION.md`](RULE_COMPOSITION.md) (future reusable rule pieces).
 
 ---
 
-## Why
+## Current state (hexdemo)
 
-Composable arcs finished **combat cleanup** as a declared FSM (`submit_event` on retreat, advance, disrupt). **Attack resolution** for extension-key titles with a declared combat arc routes through `submit_event` on the arc `attack` segment (`validate` → `resolve` → `Attack` / `ApplyCombatEffects` → `CombatOutcome` → auto `classify`).
+Extension-key titles with a declared combat arc (`SEG_ATTACK`) use **one attack path**:
 
-That split forces authors to learn two systems for one feature:
+```
+Attack RPC → SetArcCursor(attack) → submit_event("Attack")
+  → binding.attack_arc_effect (resolve + Attack + ApplyCombatEffects + CombatOutcome)
+  → classify → retreat / advance gates or done
+  → restore_routine_cursor when overlay completes
+```
 
-| Author concern | Today | Engine knowledge required |
-|----------------|-------|---------------------------|
-| Dice / CRT / outcome | `AttackHook.resolve_attack` | `AttackResolution`, `effects` shape |
-| Post-attack match state | `AttackHook.combat_outcome_after_applied` → `CombatOutcome` | Bucket keys, timing vs `begin_combat_arc` |
-| Cleanup gates | `CombatArcEffectsBinding` in `combat_arc.py` | Arc guards reading the same bucket |
-| “May I attack?” | `validate_attack` + `arc_segment.segment_denies_action` | Segment projection from pack code |
-| Cleanup RPC effects | Arc effects **and** vestigial `AttackHook` cleanup slots | Which path is live |
+| Author concern | Hexdemo module | Hook / arc slot |
+|----------------|----------------|-----------------|
+| CRT / dice | `combat_rules.py` | `AttackHook.resolve_attack` |
+| Post-attack bucket | `combat_outcome.py` | `AttackHook.combat_outcome_after_applied` → `CombatOutcome` |
+| Cleanup guards/effects | `combat_rules.HexdemoCombatRules` (`BINDING`) | `ArcHook.COMBAT_ARC` via `combat_rules_binding_to_arc_spec` |
+| Low-level cleanup mutations | `combat_actions.py` | Called from binding effect methods |
+| Gate kind strings / phase clear | `combat_transitions.py` | `COMBAT_ARC_GATE_KINDS`, `clear_combat_state_actions` |
+| “May I attack?” (rules) | `combat_rules.validate_attack` | Engine segment gate runs first |
+| Movement / retreat | `movement_rules.py` | `MovementHook.*` adapters |
+| Buttons / copy | `segment_ui.py`, `presentation/` | `UIHook` dock + inform |
 
-Hexdemo works, but the reference pack teaches **engine-shaped** integration: `combat_transitions.py` for handoff, `combat_actions.py` for arc effects, `hooks/attack.py` for both resolution and dead-end cleanup hooks.
+**Removed from engine and hexdemo:** `AttackHook.AFTER_ATTACK_APPLIED`, `follow_up_after_attack`, deprecated attack cleanup hook slots (`ON_RETREAT_OBLIGATION_CLEARED`, `COMBAT_DISRUPT_*`, `IS_COMBAT_ADVANCE_MOVE`). Cleanup and advance `MoveUnit` routing are **arc-only**.
+
+**Engine-owned:** wire normalize, `submit_event`, `Attack` / `ApplyCombatEffects` assembly, `restore_routine_cursor` after overlay completion, movement payload bridge, `current_segment` projection.
+
+**Still hybrid (not author API):** `_execute_imperative_attack` for packs without `SEG_ATTACK`; movement `ResolvePassMovementInterrupt` fallback when arc sync fails.
+
+---
+
+## Why (original problem)
+
+Composable arcs finished **combat cleanup** as a declared FSM (`submit_event` on retreat, advance, disrupt). Before Phases C–D, authors had to learn two systems for one feature (resolve hooks + separate handoff + duplicate cleanup slots). That split is **closed** in hexdemo; new packs should copy [`games/template/`](../games/template/) + hexdemo, not pre-2025 hook shapes.
 
 ---
 
@@ -67,7 +87,7 @@ Authors work in **three layers** only (aligned with [`TITLE_AUTHORING.md` § Flo
 | Move budget / ZoC / retreat legality? | `movement_rules.py` (`MovementRulesBinding`) |
 | Stepwise path / interrupts? | Engine movement arc bridge (authors supply step cost + interrupt factions hooks only) |
 
-**Engine-owned (authors never implement):** `execute_authority_attack_request` wire normalize + `submit_event`, `begin_combat_arc` (cleanup-only entry), `Attack` / `ApplyCombatEffects` assembly helpers, movement payload bridge, wire projection.
+**Engine-owned (authors never implement):** `execute_authority_attack_request` wire normalize + `submit_event`, `restore_routine_cursor` when the combat overlay finishes, `Attack` / `ApplyCombatEffects` assembly helpers, movement payload bridge, `current_segment` projection. `begin_combat_arc` remains a **test / cleanup-only** entry when bucket state is already set without an `Attack` RPC.
 
 ---
 
@@ -211,13 +231,13 @@ Full combat integration suite + replay/undo tests if present.
 
 ---
 
-## Success criteria
+## Success criteria (met)
 
-- A new title author can implement combat by filling **one binding class** and a **segment registry** without reading `authority_attack.py`, `authority_combat_cleanup.py`, or bucket handoff timing.
-- `AttackHook` author surface is **validate, resolve, preview, auto-advance** (optional); no cleanup slots in docs or hexdemo.
-- Hexdemo reference pack matches the three-layer layout; `hooks/attack.py` is thin.
-- No author documentation of raw `combat_gate` or bucket key strings; `title_state` helpers are the API.
-- All existing combat/movement integration tests green after each phase.
+- A new title author can implement combat by filling **one binding class** and a **segment registry** without reading `authority_attack.py` or bucket handoff timing.
+- `AttackHook` author surface is **validate, resolve, combat_outcome_after_applied, preview, auto-advance** only; cleanup slots removed from engine and hexdemo.
+- Hexdemo matches the three-layer layout; `hooks/attack.py` and `hooks/arcs.py` are thin.
+- Author docs steer away from raw `combat_gate` and bucket key strings; `title_state` helpers are the API.
+- Combat/movement integration tests green (690+ as of last full run).
 
 ---
 
@@ -255,13 +275,15 @@ Full combat integration suite + replay/undo tests if present.
 
 ---
 
-## Reference: current vs target (hexdemo combat)
+## Reference: hexdemo combat layout (implemented)
 
-| Piece | Current module | Target owner |
-|-------|----------------|--------------|
-| CRT / resolve | `hooks/attack.py` | `combat.py` → binding.resolve |
-| Bucket after attack | `combat_outcome.build_combat_outcome_after_applied` | `CombatOutcome` (engine applies) |
-| Classify / gates | `combat_arc.py` effects | Same binding (guards/effects) |
-| Retreat/advance/disrupt mutations | `combat_actions.py` | Same binding (effect methods) |
-| Segment deny in validate | `arc_segment` in validate | Engine pre-check |
-| UI / dock | `presentation/`, `turn_action_dock.py` | Unchanged |
+| Piece | Module | Notes |
+|-------|--------|-------|
+| CRT / resolve | `combat_rules.py` | `BINDING.resolve_attack`; `hooks/attack.py` adapter only |
+| Bucket after attack | `combat_outcome.py` | `CombatOutcome`; engine applies via arc `attack` effect |
+| Arc spec | `combat_arc.py` | `combat_rules_binding_to_arc_spec(BINDING, …)` |
+| Classify / gates | `combat_rules.BINDING` | Guards/effects; `attack_arc_effect` for `Attack` segment |
+| Retreat/advance/disrupt mutations | `combat_actions.py` | Invoked from binding methods |
+| Gate constants / phase clear | `combat_transitions.py` | No post-attack handoff helpers |
+| Segment deny in validate | — | Engine `segment_denies_action_for_faction` before validate |
+| UI / dock | `presentation/`, `hooks/turn_action_dock.py` | `current_segment` drives End Phase + gate rows |

@@ -55,7 +55,9 @@ def test_resolve_presentation_id_fallback_hidden() -> None:
 
 def test_dock_headline_from_presentation_id() -> None:
     assert (
-        dock_headline({"dock_retreat_gate_headline": "Hold for retreat"}, "retreat_gate")
+        dock_headline(
+            {"dock_retreat_gate_headline": "Hold for retreat"}, "retreat_gate"
+        )
         == "Hold for retreat"
     )
     assert dock_headline({}, "hidden") == ""

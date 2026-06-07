@@ -15,8 +15,6 @@ from hexengine.snapshot import (
     normalize_snapshot_value,
 )
 from hexengine.state import GameState
-from hexengine.state.title_extension import title_bucket
-from hexengine.state.title_extension import title_bucket
 from hexengine.state.actions import AddUnit, ApplyCombatEffects, Attack
 
 
@@ -66,7 +64,9 @@ def test_apply_combat_effects_expands_dataclass_last_combat_patch() -> None:
 
     # ApplyCombatEffects normalizes nested dataclasses into JSON-safe dicts.
     a = ApplyCombatEffects({"last_combat_patch": Patch(3, "HIT")})
-    assert a.effects == {"last_combat_patch": {"hexdemo_roll": 3, "hexdemo_combat_result": "HIT"}}
+    assert a.effects == {
+        "last_combat_patch": {"hexdemo_roll": 3, "hexdemo_combat_result": "HIT"}
+    }
 
 
 def test_attack_accepts_dataclass_rng_entry() -> None:

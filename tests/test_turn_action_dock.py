@@ -28,7 +28,9 @@ def _hexdemo_server() -> GameServer:
     from hexengine.scenarios import load_scenario
     from hexengine.scenarios.loader import scenario_to_initial_state
 
-    scenario_path = REPO_ROOT / "games" / "hexdemo" / "scenarios" / "default" / "scenario.toml"
+    scenario_path = (
+        REPO_ROOT / "games" / "hexdemo" / "scenarios" / "default" / "scenario.toml"
+    )
     scenario_data = load_scenario(scenario_path)
     gd = HexdemoGameDefinition(game_definition_from_config(default_match_config()))
     first = {"faction": "union", "phase": "Combat", "max_actions": 4}
@@ -98,6 +100,7 @@ def test_hexdemo_state_update_uses_turn_action_dock_panels() -> None:
 
 def test_hexdemo_combat_phase_enables_end_phase_without_gate() -> None:
     from games.hexdemo.hooks.turn_action_dock import turn_action_dock_for_viewer
+
     from hexengine.arcs.segment_wire import project_current_segment
     from hexengine.state.game_state import TurnState
 
@@ -110,11 +113,23 @@ def test_hexdemo_combat_phase_enables_end_phase_without_gate() -> None:
         schedule_index=1,
         global_tick=st.turn.global_tick,
     )
-    st = GameState(board=st.board, turn=turn, title_state={}, title_bucket_key="hexdemo", rng_log=())
-    from hexengine.server import GameServer
-    from games.hexdemo.game_config import game_definition_from_config, default_match_config
+    st = GameState(
+        board=st.board,
+        turn=turn,
+        title_state={},
+        title_bucket_key="hexdemo",
+        rng_log=(),
+    )
+    from games.hexdemo.game_config import (
+        default_match_config,
+        game_definition_from_config,
+    )
 
-    server = GameServer(st, game_definition=game_definition_from_config(default_match_config()))
+    from hexengine.server import GameServer
+
+    server = GameServer(
+        st, game_definition=game_definition_from_config(default_match_config())
+    )
     seg = project_current_segment(server, server.game_state, viewer_faction="union")
     ctx = TurnActionDockContext(
         state=server.game_state,
@@ -136,16 +151,16 @@ def test_hexdemo_combat_phase_enables_end_phase_without_gate() -> None:
 
 
 def test_hexdemo_retreat_gate_shows_for_non_turn_owner() -> None:
-    from games.hexdemo.hooks.turn_action_dock import turn_action_dock_for_viewer
-    from hexengine.arcs import ArcCursor, SetArcCursor
-    from hexengine.hexes.types import Hex
-    from hexengine.server.arcs import lookup_arc_spec
-    from hexengine.arcs.segment_wire import project_current_segment
-    from hexengine.state.action_manager import ActionManager
-    from hexengine.state.game_state import BoardState, TurnState, UnitState
-
     from games.hexdemo import combat_arc
     from games.hexdemo.hooks import build_hooks
+    from games.hexdemo.hooks.turn_action_dock import turn_action_dock_for_viewer
+
+    from hexengine.arcs import ArcCursor, SetArcCursor
+    from hexengine.arcs.segment_wire import project_current_segment
+    from hexengine.hexes.types import Hex
+    from hexengine.server.arcs import lookup_arc_spec
+    from hexengine.state.action_manager import ActionManager
+    from hexengine.state.game_state import BoardState, TurnState, UnitState
 
     st = GameState.create_empty()
     board = BoardState(
@@ -181,7 +196,9 @@ def test_hexdemo_retreat_gate_shows_for_non_turn_owner() -> None:
     am = ActionManager(st)
     am.execute(
         SetArcCursor(
-            ArcCursor(arc_id="combat", segment_id=combat_arc.SEG_RETREAT_OR_DISRUPT_GATE)
+            ArcCursor(
+                arc_id="combat", segment_id=combat_arc.SEG_RETREAT_OR_DISRUPT_GATE
+            )
         )
     )
     st = am.current_state
@@ -214,16 +231,16 @@ def test_hexdemo_retreat_gate_shows_for_non_turn_owner() -> None:
 
 
 def test_hexdemo_retreat_obligation_shows_dock_for_non_turn_owner() -> None:
-    from games.hexdemo.hooks.turn_action_dock import turn_action_dock_for_viewer
-    from hexengine.arcs import ArcCursor, SetArcCursor
-    from hexengine.hexes.types import Hex
-    from hexengine.server.arcs import lookup_arc_spec
-    from hexengine.arcs.segment_wire import project_current_segment
-    from hexengine.state.action_manager import ActionManager
-    from hexengine.state.game_state import BoardState, TurnState, UnitState
-
     from games.hexdemo import combat_arc
     from games.hexdemo.hooks import build_hooks
+    from games.hexdemo.hooks.turn_action_dock import turn_action_dock_for_viewer
+
+    from hexengine.arcs import ArcCursor, SetArcCursor
+    from hexengine.arcs.segment_wire import project_current_segment
+    from hexengine.hexes.types import Hex
+    from hexengine.server.arcs import lookup_arc_spec
+    from hexengine.state.action_manager import ActionManager
+    from hexengine.state.game_state import BoardState, TurnState, UnitState
 
     board = BoardState(
         units={
@@ -256,9 +273,7 @@ def test_hexdemo_retreat_obligation_shows_dock_for_non_turn_owner() -> None:
     )
     am = ActionManager(st)
     am.execute(
-        SetArcCursor(
-            ArcCursor(arc_id="combat", segment_id=combat_arc.SEG_RETREAT_GATE)
-        )
+        SetArcCursor(ArcCursor(arc_id="combat", segment_id=combat_arc.SEG_RETREAT_GATE))
     )
     st = am.current_state
 
@@ -289,16 +304,16 @@ def test_hexdemo_retreat_obligation_shows_dock_for_non_turn_owner() -> None:
 
 
 def test_hexdemo_advance_gate_disables_end_phase() -> None:
-    from games.hexdemo.hooks.turn_action_dock import turn_action_dock_for_viewer
-    from hexengine.arcs import ArcCursor, SetArcCursor
-    from hexengine.hexes.types import Hex
-    from hexengine.server.arcs import lookup_arc_spec
-    from hexengine.arcs.segment_wire import project_current_segment
-    from hexengine.state.action_manager import ActionManager
-    from hexengine.state.game_state import BoardState, TurnState, UnitState
-
     from games.hexdemo import combat_arc
     from games.hexdemo.hooks import build_hooks
+    from games.hexdemo.hooks.turn_action_dock import turn_action_dock_for_viewer
+
+    from hexengine.arcs import ArcCursor, SetArcCursor
+    from hexengine.arcs.segment_wire import project_current_segment
+    from hexengine.hexes.types import Hex
+    from hexengine.server.arcs import lookup_arc_spec
+    from hexengine.state.action_manager import ActionManager
+    from hexengine.state.game_state import BoardState, TurnState, UnitState
 
     board = BoardState(
         units={
@@ -331,9 +346,7 @@ def test_hexdemo_advance_gate_disables_end_phase() -> None:
     )
     am = ActionManager(st)
     am.execute(
-        SetArcCursor(
-            ArcCursor(arc_id="combat", segment_id=combat_arc.SEG_ADVANCE_GATE)
-        )
+        SetArcCursor(ArcCursor(arc_id="combat", segment_id=combat_arc.SEG_ADVANCE_GATE))
     )
     st = am.current_state
 

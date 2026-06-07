@@ -19,10 +19,10 @@ in `hexengine.state.movement_arc`.
 from __future__ import annotations
 
 from .authority_arc_runtime import (
-    ArcRuntimeHost,
     COMBAT_ARC_REQUIRED_MSG,
     COMBAT_NO_CURSOR_MSG,
     COMBAT_REJECTED_MSG,
+    ArcRuntimeHost,
     CombatArcDispatch,
     active_combat_arc_cursor,
     begin_combat_arc,

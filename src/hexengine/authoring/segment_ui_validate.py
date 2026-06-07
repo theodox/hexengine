@@ -49,7 +49,7 @@ def collect_declared_segment_kinds(bundle: TitleHooks) -> set[str]:
                 if isinstance(spec, ArcSpec):
                     kinds |= kinds_from_arc(spec.arc)
 
-    for label, spec_raw in (
+    for _label, spec_raw in (
         ("combat_arc", bundle.arcs.combat_arc_spec()),
         ("movement_arc", bundle.arcs.movement_arc_spec()),
     ):
@@ -80,7 +80,7 @@ def _registry_kind_keys(registry: object) -> tuple[set[str], list[str]]:
                     f"key {kind_key!r} row.kind is {row_kind!r}"
                 )
         return keys, errors
-    if isinstance(registry, (set, frozenset)):
+    if isinstance(registry, set | frozenset):
         keys = {str(k).strip() for k in registry if str(k).strip()}
         return keys, errors
     errors.append(
@@ -122,7 +122,9 @@ def validate_segment_presentation(bundle: TitleHooks) -> list[str]:
 def validate_segment_presentation_for_definition(game_definition: Any) -> list[str]:
     from ..hooks.title import read_title_hooks_from_definition
 
-    return validate_segment_presentation(read_title_hooks_from_definition(game_definition))
+    return validate_segment_presentation(
+        read_title_hooks_from_definition(game_definition)
+    )
 
 
 __all__ = [

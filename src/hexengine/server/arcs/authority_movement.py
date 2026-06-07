@@ -16,6 +16,7 @@ from ...hexes.types import Hex
 from ...hooks.core import ENGINE_DEFAULT
 from ...hooks.movement import MoveContext, MovementStepContext
 from ...hooks.title import TitleHooks
+from ...retreat_path import parse_wire_path, validate_retreat_path
 from ...state import ActionManager, GameState
 from ...state.actions import MoveUnit, SetTurnState, WriteHexengineMovementArc
 from ...state.logic import is_valid_move, shortest_move_path
@@ -28,11 +29,6 @@ from ...state.movement_arc import (
     turn_state_to_movement_arc_snapshot,
 )
 from ..protocol import ActionRequest, Message, PlayerInfo
-from ...retreat_path import parse_wire_path, validate_retreat_path
-from ...state.movement_arc import (
-    MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
-    MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
-)
 from .authority_arc_runtime import (
     COMBAT_ARC_REQUIRED_MSG,
     CombatArcDispatch,
@@ -466,7 +462,9 @@ async def handle_authority_retreat_path_move_unit(
             return await continue_stepwise_move_unit(
                 host, player_id, player, request, current_state, flow
             )
-        await host._send_error(player_id, "Retreat path move is not awaiting continuation")
+        await host._send_error(
+            player_id, "Retreat path move is not awaiting continuation"
+        )
         return True
 
     wire_path = request.params.get("path")
@@ -480,7 +478,9 @@ async def handle_authority_retreat_path_move_unit(
         blocked_hexes = None
     else:
         blocked_hexes = (
-            blocked_raw if isinstance(blocked_raw, frozenset) else frozenset(blocked_raw)
+            blocked_raw
+            if isinstance(blocked_raw, frozenset)
+            else frozenset(blocked_raw)
         )
     max_stack = host._max_active_units_per_hex(current_state, uid_for_move)
     step_fn = host._movement_step_cost_fn(uid_for_move)
@@ -543,7 +543,6 @@ async def handle_authority_retreat_path_move_unit(
         await host._send_error(player_id, f"Action failed: {e}")
         return True
 
-    st1 = host.action_manager.current_state
     wire_path_out = [{"i": int(h.i), "j": int(h.j), "k": int(h.k)} for h in path]
     base_flow: dict[str, Any] = {
         "schema": MOVEMENT_ARC_SCHEMA,

@@ -71,7 +71,10 @@ def default_combat_interaction_messages(
             ctx.state, outcome, attacker_id, defender_id
         )
         inst, msg = combat_instruction(outcome, retreat_owner)
-        if inst in ("retreat_required", "wait") and segment_kind not in KIND_DOCK_ARC_RETREAT:
+        if (
+            inst in ("retreat_required", "wait")
+            and segment_kind not in KIND_DOCK_ARC_RETREAT
+        ):
             inst, msg = "resolved", "Combat resolved."
         kind = (
             "retreat"

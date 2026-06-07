@@ -6,6 +6,9 @@ import asyncio
 from dataclasses import dataclass
 from unittest.mock import patch
 
+from games.hexdemo import combat_arc
+from games.hexdemo.hooks import build_hooks
+
 from hexengine.arcs import ArcCursor, SetArcCursor, read_arc_cursor
 from hexengine.arcs.segment_wire import project_current_segment, segment_allows_action
 from hexengine.hexes.types import Hex
@@ -15,9 +18,6 @@ from hexengine.server.arcs.authority_attack import execute_authority_attack_requ
 from hexengine.state import ActionManager, GameState
 from hexengine.state.game_state import BoardState, TurnState, UnitState
 from hexengine.state.title_extension import title_bucket
-
-from games.hexdemo import combat_arc
-from games.hexdemo.hooks import build_hooks
 
 
 @dataclass
@@ -167,9 +167,7 @@ def test_attack_rejected_on_retreat_gate_via_arc_path() -> None:
     )
     mgr = ActionManager(st0)
     mgr.execute(
-        SetArcCursor(
-            ArcCursor(arc_id="combat", segment_id=combat_arc.SEG_RETREAT_GATE)
-        )
+        SetArcCursor(ArcCursor(arc_id="combat", segment_id=combat_arc.SEG_RETREAT_GATE))
     )
     errors: list[str] = []
     host = _Host(hooks=build_hooks(), action_manager=mgr, errors=errors)

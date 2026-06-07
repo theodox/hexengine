@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from games.hexdemo import combat_outcome
+
 from hexengine.hexes.types import Hex
 from hexengine.hooks.attack import (
     AfterAttackAppliedContext,
@@ -10,8 +12,6 @@ from hexengine.hooks.attack import (
 )
 from hexengine.state import BoardState, GameState, TurnState, UnitState
 from hexengine.state.actions import PatchTitleBucket
-
-from games.hexdemo import combat_outcome
 
 
 def _follow_ctx(

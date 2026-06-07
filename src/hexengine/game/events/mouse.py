@@ -303,7 +303,9 @@ class MouseEventHandlerMixin:
                     )
                     if (
                         state
-                        and getattr(self, "_place_marker_relocate_active", lambda: False)()
+                        and getattr(
+                            self, "_place_marker_relocate_active", lambda: False
+                        )()
                         and eventInfo.hex is not None
                     ):
                         self.set_place_marker_hex(eventInfo.hex)
@@ -469,8 +471,9 @@ class MouseEventHandlerMixin:
             return
 
         phase = str(state.turn.current_phase).strip().lower()
-        phase_ok = self._client_has_attack_planning_ui() and self._phase_allows_attack_planning(
-            phase
+        phase_ok = (
+            self._client_has_attack_planning_ui()
+            and self._phase_allows_attack_planning(phase)
         )
         current_faction = state.turn.current_faction
         retreating = self.retreat_obligation_hexes_remaining(state, unit_id) is not None
@@ -514,9 +517,10 @@ class MouseEventHandlerMixin:
             )
             return
 
-        if retreating and getattr(
-            self, "_client_has_retreat_path_selection", lambda: False
-        )():
+        if (
+            retreating
+            and getattr(self, "_client_has_retreat_path_selection", lambda: False)()
+        ):
             return
 
         # Start drag preview

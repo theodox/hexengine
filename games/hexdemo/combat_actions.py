@@ -13,15 +13,15 @@ from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
 from hexengine.state import GameState
 from hexengine.state.action_manager import StateAction
-from hexengine.state.title_extension import title_bucket
 from hexengine.state.actions import (
     ClearUnitRetreatObligation,
     MoveUnit,
     PatchTitleBucket,
     PatchUnitAttributes,
 )
+from hexengine.state.title_extension import title_bucket
 
-from . import arc_segment, combat, combat_transitions
+from . import arc_segment, combat
 
 
 def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:
@@ -106,12 +106,16 @@ def apply_retreat_fulfillment_step(
     return actions
 
 
-def _defender_occupies_combat_hex(state: GameState, last: dict[str, Any], to_hex: Hex) -> bool:
+def _defender_occupies_combat_hex(
+    state: GameState, last: dict[str, Any], to_hex: Hex
+) -> bool:
     """True when a defender from ``last_combat`` still actively holds the combat hex."""
 
     raw_ids = last.get("defender_ids")
     if isinstance(raw_ids, list) and raw_ids:
-        defender_ids = [str(x).strip() for x in raw_ids if isinstance(x, str) and str(x).strip()]
+        defender_ids = [
+            str(x).strip() for x in raw_ids if isinstance(x, str) and str(x).strip()
+        ]
     else:
         did = str(last.get("defender_id", "")).strip()
         defender_ids = [did] if did else []
@@ -349,9 +353,7 @@ def resolve_combat_advance(
     if not isinstance(to_hex_raw, dict):
         raise ValueError("Invalid to_hex")
     try:
-        to_hex = Hex(
-            int(to_hex_raw["i"]), int(to_hex_raw["j"]), int(to_hex_raw["k"])
-        )
+        to_hex = Hex(int(to_hex_raw["i"]), int(to_hex_raw["j"]), int(to_hex_raw["k"]))
     except Exception as e:
         raise ValueError("Invalid to_hex") from e
     unit_ids_raw = adv.get("unit_ids")

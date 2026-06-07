@@ -18,9 +18,9 @@ from ..hexes.types import Hex
 from ..state import GameState
 from ..state.action_manager import StateAction
 from ..state.movement_arc import (
+    HEXENGINE_MOVEMENT_ARC_KEY,
     MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
     MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
-    HEXENGINE_MOVEMENT_ARC_KEY,
 )
 from ..state.title_extension import engine_bucket
 from .spec import ArcContext

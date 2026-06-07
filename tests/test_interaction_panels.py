@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from hexengine.hooks.ui_interaction_panels import (
     InteractionPanelsContext,
     default_interaction_panels_for_viewer,
@@ -65,8 +63,23 @@ def test_interaction_panel_and_panel_input_helpers() -> None:
     row = interaction_panel(
         id="p1",
         html="<p>hint</p>",
-        actions=[{"schema": 1, "id": "a1", "action_type": "X", "label": "Go", "enabled": True}],
-        inputs=[panel_input(id="mode", kind="select", label="Mode", options=({"value": "a", "label": "A"},))],
+        actions=[
+            {
+                "schema": 1,
+                "id": "a1",
+                "action_type": "X",
+                "label": "Go",
+                "enabled": True,
+            }
+        ],
+        inputs=[
+            panel_input(
+                id="mode",
+                kind="select",
+                label="Mode",
+                options=({"value": "a", "label": "A"},),
+            )
+        ],
     )
     assert row["html"] == "<p>hint</p>"
     assert row["actions"][0]["id"] == "a1"
@@ -77,8 +90,9 @@ def test_hexdemo_turn_action_dock_gate_hint_html_escapes() -> None:
     """Gate arcs use ``dock_gate_panel_hint`` + dock_gate template."""
     _ensure_games_on_path()
     from games.hexdemo.hooks.turn_action_dock import turn_action_dock_for_viewer
-    from hexengine.hooks.ui import TurnActionDockContext
+
     from hexengine.hexes.types import Hex
+    from hexengine.hooks.ui import TurnActionDockContext
     from hexengine.state.game_state import BoardState, TurnState, UnitState
 
     st = GameState.create_empty()

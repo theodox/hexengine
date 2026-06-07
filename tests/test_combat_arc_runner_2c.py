@@ -11,15 +11,15 @@ import asyncio
 from dataclasses import replace
 from types import SimpleNamespace
 
+from games.hexdemo import combat_actions, combat_arc, combat_transitions
+from games.hexdemo.hooks import build_hooks
+
 from hexengine.arcs import read_arc_cursor
 from hexengine.hexes.types import Hex
 from hexengine.server.arcs import begin_combat_arc, drive_combat_arc_event
 from hexengine.state import ActionManager, GameState
 from hexengine.state.game_state import UnitState
 from hexengine.state.title_extension import title_bucket
-
-from games.hexdemo import combat_arc, combat_actions, combat_transitions
-from games.hexdemo.hooks import build_hooks
 
 HOOKS = build_hooks()
 

@@ -91,7 +91,11 @@ def case(
 ) -> Case:
     return Case(
         target=_resolve_target(
-            goto=goto, done=done, resume=resume, interrupt=interrupt, resume_at=resume_at
+            goto=goto,
+            done=done,
+            resume=resume,
+            interrupt=interrupt,
+            resume_at=resume_at,
         ),
         guard=guard,
         effect=effect,

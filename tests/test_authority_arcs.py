@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from games.hexdemo.hooks import build_hooks
+
 from hexengine.server.arcs.authority_combat_cleanup import (
     move_unit_is_combat_advance_fulfillment,
 )

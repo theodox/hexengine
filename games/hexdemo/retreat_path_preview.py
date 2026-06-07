@@ -29,13 +29,17 @@ def _shell_label(shell_ui: dict[str, Any], key: str, default: str) -> str:
     return default
 
 
-def _panel_actions(shell_ui: dict[str, Any], *, confirm_enabled: bool) -> list[dict[str, Any]]:
+def _panel_actions(
+    shell_ui: dict[str, Any], *, confirm_enabled: bool
+) -> list[dict[str, Any]]:
     return [
         {
             "schema": 1,
             "id": "retreat_path_confirm",
             "action_type": "MoveUnit",
-            "label": _shell_label(shell_ui, "retreat_path_confirm_label", "Confirm retreat"),
+            "label": _shell_label(
+                shell_ui, "retreat_path_confirm_label", "Confirm retreat"
+            ),
             "title": _shell_label(
                 shell_ui,
                 "retreat_path_confirm_title",

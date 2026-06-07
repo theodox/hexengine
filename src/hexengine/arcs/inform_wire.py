@@ -8,7 +8,6 @@ active inform profile from the per-viewer ``current_segment`` projection.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from ..state import GameState
 from .segment_wire import SegmentProjectorHost, project_current_segment

@@ -48,7 +48,7 @@ def test_render_html_template_escapes_placeholders() -> None:
         flag_class="hexdemo-turn-banner__flag",
         flag_mod="",
         flag_img="",
-        label='Union<script>alert(1)</script>',
+        label="Union<script>alert(1)</script>",
     )
     assert "<script>" not in html
     assert "Union" in html

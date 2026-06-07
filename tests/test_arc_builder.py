@@ -11,7 +11,6 @@ import pytest
 from hexengine.arcs import (
     AUTO,
     CURRENT,
-    DONE,
     NO_OWNER,
     Arc,
     Event,

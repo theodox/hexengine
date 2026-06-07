@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
+from games.hexdemo.game_config import default_match_config, game_definition_from_config
+from games.hexdemo.hooks import build_hooks
+from games.hexdemo.turn_arc_schedule import (
+    build_hexdemo_turn_arc_registry,
+    hexdemo_schedule_slots,
+)
+
 from hexengine.arcs import read_arc_cursor
 from hexengine.authoring.patterns import ROUTINE_SEGMENT
 from hexengine.server import GameServer
 from hexengine.server.arcs import schedule_next_phase_info
 from hexengine.state import GameState
 from hexengine.state.game_state import TurnState
-
-from games.hexdemo.game_config import game_definition_from_config, default_match_config
-from games.hexdemo.hooks import build_hooks
-from games.hexdemo.turn_arc_schedule import (
-    build_hexdemo_turn_arc_registry,
-    hexdemo_schedule_slots,
-)
 
 
 def test_hexdemo_schedule_matches_four_phase_rota() -> None:
@@ -60,9 +60,7 @@ class _ScheduleHost:
 
 
 def test_schedule_next_phase_info_from_registry() -> None:
-    st = GameState.create_empty().with_turn(
-        TurnState("union", "Move", 4, 1, 0, 0)
-    )
+    st = GameState.create_empty().with_turn(TurnState("union", "Move", 4, 1, 0, 0))
     host = _ScheduleHost(st)
     info = schedule_next_phase_info(host)
     assert info is not None
@@ -72,9 +70,7 @@ def test_schedule_next_phase_info_from_registry() -> None:
 
 def test_server_begins_routine_cursor_on_init() -> None:
     gd = game_definition_from_config(default_match_config())
-    st = GameState.create_empty().with_turn(
-        TurnState("union", "Move", 4, 1, 0, 0)
-    )
+    st = GameState.create_empty().with_turn(TurnState("union", "Move", 4, 1, 0, 0))
     server = GameServer(st, game_definition=gd)
     cur = read_arc_cursor(server.game_state)
     assert cur is not None

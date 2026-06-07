@@ -50,7 +50,9 @@ def compute_unit_drag_preview(
     movement_budget_for_unit: Callable[[GameState, str], float],
     zoc_hexes_for_unit: Callable[[GameState, str], frozenset[Hex] | None],
     max_active_units_per_hex: Callable[[GameState, str], int | None],
-    movement_step_cost_fn: Callable[[str], Callable[[GameState, str, Hex, Hex, float], float]],
+    movement_step_cost_fn: Callable[
+        [str], Callable[[GameState, str, Hex, Hex, float], float]
+    ],
     retreat_blocked_hexes: Callable[[GameState, str], frozenset[Hex] | None | object],
 ) -> UnitDragPreview:
     """
@@ -83,11 +85,7 @@ def compute_unit_drag_preview(
             step_cost=step_fn,
         )
         start_h = u.position
-        footprint = (
-            frozenset(board_hexes)
-            | {start_h}
-            | frozenset(neighbors(start_h))
-        )
+        footprint = frozenset(board_hexes) | {start_h} | frozenset(neighbors(start_h))
         out = [h for h in valid if h in footprint]
         return UnitDragPreview(kind="move", hexes=hexes_to_wire(out))
 
@@ -117,9 +115,7 @@ def compute_unit_drag_preview(
     end_hexes: list[Hex] = []
     through_hexes: list[Hex] = []
     for h in reachable.keys():
-        if any(
-            x.faction != player_faction for x in state.board.active_units_at_hex(h)
-        ):
+        if any(x.faction != player_faction for x in state.board.active_units_at_hex(h)):
             continue
         if (
             max_stack is not None

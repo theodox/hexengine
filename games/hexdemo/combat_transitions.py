@@ -76,9 +76,7 @@ def clear_combat_state_actions(state: GameState) -> list[StateAction]:
     ]
 
 
-def attack_planning_blocked_reason(
-    state: GameState, player_faction: str
-) -> str | None:
+def attack_planning_blocked_reason(state: GameState, player_faction: str) -> str | None:
     """Human-readable block reason for attack plan preview, or ``None`` if allowed."""
 
     if str(player_faction).strip() != str(state.turn.current_faction).strip():
@@ -87,13 +85,13 @@ def attack_planning_blocked_reason(
     if phase not in ("Combat", "Attack"):
         return "Attack planning is only available during Combat"
 
-    from . import arc_segment
-
     from hexengine.arcs.segment_wire import (
         KIND_DOCK_ARC_ADVANCE,
         KIND_DOCK_ARC_RETREAT,
         segment_allows_action,
     )
+
+    from . import arc_segment
 
     seg = arc_segment.project_segment_for_faction(state, player_faction)
     if seg is None:

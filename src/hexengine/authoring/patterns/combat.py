@@ -263,7 +263,8 @@ def combat_rules_binding_to_arc_spec(
             attack_kind=attack_kind,
         ),
         owner_resolver=owner_resolver,
-        advance_move_detector=advance_move_detector or binding.detect_combat_advance_move,
+        advance_move_detector=advance_move_detector
+        or binding.detect_combat_advance_move,
     )
 
 

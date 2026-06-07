@@ -225,9 +225,7 @@ class Arc:
         ids = [s.id for s in self.segments]
         duplicates = sorted({x for x in ids if ids.count(x) > 1})
         if duplicates:
-            raise ValueError(
-                f"Arc {self.id!r} has duplicate segment ids: {duplicates}"
-            )
+            raise ValueError(f"Arc {self.id!r} has duplicate segment ids: {duplicates}")
 
         known = set(ids)
         if self.entry not in known:
@@ -238,9 +236,7 @@ class Arc:
         for s in self.segments:
             if not s.transitions:
                 if s.explicit_allowed_actions is None:
-                    raise ValueError(
-                        f"Segment {self.id}.{s.id} has no transitions"
-                    )
+                    raise ValueError(f"Segment {self.id}.{s.id} has no transitions")
                 continue
             for t in s.transitions:
                 if s.is_automatic:

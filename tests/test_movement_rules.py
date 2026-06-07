@@ -2,19 +2,21 @@
 
 from __future__ import annotations
 
+from games.hexdemo import movement_rules
+from games.hexdemo.hooks import movement as movement_hooks
+
 from hexengine.hexes.types import Hex
 from hexengine.hooks.movement import MoveContext
 from hexengine.state import GameState
 from hexengine.state.game_state import BoardState, LocationState, UnitState
 
-from games.hexdemo import movement_rules
-from games.hexdemo.hooks import movement as movement_hooks
-
 
 def _state_with_unit() -> GameState:
     h = Hex(0, 0, 0)
     board = BoardState(
-        locations={h: LocationState(position=h, terrain_type="clear", movement_cost=1.0)},
+        locations={
+            h: LocationState(position=h, terrain_type="clear", movement_cost=1.0)
+        },
         units={
             "u1": UnitState(
                 unit_id="u1",

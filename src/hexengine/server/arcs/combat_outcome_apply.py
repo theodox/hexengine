@@ -24,9 +24,7 @@ def split_resolve_result(
         raise ValueError("This game title does not resolve Attack actions")
     if isinstance(raw, CombatOutcome):
         if raw.resolution is None:
-            raise TypeError(
-                "CombatOutcome from resolve_attack must include resolution"
-            )
+            raise TypeError("CombatOutcome from resolve_attack must include resolution")
         return raw.resolution, raw
     if isinstance(raw, AttackResolution):
         return raw, None

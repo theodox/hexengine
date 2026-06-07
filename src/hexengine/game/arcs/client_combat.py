@@ -17,7 +17,7 @@ from ...state import GameState
 from .client_map_selection import ClientMapSelectionMixin
 
 if TYPE_CHECKING:
-    from ..game import Game
+    pass
 
 
 class ClientCombatMixin(ClientMapSelectionMixin):
@@ -32,8 +32,7 @@ class ClientCombatMixin(ClientMapSelectionMixin):
 
     def _client_has_attack_planning_ui(self) -> bool:
         return (
-            "attack_planning_ui"
-            in self._client_title_data().client_contract_features
+            "attack_planning_ui" in self._client_title_data().client_contract_features
         )
 
     def _phase_allows_attack_planning(self, phase: str | None) -> bool:
@@ -271,12 +270,12 @@ class ClientCombatMixin(ClientMapSelectionMixin):
 
     def _sync_attack_plan_ui(self) -> None:
         st = self._interactive_game_state()
-        ok_phase = self._phase_allows_attack_planning(
+        self._phase_allows_attack_planning(
             str(getattr(getattr(st, "turn", None), "current_phase", "")) if st else ""
         )
 
         tgt = self.attack_plan_target_hex
-        n_att = len(self.attack_plan_attacker_ids)
+        len(self.attack_plan_attacker_ids)
 
         attacker_ids = set(self.attack_plan_attacker_ids)
         target_unit_ids: set[str] = set()

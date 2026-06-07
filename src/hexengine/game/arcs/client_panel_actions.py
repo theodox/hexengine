@@ -34,7 +34,10 @@ def _spec_id(spec: dict[str, Any]) -> str:
 def _route_matches(spec: dict[str, Any], route: PanelActionRoute) -> bool:
     if route.match_id is not None and _spec_id(spec) == route.match_id:
         return True
-    if route.match_action_type is not None and _spec_action_type(spec) == route.match_action_type:
+    if (
+        route.match_action_type is not None
+        and _spec_action_type(spec) == route.match_action_type
+    ):
         if route.match_id is None:
             return True
         return _spec_id(spec) == route.match_id

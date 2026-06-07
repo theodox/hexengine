@@ -88,7 +88,9 @@ BINDING = TemplateCombatRules()
 def build_template_combat_arc_spec():
     """Example ``ArcSpec`` — bind via ``ArcHook.COMBAT_ARC`` when combat is enabled."""
 
-    return combat_rules_binding_to_arc_spec(BINDING, _TEMPLATE_GATES, arc_id=COMBAT_ARC_ID)
+    return combat_rules_binding_to_arc_spec(
+        BINDING, _TEMPLATE_GATES, arc_id=COMBAT_ARC_ID
+    )
 
 
 __all__ = [

@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
+from games.hexdemo import combat_transitions
+
 from hexengine.arcs import ArcCursor, with_arc_cursor
-from hexengine.hooks.ui import CombatInteractionContext
 from hexengine.hooks.ui_combat_messages import (
     CombatInteractionMessagesContext,
     default_combat_interaction_messages,
     retreat_owner_faction,
 )
 from hexengine.state import GameState
-
-from games.hexdemo import combat_transitions
 
 
 def test_retreat_owner_faction_defender() -> None:
@@ -37,9 +36,7 @@ def test_retreat_owner_faction_defender() -> None:
         }
     )
     st = GameState(board=board, turn=GameState.create_empty().turn)
-    assert (
-        retreat_owner_faction(st, "defender_retreat", "a", "d") == "confederate"
-    )
+    assert retreat_owner_faction(st, "defender_retreat", "a", "d") == "confederate"
 
 
 def test_default_combat_interaction_messages_advance_row_uses_segment() -> None:

@@ -50,9 +50,7 @@ def test_validate_segment_presentation_catches_missing_kind() -> None:
     from games.hexdemo.segment_ui import PRESENTATION_BY_SEGMENT_KIND
 
     incomplete = {
-        k: v
-        for k, v in PRESENTATION_BY_SEGMENT_KIND.items()
-        if k != "combat"
+        k: v for k, v in PRESENTATION_BY_SEGMENT_KIND.items() if k != "combat"
     }
     bundle = replace(
         build_hooks(),
@@ -75,10 +73,10 @@ def test_hexdemo_validate_title_contract_includes_segment_registry() -> None:
 
 
 def test_validate_title_contract_requires_segment_registry_with_extension_key() -> None:
+    from games.hexdemo.turn_arc_schedule import build_hexdemo_turn_arc_registry
+
     from hexengine.gamedef.game_data import GameData
     from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer
-    from hexengine.arcs.registry import TurnArcRegistry
-    from games.hexdemo.turn_arc_schedule import build_hexdemo_turn_arc_registry
 
     class PackPartial:
         @property
@@ -87,9 +85,7 @@ def test_validate_title_contract_requires_segment_registry_with_extension_key() 
 
         hooks = TitleHooks(
             ui=UIHooks(turn_action_dock_for_viewer=empty_turn_action_dock_for_viewer),
-            arcs=ArcsHooks(
-                turn_arc_registry=lambda: build_hexdemo_turn_arc_registry()
-            ),
+            arcs=ArcsHooks(turn_arc_registry=lambda: build_hexdemo_turn_arc_registry()),
         )
 
         def turn_order(self):

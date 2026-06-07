@@ -11,13 +11,10 @@ if GAMES not in sys.path:
     sys.path.insert(0, GAMES)
 
 from hexengine.gamedef.interactions import InteractionKind
-from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
-from hexengine.hooks.movement import RetreatPathPreviewContext
 from hexengine.retreat_path import (
     can_complete_retreat_in_steps,
     legal_next_retreat_path_hexes,
-    validate_retreat_path,
 )
 from hexengine.server.game_server import GameServer
 from hexengine.server.map_selection import compute_map_selection_preview
@@ -32,7 +29,9 @@ def _hexdemo_server() -> GameServer:
     from hexengine.scenarios import load_scenario
     from hexengine.scenarios.loader import scenario_to_initial_state
 
-    scenario_path = REPO_ROOT / "games" / "hexdemo" / "scenarios" / "default" / "scenario.toml"
+    scenario_path = (
+        REPO_ROOT / "games" / "hexdemo" / "scenarios" / "default" / "scenario.toml"
+    )
     scenario_data = load_scenario(scenario_path)
     gd = HexdemoGameDefinition(game_definition_from_config(default_match_config()))
     first = {"faction": "union", "phase": "Combat", "max_actions": 4}
@@ -86,7 +85,10 @@ def test_legal_next_blocks_same_ring_dead_end() -> None:
     s = Hex(0, 0, 0)
     a = Hex(1, -1, 0)
     b = Hex(0, -1, 1)
-    loc = lambda h: LocationState(position=h, terrain_type="plain", movement_cost=1.0)
+
+    def loc(h):
+        return LocationState(position=h, terrain_type="plain", movement_cost=1.0)
+
     board = BoardState(
         locations={s: loc(s), a: loc(a), b: loc(b)},
         units={"u": UnitState("u", "inf", "union", s, active=True)},
@@ -128,7 +130,10 @@ def test_legal_next_allows_outward_after_sideways_detour() -> None:
     s = Hex(0, 0, 0)
     a = Hex(1, -1, 0)
     c = Hex(2, -2, 0)
-    loc = lambda h: LocationState(position=h, terrain_type="plain", movement_cost=1.0)
+
+    def loc(h):
+        return LocationState(position=h, terrain_type="plain", movement_cost=1.0)
+
     board = BoardState(
         locations={s: loc(s), a: loc(a), c: loc(c)},
         units={"u": UnitState("u", "inf", "union", s, active=True)},
@@ -159,7 +164,10 @@ def test_legal_next_includes_distant_end_hexes() -> None:
     a = Hex(0, 0, 0)
     b = Hex(1, -1, 0)
     c = Hex(2, -2, 0)
-    loc = lambda h: LocationState(position=h, terrain_type="plain", movement_cost=1.0)
+
+    def loc(h):
+        return LocationState(position=h, terrain_type="plain", movement_cost=1.0)
+
     board = BoardState(
         locations={a: loc(a), b: loc(b), c: loc(c)},
         units={"u": UnitState("u", "inf", "union", a, active=True)},
@@ -216,7 +224,9 @@ def test_retreat_path_polyline_hexes_prefers_local_draft() -> None:
         retreat_path_hexes = [Hex(0, 0, 0), Hex(1, -1, 0), Hex(2, -2, 0)]
 
     g = _G()
-    payload = {"preview_path_hexes": [{"i": 0, "j": 0, "k": 0}, {"i": 1, "j": -1, "k": 0}]}
+    payload = {
+        "preview_path_hexes": [{"i": 0, "j": 0, "k": 0}, {"i": 1, "j": -1, "k": 0}]
+    }
     path = g._retreat_path_polyline_hexes(payload)
     assert len(path) == 3
     assert path[-1] == Hex(2, -2, 0)

@@ -327,9 +327,7 @@ class GameState:
 
         kw: dict[str, Any] = {"title_state": dict(title_state)}
         if title_bucket_key is not None:
-            kw["title_bucket_key"] = (
-                str(title_bucket_key).strip() or None
-            )
+            kw["title_bucket_key"] = str(title_bucket_key).strip() or None
         return replace(self, **kw)
 
     def with_engine_state(self, engine_state: dict[str, Any]) -> GameState:

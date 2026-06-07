@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE_SCENARIO = (
     REPO_ROOT / "games" / "template" / "scenarios" / "default" / "scenario.toml"
@@ -40,9 +38,9 @@ def test_template_turn_arc_registry() -> None:
 
 
 def test_template_validate_title_contract() -> None:
-    from hexengine.hooks.internal.contracts import validate_title_contract
-
     from games.template.registry import build_game_definition
+
+    from hexengine.hooks.internal.contracts import validate_title_contract
 
     validate_title_contract(build_game_definition())
 
@@ -55,17 +53,18 @@ def test_template_combat_scaffold_binding() -> None:
 
 
 def test_template_server_begins_routine_cursor() -> None:
+    from games.template.game_config import (
+        default_match_config,
+        game_definition_from_config,
+    )
+
     from hexengine.arcs import read_arc_cursor
     from hexengine.server import GameServer
     from hexengine.state import GameState
     from hexengine.state.game_state import TurnState
 
-    from games.template.game_config import game_definition_from_config, default_match_config
-
     gd = game_definition_from_config(default_match_config())
-    st = GameState.create_empty().with_turn(
-        TurnState("blue", "Move", 4, 1, 0, 0)
-    )
+    st = GameState.create_empty().with_turn(TurnState("blue", "Move", 4, 1, 0, 0))
     server = GameServer(st, game_definition=gd)
     cursor = read_arc_cursor(server.action_manager.current_state)
     assert cursor is not None

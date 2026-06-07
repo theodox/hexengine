@@ -2,23 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
-
 import pytest
 
 from hexengine.state import GameState
-from hexengine.state.title_extension import title_bucket
-from hexengine.state.actions import PatchTitleBucket
 from hexengine.state.action_manager import ActionManager
-from hexengine.state.game_state import TurnState
+from hexengine.state.actions import PatchTitleBucket
+from hexengine.state.movement_arc import HEXENGINE_MOVEMENT_ARC_KEY
 from hexengine.state.snapshot import game_state_from_wire_dict, game_state_to_wire_dict
 from hexengine.state.title_extension import (
-    ENGINE_EXTENSION_KEY_PREFIX,
     is_engine_extension_key,
     title_bucket,
     with_title_bucket,
 )
-from hexengine.state.movement_arc import HEXENGINE_MOVEMENT_ARC_KEY
 
 
 def test_is_engine_extension_key() -> None:
@@ -58,7 +53,11 @@ def test_patch_title_bucket_action_undo() -> None:
         title_bucket_key="hexdemo",
     )
     mgr = ActionManager(st)
-    mgr.execute(PatchTitleBucket("hexdemo", {"combat_gate": "awaiting_advance"}, remove_keys=("keep",)))
+    mgr.execute(
+        PatchTitleBucket(
+            "hexdemo", {"combat_gate": "awaiting_advance"}, remove_keys=("keep",)
+        )
+    )
     after = mgr.current_state
     hx = title_bucket(after, "hexdemo")
     assert hx["combat_gate"] == "awaiting_advance"
@@ -81,10 +80,14 @@ def test_with_title_bucket_rejects_key_mismatch() -> None:
 
 
 def test_snapshot_wire_roundtrip_split_fields() -> None:
-    st = GameState.create_empty().with_title_state(
-        {"a": 1},
-        title_bucket_key="hexdemo",
-    ).with_engine_state({HEXENGINE_MOVEMENT_ARC_KEY: {"schema": 1}})
+    st = (
+        GameState.create_empty()
+        .with_title_state(
+            {"a": 1},
+            title_bucket_key="hexdemo",
+        )
+        .with_engine_state({HEXENGINE_MOVEMENT_ARC_KEY: {"schema": 1}})
+    )
     wire = game_state_to_wire_dict(st)
     assert wire.get("title_state") == {"a": 1}
     assert wire.get("title_bucket_key") == "hexdemo"
