@@ -159,12 +159,8 @@ class UIHooks:
         Callable[[GameState, str | None], list[dict[str, Any]] | object] | None
     ) = None
 
-    popup_message: (
-        Callable[[GameState, str | None, str, str], dict[str, Any] | object] | None
-    ) = None
-
     inform_popup: (
-        Callable[[InformPopupContext], InformPopup | dict[str, Any] | object] | None
+        Callable[[InformPopupContext], InformPopup | object] | None
     ) = None
 
     map_overlays: (
@@ -217,20 +213,7 @@ class UIHooks:
             return ENGINE_DEFAULT
         return self.interaction_messages(state, viewer_faction)
 
-    def popup(
-        self,
-        state: GameState,
-        viewer_faction: str | None,
-        target_kind: str,
-        target_id: str,
-    ) -> dict[str, Any] | object:
-        if self.popup_message is None:
-            return ENGINE_DEFAULT
-        return self.popup_message(state, viewer_faction, target_kind, target_id)
-
-    def inform_popup_for(
-        self, ctx: InformPopupContext
-    ) -> InformPopup | dict[str, Any] | object:
+    def inform_popup_for(self, ctx: InformPopupContext) -> InformPopup | object:
         if self.inform_popup is None:
             return ENGINE_DEFAULT
         return self.inform_popup(ctx)
@@ -311,7 +294,6 @@ class UIHook(StrEnum):
     """Stable slot ids for `bind_title_hook` (values match `UIHooks` field names)."""
 
     INTERACTION_MESSAGES = "interaction_messages"
-    POPUP_MESSAGE = "popup_message"
     INFORM_POPUP = "inform_popup"
     MAP_OVERLAYS = "map_overlays"
     COMBAT_INSTRUCTION_FOR_VIEWER = "combat_instruction_for_viewer"

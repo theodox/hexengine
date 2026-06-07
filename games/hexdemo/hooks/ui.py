@@ -7,9 +7,9 @@ Presentation copy lives in ``hexdemo.presentation``; phase/inspect templates in
 
 from __future__ import annotations
 
+from hexengine.authoring.present import inform_popup
 from hexengine.hooks.inform_popup import InformPopupContext
 from hexengine.hooks.ui import (
-    ENGINE_DEFAULT,
     AdvanceGateInteractionContext,
     CombatEventSummary,
     CombatInteractionContext,
@@ -97,25 +97,6 @@ def advance_gate_banners_for_viewer(
     return advance_gate_banner_copy(ctx, shell_ui=ctx.shell_ui)
 
 
-@bind_title_hook(UIHook.POPUP_MESSAGE)
-def popup_message(
-    state: GameState,
-    viewer_faction: str | None,
-    target_kind: str,
-    target_id: str,
-) -> dict[str, object] | object:
-    tk = str(target_kind)
-    tid = str(target_id)
-
-    if tk == "unit":
-        return unit_inspect_popup(state, viewer_faction, tid)
-
-    if tk == "marker":
-        return {"text": f"marker {tid}", "kind": "info", "ttl_ms": 1200}
-
-    return ENGINE_DEFAULT
-
-
 @bind_title_hook(UIHook.COMBAT_INTERACTION_MESSAGES)
 def combat_interaction_messages(
     ctx: CombatInteractionMessagesContext,
@@ -155,10 +136,15 @@ def combat_event_summary(state: GameState) -> CombatEventSummary | None:
 
 @bind_title_hook(UIHook.INFORM_POPUP)
 def inform_popup_for_viewer(ctx: InformPopupContext):
-    if not isinstance(ctx, InformPopupContext):
-        from hexengine.authoring.present import inform_popup
+    target_kind = str(ctx.target_kind).strip()
+    target_id = str(ctx.target_id).strip()
 
-        return inform_popup(text="", kind="info", ttl_ms=800)
+    if target_kind == "unit":
+        return unit_inspect_popup(ctx.state, ctx.viewer_faction, target_id)
+
+    if target_kind == "marker":
+        return inform_popup(text=f"marker {target_id}", kind="info", ttl_ms=1200)
+
     profile = str(ctx.inform_profile or ctx.inform_kind or "").strip()
     if profile:
         return inform_popup_for_profile(ctx.shell_ui, profile, ctx.reason)
@@ -172,6 +158,5 @@ __all__ = [
     "combat_instruction_for_viewer",
     "phase_banner_html_for_viewer",
     "phase_banner_text_for_viewer",
-    "popup_message",
     "inform_popup_for_viewer",
 ]

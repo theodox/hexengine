@@ -63,7 +63,7 @@ Every rich message should ship **plain `text` plus optional `html`**:
 | **`text`** | Required on `interaction_messages` rows; fallback when `html` is absent; accessibility; tests and logs |
 | **`html`** | Optional HTML **fragment** (not a full document); client prefers `html` over `text` when both are non-empty |
 
-Same rule applies to **`POPUP_MESSAGE`** hook results and **`ui_popup`** wire payloads. Do **not** put player actions in HTML (`onclick`, forms); use the **turn action dock** (`interaction_panels` `actions[]`) + `action_request`.
+Same rule applies to **`INFORM_POPUP`** hook results and **`ui_popup`** wire payloads. Do **not** put player actions in HTML (`onclick`, forms); use the **turn action dock** (`interaction_panels` `actions[]`) + `action_request`.
 
 HTML is **trusted title content** — the client uses `innerHTML` without sanitization. **Escape dynamic values** before interpolation (see [HTML authoring ladder](#html-authoring-ladder-v1)).
 
@@ -160,12 +160,11 @@ Map-space DOM overlays under `#map-world`. See inline doc on [`StateUpdate`](../
 
 ### `ui_popup` (standalone message)
 
-Sent on **`InspectRequest`**, not embedded in `StateUpdate`. Two hooks, one wire:
+Sent on **`InspectRequest`**, not embedded in `StateUpdate`. One hook, one wire:
 
 | `target_kind` | Hook | When |
 |---------------|------|------|
-| `unit`, `marker` | **`POPUP_MESSAGE`** | Double-click inspect, Enter on selection |
-| `inform` | **`INFORM_POPUP`** | Map callouts (`context.inform_kind`, `target_id` = reason, optional `hex` / `unit_id`) |
+| `unit`, `marker`, `inform` | **`INFORM_POPUP`** | Double-click inspect, Enter on selection; map callouts (`inform`: `context.inform_kind`, `target_id` = reason, optional `hex` / `unit_id`) |
 
 Client entry point for inform: `Game.show_inform_popup(...)` → `send_inform_popup` on the WebSocket client.
 
@@ -180,17 +179,17 @@ Client entry point for inform: `Game.show_inform_popup(...)` → `send_inform_po
 | `ttl_ms` | `int \| null` | no | Auto-dismiss after ms; default **800** on wire when hook omits |
 | `css_class` | `str` | no | Extra class on popup root |
 
-**Hook return dict** (server adds `hex`): same fields except `hex`. At least one of `text` or `html` required.
+**Hook return:** `InformPopup` DTO from `hexengine.authoring.present.inform_popup` (serialized via `inform_popup_to_wire`; server adds `hex`). At least one of `text` or `html` required.
 
 Example from hexdemo [`unit_inspect_popup`](../games/hexdemo/ui_markup.py):
 
 ```python
-{
-    "text": "u1 | infantry | union | [3, 4]",
-    "html": "<div class=\"hexdemo-unit-inspect\">…</div>",  # from templates/unit_inspect.html
-    "kind": "info",
-    "ttl_ms": 1500,
-}
+inform_popup(
+    text="u1 | infantry | union | [3, 4]",
+    html="<div class=\"hexdemo-unit-inspect\">…</div>",  # from templates/unit_inspect.html
+    kind="info",
+    ttl_ms=1500,
+)
 ```
 
 Use **`text` + `html`** together; the server forwards `ttl_ms` and optional `css_class` to the client popup.
@@ -211,7 +210,7 @@ SELECT drafts (map/unit picks before commit) use one RPC pair. The server dispat
 |-------------------|------------|---------------|
 | `attack_plan` | `AttackHook.ATTACK_PLAN_PREVIEW` → `hooks.attack.attack_plan_preview` | `target_hex`, `attacker_ids`; returns `panel_actions` (hexdemo) |
 | `retreat_path` | `MovementHook.RETREAT_PATH_PREVIEW` → `hooks.movement.retreat_path_preview` | `unit_id`, `path[]`; `legal_next_hexes`, stepwise `commit_payload` (hexdemo) |
-| `inspect_unit` | — | Inspect uses `POPUP_MESSAGE` (INFORM), not map-selection preview |
+| `inspect_unit` | — | Inspect uses `INFORM_POPUP`, not map-selection preview |
 | `place_marker` | `UIHook.PLACE_MARKER_PREVIEW` → `hooks.ui.place_marker_preview` | `marker_id`, `to_hex`; legal destinations from title rule; `MoveMarker` commit (hexdemo). Shift+click marker to start; drag unchanged. |
 
 To add a kind: extend `InteractionKind`, register a row in [`map_selection_registry.py`](../src/hexengine/hooks/map_selection_registry.py), bind a title hook, add a client apply row in [`client_map_selection_registry.py`](../src/hexengine/game/arcs/client_map_selection_registry.py) (`_MAP_SELECTION_APPLY_METHODS`), optionally add panel-action routes in [`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py), and document draft/response fields in the title pack.
@@ -227,8 +226,7 @@ Bind with `@bind_title_hook(UIHook.…)` in the title hooks package. Values matc
 | **`PHASE_BANNER_HTML_FOR_VIEWER`** | Default message composition | `(ctx: PhaseBannerContext)` | `str` | Omitted — phase row is text-only |
 | **`COMBAT_INSTRUCTION_FOR_VIEWER`** | After combat with retreat context | `(ctx: CombatInteractionContext)` | `(instruction, message)` | [`default_combat_instruction_for_viewer`](../src/hexengine/hooks/ui.py) |
 | **`ADVANCE_GATE_BANNERS_FOR_VIEWER`** | Active segment kind is advance gate | `(ctx: AdvanceGateInteractionContext)` | `(text_advancing, text_other)` | [`default_advance_gate_banners_for_viewer`](../src/hexengine/hooks/ui.py) |
-| **`POPUP_MESSAGE`** | `InspectRequest` (`unit` / `marker`) | `(state, viewer_faction, target_kind, target_id)` | `dict` | Minimal debug text |
-| **`INFORM_POPUP`** | `InspectRequest` (`inform`) | `(ctx: InformPopupContext)` | `dict` | [`default_inform_popup_for_viewer`](../src/hexengine/hooks/inform_popup.py) |
+| **`INFORM_POPUP`** | `InspectRequest` (`unit` / `marker` / `inform`) | `(ctx: InformPopupContext)` | `InformPopup` | [`default_inform_popup_for_viewer`](../src/hexengine/hooks/inform_popup.py) |
 | **`MAP_OVERLAYS`** | Every per-player `StateUpdate` | `(state, viewer_faction)` | `list[dict]` | `[]` |
 | **`TURN_ACTION_DOCK_FOR_VIEWER`** | Every per-player `StateUpdate` | `(ctx: TurnActionDockContext)` | `list[dict]` panels | Engine catalog ([`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py)) |
 | **`INTERACTION_PANELS_FOR_VIEWER`** | When dock hook not bound | `(ctx: InteractionPanelsContext)` | `list[dict]` | Engine catalog ([`ui_interaction_panels`](../src/hexengine/hooks/ui_interaction_panels.py)) |
@@ -292,7 +290,7 @@ Tiered approach for title HTML without arbitrary inline JS. Expanded narrative a
 | Surface | Hook / field | Display-only |
 |---------|--------------|--------------|
 | Turn banner | `interaction_messages[].html`, `PHASE_BANNER_HTML_FOR_VIEWER` | Yes |
-| Inspect popup | `POPUP_MESSAGE` → `ui_popup.html` | Yes |
+| Inspect popup | `INFORM_POPUP` → `ui_popup.html` | Yes |
 | Title-load splash | `[hooks.title_load]` splash resource | Yes |
 | Turn action dock | `interaction_panels[].headline`, `html` (display); `actions[]` commit | `actions[]` → `action_request` |
 

@@ -51,7 +51,7 @@ Titles expose many player-facing flows; the engine reuses a small set of **primi
 | Pick attackers + target hex (attack plan) | SELECT (units + map) → DECIDE (Confirm / Cancel via preview `panel_actions` merged into dock) |
 | Mandatory multi-hex retreat | SELECT (`retreat_path`, click-extend) → DECIDE (Confirm / Cancel / Undo on dock) |
 | End phase / disrupt / combat advance | DECIDE (dock only) |
-| Inspect unit popup | INFORM (`POPUP_MESSAGE`) |
+| Inspect unit popup | `INFORM_POPUP` |
 | Yes/no or enumerated choice (no map) | DECIDE (`actions[]` or `inputs[]` + confirm row) |
 | “Pick path, then confirm” wizard | SEQUENCE: INFORM → SELECT (path) → DECIDE |
 | “Pick ammunition, then path, then confirm” | SEQUENCE: DECIDE (inputs) → SELECT → DECIDE |
@@ -400,7 +400,7 @@ Illustrative `dock_arc` values for [`games/hexdemo`](../games/hexdemo/); not enf
 | [`map_selection_preview_request`](../src/hexengine/server/protocol/client.py) | Client → server: `kind` (`InteractionKind`), `draft` object |
 | [`map_selection_preview`](../src/hexengine/server/protocol/server.py) | Server → client: legality, `status_text`, `confirm_enabled`, `commit_payload`, optional **`panel_actions`** |
 
-**`InteractionKind` (map preview registry):** `attack_plan`, `retreat_path`, `place_marker` ([`gamedef/interactions.py`](../src/hexengine/gamedef/interactions.py), server [`map_selection_registry.py`](../src/hexengine/hooks/map_selection_registry.py), client [`client_map_selection_registry.py`](../src/hexengine/game/arcs/client_map_selection_registry.py)). `inspect_unit` uses `POPUP_MESSAGE` (INFORM), not map-selection preview. Marker drag still uses `marker_preview_request`; click-confirm relocate uses `place_marker` + dock Confirm. New kinds: extend `InteractionKind`, register server row + client apply method — see [PACK_HOOK_CONTRACTS.md § Map selection preview](PACK_HOOK_CONTRACTS.md#map-selection-preview_map_selection_preview_request--map_selection_preview).
+**`InteractionKind` (map preview registry):** `attack_plan`, `retreat_path`, `place_marker` ([`gamedef/interactions.py`](../src/hexengine/gamedef/interactions.py), server [`map_selection_registry.py`](../src/hexengine/hooks/map_selection_registry.py), client [`client_map_selection_registry.py`](../src/hexengine/game/arcs/client_map_selection_registry.py)). `inspect_unit` uses `INFORM_POPUP`, not map-selection preview. Marker drag still uses `marker_preview_request`; click-confirm relocate uses `place_marker` + dock Confirm. New kinds: extend `InteractionKind`, register server row + client apply method — see [PACK_HOOK_CONTRACTS.md § Map selection preview](PACK_HOOK_CONTRACTS.md#map-selection-preview_map_selection_preview_request--map_selection_preview).
 
 **Contract alignment:** Preview `panel_actions` use the **same action row schema** as the dock. The dock hook supplies baseline buttons; preview supplies draft-ratify buttons.
 

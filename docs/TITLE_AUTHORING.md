@@ -241,13 +241,12 @@ Full field tables: [`PACK_HOOK_CONTRACTS.md` § UI affordances](PACK_HOOK_CONTRA
 | Hook(s) | Typical return (author) |
 |------|---------|--------------|
 | `PHASE_BANNER_*`, `COMBAT_INSTRUCTION_*`, `ADVANCE_GATE_*`, or full `INTERACTION_MESSAGES` | Message rows: `text`, optional `html`, `kind`, `ttl_ms`, … (engine adds `schema` on wire) |
-| `POPUP_MESSAGE` | `{text?, html?, kind?, ttl_ms?, css_class?}` — server sets anchor `hex` |
-| **`INFORM_POPUP`** (client `show_inform_popup` → inspect + `target_kind=inform`) | Same shape as popup dict |
+| **`INFORM_POPUP`** | `InformPopup` DTO (`text`, optional `html`, `kind`, `ttl_ms`, `css_class`) — server sets anchor `hex` |
 | `MAP_OVERLAYS` | List of overlay specs (id, kind, hex, text, …) |
 
-**Two `ui_popup` paths, one renderer:** unit/marker double-click → `POPUP_MESSAGE`; transient map callouts (e.g. illegal attack hex) → `INFORM_POPUP`. Both arrive as `ui_popup` on the client (`_handle_ui_popup`). Do not call `popup_manager.create_popup` from title/game client code for player-facing copy.
+**One `ui_popup` path:** all `InspectRequest` targets (`unit`, `marker`, `inform`) go through **`INFORM_POPUP`** → `inform_popup_to_wire` → `ui_popup` on the client (`_handle_ui_popup`). Do not call `popup_manager.create_popup` from title/game client code for player-facing copy.
 
-**Inform request:** `InspectRequest` with `target_kind: "inform"`, `target_id: <reason>`, `context: { inform_kind, hex?, unit_id? }`. Hexdemo: [`hooks/ui.py`](../games/hexdemo/hooks/ui.py) + [`presentation/inform.py`](../games/hexdemo/presentation/inform.py); `shell_ui` keys `attack_plan_*`.
+**Inspect requests:** `InspectRequest` with `target_kind` `unit` / `marker` / `inform`. Inform lane uses `target_id` as reason id and `context: { inform_kind?, hex?, unit_id? }`. Hexdemo: [`hooks/ui.py`](../games/hexdemo/hooks/ui.py) + [`presentation/inform.py`](../games/hexdemo/presentation/inform.py) + [`ui_markup.py`](../games/hexdemo/ui_markup.py) for unit inspect; `shell_ui` keys `attack_plan_*`.
 
 **Dev console repeater (optional):** When the dev console is initialized (`#status-line`), `Game.repeat_ui_popup_to_dev_console` (default `True`) mirrors each `ui_popup` plain-text line on the status strip via [`dev_console.repeat_ui_popup_to_status`](../src/hexengine/dev_console.py). This is for debugging only — not a player-facing channel. Do not call `dev_console.set_status` for routine INFORM copy; use the repeater or log lines instead. Server/connection errors may still set status directly.
 

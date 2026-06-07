@@ -85,7 +85,7 @@ Drag relocate unchanged: `marker_preview_request` on [`server/preview.py`](../sr
 |--------|------|
 | `interaction_messages` | `#interaction-banner`; prefers `html` over `text` |
 | [`ui_markup.py`](../games/hexdemo/ui_markup.py) | Hexdemo templates + flag URLs (`/pack/hexdemo/…`) |
-| `POPUP_MESSAGE` → `ui_popup` | Unit/marker inspect (double-click / Enter) |
+| `INFORM_POPUP` → `ui_popup` | Unit/marker/inform inspect and map callouts |
 | `INFORM_POPUP` → `ui_popup` | Map callouts: `Game.show_inform_popup` → `inspect` + `target_kind=inform` |
 | [`hooks/ui.py`](../games/hexdemo/hooks/ui.py) + [`presentation/inform.py`](../games/hexdemo/presentation/inform.py) | Inform map callouts (`shell_ui` `attack_plan_*`) |
 

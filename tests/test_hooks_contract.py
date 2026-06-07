@@ -303,13 +303,16 @@ def test_hook_enum_members_match_dataclass_fields() -> None:
 
 
 def test_assemble_title_hooks_rejects_duplicate_paths() -> None:
-    @bind_title_hook(UIHook.POPUP_MESSAGE)
-    def a(_s: object, _v: object, _k: str, _i: str) -> dict[str, object]:
-        return {}
+    from hexengine.authoring.present import inform_popup
+    from hexengine.hooks.inform_popup import InformPopupContext
 
-    @bind_title_hook(UIHook.POPUP_MESSAGE)
-    def b(_s: object, _v: object, _k: str, _i: str) -> dict[str, object]:
-        return {}
+    @bind_title_hook(UIHook.INFORM_POPUP)
+    def a(_ctx: InformPopupContext):
+        return inform_popup(text="a")
+
+    @bind_title_hook(UIHook.INFORM_POPUP)
+    def b(_ctx: InformPopupContext):
+        return inform_popup(text="b")
 
     mod = types.ModuleType("hexengine_test_wiring_dup")
     mod.a = a
@@ -333,7 +336,7 @@ def test_hexdemo_build_hooks_wires_all_marked() -> None:
     th = build_hooks()
     assert th.movement.zoc_hexes_for_unit is not None
     assert th.attack.validate_attack is not None
-    assert th.ui.popup_message is not None
+    assert th.ui.inform_popup is not None
     assert th.ui.phase_banner_text_for_viewer is not None
     assert th.ui.phase_banner_html_for_viewer is not None
     assert th.ui.combat_instruction_for_viewer is not None

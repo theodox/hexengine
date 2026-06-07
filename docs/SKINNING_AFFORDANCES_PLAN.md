@@ -180,7 +180,7 @@ Tiers 1–5: CSS → templates → `ui_markup.py` → `hexengine.ui.display` →
 | Commit buttons | `TURN_ACTION_DOCK_FOR_VIEWER` + preview `panel_actions` |
 | Draft legality | Preview hook for `InteractionKind` |
 | Short “what now” during drafts | Preview `status_text` → dock headline (client) |
-| Inspect | `POPUP_MESSAGE` |
+| Inspect | `INFORM_POPUP` |
 | Map glyphs | `MAP_OVERLAYS` |
 
 ---
@@ -190,7 +190,7 @@ Tiers 1–5: CSS → templates → `ui_markup.py` → `hexengine.ui.display` →
 | Hook | Primitive |
 |------|-----------|
 | `INTERACTION_MESSAGES`, `PHASE_BANNER_*`, `COMBAT_INSTRUCTION_*`, `ADVANCE_GATE_*` | INFORM |
-| `POPUP_MESSAGE`, `MAP_OVERLAYS` | INFORM |
+| `INFORM_POPUP`, `MAP_OVERLAYS` | INFORM |
 | **`TURN_ACTION_DOCK_FOR_VIEWER`** | DECIDE |
 | **`AttackHook.ATTACK_PLAN_PREVIEW`** | SELECT (`attack_plan`) |
 | **`MovementHook.RETREAT_PATH_PREVIEW`** | SELECT (`retreat_path`) |

@@ -59,6 +59,8 @@ def test_hexdemo_inform_popup_attack_plan_shell_ui() -> None:
     ctx = InformPopupContext(
         state=st,
         viewer_faction="union",
+        target_kind="inform",
+        target_id="no_attackable_enemy",
         inform_kind="attack_plan",
         reason="no_attackable_enemy",
         anchor_hex=h,

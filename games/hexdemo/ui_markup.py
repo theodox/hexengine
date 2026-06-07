@@ -16,6 +16,7 @@ from hexengine.hexes.types import HexColRow
 from hexengine.hooks.ui import PhaseBannerContext
 from hexengine.state import GameState
 from hexengine.state.game_state import UnitState
+from hexengine.authoring.present import InformPopup, inform_popup
 from hexengine.ui.display import (
     load_html_template,
     pack_asset_href,
@@ -128,11 +129,11 @@ def unit_inspect_popup(
     state: GameState,
     viewer_faction: str | None,
     unit_id: str,
-) -> dict[str, Any]:
-    """Build a ``POPUP_MESSAGE`` wire dict for a unit inspect target."""
+) -> InformPopup:
+    """Build one unit inspect callout for ``INFORM_POPUP``."""
     u = state.board.units.get(unit_id)
     if u is None:
-        return {"text": f"{unit_id} (missing)", "kind": "error", "ttl_ms": 1200}
+        return inform_popup(text=f"{unit_id} (missing)", kind="error", ttl_ms=1200)
 
     cr = HexColRow.from_hex(u.position)
     pos_s = f"[{cr.col}, {cr.row}]"
@@ -140,7 +141,7 @@ def unit_inspect_popup(
     hp_s = str(int(u.health)) if own else "?"
     text = unit_inspect_plain_text(u, pos_s)
     html = render_unit_inspect_html(u, position=pos_s, hp_display=hp_s)
-    return {"text": text, "html": html, "kind": "info", "ttl_ms": 1500}
+    return inform_popup(text=text, html=html, kind="info", ttl_ms=1500)
 
 
 __all__ = [

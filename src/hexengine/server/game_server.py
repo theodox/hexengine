@@ -1768,9 +1768,13 @@ class GameServer:
         if anchor_hex is None:
             return
 
+        shell = dict(self.game_data.shell_ui) if self.game_data.shell_ui else {}
+        inform_kind = ""
+        inform_profile: str | None = None
+        segment_kind: str | None = None
+        unit_id: str | None = None
         if target_kind == "inform":
             client_inform_kind = ""
-            unit_id: str | None = None
             if isinstance(ctx, dict):
                 client_inform_kind = str(ctx.get("inform_kind", "")).strip()
                 uid_raw = ctx.get("unit_id")
@@ -1784,43 +1788,29 @@ class GameServer:
                 viewer_faction=viewer_faction,
                 client_inform_kind=client_inform_kind,
             )
-            shell = dict(self.game_data.shell_ui) if self.game_data.shell_ui else {}
-            ip_ctx = InformPopupContext(
-                state=state,
-                viewer_faction=viewer_faction,
-                inform_kind=lane.inform_kind,
-                reason=target_id,
-                anchor_hex=anchor_hex,
-                unit_id=unit_id,
-                shell_ui=shell,
-                inform_profile=lane.inform_profile,
-                segment_kind=lane.segment_kind,
-            )
-            pm = self.hooks.ui.inform_popup_for(ip_ctx)
-            if pm is ENGINE_DEFAULT or pm is None:
-                pm = default_inform_popup_for_viewer(ip_ctx)
-            from ..hooks.internal.ui_wire import inform_popup_to_wire
+            inform_kind = lane.inform_kind
+            inform_profile = lane.inform_profile
+            segment_kind = lane.segment_kind
 
-            pm = inform_popup_to_wire(pm)
-            await self._send_ui_popup_to_player(player_id, anchor_hex=anchor_hex, pm=pm)
-            return
-
-        pm = self.hooks.ui.popup(state, viewer_faction, target_kind, target_id)
+        ip_ctx = InformPopupContext(
+            state=state,
+            viewer_faction=viewer_faction,
+            target_kind=target_kind,
+            target_id=target_id,
+            anchor_hex=anchor_hex,
+            shell_ui=shell,
+            inform_kind=inform_kind,
+            reason=target_id if target_kind == "inform" else "",
+            unit_id=unit_id,
+            inform_profile=inform_profile,
+            segment_kind=segment_kind,
+        )
+        pm = self.hooks.ui.inform_popup_for(ip_ctx)
         if pm is ENGINE_DEFAULT or pm is None:
-            if target_kind == "unit":
-                u = state.board.units.get(target_id)
-                txt = f"{target_id}" if u is None else f"{target_id} @ {u.faction}"
-            else:
-                txt = f"{target_kind} {target_id}"
-            await self._send_ui_popup_to_player(
-                player_id,
-                anchor_hex=anchor_hex,
-                pm={"text": txt, "kind": "info", "ttl_ms": 800},
-            )
-            return
+            pm = default_inform_popup_for_viewer(ip_ctx)
+        from ..hooks.internal.ui_wire import inform_popup_to_wire
 
-        if not isinstance(pm, dict):
-            return
+        pm = inform_popup_to_wire(pm)
         await self._send_ui_popup_to_player(player_id, anchor_hex=anchor_hex, pm=pm)
 
     async def _handle_marker_preview_request(

@@ -59,6 +59,8 @@ def test_default_inform_popup_uses_profile_shell_key() -> None:
     ctx = InformPopupContext(
         state=GameState.create_empty(),
         viewer_faction="union",
+        target_kind="inform",
+        target_id="no_attackable_enemy",
         inform_kind="attack_plan",
         reason="no_attackable_enemy",
         anchor_hex=None,
