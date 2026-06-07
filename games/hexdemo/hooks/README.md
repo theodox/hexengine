@@ -10,7 +10,7 @@ This folder is where **title policy** lives. The engine calls it through differe
 |------|----------------|---------------------------|
 | **`TitleHooks`** (in-match) | `movement.py`, `attack.py`, `ui.py`, `overlays.py`, `arcs.py` | `HexdemoGameDefinition.hooks` → `build_hooks()` in `__init__.py` |
 | **Manifest title-load** | `title_load.py` | `hexengine_pack.toml` `[hooks.title_load]` + client connect arc (`SPLASH` / `SETUP` segments) |
-| **Turn schedule** | `turn_schedule.py` | `HexdemoGameDefinition.after_phase_transition` (not `TitleHooks`) |
+| **Phase transition** | `game_config.py` → `combat_transitions` | `HexdemoGameDefinition.after_phase_transition` (not `TitleHooks`) |
 
 **Arc segments** (resolve scenario, boot local server, WebSocket, dismiss splash) are engine-owned in `hexengine.game.arcs.client_title_load`. Only the title-load **hooks** above are pack Python.
 
@@ -83,20 +83,15 @@ Declared in `hexengine_pack.toml`:
 
 - `present_splash(html)` — client; HTML from `resources/splash.html`
 - `run_setup(ctx) -> TitleLoadResult` — client; v1 always continues connect
-- `on_server_loaded()` — server; one-shot after authoritative pack load
 
 Today the engine is **fault-tolerant** if a callable is missing; future packs should treat manifest keys as explicit contracts (`docs/TITLE_LOAD_HOOKS.md`).
-
-## Turn schedule (`turn_schedule.py`)
-
-Callbacks when the committed turn enters a phase (e.g. `before_union_move`). Extend here for round-start effects that are not movement/attack/UI hook points.
 
 ## Adding title behavior
 
 1. **Shared policy** — add or extend a pack-root module (`combat.py`, …): pure `GameState` in/out.
 2. **In-match integration** — wire a **hook** in `hooks/*.py` with `bind_title_hook`; call the rules module from the hook body; ensure `build_hooks()` still assembles it.
 3. **Connect / splash / lobby** — `title_load.py` or a future manifest table.
-4. **Phase entry** — `turn_schedule.py` or `after_phase_transition` in `game_config.py`.
+4. **Phase entry** — `after_phase_transition` in `game_config.py` (e.g. `combat_transitions`).
 
 Optional future layout: `hexdemo/rules/` for policy modules and `hexdemo/hooks/` only as adapters.
 

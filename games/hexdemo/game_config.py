@@ -27,7 +27,6 @@ from hexengine.gamedef.game_data import GameData
 from hexengine.gamedef.game_data_toml import load_game_data_for_pack_root
 from hexengine.gamedef.protocol import GameDefinition
 from hexengine.state import DEFAULT_MOVEMENT_BUDGET, GameState
-from hexengine.state.phase_rules import phase_allows_unit_move
 
 from .constants import HEXDEMO_FACTIONS
 
@@ -139,11 +138,7 @@ class HexdemoGameDefinition:
         bucket keys).
         """
         from . import combat_transitions
-        from .hooks.turn_schedule import before_union_move
 
-        t = state.turn
-        if t.current_faction == "union" and phase_allows_unit_move(t.current_phase):
-            before_union_move(state)
         return combat_transitions.clear_combat_state_actions(state)
 
 

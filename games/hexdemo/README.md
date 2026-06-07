@@ -22,7 +22,6 @@ When you run `hexserver` (or start the local WebSocket server) with a scenario u
 
 - **Browser splash** — `resources/splash.html` injected during the client title-load arc (`SPLASH` segment) via `hooks.title_load.present_splash`.
 - **Setup (v1)** — `hooks.title_load.run_setup` on the `SETUP` segment; returns immediately (`continue_connect=True`); reserved for future pre-game UI.
-- **Server log** — `hooks.title_load.on_server_loaded` logs **`welcome to hexdemo`** once at INFO after authoritative load.
 
 ## Game definitions and turn order
 
@@ -45,7 +44,6 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 |------|---------|
 | `hooks/` | Title policy adapters — see [`hooks/README.md`](hooks/README.md) (`TitleHooks`, title-load, turn schedule) |
 | `hooks/title_load.py` | Splash/setup/server-log (`[hooks.title_load]` in manifest) |
-| `hooks/turn_schedule.py` | Phase-entry callbacks from `HexdemoGameDefinition` |
 | `presentation/` | Viewer copy (`dock.py`, `inform.py`, `interaction_messages.py`) |
 | `segment_ui.py` | Segment `kind` → presentation registry (`PRESENTATION_BY_SEGMENT_KIND`) |
 | `arc_segment.py` | Project `current_segment` per viewer; `phase_advance_blocked` for auto-advance |

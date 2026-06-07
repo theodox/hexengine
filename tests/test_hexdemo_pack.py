@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 import pytest
@@ -33,7 +32,6 @@ def test_hexdemo_manifest_declares_title_load_hooks() -> None:
     assert tl.splash_html == "splash.html"
     assert tl.splash_callable == "present_splash"
     assert tl.setup_callable == "run_setup"
-    assert tl.server_loaded_callable == "on_server_loaded"
     splash = read_pack_resource_text(rec.root, tl.splash_html)
     assert splash is not None
     assert "Hexdemo" in splash
@@ -41,21 +39,15 @@ def test_hexdemo_manifest_declares_title_load_hooks() -> None:
     assert rec.game_data.title_state_extension_key == "hexdemo"
 
 
-def test_try_hexdemo_title_load_server_once(caplog: pytest.LogCaptureFixture) -> None:
+def test_try_pack_title_load_server_no_hook_is_safe() -> None:
     from hexengine.gameroot import (
         reset_title_load_hooks_for_tests,
         try_pack_title_load_server,
     )
 
     reset_title_load_hooks_for_tests()
-    with caplog.at_level(logging.INFO, logger="hexdemo.hooks.title_load"):
-        try_pack_title_load_server(HEXDEMO_SCENARIO)
-        try_pack_title_load_server(HEXDEMO_SCENARIO)
-
-    boot_logs = [r for r in caplog.records if r.name == "hexdemo.hooks.title_load"]
-    assert len(boot_logs) == 1
-    assert boot_logs[0].levelname == "INFO"
-    assert boot_logs[0].message == "welcome to hexdemo"
+    try_pack_title_load_server(HEXDEMO_SCENARIO)
+    try_pack_title_load_server(HEXDEMO_SCENARIO)
 
 
 def test_load_game_definition_for_hexdemo_scenario() -> None:

@@ -7,8 +7,8 @@ Hexdemo hook implementations.
 **Manifest title-load** — splash/setup/server log in `hexdemo.hooks.title_load`;
 wired from `hexengine_pack.toml` `[hooks.title_load]`, not via `TitleHooks`.
 
-**Turn schedule** — `hexdemo.hooks.turn_schedule` (e.g. `before_union_move`) from
-`HexdemoGameDefinition.after_phase_transition`.
+**Phase transition** — `HexdemoGameDefinition.after_phase_transition` clears
+phase-scoped combat state via `combat_transitions`.
 
 Engine catalog defaults (`hexengine.hooks.internal`) complement `TitleHooks` when
 hooks return `ENGINE_DEFAULT` or omit a field.
