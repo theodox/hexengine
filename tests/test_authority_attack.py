@@ -32,11 +32,7 @@ from hexengine.state.game_state import BoardState, TurnState, UnitState
 
 EXPECTED_ORDER = (
     AuthorityAttackPipelineStep.NORMALIZE_WIRE_AND_PARTIES,
-    AuthorityAttackPipelineStep.HOOK_VALIDATE,
-    AuthorityAttackPipelineStep.HOOK_RESOLVE,
-    AuthorityAttackPipelineStep.REQUIRE_TITLE_EXTENSION_KEY,
-    AuthorityAttackPipelineStep.COMMIT_ATTACK_AND_EFFECTS,
-    AuthorityAttackPipelineStep.AFTER_ATTACK_APPLIED,
+    AuthorityAttackPipelineStep.SUBMIT_ATTACK_EVENT,
     AuthorityAttackPipelineStep.BROADCAST_COMBAT_EVENTS,
     AuthorityAttackPipelineStep.MAYBE_AUTO_ADVANCE_PHASE,
 )
@@ -44,7 +40,7 @@ EXPECTED_ORDER = (
 
 def test_authority_attack_pipeline_order_is_stable() -> None:
     assert AUTHORITY_ATTACK_PIPELINE == EXPECTED_ORDER
-    assert len(AUTHORITY_ATTACK_PIPELINE) == 8
+    assert len(AUTHORITY_ATTACK_PIPELINE) == 4
 
 
 def test_normalize_attack_party_ids_anchor_first() -> None:
@@ -127,6 +123,57 @@ def _two_unit_combat_state() -> GameState:
         phase_actions_remaining=1,
     )
     return GameState(board=board, turn=turn, title_state={}, title_bucket_key="testpack")
+
+
+def test_combat_outcome_after_applied_follow_ups_run_before_broadcast() -> None:
+    st0 = _two_unit_combat_state()
+    mgr = ActionManager(st0)
+    marker = {"patch_applied": False}
+
+    def validate(_ctx: AttackContext) -> None:
+        return None
+
+    def resolve(_ctx: AttackContext) -> AttackResolution:
+        return AttackResolution(outcome="none")
+
+    def outcome_after_applied(ctx: AfterAttackAppliedContext):
+        from hexengine.hooks.combat_outcome import CombatOutcome
+
+        marker["patch_applied"] = True
+        return CombatOutcome(
+            bucket_patch={"after_attack_hook": True},
+        )
+
+    host = _AttackHost(
+        hooks=TitleHooks(
+            attack=AttackHooks(
+                validate_attack=validate,
+                resolve_attack=resolve,
+                combat_outcome_after_applied=outcome_after_applied,
+            )
+        ),
+        action_manager=mgr,
+    )
+
+    ok = asyncio.run(
+        execute_authority_attack_request(
+            host,
+            player_id="p1",
+            player_faction="union",
+            current_state=st0,
+            params={
+                "attack_kind": "melee",
+                "attacker_id": "a",
+                "defender_id": "d",
+            },
+        )
+    )
+    assert ok is True
+    assert marker["patch_applied"] is True
+    assert host.broadcasted is True
+    hx = title_bucket(mgr.current_state, "testpack")
+    assert isinstance(hx, dict)
+    assert hx.get("after_attack_hook") is True
 
 
 def test_after_attack_applied_follow_ups_run_before_broadcast() -> None:

@@ -10,14 +10,14 @@
 
 ## Why
 
-Composable arcs finished **combat cleanup** as a declared FSM (`submit_event` on retreat, advance, disrupt). **Attack resolution** is still a separate pre-arc hook pipeline (`validate` → `resolve` → `Attack` / `ApplyCombatEffects` → `after_attack_applied` → `begin_combat_arc`).
+Composable arcs finished **combat cleanup** as a declared FSM (`submit_event` on retreat, advance, disrupt). **Attack resolution** for extension-key titles with a declared combat arc routes through `submit_event` on the arc `attack` segment (`validate` → `resolve` → `Attack` / `ApplyCombatEffects` → `CombatOutcome` → auto `classify`).
 
 That split forces authors to learn two systems for one feature:
 
 | Author concern | Today | Engine knowledge required |
 |----------------|-------|---------------------------|
 | Dice / CRT / outcome | `AttackHook.resolve_attack` | `AttackResolution`, `effects` shape |
-| Post-attack match state | `AttackHook.after_attack_applied` → `follow_up_after_attack` | Bucket keys, timing vs `begin_combat_arc` |
+| Post-attack match state | `AttackHook.combat_outcome_after_applied` → `CombatOutcome` | Bucket keys, timing vs `begin_combat_arc` |
 | Cleanup gates | `CombatArcEffectsBinding` in `combat_arc.py` | Arc guards reading the same bucket |
 | “May I attack?” | `validate_attack` + `arc_segment.segment_denies_action` | Segment projection from pack code |
 | Cleanup RPC effects | Arc effects **and** vestigial `AttackHook` cleanup slots | Which path is live |
@@ -65,7 +65,7 @@ Authors work in **three layers** only (aligned with [`TITLE_AUTHORING.md` § Flo
 | Buttons / map mode | Segment registry + `presentation/` |
 | Auto-advance phase after attack / move | Optional policy methods on binding or tiny hooks |
 
-**Engine-owned (authors never implement):** `execute_authority_attack_request` ordering, `begin_combat_arc`, `submit_event`, `Attack` / `ApplyCombatEffects` assembly, movement payload bridge, wire projection.
+**Engine-owned (authors never implement):** `execute_authority_attack_request` wire normalize + `submit_event`, `begin_combat_arc` (cleanup-only entry), `Attack` / `ApplyCombatEffects` assembly helpers, movement payload bridge, wire projection.
 
 ---
 
@@ -124,7 +124,7 @@ Authors work in **three layers** only (aligned with [`TITLE_AUTHORING.md` § Flo
 
 ### Phase C — `CombatOutcome` + engine adapter (collapse handoff)
 
-**Status:** not started.
+**Status:** done.
 
 **Goal:** Replace `after_attack_applied` / `follow_up_after_attack` with one author outcome type and an engine adapter that applies state + starts classify.
 
@@ -152,7 +152,7 @@ Authors work in **three layers** only (aligned with [`TITLE_AUTHORING.md` § Flo
 
 ### Phase D — `Attack` as an arc transition
 
-**Status:** not started.
+**Status:** done.
 
 **Goal:** Single FSM for routine combat: `Attack` RPC goes through `submit_event` on the routine combat segment; resolution + classify are one declared transition chain.
 
@@ -258,7 +258,7 @@ Full combat integration suite + replay/undo tests if present.
 | Piece | Current module | Target owner |
 |-------|----------------|--------------|
 | CRT / resolve | `hooks/attack.py` | `combat.py` → binding.resolve |
-| Bucket after attack | `combat_transitions.follow_up_after_attack` | `CombatOutcome` (engine applies) |
+| Bucket after attack | `combat_outcome.build_combat_outcome_after_applied` | `CombatOutcome` (engine applies) |
 | Classify / gates | `combat_arc.py` effects | Same binding (guards/effects) |
 | Retreat/advance/disrupt mutations | `combat_actions.py` | Same binding (effect methods) |
 | Segment deny in validate | `arc_segment` in validate | Engine pre-check |

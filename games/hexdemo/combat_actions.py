@@ -21,6 +21,12 @@ from hexengine.state.actions import (
     PatchUnitAttributes,
 )
 
+from hexengine.server.arcs.authority_attack_commit import (
+    build_attack_context_from_wire,
+    collect_authority_attack_actions,
+    resolve_authority_attack,
+)
+
 from . import arc_segment, combat, combat_transitions
 
 
@@ -377,7 +383,38 @@ def resolve_combat_advance(
     return actions
 
 
+def authority_attack_arc_effect(ctx) -> list[StateAction]:
+    """Combat arc ``Attack`` transition: validate, resolve, commit, classify handoff."""
+
+    from types import SimpleNamespace
+
+    from games.hexdemo.hooks import build_hooks
+
+    hooks = build_hooks()
+    host = SimpleNamespace(hooks=hooks)
+    player_faction = str(ctx.owner_faction or "").strip()
+    if not player_faction:
+        raise ValueError("Attack requires a resolved segment owner")
+    attack_ctx = build_attack_context_from_wire(
+        ctx.state, player_faction, dict(ctx.params)
+    )
+    resolution, outcome_from_resolve = resolve_authority_attack(host, attack_ctx)
+    extension_key = str(ctx.extension_key or ctx.state.title_bucket_key or "").strip()
+    if not extension_key:
+        raise ValueError(
+            "This game title does not define a state extension key for combat"
+        )
+    return collect_authority_attack_actions(
+        host,
+        attack_context=attack_ctx,
+        resolution=resolution,
+        extension_key=extension_key,
+        outcome_from_resolve=outcome_from_resolve,
+    )
+
+
 __all__ = [
+    "authority_attack_arc_effect",
     "clear_advance_gate",
     "disrupt_instead_of_retreat",
     "is_combat_advance_move",

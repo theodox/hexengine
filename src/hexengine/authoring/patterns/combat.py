@@ -17,6 +17,7 @@ from ..builder import arc, case
 
 COMBAT_ARC_ID = "combat"
 
+SEG_ATTACK = "attack"
 SEG_CLASSIFY = "classify"
 SEG_RETREAT_GATE = "retreat_gate"
 SEG_RETREAT_OR_DISRUPT_GATE = "retreat_or_disrupt_gate"
@@ -67,15 +68,30 @@ def build_combat_cleanup_arc(
     gates: CombatArcGateKinds,
     *,
     arc_id: str = COMBAT_ARC_ID,
+    attack_effect: Effect | None = None,
+    attack_kind: str = "combat",
 ) -> Arc:
     """
-    Build the post-``Attack`` cleanup arc (Approach A: goto-cycling via ``resolve``).
+    Build the combat arc (optional ``attack`` segment + cleanup subgraph).
 
-    Entry segment ``classify`` picks the gate matching what the attack follow-up set.
-    ``resolve`` auto re-classifies after each retreat or disrupt step.
+    When ``attack_effect`` is set, segment ``attack`` accepts ``Attack`` and hands off to
+    ``classify``. Entry stays ``classify`` so ``begin_combat_arc`` can open cleanup-only
+    flows after bucket state is already set.
+
+    ``classify`` picks the gate matching what the attack follow-up set. ``resolve`` auto
+    re-classifies after each retreat or disrupt step.
     """
 
     with arc(arc_id, entry=SEG_CLASSIFY) as a:
+        if attack_effect is not None:
+            with a.segment(
+                SEG_ATTACK,
+                owner=CURRENT,
+                kind=str(attack_kind),
+                allowed_actions=frozenset({"Attack"}),
+            ) as s:
+                s.on("Attack", effect=attack_effect, goto=SEG_CLASSIFY)
+
         with a.segment(SEG_CLASSIFY, owner=NO_OWNER) as s:
             s.auto_branch(
                 case(guard=effects.disrupt_offered, goto=SEG_RETREAT_OR_DISRUPT_GATE),
@@ -154,6 +170,7 @@ __all__ = [
     "CombatArcGateKinds",
     "OWNER_RETREATING",
     "SEG_ADVANCE_GATE",
+    "SEG_ATTACK",
     "SEG_CLASSIFY",
     "SEG_RESOLVE",
     "SEG_RETREAT_GATE",

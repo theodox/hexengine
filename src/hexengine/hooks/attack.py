@@ -9,7 +9,7 @@ Role in turn resolution:
   - whether the attack is legal (`validate_attack`)
   - what the outcome is (`resolve_attack`)
   - whether the phase should auto-advance after applying it (`auto_advance_phase_after_attack`)
-  - optional follow-up state actions after `Attack` + `ApplyCombatEffects` (`after_attack_applied`)
+  - optional post-attack bucket outcome (`combat_outcome_after_applied`; deprecated `after_attack_applied`)
   - deprecated cleanup slots (use declared combat arc binding instead; see
     `TITLE_AUTHOR_INTERFACE_PLAN.md` Phase A)
 - The engine then applies the outcome as a deterministic state action and broadcasts:
@@ -123,7 +123,8 @@ class AttackResolution:
     before building `Attack` and `ApplyCombatEffects`.
 
     The server uses this to build an engine `Attack` state action plus optional follow-up
-    actions from `AttackHook.AFTER_ATTACK_APPLIED`. The engine is responsible for applying
+    actions from `AttackHook.COMBAT_OUTCOME_AFTER_APPLIED` (or deprecated
+    `AFTER_ATTACK_APPLIED`). The engine is responsible for applying
     **engine-mechanical** effects (unit deletion, rng log entry, and any effect schema
     the engine supports) while titles own the structure and storage of title-bucket combat
     bookkeeping (gates, obligations, last_combat).
@@ -210,6 +211,9 @@ class AttackHooks:
     attack_plan_preview: (
         Callable[[AttackPlanPreviewContext], dict[str, Any] | object] | None
     ) = None
+    combat_outcome_after_applied: (
+        Callable[[AfterAttackAppliedContext], object] | None
+    ) = None
     after_attack_applied: (
         Callable[[AfterAttackAppliedContext], list[StateAction] | object] | None
     ) = None
@@ -268,6 +272,13 @@ class AttackHooks:
             return ENGINE_DEFAULT
         return self.is_combat_advance_move(ctx)
 
+    def build_combat_outcome_after_applied(
+        self, ctx: AfterAttackAppliedContext
+    ) -> object:
+        if self.combat_outcome_after_applied is None:
+            return ENGINE_DEFAULT
+        return self.combat_outcome_after_applied(ctx)
+
     def follow_up_after_attack(
         self, ctx: AfterAttackAppliedContext
     ) -> list[StateAction] | object:
@@ -281,6 +292,7 @@ class AttackHook(StrEnum):
 
     Deprecated (cleanup belongs on ``ArcHook.COMBAT_ARC`` binding): ``ON_RETREAT_OBLIGATION_CLEARED``,
     ``COMBAT_DISRUPT_INSTEAD_OF_RETREAT``, ``COMBAT_RESOLVE_ADVANCE``, ``IS_COMBAT_ADVANCE_MOVE``.
+    Deprecated (use ``COMBAT_OUTCOME_AFTER_APPLIED``): ``AFTER_ATTACK_APPLIED``.
     Use ``ArcSpec.advance_move_detector`` for advance ``MoveUnit`` pre-routing when unbinding
     ``IS_COMBAT_ADVANCE_MOVE``.
     """
@@ -293,6 +305,7 @@ class AttackHook(StrEnum):
     COMBAT_RESOLVE_ADVANCE = "combat_resolve_advance"
     IS_COMBAT_ADVANCE_MOVE = "is_combat_advance_move"
     ATTACK_PLAN_PREVIEW = "attack_plan_preview"
+    COMBAT_OUTCOME_AFTER_APPLIED = "combat_outcome_after_applied"
     AFTER_ATTACK_APPLIED = "after_attack_applied"
 
 

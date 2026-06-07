@@ -24,7 +24,6 @@ from hexengine.state.map_feature_queries import edges_block_los_predicate
 
 from .. import arc_segment
 from .. import combat
-from .. import combat_transitions
 from .. import title_state
 # When the board has no explicit or unset-default terrain for a hex, CRT math still
 # needs a stable type (matches legacy tests and minimal `BoardState` fixtures).
@@ -496,9 +495,11 @@ def resolve_attack(ctx: AttackContext) -> AttackResolution:
     )
 
 
-@bind_title_hook(AttackHook.AFTER_ATTACK_APPLIED)
-def after_attack_applied(ctx: AfterAttackAppliedContext) -> list:
-    return combat_transitions.follow_up_after_attack(ctx)
+@bind_title_hook(AttackHook.COMBAT_OUTCOME_AFTER_APPLIED)
+def combat_outcome_after_applied(ctx: AfterAttackAppliedContext):
+    from .. import combat_outcome
+
+    return combat_outcome.build_combat_outcome_after_applied(ctx)
 
 
 @bind_title_hook(AttackHook.AUTO_ADVANCE_PHASE_AFTER_ATTACK)

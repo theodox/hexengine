@@ -76,7 +76,13 @@ def test_hexdemo_combat_arc_matches_pattern() -> None:
         _HEXDEMO_COMBAT_GATES,
     )
 
-    from_pattern = build_combat_cleanup_arc(_HEXDEMO_COMBAT_EFFECTS, _HEXDEMO_COMBAT_GATES)
+    from games.hexdemo import combat_actions
+
+    from_pattern = build_combat_cleanup_arc(
+        _HEXDEMO_COMBAT_EFFECTS,
+        _HEXDEMO_COMBAT_GATES,
+        attack_effect=combat_actions.authority_attack_arc_effect,
+    )
     from_hexdemo = combat_arc.build_combat_arc()
     assert from_pattern == from_hexdemo
 

@@ -50,7 +50,7 @@ Longer term, the engine may offer **composable rule pieces** (ZOC, terrain, mora
 | Module | Role | Wired via |
 |--------|------|-----------|
 | `movement.py` | Step cost, ZoC, retreat obligations, … | `@bind_title_hook(MovementHook.…)` |
-| `attack.py` | Validate/resolve combat, CRT, `after_attack_applied`, auto-advance | `@bind_title_hook(AttackHook.…)` — not cleanup slots (deprecated) |
+| `attack.py` | Validate/resolve combat, CRT, `combat_outcome_after_applied`, auto-advance | `@bind_title_hook(AttackHook.…)` — not cleanup slots (deprecated) |
 | `../combat_arc.py` | Combat cleanup guards/effects + `detect_combat_advance_move` on `ArcSpec` | Wired via `arcs.py` → `ArcHook.COMBAT_ARC` |
 | `ui.py` | Phase/combat banners, inspect, inform popups, combat event summary | `@bind_title_hook(UIHook.…)`; copy from `presentation/` |
 | `../presentation/inform.py` | INFORM map callouts keyed by `inform_profile` + `reason` | Used by `ui.inform_popup_for_viewer` |

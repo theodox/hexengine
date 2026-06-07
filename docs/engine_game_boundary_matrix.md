@@ -46,7 +46,7 @@ Inventory for checklist items 1–9 in [`.cursor/plans/test_game_boundary_plan.m
 | Who blocks `NextPhase`? | Active arc segment (`current_segment.allowed_actions`) | Server [`segment_blocks_routine_phase_advance`](src/hexengine/arcs/segment_wire.py) |
 | Combat banners (INFORM) | `UIHook.COMBAT_INTERACTION_MESSAGES` or partial legacy hooks via catalog default | Merges phase row + hook/combat rows in `_interaction_messages_for_player_id` |
 | `combat_event` wire (retreat UI) | `UIHook.COMBAT_EVENT_SUMMARY` → `CombatEventSummary` | `_broadcast_combat_events` fans out per viewer (no title bucket reads) |
-| Post-attack bucket patches | `AttackHook.AFTER_ATTACK_APPLIED` → hexdemo `follow_up_after_attack` | Runs after `Attack` + `ApplyCombatEffects` in attack arc |
+| Post-attack bucket patches | `AttackHook.COMBAT_OUTCOME_AFTER_APPLIED` → hexdemo `combat_outcome.build_combat_outcome_after_applied` | Combat arc `attack` effect applies `CombatOutcome`; `classify` auto-advances (no imperative `begin_combat_arc` on attack RPC) |
 | Post-retreat advance / disrupt / resolve advance | Declared combat arc effects (`combat_arc.py`) | Deprecated `AttackHook` cleanup slots (Phase A) |
 | Is this `MoveUnit` a combat advance? | `ArcSpec.advance_move_detector` on `COMBAT_ARC` | Deprecated `IS_COMBAT_ADVANCE_MOVE` hook |
 | `combat_event` wire payload | `COMBAT_EVENT_SUMMARY` → `CombatEventSummary` | Fan-out per viewer + `COMBAT_INSTRUCTION_FOR_VIEWER`; `ENGINE_DEFAULT`/`None` = no combat events |

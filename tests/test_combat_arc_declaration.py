@@ -27,6 +27,11 @@ def test_segment_owners() -> None:
     assert a.get(combat_arc.SEG_ADVANCE_GATE).owner is CURRENT
 
 
+def test_attack_segment_allows_attack_rpc() -> None:
+    a = combat_arc.build_combat_arc()
+    assert a.get(combat_arc.SEG_ATTACK).allowed_actions == frozenset({"Attack"})
+
+
 def test_allowed_actions_match_gate_table() -> None:
     a = combat_arc.build_combat_arc()
     assert a.get(combat_arc.SEG_CLASSIFY).allowed_actions == frozenset()
@@ -51,7 +56,11 @@ def test_gate_segments_map_one_to_one_with_blocking_gates() -> None:
     """Each blocking gate kind has exactly one segment carrying that value as `kind`."""
 
     a = combat_arc.build_combat_arc()
-    by_kind = {s.kind: s.id for s in a.segments if s.kind}
+    by_kind = {
+        s.kind: s.id
+        for s in a.segments
+        if s.kind in combat_transitions.GATES_BLOCKING_ROUTINE
+    }
     assert set(by_kind) == set(combat_transitions.GATES_BLOCKING_ROUTINE)
     assert by_kind[combat_transitions.GATE_AWAITING_RETREAT] == combat_arc.SEG_RETREAT_GATE
     assert (

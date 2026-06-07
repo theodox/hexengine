@@ -15,6 +15,7 @@ from hexengine.authoring.patterns.combat import (
     CombatArcGateKinds,
     OWNER_RETREATING,
     SEG_ADVANCE_GATE,
+    SEG_ATTACK,
     SEG_CLASSIFY,
     SEG_RESOLVE,
     SEG_RETREAT_GATE,
@@ -151,6 +152,7 @@ def build_combat_arc() -> Arc:
         _HEXDEMO_COMBAT_EFFECTS,
         _HEXDEMO_COMBAT_GATES,
         arc_id=COMBAT_ARC_ID,
+        attack_effect=combat_actions.authority_attack_arc_effect,
     )
 
 
