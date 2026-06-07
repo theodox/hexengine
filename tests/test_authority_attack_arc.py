@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from unittest.mock import patch
 
 from hexengine.arcs import ArcCursor, SetArcCursor, read_arc_cursor
+from hexengine.arcs.segment_wire import project_current_segment, segment_allows_action
 from hexengine.hexes.types import Hex
+from hexengine.hooks.attack import AttackResolution
+from hexengine.server.arcs.authority_arc_runtime import begin_routine_slot
 from hexengine.server.arcs.authority_attack import execute_authority_attack_request
 from hexengine.state import ActionManager, GameState
 from hexengine.state.game_state import BoardState, TurnState, UnitState
@@ -76,6 +80,55 @@ def _combat_state() -> GameState:
     return GameState(board=board, turn=turn, title_state={}, title_bucket_key="hexdemo")
 
 
+def test_attack_without_cleanup_gate_restores_routine_cursor() -> None:
+    """Combat arc completion must restore the turn slot cursor so End Phase works."""
+
+    st0 = _combat_state()
+    st0 = GameState(
+        board=st0.board,
+        turn=TurnState(
+            current_faction="union",
+            current_phase="Combat",
+            turn_number=1,
+            phase_actions_remaining=2,
+            schedule_index=1,
+        ),
+        title_state={},
+        title_bucket_key="hexdemo",
+    )
+    mgr = ActionManager(st0)
+    host = _Host(hooks=build_hooks(), action_manager=mgr)
+    begin_routine_slot(host, 1)
+
+    def _none_resolve(_ctx):
+        return AttackResolution(
+            outcome="none",
+            rng_entry={"op": "test", "outcome": "none"},
+        )
+
+    with patch("games.hexdemo.combat_rules.resolve_attack", _none_resolve):
+        ok = asyncio.run(
+            execute_authority_attack_request(
+                host,
+                player_id="p1",
+                player_faction="union",
+                current_state=st0,
+                params={
+                    "attack_kind": "combined",
+                    "attacker_id": "u_att",
+                    "defender_id": "u_def",
+                },
+            )
+        )
+
+    assert ok is True
+    cur = read_arc_cursor(mgr.current_state)
+    assert cur is not None
+    assert cur.arc_id == "union_combat"
+    seg = project_current_segment(host, mgr.current_state, viewer_faction="union")
+    assert segment_allows_action(seg, "NextPhase") is True
+
+
 def test_attack_via_combat_arc_lands_on_cleanup_gate() -> None:
     st0 = _combat_state()
     mgr = ActionManager(st0)
@@ -99,10 +152,8 @@ def test_attack_via_combat_arc_lands_on_cleanup_gate() -> None:
     assert isinstance(hx, dict)
     assert "u_att" in (hx.get("attacks_this_phase") or [])
     cur = read_arc_cursor(mgr.current_state)
-    if cur is not None:
-        assert cur.arc_id == "combat"
+    if cur is not None and cur.arc_id == "combat":
         assert cur.segment_id in (
-            combat_arc.SEG_ATTACK,
             combat_arc.SEG_RETREAT_GATE,
             combat_arc.SEG_RETREAT_OR_DISRUPT_GATE,
             combat_arc.SEG_ADVANCE_GATE,

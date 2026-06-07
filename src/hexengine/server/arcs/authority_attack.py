@@ -218,6 +218,9 @@ async def _execute_arc_attack(
         )
         return False
 
+    if read_arc_cursor(host.action_manager.current_state) is None:
+        restore_routine_cursor(host)
+
     return True
 
 
