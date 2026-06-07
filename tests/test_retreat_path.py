@@ -345,7 +345,7 @@ def test_retreat_path_confirm_move_unit_with_path_wire() -> None:
     turn = TurnState("union", "Combat", 2, 1, 0, 0)
     ext = {
         "hexdemo": {
-            "combat_gate": "awaiting_retreat_or_disrupt",
+            "disrupt_instead_offered": True,
             "retreat_obligations": {"u_def": 2},
         }
     }

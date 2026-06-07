@@ -57,10 +57,10 @@ def _state_with_stack(
         )
     st = st.with_board(board)
     st = st.with_turn(replace(st.turn, current_faction=current))
-    return st.with_title_state(
-        {"combat_gate": gate, "retreat_obligations": obligations},
-        title_bucket_key="hexdemo",
-    )
+    bucket: dict = {"retreat_obligations": obligations}
+    if gate == combat_transitions.GATE_AWAITING_RETREAT_OR_DISRUPT:
+        bucket["disrupt_instead_offered"] = True
+    return st.with_title_state(bucket, title_bucket_key="hexdemo")
 
 
 def test_apply_retreat_step_moves_primary_and_clears_obligation() -> None:
@@ -85,7 +85,6 @@ def test_apply_retreat_step_moves_primary_and_clears_obligation() -> None:
     assert final.board.units["u1"].position == h1
     hx = title_bucket(final, "hexdemo")
     assert "u1" not in (hx.get("retreat_obligations") or {})
-    assert "combat_gate" not in hx
 
 
 def test_apply_retreat_step_moves_stacked_units() -> None:

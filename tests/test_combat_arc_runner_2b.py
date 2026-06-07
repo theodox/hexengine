@@ -60,8 +60,8 @@ def _state(
     st = st.with_board(st.board.with_unit(unit))
     st = st.with_turn(replace(st.turn, current_faction=current))
     bucket: dict = {}
-    if gate:
-        bucket["combat_gate"] = gate
+    if gate == combat_transitions.GATE_AWAITING_RETREAT_OR_DISRUPT:
+        bucket["disrupt_instead_offered"] = True
     if obligations is not None:
         bucket["retreat_obligations"] = obligations
     if advance is not None:
@@ -140,7 +140,7 @@ def test_disrupt_through_runner_clears_obligation_and_cursor() -> None:
     final = host.action_manager.current_state
     hx = title_bucket(final, "hexdemo")
     assert not hx.get("retreat_obligations")
-    assert "combat_gate" not in hx
+    assert not hx.get("disrupt_instead_offered")
     assert final.board.units["u1"].attributes.get("disrupted") is True
     cur = read_arc_cursor(final)
     assert cur is None or cur.arc_id != "combat"
@@ -192,7 +192,6 @@ def test_decline_advance_through_runner_clears_gate_and_cursor() -> None:
     assert host.broadcasts == 1
     final = host.action_manager.current_state
     hx = title_bucket(final, "hexdemo")
-    assert "combat_gate" not in hx
     assert "advance" not in hx
     cur = read_arc_cursor(final)
     assert cur is None or cur.arc_id != "combat"

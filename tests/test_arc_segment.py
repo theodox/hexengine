@@ -46,7 +46,6 @@ def _retreat_gate_state() -> GameState:
         board=board,
         turn=turn,
         title_state={
-            "combat_gate": "awaiting_retreat",
             "retreat_obligations": {"u_def": 1},
         },
         title_bucket_key="hexdemo",

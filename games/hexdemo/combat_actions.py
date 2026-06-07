@@ -2,7 +2,7 @@
 Hexdemo combat cleanup actions (title-owned arc structure).
 
 Returns undoable ``StateAction`` lists for the engine combat-cleanup arc to execute.
-Gate string literals and advance payload shape are hexdemo conventions only.
+Advance payload shape is a hexdemo convention; legality reads ``current_segment``.
 """
 
 from __future__ import annotations
@@ -13,17 +13,15 @@ from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
 from hexengine.state import GameState
 from hexengine.state.action_manager import StateAction
+from hexengine.state.title_extension import title_bucket
 from hexengine.state.actions import (
     ClearUnitRetreatObligation,
     MoveUnit,
     PatchTitleBucket,
     PatchUnitAttributes,
 )
-from hexengine.state.title_extension import title_bucket
 
-# Must match ``combat_transitions`` gate constants (avoid import cycle).
-GATE_AWAITING_ADVANCE = "awaiting_advance"
-GATE_AWAITING_RETREAT_OR_DISRUPT = "awaiting_retreat_or_disrupt"
+from . import arc_segment, combat, combat_transitions
 
 
 def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:
@@ -36,6 +34,22 @@ def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:
     return False
 
 
+def _bucket(state: GameState, extension_key: str) -> dict[str, Any]:
+    return dict(title_bucket(state, extension_key))
+
+
+def _advance_for_faction(
+    state: GameState, player_faction: str, extension_key: str
+) -> dict[str, Any] | None:
+    raw = _bucket(state, extension_key).get("advance")
+    if not isinstance(raw, dict):
+        return None
+    adv = dict(raw)
+    if str(adv.get("faction", "")).strip() != str(player_faction).strip():
+        return None
+    return adv
+
+
 def retreat_stack_unit_ids(
     state: GameState,
     from_hex: Hex,
@@ -43,8 +57,6 @@ def retreat_stack_unit_ids(
     uid_for_move: str,
 ) -> list[str]:
     """Unit ids that must retreat together from ``from_hex`` (includes ``uid_for_move``)."""
-
-    from . import combat
 
     faction = str(player_faction).strip()
     to_move: list[str] = []
@@ -91,14 +103,6 @@ def apply_retreat_fulfillment_step(
         actions.append(MoveUnit(move_uid, from_hex=from_hex, to_hex=to_hex))
     for moved_uid in to_move:
         actions.append(ClearUnitRetreatObligation(moved_uid, extension_key))
-    ro_after = dict(title_bucket(state, extension_key).get("retreat_obligations") or {})
-    for moved_uid in to_move:
-        ro_after.pop(moved_uid, None)
-    if not _retreat_obligations_have_pending(ro_after):
-        if str(title_bucket(state, extension_key).get("combat_gate", "")).strip():
-            actions.append(
-                PatchTitleBucket(extension_key, {}, remove_keys=("combat_gate",))
-            )
     return actions
 
 
@@ -127,18 +131,18 @@ def maybe_open_advance_after_retreat(
     (``defender_destroyed`` or step-loss removal) and the combat hex is vacant.
     """
 
-    from . import combat
-
-    hx = title_bucket(state, extension_key)
+    hx = _bucket(state, extension_key)
     if not hx:
         return []
-    if str(hx.get("combat_gate", "")).strip():
+    if isinstance(hx.get("advance"), dict):
         return []
-    if combat.any_retreat_obligation_pending(state):
+    ro = hx.get("retreat_obligations")
+    if isinstance(ro, dict) and _retreat_obligations_have_pending(ro):
         return []
-    last = hx.get("last_combat")
-    if not isinstance(last, dict):
+    last_raw = hx.get("last_combat")
+    if not isinstance(last_raw, dict):
         return []
+    last = dict(last_raw)
 
     outcome = str(last.get("outcome", "")).strip()
     if outcome not in ("defender_retreat", "defender_destroyed", "none"):
@@ -209,7 +213,6 @@ def maybe_open_advance_after_retreat(
         PatchTitleBucket(
             extension_key,
             {
-                "combat_gate": GATE_AWAITING_ADVANCE,
                 "advance": {
                     "schema": 1,
                     "faction": str(a0.faction),
@@ -235,15 +238,8 @@ def is_combat_advance_move(
 ) -> bool:
     """True when this ``MoveUnit`` wire matches the pending advance into the vacated hex."""
 
-    hx_adv = title_bucket(state, extension_key)
-    if not hx_adv:
-        return False
-    if str(hx_adv.get("combat_gate", "")).strip() != GATE_AWAITING_ADVANCE:
-        return False
-    adv = hx_adv.get("advance")
-    if not isinstance(adv, dict) or str(adv.get("faction", "")).strip() != str(
-        player_faction
-    ):
+    adv = _advance_for_faction(state, player_faction, extension_key)
+    if adv is None:
         return False
     to_hex_raw = adv.get("to_hex")
     unit_ids_raw = adv.get("unit_ids")
@@ -276,16 +272,17 @@ def disrupt_instead_of_retreat(
 ) -> list[StateAction]:
     """Disrupt retreating units and clear obligations for ``player_faction``."""
 
-    hx0 = title_bucket(state, extension_key)
-    if not hx0:
+    hx = _bucket(state, extension_key)
+    if not hx:
         raise ValueError("No title combat extension")
-    gate = str(hx0.get("combat_gate", "")).strip()
-    if gate != GATE_AWAITING_RETREAT_OR_DISRUPT:
+    if not arc_segment.segment_allows(
+        state, player_faction, "CombatDisruptInsteadOfRetreat"
+    ):
         raise ValueError(
-            "Disrupt-instead is only allowed when combat_gate is awaiting_retreat_or_disrupt"
+            "Disrupt-instead is only allowed during the retreat-or-disrupt gate"
         )
-    prev_ro = hx0.get("retreat_obligations")
-    ro = dict(prev_ro) if isinstance(prev_ro, dict) else {}
+    ro_raw = hx.get("retreat_obligations")
+    ro = dict(ro_raw) if isinstance(ro_raw, dict) else {}
 
     actions: list[StateAction] = []
     cleared_any = False
@@ -308,12 +305,13 @@ def disrupt_instead_of_retreat(
         raise ValueError("No retreat obligation found for this faction")
 
     remove: tuple[str, ...] = ()
+    patch: dict[str, Any] = {"retreat_obligations": ro}
     if not _retreat_obligations_have_pending(ro):
-        remove = ("combat_gate",)
+        remove = ("disrupt_instead_offered",)
     actions.append(
         PatchTitleBucket(
             extension_key,
-            {"retreat_obligations": ro},
+            patch,
             remove_keys=remove,
         )
     )
@@ -321,18 +319,18 @@ def disrupt_instead_of_retreat(
 
 
 def clear_advance_gate(state: GameState, extension_key: str) -> list[StateAction]:
-    """Skip a pending advance: drop the advance payload and gate (no unit moves)."""
+    """Skip a pending advance: drop the advance payload (no unit moves)."""
 
-    hx0 = title_bucket(state, extension_key)
-    if not hx0:
+    faction = str(state.turn.current_faction).strip()
+    if not arc_segment.segment_allows(state, faction, "CombatDeclineAdvance"):
         return []
-    if str(hx0.get("combat_gate", "")).strip() != GATE_AWAITING_ADVANCE:
+    if not isinstance(_bucket(state, extension_key).get("advance"), dict):
         return []
     return [
         PatchTitleBucket(
             extension_key,
             {},
-            remove_keys=("advance", "combat_gate"),
+            remove_keys=("advance",),
         )
     ]
 
@@ -340,19 +338,13 @@ def clear_advance_gate(state: GameState, extension_key: str) -> list[StateAction
 def resolve_combat_advance(
     state: GameState, extension_key: str, player_faction: str
 ) -> list[StateAction]:
-    """Move advancing stack into vacated hex and clear the advance gate."""
+    """Move advancing stack into vacated hex and clear the advance offer."""
 
-    hx0 = title_bucket(state, extension_key)
-    if not hx0:
+    if not _bucket(state, extension_key):
         raise ValueError("No title combat extension")
-    if str(hx0.get("combat_gate", "")).strip() != GATE_AWAITING_ADVANCE:
+    adv = _advance_for_faction(state, player_faction, extension_key)
+    if adv is None:
         raise ValueError("No advance pending")
-    adv = hx0.get("advance")
-    if not isinstance(adv, dict):
-        raise ValueError("Missing advance payload")
-    faction = str(player_faction).strip()
-    if str(adv.get("faction", "")).strip() != faction:
-        raise ValueError("Not allowed to advance for this faction")
     to_hex_raw = adv.get("to_hex")
     if not isinstance(to_hex_raw, dict):
         raise ValueError("Invalid to_hex")
@@ -366,6 +358,7 @@ def resolve_combat_advance(
     if not isinstance(unit_ids_raw, list) or not unit_ids_raw:
         raise ValueError("No units to advance")
 
+    faction = str(player_faction).strip()
     actions: list[StateAction] = []
     for uid in unit_ids_raw:
         if not isinstance(uid, str) or not uid.strip():
@@ -378,7 +371,7 @@ def resolve_combat_advance(
         PatchTitleBucket(
             extension_key,
             {},
-            remove_keys=("advance", "combat_gate"),
+            remove_keys=("advance",),
         )
     )
     return actions

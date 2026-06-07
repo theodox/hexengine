@@ -43,6 +43,7 @@ def _hex_wire(h: Hex) -> dict[str, int]:
 
 _TEST_TITLE_DOCK_UI = UIHooks(
     turn_action_dock_for_viewer=empty_turn_action_dock_for_viewer,
+    segment_presentation_registry=lambda: frozenset({"move", "attack"}),
 )
 
 _TEST_TURN_ARC_REGISTRY = build_turn_registry(

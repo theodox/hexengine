@@ -172,7 +172,7 @@ def test_hexdemo_retreat_gate_shows_for_non_turn_owner() -> None:
         board=board,
         turn=turn,
         title_state={
-            "combat_gate": "awaiting_retreat_or_disrupt",
+            "disrupt_instead_offered": True,
             "retreat_obligations": {"u_def": 1},
         },
         title_bucket_key="hexdemo",
@@ -249,7 +249,6 @@ def test_hexdemo_retreat_obligation_shows_dock_for_non_turn_owner() -> None:
         board=board,
         turn=turn,
         title_state={
-            "combat_gate": "awaiting_retreat",
             "retreat_obligations": {"u_def": 1},
         },
         title_bucket_key="hexdemo",
@@ -325,7 +324,6 @@ def test_hexdemo_advance_gate_disables_end_phase() -> None:
         board=board,
         turn=turn,
         title_state={
-            "combat_gate": "awaiting_advance",
             "advance": {"faction": "union"},
         },
         title_bucket_key="hexdemo",

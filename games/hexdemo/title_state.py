@@ -53,10 +53,17 @@ def advance_offer(state: GameState) -> dict[str, Any] | None:
     return dict(raw) if isinstance(raw, dict) else None
 
 
+def disrupt_instead_offered(state: GameState) -> bool:
+    """True when optional disrupt-instead-of-retreat was offered for this combat."""
+
+    return bool(bucket(state).get("disrupt_instead_offered"))
+
+
 __all__ = [
     "advance_offer",
     "attacks_this_phase",
     "bucket",
+    "disrupt_instead_offered",
     "last_combat",
     "retreat_obligations",
 ]

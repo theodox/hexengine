@@ -114,8 +114,6 @@ def validate_attack(ctx: AttackContext) -> None:
         raise ValueError("Attacks are only allowed during the combat phase")
     if ctx.player_faction != ctx.state.turn.current_faction:
         raise ValueError("Not your turn")
-    if combat.any_retreat_obligation_pending(ctx.state):
-        raise ValueError("Resolve retreat before issuing another attack")
     if arc_segment.segment_denies_action(ctx.state, ctx.player_faction, "Attack"):
         raise ValueError("Resolve combat obligations before issuing another attack")
 

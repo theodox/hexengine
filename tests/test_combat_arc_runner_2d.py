@@ -1,4 +1,4 @@
-"""Phase 2d: gate-agnostic obligation clear and arc-owned gate mirror."""
+"""Phase 2d: obligation clear and advance moves without combat_gate mirror."""
 
 from __future__ import annotations
 
@@ -18,22 +18,19 @@ from games.hexdemo import combat_actions, combat_arc, combat_transitions
 from games.hexdemo.hooks import build_hooks
 
 
-def test_clear_unit_retreat_obligation_leaves_gate_mirror() -> None:
+def test_clear_unit_retreat_obligation_does_not_touch_segment_state() -> None:
     st = GameState.create_empty().with_title_state(
-        {
-            "combat_gate": combat_transitions.GATE_AWAITING_RETREAT,
-            "retreat_obligations": {"u1": 1},
-        },
+        {"retreat_obligations": {"u1": 1}},
         title_bucket_key="hexdemo",
     )
     mgr = ActionManager(st)
     mgr.execute(ClearUnitRetreatObligation("u1", "hexdemo"))
     hx = title_bucket(mgr.current_state, "hexdemo")
     assert not hx.get("retreat_obligations")
-    assert hx.get("combat_gate") == combat_transitions.GATE_AWAITING_RETREAT
+    assert "combat_gate" not in hx
 
 
-def test_apply_retreat_fulfillment_clears_gate_when_obligations_done() -> None:
+def test_apply_retreat_fulfillment_clears_obligations_when_done() -> None:
     h0, h1 = Hex(0, 0, 0), Hex(1, -1, 0)
     st = GameState.create_empty()
     st = st.with_board(
@@ -42,10 +39,7 @@ def test_apply_retreat_fulfillment_clears_gate_when_obligations_done() -> None:
         )
     )
     st = st.with_title_state(
-        {
-            "combat_gate": combat_transitions.GATE_AWAITING_RETREAT,
-            "retreat_obligations": {"u1": 1},
-        },
+        {"retreat_obligations": {"u1": 1}},
         title_bucket_key="hexdemo",
     )
     params = {
@@ -59,7 +53,7 @@ def test_apply_retreat_fulfillment_clears_gate_when_obligations_done() -> None:
     ):
         mgr.execute(a)
     hx = title_bucket(mgr.current_state, "hexdemo")
-    assert "combat_gate" not in hx
+    assert not hx.get("retreat_obligations")
 
 
 class _Host:
@@ -86,7 +80,6 @@ def test_advance_moveunit_through_runner() -> None:
     st = st.with_turn(replace(st.turn, current_faction="union"))
     st = st.with_title_state(
         {
-            "combat_gate": combat_transitions.GATE_AWAITING_ADVANCE,
             "advance": {
                 "faction": "union",
                 "attacker_id": "u_att",
@@ -123,5 +116,4 @@ def test_advance_moveunit_through_runner() -> None:
     cur = read_arc_cursor(final)
     assert cur is None or cur.arc_id != "combat"
     hx = title_bucket(final, "hexdemo")
-    assert "combat_gate" not in hx
     assert "advance" not in hx

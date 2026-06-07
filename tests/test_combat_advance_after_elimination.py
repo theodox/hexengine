@@ -18,7 +18,7 @@ from tests.test_combat_hexdemo import _hexdemo_combat_state, hexdemo_server
 def test_auto_advance_blocked_while_awaiting_advance_gate() -> None:
     st = _hexdemo_combat_state().with_title_state(
         {
-            "combat_gate": combat_transitions.GATE_AWAITING_ADVANCE,
+            "advance": {"faction": "union"},
             "attacks_this_phase": ["u_att"],
         },
         title_bucket_key="hexdemo",
@@ -78,7 +78,6 @@ def test_attack_eliminating_defender_offers_advance_not_auto_phase(
     assert st.turn.current_phase == "Combat"
     assert st.turn.current_faction == "union"
     hx = title_bucket(st, "hexdemo")
-    assert hx.get("combat_gate") == combat_transitions.GATE_AWAITING_ADVANCE
     adv = hx.get("advance")
     assert isinstance(adv, dict)
     assert adv.get("faction") == "union"

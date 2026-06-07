@@ -50,7 +50,7 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `segment_ui.py` | Segment `kind` → presentation registry (`PRESENTATION_BY_SEGMENT_KIND`) |
 | `arc_segment.py` | Project `current_segment` per viewer; `phase_advance_blocked` for auto-advance |
 | `combat_arc.py` | Declared combat-cleanup arc (composable arcs) |
-| `combat_transitions.py` | Combat FSM effects (`combat_gate` mirror, `attacks_this_phase`, phase-scoped clear) |
+| `combat_transitions.py` | Combat FSM effects (`disrupt_instead_offered`, `attacks_this_phase`, phase-scoped clear) |
 | `combat_actions.py` | Pack-local RPC follow-ups (disrupt, advance, retreat fulfillment) |
 | `combat_planning.py` | Attack plan preview (shared by `hooks/attack` and tests) |
 | `combat.py` | Retreat obligation reads from the title bucket |

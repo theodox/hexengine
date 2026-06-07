@@ -24,7 +24,7 @@ from hexengine.state import GameState
 from hexengine.state.action_manager import StateAction
 from hexengine.state.title_extension import title_bucket
 
-from . import combat, combat_actions, combat_transitions
+from . import combat, combat_actions, combat_transitions, title_state
 
 
 def retreating_faction(state: GameState) -> str | None:
@@ -63,10 +63,11 @@ class _HexdemoCombatArcEffects:
         return combat.any_retreat_obligation_pending(ctx.state)
 
     def disrupt_offered(self, ctx: ArcContext) -> bool:
-        return (
-            combat_transitions.current_combat_gate(ctx.state)
-            == combat_transitions.GATE_AWAITING_RETREAT_OR_DISRUPT
-        )
+        if not ctx.extension_key:
+            return False
+        if not title_state.disrupt_instead_offered(ctx.state):
+            return False
+        return combat.any_retreat_obligation_pending(ctx.state)
 
     def advance_available(self, ctx: ArcContext) -> bool:
         if not ctx.extension_key:

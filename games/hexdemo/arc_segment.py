@@ -62,8 +62,32 @@ def segment_denies_action(
     return not segment_allows_action(seg, action_type)
 
 
+def segment_kind(state: GameState, viewer_faction: str | None) -> str:
+    """Active declared segment ``kind`` for ``viewer_faction``, or ``""``."""
+
+    seg = project_segment_for_faction(state, viewer_faction)
+    if not seg:
+        return ""
+    return str(seg.get("kind", "")).strip()
+
+
+def segment_allows(
+    state: GameState,
+    viewer_faction: str | None,
+    action_type: str,
+) -> bool:
+    """True when the projected segment lists ``action_type`` in ``allowed_actions``."""
+
+    seg = project_segment_for_faction(state, viewer_faction)
+    if seg is None:
+        return False
+    return segment_allows_action(seg, action_type)
+
+
 __all__ = [
     "phase_advance_blocked",
     "project_segment_for_faction",
+    "segment_allows",
     "segment_denies_action",
+    "segment_kind",
 ]

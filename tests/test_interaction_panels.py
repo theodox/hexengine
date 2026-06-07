@@ -84,7 +84,6 @@ def test_hexdemo_turn_action_dock_gate_hint_html_escapes() -> None:
     st = GameState.create_empty()
     ext = {
         "hexdemo": {
-            "combat_gate": "awaiting_advance",
             "advance": {"faction": "union"},
         }
     }

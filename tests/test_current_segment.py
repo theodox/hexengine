@@ -41,7 +41,7 @@ def _state_on_combat_segment(
             global_tick=0,
         )
     )
-    bucket: dict = {"combat_gate": gate_segment.replace("_gate", "").replace("SEG_", "")}
+    bucket: dict = {}
     if obligations is not None:
         bucket["retreat_obligations"] = obligations
     if advance is not None:

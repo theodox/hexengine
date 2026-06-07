@@ -719,7 +719,7 @@ def test_combat_disrupt_instead_of_retreat(hexdemo_server: GameServer) -> None:
 
         st = server.action_manager.current_state
         hx = title_bucket(st, "hexdemo")
-        assert hx.get("combat_gate") == "awaiting_retreat_or_disrupt"
+        assert hx.get("disrupt_instead_offered") is True
         ro = hx.get("retreat_obligations", {})
         assert isinstance(ro, dict) and "u_def" in ro
 
@@ -732,7 +732,7 @@ def test_combat_disrupt_instead_of_retreat(hexdemo_server: GameServer) -> None:
 
         st2 = server.action_manager.current_state
         hx2 = title_bucket(st2, "hexdemo")
-        assert not hx2.get("combat_gate")
+        assert not hx2.get("disrupt_instead_offered")
         assert "u_def" not in (hx2.get("retreat_obligations") or {})
         assert st2.board.units["u_def"].attributes.get("disrupted") is True
 
@@ -927,7 +927,6 @@ def test_combat_advance_after_defender_retreat(hexdemo_server: GameServer) -> No
 
         st1 = server.action_manager.current_state
         hx = title_bucket(st1, "hexdemo")
-        assert hx.get("combat_gate") == "awaiting_advance"
         adv = hx.get("advance")
         assert isinstance(adv, dict)
         assert adv.get("faction") == "union"
@@ -950,7 +949,6 @@ def test_combat_advance_after_defender_retreat(hexdemo_server: GameServer) -> No
         st2 = server.action_manager.current_state
         assert st2.board.units["u_att"].position == h_def
         hx2 = title_bucket(st2, "hexdemo")
-        assert hx2.get("combat_gate") is None
         assert hx2.get("advance") is None
 
     asyncio.run(run())
@@ -1009,7 +1007,7 @@ def test_combat_advance_via_move_unit_optional_path(hexdemo_server: GameServer) 
 
         st1 = server.action_manager.current_state
         hx = title_bucket(st1, "hexdemo")
-        assert hx.get("combat_gate") == "awaiting_advance"
+        assert isinstance(hx.get("advance"), dict)
 
         # Advance by MoveUnit into the vacated defender hex.
         adv_move = ActionRequest(
@@ -1026,7 +1024,6 @@ def test_combat_advance_via_move_unit_optional_path(hexdemo_server: GameServer) 
         st2 = server.action_manager.current_state
         assert st2.board.units["u_att"].position == h_def
         hx2 = title_bucket(st2, "hexdemo")
-        assert hx2.get("combat_gate") is None
         assert hx2.get("advance") is None
 
     asyncio.run(run())
@@ -1077,7 +1074,6 @@ def test_retreat_move_no_spend_action(hexdemo_server: GameServer) -> None:
 
     hx = dict(title_bucket(st, "hexdemo"))
     hx["retreat_obligations"] = {"u_att": 2}
-    hx["combat_gate"] = "awaiting_retreat"
     server.action_manager.replace_state(
         st.with_title_state(hx, title_bucket_key="hexdemo")
     )
@@ -1320,7 +1316,6 @@ def test_advance_opens_after_defender_destroyed_outcome() -> None:
     for a in actions:
         st2 = a.apply(st2)
     hx = title_bucket(st2, "hexdemo")
-    assert hx.get("combat_gate") == "awaiting_advance"
     adv = hx.get("advance")
     assert isinstance(adv, dict)
     assert adv.get("faction") == "union"
@@ -1332,8 +1327,6 @@ def test_advance_opens_after_defender_destroyed_outcome() -> None:
     cur = read_arc_cursor(server.action_manager.current_state)
     assert cur is not None
     assert cur.segment_id == combat_arc.SEG_ADVANCE_GATE
-    hx3 = title_bucket(server.action_manager.current_state, "hexdemo")
-    assert hx3.get("combat_gate") == "awaiting_advance"
 
 
 def test_advance_opens_when_defender_eliminated_via_step_loss() -> None:
@@ -1396,7 +1389,7 @@ def test_advance_opens_when_defender_eliminated_via_step_loss() -> None:
     st2 = st
     for a in actions:
         st2 = a.apply(st2)
-    assert title_bucket(st2, "hexdemo").get("combat_gate") == "awaiting_advance"
+    assert isinstance(title_bucket(st2, "hexdemo").get("advance"), dict)
 
 
 def test_no_advance_when_defender_still_occupies_hex() -> None:
