@@ -75,7 +75,7 @@ class StateUpdate:
     #: Each entry is a dict with:
     #: - schema: 1
     #: - id: stable string (replace prior panel with same id on the same host)
-    #: - host: DOM element id (default ``advance``)
+    #: - host: DOM element id (default ``user-controls``)
     #: - html (optional): decorative HTML fragment (no inline handlers)
     #: - css_class (optional): extra class on the panel root
     #: - actions: list of primary-action-shaped dicts (engine builds buttons)

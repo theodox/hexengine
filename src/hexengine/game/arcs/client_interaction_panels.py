@@ -21,7 +21,6 @@ from .client_panel_actions import (
 
 TURN_ACTIONS_PANEL_ID = "turn_actions"
 USER_CONTROLS_HOST_ID = "user-controls"
-_LEGACY_ADVANCE_HOST_ID = "advance"
 _DOCK_ARC_CSS_RE = re.compile(
     r"\b(hexdemo-turn-dock|hexengine-turn-dock)--[a-z0-9_]+\b"
 )
@@ -395,7 +394,7 @@ class ClientInteractionPanelsMixin:
             p
             for p in panels
             if str(p.get("host", USER_CONTROLS_HOST_ID)).strip().lower()
-            in ("", USER_CONTROLS_HOST_ID, _LEGACY_ADVANCE_HOST_ID)
+            in ("", USER_CONTROLS_HOST_ID)
         ]
 
         if not advance_panels:

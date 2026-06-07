@@ -1,5 +1,5 @@
 """
-Hexdemo turn action dock: one commit panel per viewer on host ``advance``.
+Hexdemo turn action dock: one commit panel per viewer on host ``user-controls``.
 
 Attack-plan confirm/cancel merge on the client from ``map_selection_preview``.
 Rows and End-Phase gating derive from ``current_segment``; copy/HTML from the
@@ -65,7 +65,6 @@ def turn_action_dock_for_viewer(
         turn_dock_panel(
             presentation_id=presentation_id,
             actions=panel_actions_from_dicts(action_rows),
-            host="advance",
             headline=headline,
             html=html,
             css_class=f"hexdemo-turn-dock hexdemo-turn-dock--{presentation_id}",

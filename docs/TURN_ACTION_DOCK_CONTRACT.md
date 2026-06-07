@@ -197,7 +197,7 @@ Titles compute an optional opaque **`dock_arc`** string for skinning (engine doe
 
 ## Panel wire schema (`schema: 1`)
 
-Each list entry is one panel. v1 uses a single panel on host `advance`; multi-panel lists are allowed for wizards or stacked UI in complex titles.
+Each list entry is one panel. v1 uses a single panel on host `user-controls`; multi-panel lists are allowed for wizards or stacked UI in complex titles.
 
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
@@ -221,7 +221,7 @@ Each list entry is one panel. v1 uses a single panel on host `advance`; multi-pa
 {
   "schema": 1,
   "id": "turn_actions",
-  "host": "advance",
+  "host": "user-controls",
   "dock_arc": "routine",
   "headline": "Your turn",
   "html": "<div class=\"hexdemo-dock-hint\">…</div>",

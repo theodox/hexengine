@@ -111,7 +111,7 @@ Commit UI on host `#user-controls`. Full panel and action schemas: [`TURN_ACTION
 |-------|------|----------|-------|
 | `schema` | `int` | yes | **`1`** |
 | `id` | `str` | yes | Stable id (convention: `turn_actions`) |
-| `host` | `str` | yes | DOM element id (default `advance`) |
+| `host` | `str` | yes | DOM element id (default `user-controls`) |
 | `dock_arc` | `str` | no | Title-defined skin key (opaque to engine) |
 | `headline` | `str` | no | Short dock title |
 | `html` | `str` | no | Decorative fragment only (no inline handlers) |

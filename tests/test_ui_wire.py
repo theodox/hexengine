@@ -34,13 +34,12 @@ def test_turn_dock_panel_to_wire_dict() -> None:
                 enabled=True,
             ),
         ),
-        host="advance",
         css_class="hexdemo-turn-dock hexdemo-turn-dock--attack_ready",
     )
     wire = panel.to_wire_dict()
     assert wire["schema"] == 1
     assert wire["dock_arc"] == "attack_ready"
-    assert wire["host"] == "advance"
+    assert wire["host"] == "user-controls"
     assert wire["actions"][0]["id"] == "end_phase"
 
 
