@@ -54,8 +54,7 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `combat_actions.py` | Pack-local cleanup state actions (disrupt, advance, retreat step) |
 | `movement_rules.py` | Movement policy (`MovementRulesBinding`); `hooks/movement.py` adapts |
 | `combat_planning.py` | Attack plan preview (shared by `hooks/attack` and tests) |
-| `combat.py` | Retreat obligation reads from the title bucket |
-| `title_state.py` | Match bucket accessor (`bucket`, `attacks_this_phase`) |
+| `title_state.py` | Match bucket accessor and retreat-obligation reads |
 | `turn_arc_schedule.py` | Turn arc registry builder (move/combat schedule slots) |
 | `focus.py` | Suggested unit focus after state sync |
 | `shell_ui.py` | Shell UI string keys for dock and previews |

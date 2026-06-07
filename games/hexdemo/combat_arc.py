@@ -17,9 +17,7 @@ from hexengine.authoring.patterns.combat import (
     combat_rules_binding_to_arc_spec,
 )
 from hexengine.state import GameState
-from hexengine.state.title_extension import title_bucket
-
-from . import combat_rules, combat_transitions
+from . import combat_rules, combat_transitions, title_state
 
 BINDING = combat_rules.BINDING
 
@@ -27,12 +25,9 @@ _COMBAT_ARC_SPEC = None
 
 
 def retreating_faction(state: GameState) -> str | None:
-    ek = state.title_bucket_key
-    if not ek:
+    if not state.title_bucket_key:
         return None
-    ro = title_bucket(state, ek).get("retreat_obligations")
-    if not isinstance(ro, dict):
-        return None
+    ro = title_state.retreat_obligations(state)
     for uid, raw in ro.items():
         try:
             if int(raw) <= 0:

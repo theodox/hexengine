@@ -48,7 +48,7 @@ A **segment** is fully described by:
 - **allowed_actions** — the RPC/input types legal in this segment. Drives both server legality and client affordances.
 - **resolution locus** — where the segment resolves:
   - **server-authoritative** — persisted, gated, snapshot-able (today: `routine` / `retreat_gate` / `advance_gate`).
-  - **client-local draft** — composed in the browser, commits as one RPC (today: the ad-hoc `attack_draft` / `retreat_path_draft` / `place_marker_draft` override in `effective_turn_dock_arc`).
+  - **client-local draft** — composed in the browser, commits as one RPC (today: the ad-hoc `attack_draft` / `retreat_path_draft` / `place_marker_draft` override in `effective_turn_dock_presentation_id`).
 
 Both existing server gates and existing client drafts are instances of this one shape. Making `resolution locus` a declared property lets the client stop special-casing draft strings and the server stop special-casing gate strings.
 
@@ -135,7 +135,7 @@ This revises a `RULE_COMPOSITION.md` non-goal ("hooks and **arcs** stay [as fixe
 - The triplicated gate readers (legality / dock / blocking) collapse into "read current segment."
 - Engine gate-string literals in `authority_combat_cleanup` prechecks (boundary item #1/#2) — gone.
 - `ClearUnitRetreatObligation`'s hardcoded `combat_gate` removal — becomes a declared transition effect.
-- The client `effective_turn_dock_arc` draft override — becomes an entry-guarded client-local sub-arc.
+- The client `effective_turn_dock_presentation_id` draft override — becomes an entry-guarded client-local sub-arc.
 - `default_primary_actions_for_viewer` / `default_blocks_routine_phase_advance` gate string-matching — derived from the segment instead.
 
 ---
@@ -527,7 +527,7 @@ and validate), not `hexengine.arcs.patterns`.
 - Removed engine gate-string catalog paths (`default_blocks_routine_phase_advance`, `PRIMARY_ACTIONS_FOR_VIEWER`, `BLOCKS_ROUTINE_PHASE_ADVANCE`).
 - Docs updated: `PACK_HOOK_CONTRACTS.md`, `TURN_ACTION_DOCK_CONTRACT.md`, `TITLE_AUTHORING.md`, `engine_game_boundary_matrix.md`, `ENGINE_BOUNDARY_2_PLAN.md` (supersession note), `SERVER_ARCHITECTURE.md`, `hexdemo/hooks/README.md`.
 - Title `combat_gate` bucket field retired (not written); engine and pack read `current_segment`.
-- Client draft CSS uses `effective_turn_dock_arc` (client-local sub-arcs); server uses `dock_arc_from_segment`.
+- Client draft CSS uses `effective_turn_dock_presentation_id` (client-local sub-arcs); server uses `dock_arc_from_segment`.
 
 **Author-facing UX (next):** segment `kind` plus a title **presentation registry** (`presentation_id`, primitive, `interaction_mode`) so hooks and templates stay insulated from wire — see [`TITLE_AUTHORING.md` § Flow vs presentation](TITLE_AUTHORING.md#flow-vs-presentation-authoring-model) and [`PACK_HOOK_CONTRACTS.md` § Authoring vs wire](PACK_HOOK_CONTRACTS.md#authoring-vs-wire).
 

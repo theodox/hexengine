@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from hexengine.game.arcs.client_interaction_panels import (
-    effective_turn_dock_arc,
     effective_turn_dock_presentation_id,
     replace_dock_arc_css_class,
     turn_dock_sequence_headline,
@@ -35,42 +34,11 @@ def test_effective_turn_dock_presentation_id_prefers_draft_steps() -> None:
         )
         == "place_marker_draft"
     )
-
-
-def test_effective_turn_dock_arc_prefers_draft_steps() -> None:
     assert (
-        effective_turn_dock_arc(
-            "attack_ready",
-            attack_draft=True,
-            retreat_path_draft=False,
-            place_marker_draft=False,
-        )
-        == "attack_draft"
-    )
-    assert (
-        effective_turn_dock_arc(
-            "retreat_gate",
-            attack_draft=False,
-            retreat_path_draft=True,
-            place_marker_draft=False,
-        )
-        == "retreat_path_draft"
-    )
-    assert (
-        effective_turn_dock_arc(
+        effective_turn_dock_presentation_id(
             "routine",
-            attack_draft=False,
-            retreat_path_draft=False,
-            place_marker_draft=True,
-        )
-        == "place_marker_draft"
-    )
-    assert (
-        effective_turn_dock_arc(
-            "routine",
-            attack_draft=False,
-            retreat_path_draft=False,
-            place_marker_draft=False,
+            "place_marker",
+            interaction_draft_active=False,
         )
         == "routine"
     )

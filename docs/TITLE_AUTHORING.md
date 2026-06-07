@@ -77,7 +77,7 @@ Full primitive catalog and path-draft shapes: [`TURN_ACTION_DOCK_CONTRACT.md` §
 | **Manifest title-load** | Browser connect / server boot | `[hooks.title_load]` in `hexengine_pack.toml` | `hooks/title_load.py` |
 | **Turn schedule** | Phase entry | `GameDefinition.after_phase_transition` | `game_config.py` → `combat_transitions` |
 
-**Rules vs hooks:** put reusable `GameState` policy in pack-root modules (`combat.py`, `movement_rules.py`, …); keep `hooks/*.py` thin adapters. See [`games/hexdemo/hooks/README.md`](../games/hexdemo/hooks/README.md).
+**Rules vs hooks:** put reusable `GameState` policy in pack-root modules (`title_state.py`, `movement_rules.py`, …); keep `hooks/*.py` thin adapters. See [`games/hexdemo/hooks/README.md`](../games/hexdemo/hooks/README.md).
 
 ---
 
@@ -195,7 +195,7 @@ Authoritative match state uses **`GameState.title_state`** (title bucket) and **
 | **Arc spec** | [`combat_arc.py`](../games/hexdemo/combat_arc.py) | `combat_rules_binding_to_arc_spec`; owner resolver; `ArcHook.COMBAT_ARC` |
 | **Cleanup mutations** | [`combat_actions.py`](../games/hexdemo/combat_actions.py) | Retreat step, disrupt, advance resolve (called from binding) |
 | **Gate kinds / phase clear** | [`combat_transitions.py`](../games/hexdemo/combat_transitions.py) | `COMBAT_ARC_GATE_KINDS`, `clear_combat_state_actions`, attack-planning block copy |
-| **Retreat reads** | [`combat.py`](../games/hexdemo/combat.py) | Shared retreat-obligation helpers |
+| **Title bucket / retreat reads** | [`title_state.py`](../games/hexdemo/title_state.py) | `bucket()`, retreat obligations, advance offer |
 | **Movement policy** | [`movement_rules.py`](../games/hexdemo/movement_rules.py) | Budget, ZoC, step cost, retreat constraints |
 | **Hook adapters** | [`hooks/attack.py`](../games/hexdemo/hooks/attack.py), [`hooks/movement.py`](../games/hexdemo/hooks/movement.py) | `@bind_title_hook` only |
 | **Segment projection** | [`arc_segment.py`](../games/hexdemo/arc_segment.py) | `phase_advance_blocked`, planning block helpers |

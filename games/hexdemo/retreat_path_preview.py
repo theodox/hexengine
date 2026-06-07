@@ -18,7 +18,7 @@ from hexengine.retreat_path import (
 )
 from hexengine.state import GameState
 
-from . import combat
+from . import title_state
 from .hooks import movement as movement_hooks
 
 
@@ -105,7 +105,7 @@ def retreat_path_preview(ctx: RetreatPathPreviewContext) -> dict[str, Any]:
             "panel_actions": _panel_actions(su, confirm_enabled=False),
         }
 
-    rem = combat.retreat_hexes_remaining(st, uid)
+    rem = title_state.retreat_hexes_remaining(st, uid)
     if rem is None:
         return {
             "kind": "retreat_path",

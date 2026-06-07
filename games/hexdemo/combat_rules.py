@@ -33,9 +33,7 @@ from hexengine.server.arcs.authority_attack_commit import (
 from hexengine.state import UnitState
 from hexengine.state.action_manager import StateAction
 from hexengine.state.map_feature_queries import edges_block_los_predicate
-from hexengine.state.title_extension import title_bucket
-
-from . import combat, combat_actions, combat_outcome, title_state
+from . import combat_actions, combat_outcome, title_state
 
 # When the board has no explicit or unset-default terrain for a hex, CRT math still
 # needs a stable type (matches legacy tests and minimal `BoardState` fixtures).
@@ -550,14 +548,14 @@ class HexdemoCombatRules:
         )
 
     def has_pending_retreat(self, ctx: ArcContext) -> bool:
-        return combat.any_retreat_obligation_pending(ctx.state)
+        return title_state.any_retreat_obligation_pending(ctx.state)
 
     def disrupt_offered(self, ctx: ArcContext) -> bool:
         if not ctx.extension_key:
             return False
         if not title_state.disrupt_instead_offered(ctx.state):
             return False
-        return combat.any_retreat_obligation_pending(ctx.state)
+        return title_state.any_retreat_obligation_pending(ctx.state)
 
     def advance_available(self, ctx: ArcContext) -> bool:
         if not ctx.extension_key:
@@ -572,9 +570,7 @@ class HexdemoCombatRules:
         uid = ctx.params.get("unit_id")
         if not isinstance(uid, str) or not ctx.extension_key:
             return False
-        ro = title_bucket(ctx.state, ctx.extension_key).get("retreat_obligations")
-        if not isinstance(ro, dict):
-            return False
+        ro = title_state.retreat_obligations(ctx.state)
         try:
             return int(ro.get(uid, 0)) > 0
         except (TypeError, ValueError):

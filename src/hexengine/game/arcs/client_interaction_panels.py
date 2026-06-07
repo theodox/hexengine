@@ -50,36 +50,6 @@ def effective_turn_dock_presentation_id(
     return str(server_presentation_id or "").strip()
 
 
-# Back-compat alias for tests that still name the old helper.
-def effective_turn_dock_arc(
-    server_arc: str,
-    *,
-    attack_draft: bool = False,
-    retreat_path_draft: bool = False,
-    place_marker_draft: bool = False,
-    interaction_mode: str | None = None,
-    interaction_draft_active: bool | None = None,
-) -> str:
-    """Deprecated draft-boolean API; prefer ``effective_turn_dock_presentation_id``."""
-
-    if interaction_draft_active is None:
-        interaction_draft_active = bool(
-            attack_draft or retreat_path_draft or place_marker_draft
-        )
-    if interaction_mode is None:
-        if attack_draft:
-            interaction_mode = "attack_plan"
-        elif retreat_path_draft:
-            interaction_mode = "retreat_path"
-        elif place_marker_draft:
-            interaction_mode = "place_marker"
-    return effective_turn_dock_presentation_id(
-        server_arc,
-        interaction_mode,
-        interaction_draft_active=bool(interaction_draft_active),
-    )
-
-
 def replace_dock_arc_css_class(css_class: str, effective_arc: str) -> str:
     """Swap ``--<arc>`` modifiers on turn-dock panel roots."""
     arc = str(effective_arc or "").strip()
