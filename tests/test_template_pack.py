@@ -47,6 +47,13 @@ def test_template_validate_title_contract() -> None:
     validate_title_contract(build_game_definition())
 
 
+def test_template_combat_scaffold_binding() -> None:
+    from games.template.combat_arc import build_template_combat_arc_spec
+
+    spec = build_template_combat_arc_spec()
+    spec.arc.validate()
+
+
 def test_template_server_begins_routine_cursor() -> None:
     from hexengine.arcs import read_arc_cursor
     from hexengine.server import GameServer

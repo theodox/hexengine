@@ -164,6 +164,51 @@ def test_validate_title_contract_requires_combat_arc_with_extension_key() -> Non
         validate_title_contract(PackWithoutCombatArc())
 
 
+def test_validate_title_contract_checks_combat_rules_binding_methods() -> None:
+    from hexengine.arcs import ArcSpec
+    from hexengine.hooks.arcs import ArcsHooks
+    from hexengine.authoring.patterns.schedule import build_turn_registry, interleaved_slots
+    from hexengine.gamedef.game_data import GameData
+    from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer
+
+    slots = interleaved_slots(
+        ("blue", "red"),
+        (("Combat", 1, "combat"),),
+    )
+    reg = build_turn_registry(slots, allowed_actions_for_phase=lambda _p: frozenset({"Attack"}))
+
+    class IncompleteBinding:
+        def validate_attack(self, _ctx):
+            return None
+
+    class PackWithIncompleteBinding:
+        @property
+        def game_data(self) -> GameData:
+            return GameData.empty().replacing(title_state_extension_key="pack")
+
+        def turn_order(self):
+            return [{"faction": "blue", "phase": "Combat", "max_actions": 1}]
+
+        hooks = TitleHooks(
+            ui=UIHooks(
+                turn_action_dock_for_viewer=empty_turn_action_dock_for_viewer,
+                segment_presentation_registry=lambda: frozenset({"combat"}),
+            ),
+            arcs=ArcsHooks(
+                turn_arc_registry=lambda: reg,
+                combat_arc=lambda: ArcSpec(arc=reg.routine_specs["blue_combat"].arc),
+                combat_rules_binding=lambda: IncompleteBinding(),
+            ),
+            attack=AttackHooks(
+                validate_attack=lambda _c: None,
+                resolve_attack=lambda _c: None,
+            ),
+        )
+
+    with pytest.raises(HookContractError, match="COMBAT_RULES_BINDING"):
+        validate_title_contract(PackWithIncompleteBinding())
+
+
 def test_validate_title_contract_requires_turn_arc_registry_with_extension_key() -> None:
     from hexengine.gamedef.game_data import GameData
     from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer

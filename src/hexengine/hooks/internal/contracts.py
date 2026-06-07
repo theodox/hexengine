@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from ..core import SINGLE_DEFAULT, HookContractError
+from ..core import ENGINE_DEFAULT, SINGLE_DEFAULT, HookContractError
 from ..preset_options import PresetOptions
 from ..title import read_title_hooks_from_definition
 
@@ -153,6 +153,23 @@ def validate_title_contract(game_definition: Any) -> None:
                 ),
                 details={"schedule_requires_attack_hooks": True},
             )
+
+    if _title_requires_turn_action_dock(game_definition) and _schedule_expects_attack_hooks(
+        game_definition
+    ):
+        binding_raw = bundle.arcs.combat_rules_binding_spec()
+        if binding_raw is not ENGINE_DEFAULT:
+            from ...authoring.patterns.combat import combat_rules_binding_missing_methods
+
+            missing = combat_rules_binding_missing_methods(binding_raw)
+            if missing:
+                raise HookContractError(
+                    message=(
+                        "ArcHook.COMBAT_RULES_BINDING is set but the binding is missing "
+                        f"methods: {', '.join(missing)}"
+                    ),
+                    details={"combat_rules_binding_missing": list(missing)},
+                )
 
     from .authoring_bridge import validate_declared_arcs
 

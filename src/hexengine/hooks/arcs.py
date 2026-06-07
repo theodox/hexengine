@@ -22,6 +22,7 @@ class ArcsHooks:
     """Declared-arc providers consulted by the authoritative server."""
 
     combat_arc: Callable[[], ArcSpec] | None = None
+    combat_rules_binding: Callable[[], object] | None = None
     movement_arc: Callable[[], ArcSpec] | None = None
     turn_arc_registry: Callable[[], TurnArcRegistry] | None = None
 
@@ -31,6 +32,13 @@ class ArcsHooks:
         if self.combat_arc is None:
             return ENGINE_DEFAULT
         return self.combat_arc()
+
+    def combat_rules_binding_spec(self) -> object:
+        """Optional unified combat binding for contract validation."""
+
+        if self.combat_rules_binding is None:
+            return ENGINE_DEFAULT
+        return self.combat_rules_binding()
 
     def movement_arc_spec(self) -> ArcSpec | object:
         """The title's movement arc bundle, or ENGINE_DEFAULT when not provided."""
@@ -51,6 +59,7 @@ class ArcHook(StrEnum):
     """Stable slot ids for `bind_title_hook` (values match `ArcsHooks` field names)."""
 
     COMBAT_ARC = "combat_arc"
+    COMBAT_RULES_BINDING = "combat_rules_binding"
     MOVEMENT_ARC = "movement_arc"
     TURN_ARC_REGISTRY = "turn_arc_registry"
 

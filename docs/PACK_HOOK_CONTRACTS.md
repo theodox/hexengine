@@ -272,6 +272,8 @@ For packs with `title_state_extension_key`, the engine rejects `Attack` when `cu
 
 **Movement author layout:** policy in pack-root [`movement_rules.py`](../games/hexdemo/movement_rules.py) implementing [`MovementRulesBinding`](../src/hexengine/hooks/movement_rules.py); [`hooks/movement.py`](../games/hexdemo/hooks/movement.py) binds slots. Stepwise payload and arc cursor sync stay in `authority_movement` / movement arc runner.
 
+**Combat author layout (new packs):** one [`CombatRulesBinding`](../src/hexengine/hooks/combat_rules.py) in `combat_arc.py`; [`combat_rules_binding_to_arc_spec`](../src/hexengine/authoring/patterns/combat.py) produces `ArcHook.COMBAT_ARC`. Optional `ArcHook.COMBAT_RULES_BINDING` enables structural validation at startup. Scaffold: [`games/template/combat_arc.py`](../games/template/combat_arc.py).
+
 **Reference pack:** [`games/hexdemo/hooks/`](../games/hexdemo/hooks/) (`attack.py`, `movement.py`, `turn_action_dock.py`, `ui.py`); policy modules [`movement_rules.py`](../games/hexdemo/movement_rules.py), [`combat_transitions.py`](../games/hexdemo/combat_transitions.py), [`title_state.py`](../games/hexdemo/title_state.py); markup in [`games/hexdemo/ui_markup.py`](../games/hexdemo/ui_markup.py); assets in [`games/hexdemo/resources/`](../games/hexdemo/resources/) (`templates/`, `flags/`, `ui.css`). Inventory: [`SKINNING_CLIENT_INVENTORY.md`](SKINNING_CLIENT_INVENTORY.md). Boundary matrix: [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md).
 
 ### Client contract features (not wire rows)

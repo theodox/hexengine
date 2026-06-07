@@ -198,7 +198,7 @@ Full combat integration suite + replay/undo tests if present.
 
 ### Phase F — Template pack and authoring scaffold
 
-**Status:** not started.
+**Status:** done.
 
 **Goal:** New titles copy one combat module, not hexdemo’s split layout.
 

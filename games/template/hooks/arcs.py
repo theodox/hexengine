@@ -1,7 +1,8 @@
 """
 Declared turn arc registry (composable arcs).
 
-Combat and movement overlay arcs: add ArcHook bindings here when the title needs them.
+When enabling combat: see ``combat_arc.build_template_combat_arc_spec``,
+``segment_ui.py``, attack/movement hooks, and TITLE_AUTHORING.md § Minimal combat title.
 """
 
 from __future__ import annotations

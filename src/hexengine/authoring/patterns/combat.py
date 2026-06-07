@@ -9,9 +9,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
+from ...arcs.runner import ArcSpec, OwnerRefResolver
 from ...arcs.spec import CURRENT, NO_OWNER, Arc, ArcContext, OwnerRef
+from ...hooks.combat_rules import CombatArcRulesBinding, CombatRulesBinding
 from ...state.action_manager import StateAction
 from ..builder import arc, case
 
@@ -164,6 +166,107 @@ def build_combat_cleanup_arc(
 # Plan alias: mandatory retreat obligations then optional advance window.
 build_mandatory_retreat_then_optional_advance_arc = build_combat_cleanup_arc
 
+_COMBAT_RULES_BINDING_METHODS: tuple[str, ...] = (
+    "validate_attack",
+    "resolve_attack",
+    "combat_outcome_after_applied",
+    "detect_combat_advance_move",
+    "has_pending_retreat",
+    "disrupt_offered",
+    "advance_available",
+    "is_retreat_fulfillment",
+    "is_combat_advance_move",
+    "apply_retreat_step",
+    "disrupt_instead",
+    "open_advance",
+    "resolve_advance",
+    "clear_advance_gate",
+)
+
+
+def combat_rules_binding_missing_methods(binding: Any) -> tuple[str, ...]:
+    """Return method names missing from a ``CombatRulesBinding`` (empty when complete)."""
+
+    missing: list[str] = []
+    for name in _COMBAT_RULES_BINDING_METHODS:
+        if not callable(getattr(binding, name, None)):
+            missing.append(name)
+    return tuple(missing)
+
+
+def combat_rules_binding_satisfies(binding: Any) -> bool:
+    return not combat_rules_binding_missing_methods(binding)
+
+
+class _CombatRulesEffectsAdapter:
+    """Bridge a ``CombatRulesBinding`` into ``CombatArcEffectsBinding`` for the pattern."""
+
+    def __init__(self, binding: CombatArcRulesBinding) -> None:
+        self._binding = binding
+
+    def has_pending_retreat(self, ctx: ArcContext) -> bool:
+        return bool(self._binding.has_pending_retreat(ctx))
+
+    def disrupt_offered(self, ctx: ArcContext) -> bool:
+        return bool(self._binding.disrupt_offered(ctx))
+
+    def advance_available(self, ctx: ArcContext) -> bool:
+        return bool(self._binding.advance_available(ctx))
+
+    def is_retreat_fulfillment(self, ctx: ArcContext) -> bool:
+        return bool(self._binding.is_retreat_fulfillment(ctx))
+
+    def is_combat_advance_move(self, ctx: ArcContext) -> bool:
+        return bool(self._binding.is_combat_advance_move(ctx))
+
+    def apply_retreat_step(self, ctx: ArcContext) -> list[StateAction]:
+        return list(self._binding.apply_retreat_step(ctx))
+
+    def disrupt_instead(self, ctx: ArcContext) -> list[StateAction]:
+        return list(self._binding.disrupt_instead(ctx))
+
+    def open_advance(self, ctx: ArcContext) -> list[StateAction]:
+        return list(self._binding.open_advance(ctx))
+
+    def resolve_advance(self, ctx: ArcContext) -> list[StateAction]:
+        return list(self._binding.resolve_advance(ctx))
+
+    def clear_advance_gate(self, ctx: ArcContext) -> list[StateAction]:
+        return list(self._binding.clear_advance_gate(ctx))
+
+
+def combat_rules_binding_to_arc_spec(
+    binding: CombatRulesBinding,
+    gates: CombatArcGateKinds,
+    *,
+    arc_id: str = COMBAT_ARC_ID,
+    owner_resolver: OwnerRefResolver | None = None,
+    advance_move_detector: Callable[..., bool] | None = None,
+    attack_effect: Effect | None = None,
+    attack_kind: str = "combat",
+) -> ArcSpec:
+    """
+    Build ``ArcSpec`` from one author binding (cleanup subgraph + optional attack segment).
+    """
+
+    if not combat_rules_binding_satisfies(binding):
+        missing = ", ".join(combat_rules_binding_missing_methods(binding))
+        raise TypeError(f"CombatRulesBinding missing methods: {missing}")
+
+    effects = _CombatRulesEffectsAdapter(binding)
+    return ArcSpec(
+        arc=build_combat_cleanup_arc(
+            effects,
+            gates,
+            arc_id=arc_id,
+            attack_effect=attack_effect,
+            attack_kind=attack_kind,
+        ),
+        owner_resolver=owner_resolver,
+        advance_move_detector=advance_move_detector or binding.detect_combat_advance_move,
+    )
+
+
 __all__ = [
     "COMBAT_ARC_ID",
     "CombatArcEffectsBinding",
@@ -177,4 +280,7 @@ __all__ = [
     "SEG_RETREAT_OR_DISRUPT_GATE",
     "build_combat_cleanup_arc",
     "build_mandatory_retreat_then_optional_advance_arc",
+    "combat_rules_binding_missing_methods",
+    "combat_rules_binding_satisfies",
+    "combat_rules_binding_to_arc_spec",
 ]

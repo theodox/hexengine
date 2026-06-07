@@ -327,11 +327,20 @@ Preview hooks receive `shell_ui` on context objects; dock hook receives it on `T
 
 ### New pack (minimal)
 
-1. Copy layout from hexdemo (or future `games/_template/`).
+1. Copy layout from [`games/template/`](../games/template/) (move-only) or hexdemo (full combat).
 2. Implement `engine_entry.load_game_definition`, `build_hooks()`, scenario TOML.
 3. Bind `TURN_ACTION_DOCK_FOR_VIEWER` if you want title-owned commit UI.
 4. Add `hexengine_pack.toml` and verify `validate_title_contract` at server start.
 5. Point authors at this guide; run pyright on `games/<pack>/`.
+
+### Minimal combat title (extension key + combat schedule)
+
+1. Set `title_state_extension_key` in `game_data.toml`; add `title_state.py` accessors (no raw bucket strings in author code).
+2. Declare `ArcHook.TURN_ARC_REGISTRY` with combat schedule slots (`allowed_actions` includes `Attack`).
+3. Implement one `CombatRulesBinding` in `combat_arc.py`; build `ArcSpec` with [`combat_rules_binding_to_arc_spec`](../src/hexengine/authoring/patterns/combat.py) and bind `ArcHook.COMBAT_ARC` (optional `ArcHook.COMBAT_RULES_BINDING` for contract validation).
+4. Thin `hooks/attack.py` adapters to binding methods; add `movement_rules.py` if retreat/move policy is non-default.
+5. Register segment kinds in `segment_ui.py` (routine `combat`, each combat gate kind); bind `UIHook.SEGMENT_PRESENTATION_REGISTRY` and `TURN_ACTION_DOCK_FOR_VIEWER`.
+6. Add presentation rows under `presentation/` for each `presentation_id`; run `validate_title_contract` and combat integration tests.
 
 ### New INFORM copy
 
