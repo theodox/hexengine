@@ -530,6 +530,8 @@ and validate), not `hexengine.arcs.patterns`.
 
 **Author-facing UX (next):** segment `kind` plus a title **presentation registry** (`presentation_id`, primitive, `interaction_mode`) so hooks and templates stay insulated from wire — see [`TITLE_AUTHORING.md` § Flow vs presentation](TITLE_AUTHORING.md#flow-vs-presentation-authoring-model) and [`PACK_HOOK_CONTRACTS.md` § Authoring vs wire](PACK_HOOK_CONTRACTS.md#authoring-vs-wire).
 
+**Author programming interface (sibling track):** [`TITLE_AUTHOR_INTERFACE_PLAN.md`](TITLE_AUTHOR_INTERFACE_PLAN.md) — collapse attack hook pipeline + combat arc binding into one title-facing API (`CombatOutcome`, single `CombatRulesBinding`); Phase D routes `Attack` through `submit_event`.
+
 ---
 
 ## Out of scope

@@ -27,10 +27,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from hexengine.hooks.attack import (
-    AfterAttackAppliedContext,
-    RetreatObligationClearedContext,
-)
+from hexengine.hooks.attack import AfterAttackAppliedContext
 from hexengine.state import GameState
 from hexengine.state.action_manager import StateAction
 from hexengine.state.actions import PatchTitleBucket
@@ -213,16 +210,6 @@ def follow_up_after_attack(ctx: AfterAttackAppliedContext) -> list[StateAction]:
     return actions
 
 
-def on_retreat_obligation_cleared(
-    ctx: RetreatObligationClearedContext,
-) -> list[StateAction]:
-    """Open optional post-retreat advance when hexdemo rules match."""
-
-    return combat_actions.maybe_open_advance_after_retreat(
-        ctx.state, ctx.extension_key
-    )
-
-
 __all__ = [
     "GATE_AWAITING_ADVANCE",
     "GATE_AWAITING_RETREAT",
@@ -232,5 +219,4 @@ __all__ = [
     "attack_planning_blocked_reason",
     "clear_combat_state_actions",
     "follow_up_after_attack",
-    "on_retreat_obligation_cleared",
 ]

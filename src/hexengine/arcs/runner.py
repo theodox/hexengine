@@ -79,10 +79,15 @@ class ArcSpec:
     A title exposes one of these per arc (Phase 2: the combat arc). owner_resolver
     resolves any OwnerRef in the arc; it may be None for arcs that use only CURRENT /
     NO_OWNER / explicit factions.
+
+    advance_move_detector is an optional bridge for engine MoveUnit pre-routing when
+    AttackHook.IS_COMBAT_ADVANCE_MOVE is not bound (deprecated hook; prefer this field
+    on the declared combat ArcSpec).
     """
 
     arc: Arc
     owner_resolver: OwnerRefResolver | None = None
+    advance_move_detector: Callable[..., bool] | None = None
 
 
 def resolve_owner(

@@ -1,5 +1,7 @@
 # Title authoring guide
 
+**Interface simplification (in progress):** [`TITLE_AUTHOR_INTERFACE_PLAN.md`](TITLE_AUTHOR_INTERFACE_PLAN.md) — unify combat resolution and cleanup into one author binding; reduce engine pipeline knowledge.
+
 **Start here** if you are building or extending a game pack (title) on hexengine. This page gives **high-level summaries** and **API entry points**; deep wire schemas and client behavior live in linked contract docs.
 
 **Reference pack:** [`games/hexdemo/`](../games/hexdemo/) — copy patterns from code when docs and implementation disagree; prefer updating this guide when behavior changes.
@@ -195,9 +197,9 @@ Assembled with [`assemble_title_hooks`](../src/hexengine/hooks/wiring.py). Enum 
 | Bundle | Typical responsibilities | Contract / validation |
 |--------|-------------------------|---------------------|
 | **movement** | Step cost, ZoC, retreat obligations, retreat path preview, **auto-advance after move spend** | Movement arc; retreat preview optional; `AUTO_ADVANCE_PHASE_AFTER_MOVE_SPEND` (catalog default: advance when action pool empty) |
-| **attack** | `validate_attack`, `resolve_attack`, attack plan preview, optional **`after_attack_applied`** (follow-up `StateAction`s after `Attack` + effects), **`on_retreat_obligation_cleared`** (optional advance gate after retreat/disrupt), **auto-advance after attack** | **Required** if schedule includes combat (`validate_title_contract`); `AUTO_ADVANCE_PHASE_AFTER_ATTACK` has no catalog default (omit hook = no auto-advance) |
+| **attack** | `validate_attack`, `resolve_attack`, attack plan preview, optional **`after_attack_applied`**, **auto-advance after attack** | **Required** if schedule includes combat (`validate_title_contract`); `AUTO_ADVANCE_PHASE_AFTER_ATTACK` has no catalog default (omit hook = no auto-advance) |
 | **ui** | Banners, dock, popups, overlays, combat banners | `COMBAT_INTERACTION_MESSAGES`, `TURN_ACTION_DOCK_FOR_VIEWER` |
-| **arcs** | Turn registry, combat arc, movement arc | `TURN_ARC_REGISTRY`, `COMBAT_ARC` (required for combat extension packs) |
+| **arcs** | Turn registry, **combat arc** (retreat / disrupt / advance cleanup), movement arc | `TURN_ARC_REGISTRY`, `COMBAT_ARC` (required for combat extension packs); bind guards/effects in `combat_arc.py` — not deprecated `AttackHook` cleanup slots |
 
 Return **`ENGINE_DEFAULT`** from a hook to use engine catalog behavior for that slot.
 
@@ -381,6 +383,7 @@ When you change player UX or hook contracts:
 | Doc | Audience |
 |-----|----------|
 | [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) | Title authors (this page) |
+| [`TITLE_AUTHOR_INTERFACE_PLAN.md`](TITLE_AUTHOR_INTERFACE_PLAN.md) | Unifying combat author API (plan) |
 | [`TURN_ACTION_DOCK_CONTRACT.md`](TURN_ACTION_DOCK_CONTRACT.md) | Wire + primitives (API detail) |
 | [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md) | Wire schemas + hook roadmap |
 | [`SKINNING_AFFORDANCES_PLAN.md`](SKINNING_AFFORDANCES_PLAN.md) | Implementation status / roadmap |

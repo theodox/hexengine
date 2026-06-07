@@ -255,10 +255,15 @@ Bind with `@bind_title_hook(AttackHook.…)`. Values match [`AttackHook`](../src
 | **`ATTACK_PLAN_PREVIEW`** | `map_selection_preview` kind `attack_plan` | `(ctx: AttackPlanPreviewContext)` | preview dict | Empty/minimal preview |
 | **`AUTO_ADVANCE_PHASE_AFTER_ATTACK`** | After attack applied + broadcast | `(state: GameState)` | `bool` | No auto-advance |
 | **`AFTER_ATTACK_APPLIED`** | After `Attack` + `ApplyCombatEffects`, before combat events | `(ctx: AfterAttackAppliedContext)` | `list[StateAction]` | No follow-up actions |
-| **`ON_RETREAT_OBLIGATION_CLEARED`** | Retreat stack empty or disrupt cleared obligations | `(ctx: RetreatObligationClearedContext)` | `list[StateAction]` | `[]` (no follow-up) |
-| **`COMBAT_DISRUPT_INSTEAD_OF_RETREAT`** | `CombatDisruptInsteadOfRetreat` RPC | `(ctx: CombatCleanupContext)` | `list[StateAction]` | Unsupported |
-| **`COMBAT_RESOLVE_ADVANCE`** | `CombatAdvance` RPC or advance `MoveUnit` fulfillment | `(ctx: CombatCleanupContext)` | `list[StateAction]` | Unsupported |
-| **`IS_COMBAT_ADVANCE_MOVE`** | Before routing a `MoveUnit` (detect advance fulfillment) | `(ctx: CombatAdvanceMoveContext)` | `bool` | `False` (not an advance move) |
+
+**Deprecated (Phase A — use `ArcHook.COMBAT_ARC` binding):** do not bind these in new titles. Cleanup RPCs run through the combat arc; advance ``MoveUnit`` detection uses ``ArcSpec.advance_move_detector`` on the declared combat arc.
+
+| Hook (deprecated) | Replacement |
+|-------------------|-------------|
+| **`ON_RETREAT_OBLIGATION_CLEARED`** | Combat arc ``open_advance`` effect on classify / resolve |
+| **`COMBAT_DISRUPT_INSTEAD_OF_RETREAT`** | Combat arc ``disrupt_instead`` effect |
+| **`COMBAT_RESOLVE_ADVANCE`** | Combat arc ``resolve_advance`` effect |
+| **`IS_COMBAT_ADVANCE_MOVE`** | ``ArcSpec.advance_move_detector`` + arc segment guard |
 
 **Undoable title bucket patches:** prefer [`PatchTitleBucket`](../src/hexengine/state/actions.py) in hook follow-up lists over ad-hoc copies. Read bucket via [`title_bucket`](../src/hexengine/state/title_extension.py) / pack `title_state` module.
 
@@ -351,7 +356,7 @@ Align naming and validation rules with `TitleHooks` contract sentinels (`REQUIRE
 | Area | Declaration | Entry / validation | Notes |
 |------|-------------|-------------------|--------|
 | Movement | `TitleHooks.movement` | Server movement arc; hook catalog | `MovementHook` enum + `bind_title_hook` |
-| Attack | `TitleHooks.attack` | [`authority_attack`](../src/hexengine/server/arcs/authority_attack.py); `validate_title_contract` if schedule has combat | Required `validate_attack` / `resolve_attack` when schedule implies combat; optional `after_attack_applied`, `on_retreat_obligation_cleared` — see [Attack hook inventory](#attack-hook-inventory-combat-policy) |
+| Attack | `TitleHooks.attack` | [`authority_attack`](../src/hexengine/server/arcs/authority_attack.py); `validate_title_contract` if schedule has combat | Required `validate_attack` / `resolve_attack` when schedule implies combat; optional `after_attack_applied`; cleanup via `ArcHook.COMBAT_ARC` — see [Attack hook inventory](#attack-hook-inventory-combat-policy) |
 | UI | `TitleHooks.ui` | Client/server UI hook points | Per-viewer wire: [`interaction_messages`](#stateupdateinteraction_messages), [`interaction_panels`](#stateupdateinteraction_panels-turn-action-dock), [`ui_popup`](#ui-popup-standalone-message); see [UI affordances](#ui-affordances--wire-schemas-and-hooks-v1) |
 | Title-load (client) | `[hooks.title_load]` | Client title-load arc; tolerant dispatch in `gameroot` | See [`TITLE_LOAD_HOOKS.md`](TITLE_LOAD_HOOKS.md) |
 | Title-load (server) | same manifest | `try_pack_title_load_server` | One-shot log hook today |

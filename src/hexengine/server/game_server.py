@@ -2467,45 +2467,6 @@ class GameServer:
             case _:
                 raise ValueError(f"Unknown action type: {action_type}")
 
-    def _on_retreat_obligation_cleared(
-        self,
-        extension_key: str,
-        *,
-        cleared_unit_ids: tuple[str, ...] = (),
-    ) -> None:
-        """Delegates advance-gate policy to `AttackHooks` and engine default in `hooks.internal.advance`."""
-
-        st = self.action_manager.current_state
-        raw = self.hooks.attack.advance_after_retreat(
-            st, extension_key, cleared_unit_ids=cleared_unit_ids
-        )
-        if raw is ENGINE_DEFAULT:
-            actions: list = []
-        elif isinstance(raw, list):
-            actions = raw
-        else:
-            raise TypeError(
-                "hooks.attack.on_retreat_obligation_cleared must return "
-                "list[StateAction] or hooks.ENGINE_DEFAULT"
-            )
-        from .arcs.authority_combat_cleanup import execute_hook_state_actions
-
-        if actions:
-            execute_hook_state_actions(
-                self,
-                actions,
-                hook_name="hooks.attack.on_retreat_obligation_cleared",
-            )
-
-    def _maybe_open_combat_advance_after_retreat(
-        self, extension_key: str, *, cleared_unit_ids: tuple[str, ...] = ()
-    ) -> None:
-        """Backward-compatible alias for retreat fulfillment and tests."""
-
-        self._on_retreat_obligation_cleared(
-            extension_key, cleared_unit_ids=cleared_unit_ids
-        )
-
     async def _handle_leave_game(self, player_id: str) -> None:
         """Handle a player leaving the game."""
         player = self.players.get(player_id)

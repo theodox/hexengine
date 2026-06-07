@@ -10,8 +10,8 @@ Role in turn resolution:
   - what the outcome is (`resolve_attack`)
   - whether the phase should auto-advance after applying it (`auto_advance_phase_after_attack`)
   - optional follow-up state actions after `Attack` + `ApplyCombatEffects` (`after_attack_applied`)
-  - whether to open the post-retreat advance gate (`on_retreat_obligation_cleared`)
-  - combat cleanup RPCs (`combat_disrupt_instead_of_retreat`, `combat_resolve_advance`)
+  - deprecated cleanup slots (use declared combat arc binding instead; see
+    `TITLE_AUTHOR_INTERFACE_PLAN.md` Phase A)
 - The engine then applies the outcome as a deterministic state action and broadcasts:
   - per-recipient combat/retreat instructions
   - updated `StateUpdate` snapshots
@@ -277,7 +277,13 @@ class AttackHooks:
 
 
 class AttackHook(StrEnum):
-    """Stable slot ids for `bind_title_hook` (values match `AttackHooks` field names)."""
+    """Stable slot ids for `bind_title_hook` (values match `AttackHooks` field names).
+
+    Deprecated (cleanup belongs on ``ArcHook.COMBAT_ARC`` binding): ``ON_RETREAT_OBLIGATION_CLEARED``,
+    ``COMBAT_DISRUPT_INSTEAD_OF_RETREAT``, ``COMBAT_RESOLVE_ADVANCE``, ``IS_COMBAT_ADVANCE_MOVE``.
+    Use ``ArcSpec.advance_move_detector`` for advance ``MoveUnit`` pre-routing when unbinding
+    ``IS_COMBAT_ADVANCE_MOVE``.
+    """
 
     VALIDATE_ATTACK = "validate_attack"
     RESOLVE_ATTACK = "resolve_attack"

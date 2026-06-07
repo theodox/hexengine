@@ -9,6 +9,7 @@ module binds title hooks and owner resolution.
 from __future__ import annotations
 
 from hexengine.arcs import Arc, ArcContext
+from hexengine.hooks.attack import CombatAdvanceMoveContext
 from hexengine.authoring.patterns.combat import (
     COMBAT_ARC_ID,
     CombatArcGateKinds,
@@ -46,6 +47,16 @@ def retreating_faction(state: GameState) -> str | None:
         if u is not None and u.active:
             return str(u.faction)
     return None
+
+
+def detect_combat_advance_move(ctx: CombatAdvanceMoveContext) -> bool:
+    """Whether a ``MoveUnit`` wire fulfills the optional post-retreat advance."""
+
+    if not ctx.extension_key:
+        return False
+    return combat_actions.is_combat_advance_move(
+        ctx.state, ctx.params, ctx.player_faction, ctx.extension_key
+    )
 
 
 def resolve_owner_ref(key: str, state: GameState) -> str | None:
@@ -151,6 +162,7 @@ __all__ = [
     "SEG_RETREAT_GATE",
     "SEG_RETREAT_OR_DISRUPT_GATE",
     "build_combat_arc",
+    "detect_combat_advance_move",
     "resolve_owner_ref",
     "retreating_faction",
 ]

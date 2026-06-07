@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from games.hexdemo import combat_actions
-from hexengine.hooks.attack import AttackHooks
-from hexengine.hooks.title import TitleHooks
+from games.hexdemo.hooks import build_hooks
 from hexengine.server.arcs.authority_combat_cleanup import (
     move_unit_is_combat_advance_fulfillment,
 )
@@ -16,13 +14,7 @@ from hexengine.server.arcs.authority_movement import (
 from hexengine.state import GameState
 from hexengine.state.game_state import BoardState, TurnState
 
-_ADVANCE_HOOKS = TitleHooks(
-    attack=AttackHooks(
-        is_combat_advance_move=lambda ctx: combat_actions.is_combat_advance_move(
-            ctx.state, ctx.params, ctx.player_faction, ctx.extension_key
-        )
-    )
-)
+_HEXDEMO_HOOKS = build_hooks()
 
 
 def _minimal_state(
@@ -73,7 +65,7 @@ def test_move_unit_is_combat_advance_fulfillment_false_without_extension() -> No
         "to_hex": {"i": 1, "j": 0, "k": -1},
     }
     assert not move_unit_is_combat_advance_fulfillment(
-        _ADVANCE_HOOKS,
+        _HEXDEMO_HOOKS,
         st,
         params,
         player_faction="union",
@@ -96,7 +88,7 @@ def test_move_unit_is_combat_advance_fulfillment_true_when_matched() -> None:
         "to_hex": {"i": 1, "j": 0, "k": -1},
     }
     assert move_unit_is_combat_advance_fulfillment(
-        _ADVANCE_HOOKS,
+        _HEXDEMO_HOOKS,
         st,
         params,
         player_faction="union",

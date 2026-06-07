@@ -30,7 +30,8 @@ These are **layers**, not two different species of title code.
 
 ```text
 MoveUnit / movement arc  →  MovementHook.*  →  hooks/movement.py  →  ../combat.py (retreat state)
-Attack RPC               →  AttackHook.*     →  hooks/attack.py    →  ../combat.py
+Attack RPC               →  AttackHook.*     →  hooks/attack.py    →  ../combat.py (validate, resolve, follow_up)
+Combat cleanup RPCs      →  combat arc       →  ../combat_arc.py   →  ../combat_actions.py
 ```
 
 Hexdemo today:
@@ -49,7 +50,8 @@ Longer term, the engine may offer **composable rule pieces** (ZOC, terrain, mora
 | Module | Role | Wired via |
 |--------|------|-----------|
 | `movement.py` | Step cost, ZoC, retreat obligations, … | `@bind_title_hook(MovementHook.…)` |
-| `attack.py` | Validate/resolve combat, CRT helpers | `@bind_title_hook(AttackHook.…)` |
+| `attack.py` | Validate/resolve combat, CRT, `after_attack_applied`, auto-advance | `@bind_title_hook(AttackHook.…)` — not cleanup slots (deprecated) |
+| `../combat_arc.py` | Combat cleanup guards/effects + `detect_combat_advance_move` on `ArcSpec` | Wired via `arcs.py` → `ArcHook.COMBAT_ARC` |
 | `ui.py` | Phase/combat banners, inspect, inform popups, combat event summary | `@bind_title_hook(UIHook.…)`; copy from `presentation/` |
 | `../presentation/inform.py` | INFORM map callouts keyed by `inform_profile` + `reason` | Used by `ui.inform_popup_for_viewer` |
 | `../presentation/interaction_messages.py` | Combat/advance banner copy for `interaction_messages` | Used by `ui.combat_interaction_messages` |

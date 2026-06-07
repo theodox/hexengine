@@ -862,7 +862,9 @@ def test_advance_opens_when_wire_primary_is_ranged_but_adjacent_infantry_in_part
         await server.handle_message(
             "p_u", JoinGameRequest(player_name="U", faction="union").to_message()
         )
-        server._maybe_open_combat_advance_after_retreat("hexdemo")
+        from hexengine.server.arcs import begin_combat_arc
+
+        begin_combat_arc(server)
         st2 = server.action_manager.current_state
         adv = title_bucket(st2, "hexdemo").get("advance")
         assert isinstance(adv, dict)

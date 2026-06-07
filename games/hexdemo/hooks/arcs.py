@@ -13,10 +13,18 @@ from hexengine.arcs.registry import TurnArcRegistry
 from hexengine.hooks.arcs import ArcHook
 from hexengine.hooks.wiring import bind_title_hook
 
-from ..combat_arc import build_combat_arc, resolve_owner_ref
+from ..combat_arc import (
+    build_combat_arc,
+    detect_combat_advance_move,
+    resolve_owner_ref,
+)
 from ..turn_arc_schedule import build_hexdemo_turn_arc_registry
 
-_COMBAT_ARC_SPEC = ArcSpec(arc=build_combat_arc(), owner_resolver=resolve_owner_ref)
+_COMBAT_ARC_SPEC = ArcSpec(
+    arc=build_combat_arc(),
+    owner_resolver=resolve_owner_ref,
+    advance_move_detector=detect_combat_advance_move,
+)
 _TURN_ARC_REGISTRY = build_hexdemo_turn_arc_registry()
 
 

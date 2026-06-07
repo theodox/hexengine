@@ -75,8 +75,8 @@ def move_unit_is_combat_advance_fulfillment(
     """
     True when this `MoveUnit` wire is the title-declared advance into the vacated hex.
 
-    The decision is title policy (`AttackHook.IS_COMBAT_ADVANCE_MOVE`); the engine has
-    no default and treats `ENGINE_DEFAULT` as "not an advance move".
+    Prefers ``ArcSpec.advance_move_detector`` on the declared combat arc when
+    ``AttackHook.IS_COMBAT_ADVANCE_MOVE`` is not bound (deprecated hook).
     """
 
     if not extension_key:
@@ -88,9 +88,14 @@ def move_unit_is_combat_advance_fulfillment(
         player_faction=str(player_faction),
     )
     raw = hooks.attack.detect_combat_advance_move(ctx)
-    if raw is ENGINE_DEFAULT:
-        return False
-    return bool(raw)
+    if raw is not ENGINE_DEFAULT:
+        return bool(raw)
+    from .authority_arc_runtime import combat_arc_spec
+
+    spec = combat_arc_spec(hooks)
+    if spec is not None and spec.advance_move_detector is not None:
+        return bool(spec.advance_move_detector(ctx))
+    return False
 
 
 def retreat_stack_unit_ids(
