@@ -115,6 +115,19 @@ def test_map_overlays_to_wire_rejects_dict_rows() -> None:
         raise AssertionError("expected TypeError")
 
 
+def test_segment_presentation_patch_to_wire_dict() -> None:
+    from hexengine.authoring.present import segment_presentation_patch
+
+    patch = segment_presentation_patch(
+        presentation_id="attack_ready",
+        interaction_mode="attack_plan",
+        draft_presentation_id="attack_draft",
+    )
+    wire = patch.to_wire_dict()
+    assert wire["presentation_id"] == "attack_ready"
+    assert wire["interaction_mode"] == "attack_plan"
+
+
 def test_map_overlay_glyph_dto_round_trip() -> None:
     dto = map_overlay_glyph(
         id="combat-target-1",

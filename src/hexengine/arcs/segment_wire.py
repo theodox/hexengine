@@ -12,6 +12,7 @@ from collections.abc import Mapping
 from typing import Any, Protocol
 
 from ..state import GameState
+from ..ui.display import PanelAction
 from .cursor import read_arc_cursor
 from .runner import resolve_owner
 
@@ -64,19 +65,14 @@ def enrich_current_segment_wire(
     raw = enrich(ctx)
     if raw is ENGINE_DEFAULT:
         return dict(segment)
-    if not isinstance(raw, dict):
+    from ..hooks.ui_segment import SegmentPresentationPatch
+
+    if not isinstance(raw, SegmentPresentationPatch):
         raise TypeError(
-            "enrich_current_segment must return dict or ENGINE_DEFAULT, "
-            f"got {type(raw).__name__}"
+            "enrich_current_segment must return SegmentPresentationPatch or "
+            f"ENGINE_DEFAULT, got {type(raw).__name__}"
         )
-    patch: dict[str, str] = {}
-    for key, value in raw.items():
-        if value is None:
-            continue
-        text = str(value).strip()
-        if text:
-            patch[key] = text
-    return merge_segment_presentation(segment, patch)
+    return merge_segment_presentation(segment, raw.to_wire_dict())
 
 
 def project_current_segment(
@@ -183,18 +179,20 @@ def segment_blocks_routine_phase_advance_for_hooks(
 def action_rows_from_segment(
     segment: Mapping[str, Any] | None,
     shell_ui: Mapping[str, Any],
-) -> list[dict[str, Any]]:
+) -> tuple[PanelAction, ...]:
     """Build primary action rows from ``allowed_actions`` + ``shell_ui`` presentation keys."""
 
+    from ..ui.display import panel_action
+
     if not segment:
-        return []
+        return ()
 
     raw = segment.get("allowed_actions")
     if not isinstance(raw, list):
-        return []
+        return ()
 
     su = shell_ui if isinstance(shell_ui, Mapping) else {}
-    out: list[dict[str, Any]] = []
+    out: list[PanelAction] = []
 
     def _label(key: str, default: str) -> str:
         raw_label = su.get(key)
@@ -208,57 +206,54 @@ def action_rows_from_segment(
             continue
         if at == "CombatDisruptInsteadOfRetreat":
             out.append(
-                {
-                    "schema": 1,
-                    "id": "combat_disrupt_instead",
-                    "action_type": at,
-                    "label": _label(
+                panel_action(
+                    id="combat_disrupt_instead",
+                    action_type=at,
+                    label=_label(
                         "disrupt_instead_label", "Disrupt instead of retreat"
                     ),
-                    "title": _label(
+                    title=_label(
                         "disrupt_instead_title",
                         "Take disruption on your retreating stack and waive "
                         "the mandatory retreat (when the title allows).",
                     ),
-                    "payload": {},
-                    "css_class": "hexengine-primary-action--disrupt",
-                    "enabled": True,
-                }
+                    payload={},
+                    css_class="hexengine-primary-action--disrupt",
+                    enabled=True,
+                )
             )
         elif at == "CombatAdvance":
             out.append(
-                {
-                    "schema": 1,
-                    "id": "combat_advance",
-                    "action_type": at,
-                    "label": _label("combat_advance_label", "Advance"),
-                    "title": _label(
+                panel_action(
+                    id="combat_advance",
+                    action_type=at,
+                    label=_label("combat_advance_label", "Advance"),
+                    title=_label(
                         "combat_advance_title",
                         "Advance after opponent retreats (when allowed).",
                     ),
-                    "payload": {},
-                    "css_class": "hexengine-primary-action--advance",
-                    "enabled": True,
-                }
+                    payload={},
+                    css_class="hexengine-primary-action--advance",
+                    enabled=True,
+                )
             )
         elif at == "CombatDeclineAdvance":
             out.append(
-                {
-                    "schema": 1,
-                    "id": "combat_decline_advance",
-                    "action_type": at,
-                    "label": _label("combat_decline_advance_label", "Skip"),
-                    "title": _label(
+                panel_action(
+                    id="combat_decline_advance",
+                    action_type=at,
+                    label=_label("combat_decline_advance_label", "Skip"),
+                    title=_label(
                         "combat_decline_advance_title",
                         "Skip the optional advance.",
                     ),
-                    "payload": {},
-                    "css_class": "hexengine-primary-action--decline-advance",
-                    "enabled": True,
-                }
+                    payload={},
+                    css_class="hexengine-primary-action--decline-advance",
+                    enabled=True,
+                )
             )
 
-    return out
+    return tuple(out)
 
 
 __all__ = [

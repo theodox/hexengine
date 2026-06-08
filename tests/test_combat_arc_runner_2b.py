@@ -264,6 +264,6 @@ def test_dock_offers_skip_at_awaiting_advance() -> None:
         "action_locus": {},
     }
     rows = action_rows_from_segment(segment, {})
-    types = {r["action_type"] for r in rows}
+    types = {r.action_type for r in rows}
     assert "CombatAdvance" in types
     assert "CombatDeclineAdvance" in types

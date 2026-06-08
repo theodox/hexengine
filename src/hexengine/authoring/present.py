@@ -11,6 +11,10 @@ from ``ui_wire`` only.
 
 from __future__ import annotations
 
+from ..hooks.ui_segment import (
+    SegmentPresentationPatch,
+    segment_presentation_patch,
+)
 from ..ui.display import (
     InformPopup,
     InteractionMessage,
@@ -34,6 +38,7 @@ __all__ = [
     "MapOverlay",
     "MapSelectionPreview",
     "PanelAction",
+    "SegmentPresentationPatch",
     "TurnDockPanel",
     "empty_map_selection_preview",
     "inform_popup",
@@ -41,6 +46,7 @@ __all__ = [
     "map_overlay_glyph",
     "map_selection_preview",
     "panel_action",
+    "segment_presentation_patch",
     "panel_actions_from_dicts",
     "turn_dock_panel",
 ]

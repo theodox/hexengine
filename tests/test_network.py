@@ -29,6 +29,7 @@ from hexengine.hooks.attack import (
 from hexengine.hooks.movement import MovementHooks
 from hexengine.hooks.title import TitleHooks
 from hexengine.hooks.ui import UIHooks
+from hexengine.hooks.ui_segment import SegmentPresentationPatch
 from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer
 from hexengine.server import (
     ActionRequest,
@@ -61,7 +62,7 @@ _TEST_SEGMENT_KINDS = frozenset(
 _TEST_TITLE_DOCK_UI = UIHooks(
     turn_action_dock_for_viewer=empty_turn_action_dock_for_viewer,
     segment_presentation_registry=lambda: _TEST_SEGMENT_KINDS,
-    enrich_current_segment=lambda _ctx: {},
+    enrich_current_segment=lambda _ctx: SegmentPresentationPatch(),
 )
 
 _TEST_TURN_ARC_REGISTRY = build_turn_registry(

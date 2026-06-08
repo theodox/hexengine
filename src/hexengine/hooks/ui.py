@@ -26,11 +26,17 @@ from enum import StrEnum
 from typing import Any
 
 from ..state import GameState
-from ..ui.display import InformPopup, InteractionMessage, MapOverlay, TurnDockPanel
+from ..ui.display import (
+    InformPopup,
+    InteractionMessage,
+    MapOverlay,
+    MapSelectionPreview,
+    TurnDockPanel,
+)
 from .core import ENGINE_DEFAULT, RuleViolation
 from .inform_popup import InformPopupContext
 from .ui_combat_messages import CombatInteractionMessagesContext
-from .ui_segment import SegmentPresentationContext
+from .ui_segment import SegmentPresentationContext, SegmentPresentationPatch
 from .ui_turn_action_dock import TurnActionDockContext
 
 
@@ -193,13 +199,13 @@ class UIHooks:
     ) = None
 
     enrich_current_segment: (
-        Callable[[SegmentPresentationContext], dict[str, Any] | object] | None
+        Callable[[SegmentPresentationContext], SegmentPresentationPatch | object] | None
     ) = None
 
     segment_presentation_registry: Callable[[], object] | None = None
 
     place_marker_preview: (
-        Callable[[PlaceMarkerPreviewContext], object] | None
+        Callable[[PlaceMarkerPreviewContext], MapSelectionPreview | object] | None
     ) = None
 
     combat_interaction_messages: (
@@ -256,14 +262,14 @@ class UIHooks:
 
     def turn_action_dock(
         self, ctx: TurnActionDockContext
-    ) -> list[dict[str, Any]] | object:
+    ) -> list[TurnDockPanel] | object:
         if self.turn_action_dock_for_viewer is None:
             return ENGINE_DEFAULT
         return self.turn_action_dock_for_viewer(ctx)
 
     def enrich_current_segment_for(
         self, ctx: SegmentPresentationContext
-    ) -> dict[str, Any] | object:
+    ) -> SegmentPresentationPatch | object:
         if self.enrich_current_segment is None:
             return ENGINE_DEFAULT
         return self.enrich_current_segment(ctx)
@@ -275,7 +281,7 @@ class UIHooks:
 
     def place_marker_preview_for(
         self, ctx: PlaceMarkerPreviewContext
-    ) -> dict[str, Any] | object:
+    ) -> MapSelectionPreview | object:
         if self.place_marker_preview is None:
             return ENGINE_DEFAULT
         return self.place_marker_preview(ctx)

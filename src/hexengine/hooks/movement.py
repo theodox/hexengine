@@ -41,6 +41,7 @@ from typing import Any
 
 from ..hexes.types import Hex
 from ..state import GameState
+from ..ui.display import MapSelectionPreview
 from .core import ENGINE_DEFAULT, RuleViolation
 
 
@@ -120,7 +121,7 @@ class MovementHooks:
         Callable[[MovementStepContext], tuple[str, ...] | object] | None
     ) = None
     retreat_path_preview: (
-        Callable[[RetreatPathPreviewContext], object] | None
+        Callable[[RetreatPathPreviewContext], MapSelectionPreview | object] | None
     ) = None
     auto_advance_phase_after_move_spend: Callable[[GameState], bool | object] | None = (
         None
@@ -194,7 +195,7 @@ class MovementHooks:
 
     def retreat_path_preview_for(
         self, ctx: RetreatPathPreviewContext
-    ) -> dict[str, Any] | object:
+    ) -> MapSelectionPreview | object:
         if self.retreat_path_preview is None:
             return ENGINE_DEFAULT
         return self.retreat_path_preview(ctx)

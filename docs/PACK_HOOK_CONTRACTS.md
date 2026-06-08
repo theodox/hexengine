@@ -120,7 +120,7 @@ Commit UI on host `#user-controls`. Full panel and action schemas: [`TURN_ACTION
 | `actions` | `list` | yes | Action rows (schema below) |
 | `inputs` | `list` | no | `{id, kind, label, name, default?, options?}` — merged into action `payload` on click |
 
-**Dispatch:** `TURN_ACTION_DOCK_FOR_VIEWER(ctx)` → `list[dict]` or `ENGINE_DEFAULT` → [`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py). Hexdemo: [`games/hexdemo/hooks/turn_action_dock.py`](../games/hexdemo/hooks/turn_action_dock.py). Engine catalog gate skins require `ctx.current_segment` (bind `UIHook.ENRICH_CURRENT_SEGMENT` for combat gate modes).
+**Dispatch:** `TURN_ACTION_DOCK_FOR_VIEWER(ctx)` → `list[TurnDockPanel]` or `ENGINE_DEFAULT` → [`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py). Hexdemo: [`games/hexdemo/hooks/turn_action_dock.py`](../games/hexdemo/hooks/turn_action_dock.py). Engine catalog gate skins require `ctx.current_segment` (bind `UIHook.ENRICH_CURRENT_SEGMENT` for combat gate modes).
 
 When `title_state_extension_key` is set, **`TURN_ACTION_DOCK_FOR_VIEWER` is required**; the server never emits **`StateUpdate.primary_actions`** ([`ClientInteractionPanelsMixin`](../src/hexengine/game/arcs/client_interaction_panels.py)).
 
@@ -228,6 +228,7 @@ Bind with `@bind_title_hook(UIHook.…)` in the title hooks package. Values matc
 | **`ADVANCE_GATE_BANNERS_FOR_VIEWER`** | Active segment kind is advance gate | `(ctx: AdvanceGateInteractionContext)` | `(text_advancing, text_other)` | [`default_advance_gate_banners_for_viewer`](../src/hexengine/hooks/ui.py) |
 | **`INFORM_POPUP`** | `InspectRequest` (`unit` / `marker` / `inform`) | `(ctx: InformPopupContext)` | `InformPopup` | [`default_inform_popup_for_viewer`](../src/hexengine/hooks/inform_popup.py) |
 | **`MAP_OVERLAYS`** | Every per-player `StateUpdate` | `(state, viewer_faction)` | `list[MapOverlay]` | `[]` |
+| **`ENRICH_CURRENT_SEGMENT`** | Every per-player `current_segment` projection | `(ctx: SegmentPresentationContext)` | `SegmentPresentationPatch` | No enrichment (base segment only) |
 | **`TURN_ACTION_DOCK_FOR_VIEWER`** | Every per-player `StateUpdate` | `(ctx: TurnActionDockContext)` | `list[TurnDockPanel]` | Engine catalog ([`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py)). No draft on context — see [draft locus](TURN_ACTION_DOCK_CONTRACT.md#draft-locus-invariant). |
 | **`COMBAT_INTERACTION_MESSAGES`** | Default `interaction_messages` combat slice (after phase row) | `(ctx: CombatInteractionMessagesContext)` | `list[InteractionMessage]` | [`default_combat_interaction_messages`](../src/hexengine/hooks/ui_combat_messages.py) using segment kind + partial combat/advance hooks |
 | **`COMBAT_EVENT_SUMMARY`** | After combat, to fan out `combat_event` wires | `(state)` | `CombatEventSummary \| None` | `None` (no `combat_event` broadcast) |

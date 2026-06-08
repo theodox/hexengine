@@ -10,9 +10,9 @@ from ..arcs.segment_wire import (
     action_rows_from_segment,
     segment_allows_action,
 )
-from ..authoring.present import panel_actions_from_dicts, turn_dock_panel
+from ..authoring.present import panel_action, turn_dock_panel
 from ..state import GameState
-from ..ui.display import TurnDockPanel
+from ..ui.display import PanelAction, TurnDockPanel
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,26 +45,25 @@ def _shell_ui_label(shell_ui: Mapping[str, Any], key: str, default: str) -> str:
     return default
 
 
-def _end_phase_row(ctx: TurnActionDockContext, *, enabled: bool) -> dict[str, Any]:
+def _end_phase_row(ctx: TurnActionDockContext, *, enabled: bool) -> PanelAction:
     su = ctx.shell_ui if isinstance(ctx.shell_ui, Mapping) else {}
-    return {
-        "schema": 1,
-        "id": "end_phase",
-        "action_type": "NextPhase",
-        "label": _shell_ui_label(su, "advance_turn_button_label", "End Phase"),
-        "title": _shell_ui_label(
+    return panel_action(
+        id="end_phase",
+        action_type="NextPhase",
+        label=_shell_ui_label(su, "advance_turn_button_label", "End Phase"),
+        title=_shell_ui_label(
             su,
             "advance_turn_button_label",
             "Advance to the next phase in the schedule.",
         ),
-        "payload": {},
-        "css_class": "hexengine-primary-action--end-phase",
-        "enabled": enabled,
-        "group": "primary",
-    }
+        payload={},
+        css_class="hexengine-primary-action--end-phase",
+        enabled=enabled,
+        group="primary",
+    )
 
 
-def _segment_gate_actions(ctx: TurnActionDockContext) -> list[dict[str, Any]]:
+def _segment_gate_actions(ctx: TurnActionDockContext) -> tuple[PanelAction, ...]:
     return action_rows_from_segment(ctx.current_segment, ctx.shell_ui)
 
 
@@ -108,7 +107,7 @@ def default_turn_action_dock_for_viewer(
     if not ctx.viewer_is_turn_owner and not gate_actions:
         return []
 
-    actions = [dict(a) for a in gate_actions]
+    actions: list[PanelAction] = list(gate_actions)
     presentation_id = _presentation_id_for_viewer(ctx)
 
     if _end_phase_enabled(ctx):
@@ -122,7 +121,7 @@ def default_turn_action_dock_for_viewer(
     return [
         turn_dock_panel(
             presentation_id=presentation_id,
-            actions=panel_actions_from_dicts(actions),
+            actions=tuple(actions),
             css_class=f"hexengine-turn-dock hexengine-turn-dock--{presentation_id}",
         )
     ]

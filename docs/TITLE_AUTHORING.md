@@ -154,7 +154,7 @@ Arc declarations use the same `kind` strings. Dock and inform hooks **look up** 
 
 **Do not** in pack code: build raw wire dicts for dock panels or inform popups (except tests); read `client.interaction_panels` for legality; branch on `combat_gate` for affordances — use [`arc_segment.py`](../games/hexdemo/arc_segment.py) helpers and `current_segment` via hook context.
 
-**Presentation DTOs (P2):** return `TurnDockPanel`, `InformPopup`, `MapSelectionPreview`, `InteractionMessage`, and `MapOverlay` from `hexengine.authoring.present` (`turn_dock_panel`, `panel_action`, `inform_popup`, `map_selection_preview`, `interaction_message`, `map_overlay_glyph`, …). The engine converts them in `hexengine.hooks.internal.ui_wire` before `StateUpdate`, `ui_popup`, or `map_selection_preview` wire messages.
+**Presentation DTOs (P2):** return `TurnDockPanel`, `InformPopup`, `MapSelectionPreview`, `InteractionMessage`, `MapOverlay`, and `SegmentPresentationPatch` from `hexengine.authoring.present` (`turn_dock_panel`, `panel_action`, `inform_popup`, `map_selection_preview`, `interaction_message`, `map_overlay_glyph`, …). The engine converts them in `hexengine.hooks.internal.ui_wire` before `StateUpdate`, `ui_popup`, or `map_selection_preview` wire messages.
 
 **P3 (done):** `current_segment` on `StateUpdate` carries `presentation_id` and `interaction_mode` (title `enrich_current_segment` hook + engine default). The client turn-dock SEQUENCE skin keys off `interaction_mode`, not separate `*_draft` booleans.
 

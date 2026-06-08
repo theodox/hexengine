@@ -32,6 +32,7 @@ from hexengine.hooks.ui import (
     default_advance_gate_banners_for_viewer,
     default_phase_banner_text_for_viewer,
 )
+from hexengine.hooks.ui_segment import SegmentPresentationPatch
 from hexengine.hooks.wiring import assemble_title_hooks, bind_title_hook
 from hexengine.state import GameState
 from hexengine.state.logic import DEFAULT_MOVEMENT_BUDGET
@@ -153,7 +154,7 @@ def test_validate_title_contract_requires_combat_arc_with_extension_key() -> Non
             ui=UIHooks(
                 turn_action_dock_for_viewer=empty_turn_action_dock_for_viewer,
                 segment_presentation_registry=lambda: frozenset({"move", "attack"}),
-                enrich_current_segment=lambda _ctx: {},
+                enrich_current_segment=lambda _ctx: SegmentPresentationPatch(),
             ),
             arcs=ArcsHooks(turn_arc_registry=lambda: turn_registry),
         )
@@ -199,7 +200,7 @@ def test_validate_title_contract_checks_combat_rules_binding_methods() -> None:
             ui=UIHooks(
                 turn_action_dock_for_viewer=empty_turn_action_dock_for_viewer,
                 segment_presentation_registry=lambda: frozenset({"combat"}),
-                enrich_current_segment=lambda _ctx: {},
+                enrich_current_segment=lambda _ctx: SegmentPresentationPatch(),
             ),
             arcs=ArcsHooks(
                 turn_arc_registry=lambda: reg,
@@ -358,7 +359,7 @@ def test_segment_gate_actions_disrupt_row() -> None:
         "action_locus": {},
     }
     rows = action_rows_from_segment(segment, {})
-    types = {r["action_type"] for r in rows}
+    types = {r.action_type for r in rows}
     assert "CombatDisruptInsteadOfRetreat" in types
 
 

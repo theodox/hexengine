@@ -125,7 +125,7 @@ def test_action_rows_from_advance_segment() -> None:
     host = _ProjectHost()
     seg = project_current_segment(host, st, viewer_faction="union")
     rows = action_rows_from_segment(seg, {})
-    ids = {r["id"] for r in rows}
+    ids = {r.id for r in rows}
     assert "combat_advance" in ids
     assert "combat_decline_advance" in ids
 
