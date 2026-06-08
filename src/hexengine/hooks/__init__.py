@@ -1,8 +1,8 @@
 """
 Hook surface for title-authored rules (`hexengine.hooks`).
 
-**Titles:** import by area — `hexengine.hooks.movement`, `.attack`, `.ui`, `.title`,
-`.wiring`, `.core`.
+**Titles:** import by area — `hexengine.hooks.movement`, `.attack`, `.bucket`, `.ui`,
+`.title`, `.wiring`, `.core`.
 
 **Wiring workflow**
 

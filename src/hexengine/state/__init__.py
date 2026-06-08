@@ -10,7 +10,7 @@ from .actions import (
     MoveMarker,
     MoveUnit,
     NextPhase,
-    PatchTitleBucket,
+    ApplyBucketPatch,
     PatchUnitAttributes,
     RemoveMarker,
     ResolvePassMovementInterrupt,
@@ -61,6 +61,7 @@ from .snapshot import (
     game_state_from_wire_dict,
     game_state_to_wire_dict,
 )
+from .title_extension import BucketPatch
 
 __all__ = [
     "SNAPSHOT_FORMAT_VERSION",
@@ -78,7 +79,8 @@ __all__ = [
     "MoveUnit",
     "Attack",
     "ClearUnitRetreatObligation",
-    "PatchTitleBucket",
+    "ApplyBucketPatch",
+    "BucketPatch",
     "MoveMarker",
     "AddMarker",
     "RemoveMarker",

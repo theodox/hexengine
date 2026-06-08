@@ -6,7 +6,7 @@ import pytest
 
 from hexengine.state import GameState
 from hexengine.state.action_manager import ActionManager
-from hexengine.state.actions import PatchTitleBucket
+from hexengine.hooks.bucket import ApplyBucketPatch, BucketPatch
 from hexengine.state.movement_arc import HEXENGINE_MOVEMENT_ARC_KEY
 from hexengine.state.snapshot import game_state_from_wire_dict, game_state_to_wire_dict
 from hexengine.state.title_extension import (
@@ -47,15 +47,16 @@ def test_with_title_bucket() -> None:
     assert title_bucket(st, "hexdemo") == {}
 
 
-def test_patch_title_bucket_action_undo() -> None:
+def test_apply_bucket_patch_action_undo() -> None:
     st = GameState.create_empty().with_title_state(
         {"marker": "before", "keep": True},
         title_bucket_key="hexdemo",
     )
     mgr = ActionManager(st)
     mgr.execute(
-        PatchTitleBucket(
-            "hexdemo", {"marker": "after"}, remove_keys=("keep",)
+        ApplyBucketPatch(
+            "hexdemo",
+            BucketPatch(values={"marker": "after"}, remove_keys=("keep",)),
         )
     )
     after = mgr.current_state

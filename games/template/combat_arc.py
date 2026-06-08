@@ -20,6 +20,7 @@ from hexengine.hooks.attack import (
     AttackResolution,
     CombatAdvanceMoveContext,
 )
+from hexengine.hooks.bucket import BucketPatch
 from hexengine.hooks.combat_outcome import CombatOutcome
 from hexengine.state.action_manager import StateAction
 
@@ -40,7 +41,7 @@ class TemplateCombatRules:
     def combat_outcome_after_applied(
         self, ctx: AfterAttackAppliedContext
     ) -> CombatOutcome:
-        return CombatOutcome(bucket_patch={})
+        return CombatOutcome(patch=BucketPatch())
 
     def detect_combat_advance_move(self, ctx: CombatAdvanceMoveContext) -> bool:
         return False

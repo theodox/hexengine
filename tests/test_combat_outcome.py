@@ -11,7 +11,7 @@ from hexengine.hooks.attack import (
     AttackResolution,
 )
 from hexengine.state import BoardState, GameState, TurnState, UnitState
-from hexengine.state.actions import PatchTitleBucket
+from hexengine.hooks.bucket import ApplyBucketPatch
 
 
 def _follow_ctx(
@@ -86,10 +86,10 @@ def _patch_from_outcome(ctx: AfterAttackAppliedContext):
 def test_combat_outcome_retreat_follow_up() -> None:
     ctx = _follow_ctx()
     outcome = _patch_from_outcome(ctx)
-    assert isinstance(outcome, PatchTitleBucket)
+    assert isinstance(outcome, ApplyBucketPatch)
     assert outcome.extension_key == "hexdemo"
-    assert "last_combat" in outcome.patch
-    assert "retreat_obligations" in outcome.patch
+    assert "last_combat" in outcome.patch.values
+    assert "retreat_obligations" in outcome.patch.values
 
 
 def test_combat_outcome_disrupt_instead_flag() -> None:
@@ -99,5 +99,5 @@ def test_combat_outcome_disrupt_instead_flag() -> None:
         }
     )
     outcome = _patch_from_outcome(ctx)
-    assert outcome.patch.get("disrupt_instead_offered") is True
-    assert outcome.remove_keys == ()
+    assert outcome.patch.values.get("disrupt_instead_offered") is True
+    assert outcome.patch.remove_keys == ()

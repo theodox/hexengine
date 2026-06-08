@@ -16,7 +16,7 @@ from hexengine.arcs import (
 from hexengine.authoring import arc, case
 from hexengine.state import GameState
 from hexengine.state.action_manager import ActionManager
-from hexengine.state.actions import PatchTitleBucket
+from hexengine.hooks.bucket import ApplyBucketPatch, BucketPatch
 from hexengine.state.title_extension import title_bucket
 
 EK = "combat_test"
@@ -27,7 +27,7 @@ EK = "combat_test"
 
 def _set_flag(flag: str):
     def effect(ctx):
-        return [PatchTitleBucket(ctx.extension_key, {flag: True})]
+        return [ApplyBucketPatch(ctx.extension_key, BucketPatch(values={flag: True}))]
 
     return effect
 
@@ -198,7 +198,7 @@ def test_auto_branch_picks_guarded_arm_and_finishes() -> None:
     a = _arc_with_auto_resolve(eliminate=True)
     mgr = _manager()
     # Pre-set the flag so the eliminated arm (auto -> cleanup -> done) is taken.
-    mgr.execute(PatchTitleBucket(EK, {"eliminated": True}))
+    mgr.execute(ApplyBucketPatch(EK, BucketPatch(values={"eliminated": True})))
     begin_arc(a, mgr)
     submit_event(a, mgr, action_type="Attack", actor="Red")
     # resolve -> cleanup -> done, all automatic: arc cleared.

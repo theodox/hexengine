@@ -525,21 +525,18 @@ class RemoveMarker:
         return f"<RemoveMarker {self.marker_id!r}>"
 
 
-class PatchTitleBucket(StateAction):
-    """Merge keys into a title extension bucket (undo restores prior bucket snapshot)."""
+class ApplyBucketPatch(StateAction):
+    """Apply a ``BucketPatch`` to a pack session-state bucket (undo restores prior snapshot)."""
 
-    def __init__(
-        self,
-        extension_key: str,
-        patch: Mapping[str, Any],
-        *,
-        remove_keys: tuple[str, ...] = (),
-    ) -> None:
+    def __init__(self, extension_key: str, patch: BucketPatch) -> None:
+        from .title_extension import BucketPatch
+
         self.extension_key = str(extension_key).strip()
         if not self.extension_key:
             raise ValueError("extension_key must be non-empty")
-        self.patch = dict(patch)
-        self.remove_keys = tuple(str(k) for k in remove_keys)
+        if not isinstance(patch, BucketPatch):
+            raise TypeError("patch must be a BucketPatch")
+        self.patch = patch
         self._saved_bucket: dict[str, Any] | None = None
 
     def apply(self, state: GameState) -> GameState:
@@ -547,8 +544,8 @@ class PatchTitleBucket(StateAction):
 
         prior = title_bucket(state, self.extension_key)
         self._saved_bucket = dict(prior)
-        new_hx = {**prior, **self.patch}
-        for k in self.remove_keys:
+        new_hx = {**prior, **dict(self.patch.values)}
+        for k in self.patch.remove_keys:
             new_hx.pop(k, None)
         return with_title_bucket(state, self.extension_key, new_hx)
 
@@ -563,7 +560,7 @@ class PatchTitleBucket(StateAction):
         return False
 
     def __repr__(self) -> str:
-        return f"<PatchTitleBucket {self.extension_key!r}>"
+        return f"<ApplyBucketPatch {self.extension_key!r}>"
 
 
 class ClearUnitRetreatObligation(StateAction):
@@ -572,7 +569,7 @@ class ClearUnitRetreatObligation(StateAction):
     def __init__(self, unit_id: str, extension_key: str) -> None:
         self.unit_id = unit_id
         self.extension_key = extension_key
-        self._inner: PatchTitleBucket | None = None
+        self._inner: ApplyBucketPatch | None = None
 
     def apply(self, state: GameState) -> GameState:
         from .title_extension import title_bucket
@@ -586,9 +583,11 @@ class ClearUnitRetreatObligation(StateAction):
             self._inner = None
             return state
         ro.pop(self.unit_id, None)
-        self._inner = PatchTitleBucket(
+        from .title_extension import BucketPatch
+
+        self._inner = ApplyBucketPatch(
             self.extension_key,
-            {"retreat_obligations": ro},
+            BucketPatch(values={"retreat_obligations": ro}),
         )
         return self._inner.apply(state)
 

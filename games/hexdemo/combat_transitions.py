@@ -28,7 +28,7 @@ from __future__ import annotations
 from hexengine.authoring.patterns.combat import CombatArcGateUiModes
 from hexengine.state import GameState
 from hexengine.state.action_manager import StateAction
-from hexengine.state.actions import PatchTitleBucket
+from hexengine.hooks.bucket import ApplyBucketPatch, BucketPatch
 
 from . import title_state
 
@@ -70,7 +70,10 @@ def clear_combat_state_actions(state: GameState) -> list[StateAction]:
     if not title_state.bucket(state):
         return []
     return [
-        PatchTitleBucket(ek, {}, remove_keys=PHASE_SCOPED_COMBAT_KEYS),
+        ApplyBucketPatch(
+            ek,
+            BucketPatch(values={}, remove_keys=PHASE_SCOPED_COMBAT_KEYS),
+        ),
     ]
 
 

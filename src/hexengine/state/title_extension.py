@@ -3,12 +3,26 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Any
 
 from .game_state import GameState
 
 # Top-level engine keys in ``GameState.engine_state`` use this prefix.
 ENGINE_EXTENSION_KEY_PREFIX = "hexengine_"
+
+
+@dataclass(frozen=True, slots=True)
+class BucketPatch:
+    """Partial update to a pack session-state bucket (shallow merge at top level)."""
+
+    values: dict[str, Any] = field(default_factory=dict)
+    remove_keys: tuple[str, ...] = ()
+
+    def to_action(self, extension_key: str) -> "ApplyBucketPatch":
+        from .actions import ApplyBucketPatch
+
+        return ApplyBucketPatch(extension_key, self)
 
 
 def is_engine_extension_key(key: str) -> bool:
@@ -69,6 +83,7 @@ def with_engine_bucket(
 
 
 __all__ = [
+    "BucketPatch",
     "ENGINE_EXTENSION_KEY_PREFIX",
     "engine_bucket",
     "is_engine_extension_key",

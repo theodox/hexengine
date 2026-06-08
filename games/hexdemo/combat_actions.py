@@ -13,10 +13,10 @@ from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
 from hexengine.state import GameState
 from hexengine.state.action_manager import StateAction
+from hexengine.hooks.bucket import ApplyBucketPatch, BucketPatch
 from hexengine.state.actions import (
     ClearUnitRetreatObligation,
     MoveUnit,
-    PatchTitleBucket,
     PatchUnitAttributes,
 )
 from . import arc_segment, title_state
@@ -206,25 +206,27 @@ def maybe_open_advance_after_retreat(
         return []
 
     return [
-        PatchTitleBucket(
+        ApplyBucketPatch(
             extension_key,
-            {
-                "advance": {
-                    "schema": 1,
-                    "faction": str(a0.faction),
-                    "from_hex": {
-                        "i": int(from_hex.i),
-                        "j": int(from_hex.j),
-                        "k": int(from_hex.k),
+            BucketPatch(
+                values={
+                    "advance": {
+                        "schema": 1,
+                        "faction": str(a0.faction),
+                        "from_hex": {
+                            "i": int(from_hex.i),
+                            "j": int(from_hex.j),
+                            "k": int(from_hex.k),
+                        },
+                        "to_hex": {
+                            "i": int(to_hex.i),
+                            "j": int(to_hex.j),
+                            "k": int(to_hex.k),
+                        },
+                        "unit_ids": list(sorted(set(unit_ids))),
                     },
-                    "to_hex": {
-                        "i": int(to_hex.i),
-                        "j": int(to_hex.j),
-                        "k": int(to_hex.k),
-                    },
-                    "unit_ids": list(sorted(set(unit_ids))),
-                },
-            },
+                }
+            ),
         )
     ]
 
@@ -299,14 +301,12 @@ def disrupt_instead_of_retreat(
         raise ValueError("No retreat obligation found for this faction")
 
     remove: tuple[str, ...] = ()
-    patch: dict[str, Any] = {"retreat_obligations": ro}
     if not _retreat_obligations_have_pending(ro):
         remove = ("disrupt_instead_offered",)
     actions.append(
-        PatchTitleBucket(
+        ApplyBucketPatch(
             extension_key,
-            patch,
-            remove_keys=remove,
+            BucketPatch(values={"retreat_obligations": ro}, remove_keys=remove),
         )
     )
     return actions
@@ -321,10 +321,9 @@ def clear_advance_gate(state: GameState, extension_key: str) -> list[StateAction
     if title_state.advance_offer(state) is None:
         return []
     return [
-        PatchTitleBucket(
+        ApplyBucketPatch(
             extension_key,
-            {},
-            remove_keys=("advance",),
+            BucketPatch(values={}, remove_keys=("advance",)),
         )
     ]
 
@@ -360,10 +359,9 @@ def resolve_combat_advance(
             continue
         actions.append(MoveUnit(uid, from_hex=u.position, to_hex=to_hex))
     actions.append(
-        PatchTitleBucket(
+        ApplyBucketPatch(
             extension_key,
-            {},
-            remove_keys=("advance",),
+            BucketPatch(values={}, remove_keys=("advance",)),
         )
     )
     return actions

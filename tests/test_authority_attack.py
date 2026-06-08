@@ -227,11 +227,12 @@ def test_combat_outcome_after_applied_follow_ups_run_before_broadcast() -> None:
         return AttackResolution(outcome="none")
 
     def outcome_after_applied(ctx: AfterAttackAppliedContext):
+        from hexengine.hooks.bucket import BucketPatch
         from hexengine.hooks.combat_outcome import CombatOutcome
 
         marker["patch_applied"] = True
         return CombatOutcome(
-            bucket_patch={"after_attack_hook": True},
+            patch=BucketPatch(values={"after_attack_hook": True}),
         )
 
     host = _AttackHost(
