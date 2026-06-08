@@ -17,12 +17,13 @@ from hexengine.game.arcs.client_interaction_panels import (
 )
 
 
-def test_client_effective_presentation_id_uses_interaction_mode() -> None:
+def test_client_effective_presentation_id_uses_segment_draft_skin() -> None:
     assert (
         effective_turn_dock_presentation_id(
             "attack_ready",
             "attack_plan",
             interaction_draft_active=True,
+            draft_presentation_id="attack_draft",
         )
         == "attack_draft"
     )
@@ -31,6 +32,7 @@ def test_client_effective_presentation_id_uses_interaction_mode() -> None:
             "retreat_gate",
             "retreat_path",
             interaction_draft_active=False,
+            draft_presentation_id="retreat_path_draft",
         )
         == "retreat_gate"
     )
@@ -67,4 +69,5 @@ def test_hexdemo_enrich_projects_attack_plan_from_registry() -> None:
     )
     assert wire["presentation_id"] == "attack_ready"
     assert wire["interaction_mode"] == "attack_plan"
+    assert wire["draft_presentation_id"] == "attack_draft"
     assert enrich_current_segment is not None

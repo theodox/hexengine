@@ -15,6 +15,7 @@ def test_effective_turn_dock_presentation_id_prefers_draft_steps() -> None:
             "attack_ready",
             "attack_plan",
             interaction_draft_active=True,
+            draft_presentation_id="attack_draft",
         )
         == "attack_draft"
     )
@@ -23,6 +24,7 @@ def test_effective_turn_dock_presentation_id_prefers_draft_steps() -> None:
             "retreat_gate",
             "retreat_path",
             interaction_draft_active=True,
+            draft_presentation_id="retreat_path_draft",
         )
         == "retreat_path_draft"
     )
@@ -31,6 +33,7 @@ def test_effective_turn_dock_presentation_id_prefers_draft_steps() -> None:
             "routine",
             "place_marker",
             interaction_draft_active=True,
+            draft_presentation_id="place_marker_draft",
         )
         == "place_marker_draft"
     )
@@ -39,8 +42,18 @@ def test_effective_turn_dock_presentation_id_prefers_draft_steps() -> None:
             "routine",
             "place_marker",
             interaction_draft_active=False,
+            draft_presentation_id="place_marker_draft",
         )
         == "routine"
+    )
+    assert (
+        effective_turn_dock_presentation_id(
+            "attack_ready",
+            "attack_plan",
+            interaction_draft_active=True,
+            draft_presentation_id=None,
+        )
+        == "attack_ready"
     )
 
 

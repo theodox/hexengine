@@ -270,6 +270,8 @@ _MAP_SELECTION_PREVIEW_OMIT = frozenset(
         "legal_next_hexes",
         "preview_path_hexes",
         "through_hexes",
+        "disable_end_phase",
+        "draft_presentation_id",
     }
 )
 
@@ -293,3 +295,6 @@ class MapSelectionPreviewWire:
     legal_next_hexes: list[dict[str, int]] | None = None
     preview_path_hexes: list[dict[str, int]] | None = None
     through_hexes: list[dict[str, int]] | None = None
+    #: Consult-only dock policy while client holds this draft snapshot.
+    disable_end_phase: bool | None = None
+    draft_presentation_id: str | None = None

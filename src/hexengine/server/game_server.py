@@ -1953,6 +1953,17 @@ class GameServer:
                 legal_next_hexes=raw.get("legal_next_hexes"),
                 preview_path_hexes=raw.get("preview_path_hexes"),
                 through_hexes=raw.get("through_hexes"),
+                disable_end_phase=(
+                    bool(raw["disable_end_phase"])
+                    if isinstance(raw.get("disable_end_phase"), bool)
+                    else None
+                ),
+                draft_presentation_id=(
+                    str(raw["draft_presentation_id"]).strip()
+                    if isinstance(raw.get("draft_presentation_id"), str)
+                    and str(raw["draft_presentation_id"]).strip()
+                    else None
+                ),
             ).to_message(),
         )
 

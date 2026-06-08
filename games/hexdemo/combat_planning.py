@@ -27,6 +27,18 @@ from .combat_transitions import attack_planning_blocked_reason
 
 _ATTACK_KIND = "combined"
 _ATTACK_PLAN_KIND = "attack_plan"
+_ATTACK_DRAFT_PRESENTATION_ID = "attack_draft"
+
+
+def _attack_plan_draft_policy(draft: Mapping[str, Any]) -> dict[str, Any]:
+    """Consult-only dock policy while the client holds an attack-plan snapshot."""
+
+    if _parse_target_hex(dict(draft)) is None and not _parse_attacker_ids(dict(draft)):
+        return {}
+    return {
+        "disable_end_phase": True,
+        "draft_presentation_id": _ATTACK_DRAFT_PRESENTATION_ID,
+    }
 
 
 def _shell_label(shell_ui: Mapping[str, Any], key: str, default: str) -> str:
@@ -357,6 +369,7 @@ def compute_attack_plan_preview(
             "panel_actions": _panel_actions(
                 shell_ui, confirm_enabled=False, has_draft=True
             ),
+            **_attack_plan_draft_policy(draft),
         }
 
     eligible = _eligible_attacker_ids(state, target, player_faction=player_faction)
@@ -403,6 +416,7 @@ def compute_attack_plan_preview(
             confirm_enabled=confirm_enabled,
             has_draft=True,
         ),
+        **_attack_plan_draft_policy(draft),
     }
 
 

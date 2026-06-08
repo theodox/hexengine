@@ -23,6 +23,8 @@ def enrich_current_segment(ctx: SegmentPresentationContext) -> dict[str, Any]:
     if row is not None:
         if row.interaction_mode:
             out["interaction_mode"] = row.interaction_mode
+        if row.draft_presentation_id:
+            out["draft_presentation_id"] = row.draft_presentation_id
         out["primitive"] = str(row.primitive.value)
         if row.inform_profile:
             out["inform_profile"] = row.inform_profile

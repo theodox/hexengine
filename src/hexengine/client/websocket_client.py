@@ -672,6 +672,17 @@ class BrowserWebSocketClient:
                 if isinstance(getattr(wire, "through_hexes", None), list)
                 else None
             ),
+            "disable_end_phase": (
+                bool(wire.disable_end_phase)
+                if isinstance(getattr(wire, "disable_end_phase", None), bool)
+                else None
+            ),
+            "draft_presentation_id": (
+                str(wire.draft_presentation_id).strip()
+                if isinstance(getattr(wire, "draft_presentation_id", None), str)
+                and str(wire.draft_presentation_id).strip()
+                else None
+            ),
         }
         if self.on_map_selection_preview:
             self.on_map_selection_preview(payload)

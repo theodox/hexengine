@@ -75,6 +75,7 @@ def test_project_routine_combat_segment() -> None:
     assert seg["action_locus"]["Attack"] == "client_draft"
     assert seg.get("presentation_id") == "attack_ready"
     assert seg.get("interaction_mode") == "attack_plan"
+    assert seg.get("draft_presentation_id") == "attack_draft"
 
 
 def test_project_retreat_gate_owner_and_actions() -> None:
@@ -100,6 +101,7 @@ def test_project_retreat_gate_owner_and_actions() -> None:
     assert "NextPhase" not in seg["allowed_actions"]
     assert seg.get("presentation_id") == "retreat_gate"
     assert seg.get("interaction_mode") == "retreat_path"
+    assert seg.get("draft_presentation_id") == "retreat_path_draft"
 
 
 def test_advance_gate_blocks_next_phase() -> None:

@@ -8,7 +8,13 @@ from typing import Any
 from ..state import GameState
 
 SEGMENT_PRESENTATION_KEYS = frozenset(
-    {"presentation_id", "interaction_mode", "primitive", "inform_profile"}
+    {
+        "presentation_id",
+        "draft_presentation_id",
+        "interaction_mode",
+        "primitive",
+        "inform_profile",
+    }
 )
 
 

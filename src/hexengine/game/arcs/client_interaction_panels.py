@@ -18,6 +18,10 @@ from typing import Any
 
 from ...document import create_proxy, element, js
 from ...ui.dom import apply_css_classes
+from .client_draft_registry import (
+    is_draft_active_for_mode,
+    resolve_draft_presentation_id,
+)
 from .client_panel_actions import (
     dispatch_panel_action_route,
     resolve_panel_action_route,
@@ -29,28 +33,23 @@ _DOCK_ARC_CSS_RE = re.compile(
     r"\b(hexdemo-turn-dock|hexengine-turn-dock)--[a-z0-9_]+\b"
 )
 
-# Client draft presentation when a local SELECT draft is active (see draft locus).
-_DRAFT_PRESENTATION_BY_MODE: dict[str, str] = {
-    "attack_plan": "attack_draft",
-    "retreat_path": "retreat_path_draft",
-    "place_marker": "place_marker_draft",
-}
-
-
 def effective_turn_dock_presentation_id(
     server_presentation_id: str,
     interaction_mode: str | None,
     *,
     interaction_draft_active: bool,
+    draft_presentation_id: str | None = None,
 ) -> str:
     """
-    Client SEQUENCE step override for local draft sub-arcs.
+    Client draft skin overlay while a local SELECT draft is active.
 
-    Uses ``current_segment.interaction_mode`` (P3) instead of separate draft booleans.
+    ``draft_presentation_id`` comes from ``current_segment`` (title registry) when
+    set; callers may pass a preview override (4B).
     """
-    mode = str(interaction_mode or "").strip()
-    if interaction_draft_active and mode in _DRAFT_PRESENTATION_BY_MODE:
-        return _DRAFT_PRESENTATION_BY_MODE[mode]
+    if interaction_draft_active:
+        pid = str(draft_presentation_id or "").strip()
+        if pid:
+            return pid
     return str(server_presentation_id or "").strip()
 
 
@@ -157,15 +156,7 @@ class ClientInteractionPanelsMixin:
         return None
 
     def _interaction_draft_active(self, mode: str | None) -> bool:
-        if not mode:
-            return False
-        if mode == "attack_plan":
-            return self._attack_plan_draft_active()
-        if mode == "retreat_path":
-            return self._retreat_path_draft_active()
-        if mode == "place_marker":
-            return self._place_marker_relocate_active()
-        return False
+        return is_draft_active_for_mode(self, mode)
 
     def _attack_plan_draft_active(self) -> bool:
         if not getattr(self, "_client_has_attack_planning_ui", lambda: False)():
@@ -207,7 +198,7 @@ class ClientInteractionPanelsMixin:
                     by_id[oid] = dict(row)
 
         mode = self._segment_interaction_mode()
-        if self._interaction_draft_active(mode) and "end_phase" in by_id:
+        if self._should_disable_end_phase_during_draft(mode) and "end_phase" in by_id:
             ep = dict(by_id["end_phase"])
             ep["enabled"] = False
             by_id["end_phase"] = ep
@@ -259,12 +250,51 @@ class ClientInteractionPanelsMixin:
                 return pid
         return str(server_arc or "").strip()
 
+    def _segment_draft_presentation_id(self) -> str | None:
+        seg = self._current_segment_wire()
+        if seg is not None:
+            pid = str(seg.get("draft_presentation_id", "")).strip()
+            if pid:
+                return pid
+        return None
+
+    def _preview_draft_presentation_id(self) -> str | None:
+        prev = getattr(self, "_map_selection_preview", None)
+        if isinstance(prev, dict):
+            pid = str(prev.get("draft_presentation_id", "")).strip()
+            if pid:
+                return pid
+        return None
+
+    def _resolved_draft_presentation_id(self, mode: str | None) -> str | None:
+        return resolve_draft_presentation_id(
+            self,
+            mode=mode,
+            draft_active=self._interaction_draft_active(mode),
+        )
+
+    def _preview_disable_end_phase(self) -> bool | None:
+        prev = getattr(self, "_map_selection_preview", None)
+        if isinstance(prev, dict):
+            raw = prev.get("disable_end_phase")
+            if isinstance(raw, bool):
+                return raw
+        return None
+
+    def _should_disable_end_phase_during_draft(self, mode: str | None) -> bool:
+        preview_policy = self._preview_disable_end_phase()
+        if preview_policy is not None:
+            return preview_policy
+        return self._interaction_draft_active(mode)
+
     def _client_turn_dock_sequence_arc(self, server_arc: str) -> str:
         mode = self._segment_interaction_mode()
+        draft_active = self._interaction_draft_active(mode)
         return effective_turn_dock_presentation_id(
             self._server_turn_dock_presentation_id(server_arc),
             mode,
-            interaction_draft_active=self._interaction_draft_active(mode),
+            interaction_draft_active=draft_active,
+            draft_presentation_id=self._resolved_draft_presentation_id(mode),
         )
 
     def _shell_ui_status_copy(self, key: str, default: str) -> str:

@@ -16,7 +16,7 @@ ROOT_LOGGER = None
 try:
     __version__ = version("hexes")
 except PackageNotFoundError:
-    __version__ = "0.1.3"
+    __version__ = "0.1.5"
 
 
 def initialize(name: str, game_globals: dict[str, Any]) -> logging.Logger:

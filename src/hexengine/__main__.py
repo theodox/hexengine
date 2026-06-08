@@ -8,7 +8,7 @@ from .document import js
 from .excepthook import install_exception_hook
 from .game import Game
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 
 GAME = None

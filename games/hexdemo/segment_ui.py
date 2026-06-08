@@ -37,6 +37,7 @@ class SegmentPresentation:
     presentation_id: str
     primitive: Primitive
     interaction_mode: str | None = None
+    draft_presentation_id: str | None = None
     inform_profile: str | None = None
 
 
@@ -52,6 +53,7 @@ PRESENTATION_BY_SEGMENT_KIND: dict[str, SegmentPresentation] = {
         presentation_id="attack_ready",
         primitive=Primitive.SEQUENCE,
         interaction_mode="attack_plan",
+        draft_presentation_id="attack_draft",
         inform_profile="attack_plan",
     ),
     GATE_AWAITING_RETREAT: SegmentPresentation(
@@ -59,6 +61,7 @@ PRESENTATION_BY_SEGMENT_KIND: dict[str, SegmentPresentation] = {
         presentation_id="retreat_gate",
         primitive=Primitive.SELECT,
         interaction_mode="retreat_path",
+        draft_presentation_id="retreat_path_draft",
         inform_profile="retreat_gate",
     ),
     GATE_AWAITING_RETREAT_OR_DISRUPT: SegmentPresentation(
@@ -66,6 +69,7 @@ PRESENTATION_BY_SEGMENT_KIND: dict[str, SegmentPresentation] = {
         presentation_id="retreat_gate",
         primitive=Primitive.SELECT,
         interaction_mode="retreat_path",
+        draft_presentation_id="retreat_path_draft",
         inform_profile="retreat_gate",
     ),
     GATE_AWAITING_ADVANCE: SegmentPresentation(

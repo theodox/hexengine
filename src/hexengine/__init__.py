@@ -12,7 +12,7 @@ from .hexes import *  # Import all the hex math library functions
 # Application modules are available as submodules
 # from . import engine, document, map, dev_console
 
-__version__ = "0.1.3"
+__version__ = "0.1.5"
 
 
 # Main entry point

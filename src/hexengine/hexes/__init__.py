@@ -74,7 +74,7 @@ __version__: str
 try:
     __version__ = version("hexes")
 except PackageNotFoundError:
-    __version__ = "0.1.3"
+    __version__ = "0.1.5"
 
 # Commonly used items available at package level
 __all__ = [

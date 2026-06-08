@@ -227,6 +227,8 @@ def retreat_path_preview(ctx: RetreatPathPreviewContext) -> dict[str, Any]:
         "preview_path_hexes": hexes_to_wire(list(path)),
         "commit_payload": commit,
         "panel_actions": _panel_actions(su, confirm_enabled=confirm),
+        "disable_end_phase": True,
+        "draft_presentation_id": "retreat_path_draft",
     }
 
 
