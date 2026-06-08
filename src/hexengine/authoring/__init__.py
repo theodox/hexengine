@@ -20,7 +20,6 @@ from .present import (
     inform_popup,
     interaction_message,
     panel_action,
-    panel_actions_from_dicts,
     turn_dock_panel,
 )
 
@@ -41,7 +40,6 @@ __all__ = [
     "inform_popup",
     "interaction_message",
     "panel_action",
-    "panel_actions_from_dicts",
     "simple_phase",
     "turn_dock_panel",
 ]

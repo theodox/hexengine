@@ -118,7 +118,7 @@ class SetTurnState(StateAction):
 
 
 class WriteHexengineMovementArc(StateAction):
-    """Write or clear `extension[HEXENGINE_MOVEMENT_ARC_KEY]` (movement **arc** state)."""
+    """Write or clear ``engine_state[HEXENGINE_MOVEMENT_ARC_KEY]`` (movement arc payload)."""
 
     def __init__(self, payload: dict[str, Any] | None):
         self.payload = payload
@@ -216,19 +216,18 @@ class ResolvePassMovementInterrupt(StateAction):
         return f"<ResolvePassMovementInterrupt {self.responding_faction!r}>"
 
 
-class PatchUnitAttributes(StateAction):
-    """Shallow-merge keys into UnitState.attributes (title-defined JSON-safe data)."""
+class ApplyUnitAttributesPatch(StateAction):
+    """Apply a ``UnitAttributesPatch`` to one unit (undo restores prior attributes)."""
 
-    def __init__(
-        self,
-        unit_id: str,
-        patch: dict[str, Any],
-        *,
-        remove_keys: tuple[str, ...] = (),
-    ):
-        self.unit_id = unit_id
-        self.patch = dict(patch)
-        self.remove_keys = tuple(remove_keys)
+    def __init__(self, unit_id: str, patch: UnitAttributesPatch) -> None:
+        from .unit_attributes import UnitAttributesPatch
+
+        self.unit_id = str(unit_id).strip()
+        if not self.unit_id:
+            raise ValueError("unit_id must be non-empty")
+        if not isinstance(patch, UnitAttributesPatch):
+            raise TypeError("patch must be a UnitAttributesPatch")
+        self.patch = patch
         self._prev_attributes: dict[str, Any] | None = None
 
     def apply(self, state: GameState) -> GameState:
@@ -236,7 +235,9 @@ class PatchUnitAttributes(StateAction):
         if unit is None:
             raise ValueError(f"Unit {self.unit_id!r} not found")
         self._prev_attributes = dict(unit.attributes)
-        new_unit = unit.with_attributes(self.patch, remove_keys=self.remove_keys)
+        new_unit = unit.with_attributes(
+            dict(self.patch.values), remove_keys=self.patch.remove_keys
+        )
         return state.with_board(state.board.with_unit(new_unit))
 
     def revert(self, state: GameState) -> GameState:
@@ -250,7 +251,7 @@ class PatchUnitAttributes(StateAction):
         return False
 
     def __repr__(self) -> str:
-        return f"<PatchUnitAttributes {self.unit_id!r} patch={self.patch!r}>"
+        return f"<ApplyUnitAttributesPatch {self.unit_id!r}>"
 
 
 class DeleteUnit(StateAction):
@@ -706,7 +707,11 @@ def _apply_step_loss_to_unit(state: GameState, unit_id: str) -> GameState:
                 m = _int_attr(unit.attributes, "morale", 0)
                 patch["combat"] = max(0, c - 1)
                 patch["morale"] = max(0, m - 1)
-        st = PatchUnitAttributes(unit_id, patch).apply(state)
+        from .unit_attributes import UnitAttributesPatch
+
+        st = ApplyUnitAttributesPatch(
+            unit_id, UnitAttributesPatch(values=patch)
+        ).apply(state)
         u2 = st.board.units.get(unit_id)
         if u2 is not None and u2.active:
             gkey = _graphics_template_key_for_step(u2.attributes, step_index=1)
@@ -767,9 +772,12 @@ class ApplyCombatEffects(StateAction):
                 for u in st.board.active_units_at_hex(u0.position):
                     if u.faction != u0.faction:
                         continue
-                    st = PatchUnitAttributes(str(u.unit_id), {"disrupted": True}).apply(
-                        st
-                    )
+                    from .unit_attributes import UnitAttributesPatch
+
+                    st = ApplyUnitAttributesPatch(
+                        str(u.unit_id),
+                        UnitAttributesPatch(values={"disrupted": True}),
+                    ).apply(st)
         return st
 
     def revert(self, state: GameState) -> GameState:

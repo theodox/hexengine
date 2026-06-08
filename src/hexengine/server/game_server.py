@@ -60,7 +60,7 @@ from ..state.actions import (
     DeleteUnit,
     MoveUnit,
     NextPhase,
-    PatchUnitAttributes,
+    ApplyUnitAttributesPatch,
     SpendAction,
     WriteHexengineMovementArc,
 )
@@ -1501,7 +1501,7 @@ class GameServer:
             await self._broadcast_state_update()
             return
 
-        if request.action_type == "PatchUnitAttributes":
+        if request.action_type == "ApplyUnitAttributesPatch":
             if not self._actor_may_act(player.faction, current_state):
                 await self._send_error(
                     player_id,
@@ -1509,9 +1509,9 @@ class GameServer:
                 )
                 return
             uid = str(request.params.get("unit_id", ""))
-            patch = request.params.get("patch")
-            if not isinstance(patch, dict):
-                await self._send_error(player_id, "patch must be an object")
+            values = request.params.get("values")
+            if not isinstance(values, dict):
+                await self._send_error(player_id, "values must be an object")
                 return
             raw_remove = request.params.get("remove_keys", [])
             if isinstance(raw_remove, str):
@@ -1529,14 +1529,19 @@ class GameServer:
                 return
             try:
                 validate_unit_attributes_patch(
-                    self._game_definition, current_state, uid, dict(patch)
+                    self._game_definition, current_state, uid, dict(values)
                 )
             except Exception as e:
                 await self._send_error(player_id, str(e))
                 return
             try:
+                from ..state.unit_attributes import UnitAttributesPatch
+
                 self.action_manager.execute(
-                    PatchUnitAttributes(uid, dict(patch), remove_keys=remove_t)
+                    ApplyUnitAttributesPatch(
+                        uid,
+                        UnitAttributesPatch(values=dict(values), remove_keys=remove_t),
+                    )
                 )
             except Exception as e:
                 await self._send_error(player_id, f"Action failed: {e}")

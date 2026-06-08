@@ -322,39 +322,6 @@ def panel_action(
     )
 
 
-def panel_actions_from_dicts(rows: list[dict[str, Any]]) -> tuple[PanelAction, ...]:
-    """Wrap legacy action dict rows as ``PanelAction`` (tests and migration only)."""
-    out: list[PanelAction] = []
-    for raw in rows:
-        if not isinstance(raw, dict):
-            continue
-        out.append(
-            PanelAction(
-                id=str(raw.get("id", "")).strip(),
-                action_type=str(raw.get("action_type", "")).strip(),
-                label=str(raw.get("label", "")),
-                enabled=bool(raw.get("enabled", True)),
-                title=(
-                    str(raw["title"]).strip() if raw.get("title") is not None else None
-                ),
-                payload=(
-                    dict(raw["payload"]) if isinstance(raw.get("payload"), dict) else {}
-                ),
-                css_class=(
-                    str(raw["css_class"]).strip()
-                    if raw.get("css_class") is not None
-                    else None
-                ),
-                group=(
-                    str(raw["group"]).strip() if raw.get("group") is not None else None
-                ),
-                order=(int(raw["order"]) if raw.get("order") is not None else None),
-                schema=int(raw.get("schema", 1)),
-            )
-        )
-    return tuple(out)
-
-
 def turn_dock_panel(
     *,
     presentation_id: str,
@@ -587,7 +554,6 @@ __all__ = [
     "map_selection_preview",
     "pack_asset_href",
     "panel_action",
-    "panel_actions_from_dicts",
     "panel_input",
     "render_html_template",
     "turn_dock_panel",

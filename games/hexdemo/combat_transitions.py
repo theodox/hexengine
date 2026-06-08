@@ -51,7 +51,7 @@ GATES_BLOCKING_ROUTINE: frozenset[str] = frozenset(
     }
 )
 
-# Title bucket keys cleared on phase advance (`after_phase_transition`).
+# Session-state keys cleared on phase advance (`after_phase_transition`).
 PHASE_SCOPED_COMBAT_KEYS: tuple[str, ...] = (
     "attacks_this_phase",
     "retreat_obligations",

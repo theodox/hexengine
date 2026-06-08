@@ -561,7 +561,7 @@ class Game(
             MoveMarker,
             MoveUnit,
             NextPhase,
-            PatchUnitAttributes,
+            ApplyUnitAttributesPatch,
             RemoveMarker,
             SpendAction,
         )
@@ -625,11 +625,11 @@ class Game(
             if action.attributes:
                 out["attributes"] = dict(action.attributes)
             return out
-        if isinstance(action, PatchUnitAttributes):
+        if isinstance(action, ApplyUnitAttributesPatch):
             return {
                 "unit_id": action.unit_id,
-                "patch": dict(action.patch),
-                "remove_keys": list(action.remove_keys),
+                "values": dict(action.patch.values),
+                "remove_keys": list(action.patch.remove_keys),
             }
         if isinstance(action, SpendAction):
             return {"amount": action.amount}

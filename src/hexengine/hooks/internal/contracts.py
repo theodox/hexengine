@@ -91,7 +91,7 @@ def validate_title_contract(game_definition: Any) -> None:
     `validate_attack` and `resolve_attack` callables. Implementations may return
     `ENGINE_DEFAULT` from those callables to decline attacks at action time.
 
-    When `GameData.session_state_key` is set (title combat extension bucket),
+    When `GameData.session_state_key` is set (pack session state),
     `TitleHooks.ui.turn_action_dock_for_viewer` and
     `TitleHooks.ui.segment_presentation_registry` must be bound. Commit UI is delivered
     only via ``interaction_panels`` (turn action dock).

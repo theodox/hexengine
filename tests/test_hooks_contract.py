@@ -113,7 +113,7 @@ def test_validate_title_contract_passes_builtin_combat_schedule() -> None:
     validate_title_contract(InterleavedTwoFactionGameDefinition())
 
 
-def test_validate_title_contract_requires_turn_action_dock_when_extension_key() -> None:
+def test_validate_title_contract_requires_turn_action_dock_when_session_state_key() -> None:
     from hexengine.gamedef.game_data import GameData
 
     class PackWithExtension:
@@ -127,7 +127,7 @@ def test_validate_title_contract_requires_turn_action_dock_when_extension_key() 
         validate_title_contract(PackWithExtension())
 
 
-def test_validate_title_contract_requires_combat_arc_with_extension_key() -> None:
+def test_validate_title_contract_requires_combat_arc_with_session_state_key() -> None:
     from hexengine.authoring.patterns.schedule import (
         build_turn_registry,
         interleaved_slots,
@@ -217,7 +217,7 @@ def test_validate_title_contract_checks_combat_rules_binding_methods() -> None:
         validate_title_contract(PackWithIncompleteBinding())
 
 
-def test_validate_title_contract_requires_turn_arc_registry_with_extension_key() -> (
+def test_validate_title_contract_requires_turn_arc_registry_with_session_state_key() -> (
     None
 ):
     from hexengine.gamedef.game_data import GameData

@@ -11,7 +11,7 @@ from .actions import (
     MoveUnit,
     NextPhase,
     ApplyBucketPatch,
-    PatchUnitAttributes,
+    ApplyUnitAttributesPatch,
     RemoveMarker,
     ResolvePassMovementInterrupt,
     SetTurnState,
@@ -62,6 +62,7 @@ from .snapshot import (
     game_state_to_wire_dict,
 )
 from .engine_session_state import BucketPatch
+from .unit_attributes import UnitAttributesPatch
 
 __all__ = [
     "SNAPSHOT_FORMAT_VERSION",
@@ -89,7 +90,8 @@ __all__ = [
     "AddUnit",
     "SpendAction",
     "NextPhase",
-    "PatchUnitAttributes",
+    "ApplyUnitAttributesPatch",
+    "UnitAttributesPatch",
     "SetTurnState",
     "WriteHexengineMovementArc",
     "DEFAULT_MOVEMENT_BUDGET",

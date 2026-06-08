@@ -188,6 +188,7 @@ Server prepends `games/` when loading a scenario path; see hexdemo README for lo
 |-------|----------------|-------------|
 | **Read** | Pack `session_state.bucket(state)` + typed helpers | `engine_read_session_state(state, key)` |
 | **Write (delta)** | `BucketPatch` + `ApplyBucketPatch` from [`hexengine.hooks.bucket`](../src/hexengine/hooks/bucket.py) | Same action; merge via `engine_write_session_state` |
+| **Unit attributes** | `UnitAttributesPatch` + `ApplyUnitAttributesPatch` from [`hexengine.hooks.unit`](../src/hexengine/hooks/unit.py) | Shallow merge into `UnitState.attributes` |
 | **Combat handoff** | `CombatOutcome(patch=BucketPatch(...))` from `combat_outcome_after_applied` | `combat_outcome_apply` → `ApplyBucketPatch` before classify |
 
 **Glossary:** *bucket* = the session-state dict; *patch* = a partial update (`BucketPatch.values` merged, `remove_keys` dropped). Do not scatter raw key strings — centralize reads in one pack module (hexdemo: [`session_state.py`](../games/hexdemo/session_state.py)).

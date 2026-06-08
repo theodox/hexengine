@@ -30,7 +30,6 @@ from ..ui.display import (
     map_overlay_glyph,
     map_selection_preview,
     panel_action,
-    panel_actions_from_dicts,
     turn_dock_panel,
 )
 
@@ -49,6 +48,5 @@ __all__ = [
     "map_selection_preview",
     "panel_action",
     "segment_presentation_patch",
-    "panel_actions_from_dicts",
     "turn_dock_panel",
 ]

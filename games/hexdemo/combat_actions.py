@@ -14,10 +14,10 @@ from hexengine.hexes.types import Hex
 from hexengine.state import GameState
 from hexengine.state.action_manager import StateAction
 from hexengine.hooks.bucket import ApplyBucketPatch, BucketPatch
+from hexengine.hooks.unit import ApplyUnitAttributesPatch, UnitAttributesPatch
 from hexengine.state.actions import (
     ClearUnitRetreatObligation,
     MoveUnit,
-    PatchUnitAttributes,
 )
 from . import arc_segment, session_state
 
@@ -294,7 +294,12 @@ def disrupt_instead_of_retreat(
         u = state.board.units.get(str(uid))
         if u is None or not u.active or u.faction != faction:
             continue
-        actions.append(PatchUnitAttributes(str(uid), {"disrupted": True}))
+        actions.append(
+            ApplyUnitAttributesPatch(
+                str(uid),
+                UnitAttributesPatch(values={"disrupted": True}),
+            )
+        )
         ro.pop(uid, None)
         cleared_any = True
     if not cleared_any:

@@ -72,7 +72,7 @@ def test_hexdemo_validate_title_contract_includes_segment_registry() -> None:
     validate_title_contract(game_definition_from_config(default_match_config()))
 
 
-def test_validate_title_contract_requires_segment_registry_with_extension_key() -> None:
+def test_validate_title_contract_requires_segment_registry_with_session_state_key() -> None:
     from games.hexdemo.turn_arc_schedule import build_hexdemo_turn_arc_registry
 
     from hexengine.gamedef.game_data import GameData

@@ -1,7 +1,7 @@
 """
 Hook surface for title-authored rules (`hexengine.hooks`).
 
-**Titles:** import by area — `hexengine.hooks.movement`, `.attack`, `.bucket`, `.ui`,
+**Titles:** import by area — `hexengine.hooks.movement`, `.attack`, `.bucket`, `.unit`, `.ui`,
 `.title`, `.wiring`, `.core`.
 
 **Wiring workflow**
@@ -14,7 +14,8 @@ Hook surface for title-authored rules (`hexengine.hooks`).
 4. Build `TitleHooks` with `assemble_title_hooks` from your hook modules.
 
 This package root exposes a **small convenience**: `ENGINE_DEFAULT` and `TitleHooks`.
-Session-state patches: `hexengine.hooks.bucket` (`BucketPatch`, `ApplyBucketPatch`).
+Patches: `hexengine.hooks.bucket` (`BucketPatch`, `ApplyBucketPatch`);
+`hexengine.hooks.unit` (`UnitAttributesPatch`, `ApplyUnitAttributesPatch`).
 
 **Engine-only:** `hexengine.hooks.internal` (catalog, `@hook`, `validate_title_contract`,
 movement budget catalog entry, combat-advance default).
