@@ -9,7 +9,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from ...ui.display import InformPopup, InteractionPanel, TurnDockPanel
+from ...ui.display import (
+    InformPopup,
+    InteractionPanel,
+    MapSelectionPreview,
+    TurnDockPanel,
+)
 
 
 def turn_action_dock_to_wire(raw: object) -> list[dict[str, Any]]:
@@ -43,4 +48,19 @@ def inform_popup_to_wire(raw: object) -> dict[str, Any]:
     return raw.to_wire_dict()
 
 
-__all__ = ["inform_popup_to_wire", "turn_action_dock_to_wire"]
+def map_selection_preview_to_wire(raw: object) -> dict[str, Any]:
+    """Normalize map-selection preview hook output to wire fields."""
+
+    if not isinstance(raw, MapSelectionPreview):
+        raise TypeError(
+            "map selection preview hook must return MapSelectionPreview, "
+            f"got {type(raw).__name__}"
+        )
+    return raw.to_wire_dict()
+
+
+__all__ = [
+    "inform_popup_to_wire",
+    "map_selection_preview_to_wire",
+    "turn_action_dock_to_wire",
+]

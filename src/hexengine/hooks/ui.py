@@ -199,7 +199,7 @@ class UIHooks:
     segment_presentation_registry: Callable[[], object] | None = None
 
     place_marker_preview: (
-        Callable[[PlaceMarkerPreviewContext], dict[str, Any] | object] | None
+        Callable[[PlaceMarkerPreviewContext], object] | None
     ) = None
 
     combat_interaction_messages: (

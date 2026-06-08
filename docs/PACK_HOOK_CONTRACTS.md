@@ -200,7 +200,7 @@ SELECT drafts (map/unit picks before commit) use one RPC pair. Drafts are **clie
 
 **Client request:** [`MapSelectionPreviewRequest`](../src/hexengine/server/protocol/client.py) — `kind`, `draft` object, optional `request_id`.
 
-**Server response:** [`MapSelectionPreviewWire`](../src/hexengine/server/protocol/server.py) — `kind`, `status_text`, `confirm_enabled`, optional `valid_target_hexes`, `eligible_attacker_ids`, `commit_payload`, `panel_actions` (same action row schema as the turn action dock).
+**Server response:** [`MapSelectionPreviewWire`](../src/hexengine/server/protocol/server.py) — `kind`, `status_text`, `confirm_enabled`, optional `valid_target_hexes`, `eligible_attacker_ids`, `commit_payload`, `panel_actions` (same action row schema as the turn action dock). Title preview hooks return [`MapSelectionPreview`](../src/hexengine/ui/display.py); the engine serializes via [`map_selection_preview_to_wire`](../src/hexengine/hooks/internal/ui_wire.py).
 
 **Feature flag:** `turn_rules.client_contract.features` includes **`map_selection_previews`** when [`bound_map_selection_kinds`](../src/hexengine/hooks/map_selection_registry.py) is non-empty for the title.
 
@@ -252,7 +252,7 @@ For packs with `title_state_extension_key`, the engine rejects `Attack` when `cu
 |------|--------------|---------------------|--------|---------------------------|
 | **`VALIDATE_ATTACK`** | After engine segment gate, before resolve | `(ctx: AttackContext)` | `None` or raise | Unsupported attack |
 | **`RESOLVE_ATTACK`** | Combat arc `attack` segment (or imperative path without `SEG_ATTACK`) | `(ctx: AttackContext)` | `AttackResolution` or `CombatOutcome` (with embedded resolution) | Unsupported attack |
-| **`ATTACK_PLAN_PREVIEW`** | `map_selection_preview` kind `attack_plan` | `(ctx: AttackPlanPreviewContext)` | preview dict | Empty/minimal preview |
+| **`ATTACK_PLAN_PREVIEW`** | `map_selection_preview` kind `attack_plan` | `(ctx: AttackPlanPreviewContext)` | `MapSelectionPreview` | Empty/minimal preview |
 | **`AUTO_ADVANCE_PHASE_AFTER_ATTACK`** | After attack applied + broadcast | `(state: GameState)` | `bool` | No auto-advance |
 | **`COMBAT_OUTCOME_AFTER_APPLIED`** | After `Attack` + `ApplyCombatEffects` inside arc `attack` effect | `(ctx: AfterAttackAppliedContext)` | [`CombatOutcome`](../src/hexengine/hooks/combat_outcome.py) | No bucket follow-up |
 

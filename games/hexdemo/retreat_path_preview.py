@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from hexengine.authoring.present import map_selection_preview, panel_action
 from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
 from hexengine.hooks.core import ENGINE_DEFAULT
@@ -17,6 +18,7 @@ from hexengine.retreat_path import (
     validate_retreat_path,
 )
 from hexengine.state import GameState
+from hexengine.ui.display import MapSelectionPreview, PanelAction
 
 from . import title_state
 from .hooks import movement as movement_hooks
@@ -31,51 +33,48 @@ def _shell_label(shell_ui: dict[str, Any], key: str, default: str) -> str:
 
 def _panel_actions(
     shell_ui: dict[str, Any], *, confirm_enabled: bool
-) -> list[dict[str, Any]]:
-    return [
-        {
-            "schema": 1,
-            "id": "retreat_path_confirm",
-            "action_type": "MoveUnit",
-            "label": _shell_label(
+) -> tuple[PanelAction, ...]:
+    return (
+        panel_action(
+            id="retreat_path_confirm",
+            action_type="MoveUnit",
+            label=_shell_label(
                 shell_ui, "retreat_path_confirm_label", "Confirm retreat"
             ),
-            "title": _shell_label(
+            title=_shell_label(
                 shell_ui,
                 "retreat_path_confirm_title",
                 "Commit the retreat path and move step by step.",
             ),
-            "payload": {},
-            "css_class": "hexengine-primary-action--confirm",
-            "enabled": confirm_enabled,
-            "group": "primary",
-        },
-        {
-            "schema": 1,
-            "id": "retreat_path_undo",
-            "action_type": "RetreatPathUndo",
-            "label": _shell_label(shell_ui, "retreat_path_undo_label", "Undo hex"),
-            "title": "Remove the last hex from the path.",
-            "payload": {},
-            "css_class": "hexengine-primary-action--secondary",
-            "enabled": True,
-            "group": "secondary",
-        },
-        {
-            "schema": 1,
-            "id": "retreat_path_cancel",
-            "action_type": "RetreatPathCancel",
-            "label": _shell_label(shell_ui, "retreat_path_cancel_label", "Cancel"),
-            "title": "Clear the retreat path draft.",
-            "payload": {},
-            "css_class": "hexengine-primary-action--cancel",
-            "enabled": True,
-            "group": "secondary",
-        },
-    ]
+            payload={},
+            css_class="hexengine-primary-action--confirm",
+            enabled=confirm_enabled,
+            group="primary",
+        ),
+        panel_action(
+            id="retreat_path_undo",
+            action_type="RetreatPathUndo",
+            label=_shell_label(shell_ui, "retreat_path_undo_label", "Undo hex"),
+            title="Remove the last hex from the path.",
+            payload={},
+            css_class="hexengine-primary-action--secondary",
+            enabled=True,
+            group="secondary",
+        ),
+        panel_action(
+            id="retreat_path_cancel",
+            action_type="RetreatPathCancel",
+            label=_shell_label(shell_ui, "retreat_path_cancel_label", "Cancel"),
+            title="Clear the retreat path draft.",
+            payload={},
+            css_class="hexengine-primary-action--cancel",
+            enabled=True,
+            group="secondary",
+        ),
+    )
 
 
-def retreat_path_preview(ctx: RetreatPathPreviewContext) -> dict[str, Any]:
+def retreat_path_preview(ctx: RetreatPathPreviewContext) -> MapSelectionPreview:
     st = ctx.state
     faction = str(ctx.player_faction).strip()
     su = ctx.shell_ui if isinstance(ctx.shell_ui, dict) else {}
@@ -83,38 +82,38 @@ def retreat_path_preview(ctx: RetreatPathPreviewContext) -> dict[str, Any]:
 
     uid = str(draft.get("unit_id", "")).strip()
     if not uid:
-        return {
-            "kind": "retreat_path",
-            "status_text": _shell_label(
+        return map_selection_preview(
+            kind="retreat_path",
+            status_text=_shell_label(
                 su, "retreat_path_pick_unit_status", "Select a unit that must retreat."
             ),
-            "confirm_enabled": False,
-            "legal_next_hexes": [],
-            "preview_path_hexes": [],
-            "panel_actions": _panel_actions(su, confirm_enabled=False),
-        }
+            confirm_enabled=False,
+            legal_next_hexes=[],
+            preview_path_hexes=[],
+            panel_actions=_panel_actions(su, confirm_enabled=False),
+        )
 
     unit = st.board.units.get(uid)
     if unit is None or not unit.active or str(unit.faction).strip() != faction:
-        return {
-            "kind": "retreat_path",
-            "status_text": "That unit is not yours.",
-            "confirm_enabled": False,
-            "legal_next_hexes": [],
-            "preview_path_hexes": [],
-            "panel_actions": _panel_actions(su, confirm_enabled=False),
-        }
+        return map_selection_preview(
+            kind="retreat_path",
+            status_text="That unit is not yours.",
+            confirm_enabled=False,
+            legal_next_hexes=[],
+            preview_path_hexes=[],
+            panel_actions=_panel_actions(su, confirm_enabled=False),
+        )
 
     rem = title_state.retreat_hexes_remaining(st, uid)
     if rem is None:
-        return {
-            "kind": "retreat_path",
-            "status_text": "This unit has no retreat obligation.",
-            "confirm_enabled": False,
-            "legal_next_hexes": [],
-            "preview_path_hexes": [],
-            "panel_actions": _panel_actions(su, confirm_enabled=False),
-        }
+        return map_selection_preview(
+            kind="retreat_path",
+            status_text="This unit has no retreat obligation.",
+            confirm_enabled=False,
+            legal_next_hexes=[],
+            preview_path_hexes=[],
+            panel_actions=_panel_actions(su, confirm_enabled=False),
+        )
 
     path = path_from_draft(draft)
     start = unit.position
@@ -218,18 +217,18 @@ def retreat_path_preview(ctx: RetreatPathPreviewContext) -> dict[str, Any]:
             f"Retreat: pick a destination ({int(rem)} hexes away) or extend the path.",
         )
 
-    return {
-        "kind": "retreat_path",
-        "status_text": status,
-        "confirm_enabled": confirm,
-        "legal_next_hexes": hexes_to_wire(legal),
-        "through_hexes": hexes_to_wire(sorted(through, key=lambda h: (h.i, h.j, h.k))),
-        "preview_path_hexes": hexes_to_wire(list(path)),
-        "commit_payload": commit,
-        "panel_actions": _panel_actions(su, confirm_enabled=confirm),
-        "disable_end_phase": True,
-        "draft_presentation_id": "retreat_path_draft",
-    }
+    return map_selection_preview(
+        kind="retreat_path",
+        status_text=status,
+        confirm_enabled=confirm,
+        legal_next_hexes=hexes_to_wire(legal),
+        through_hexes=hexes_to_wire(sorted(through, key=lambda h: (h.i, h.j, h.k))),
+        preview_path_hexes=hexes_to_wire(list(path)),
+        commit_payload=commit,
+        panel_actions=_panel_actions(su, confirm_enabled=confirm),
+        disable_end_phase=True,
+        draft_presentation_id="retreat_path_draft",
+    )
 
 
 __all__ = ["retreat_path_preview"]

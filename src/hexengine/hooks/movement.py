@@ -120,7 +120,7 @@ class MovementHooks:
         Callable[[MovementStepContext], tuple[str, ...] | object] | None
     ) = None
     retreat_path_preview: (
-        Callable[[RetreatPathPreviewContext], dict[str, Any] | object] | None
+        Callable[[RetreatPathPreviewContext], object] | None
     ) = None
     auto_advance_phase_after_move_spend: Callable[[GameState], bool | object] | None = (
         None

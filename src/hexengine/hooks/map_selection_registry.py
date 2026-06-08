@@ -15,9 +15,10 @@ from .attack import AttackPlanPreviewContext
 from .core import ENGINE_DEFAULT
 from .movement import RetreatPathPreviewContext
 from .title import TitleHooks
+from ..ui.display import MapSelectionPreview
 from .ui import PlaceMarkerPreviewContext
 
-MapSelectionPreviewFn = Callable[..., dict[str, Any] | object]
+MapSelectionPreviewFn = Callable[..., MapSelectionPreview | object]
 BoundCheckFn = Callable[[TitleHooks], bool]
 
 
@@ -42,7 +43,7 @@ def _attack_plan_preview(
     hooks: TitleHooks,
     board_hexes: list[Any] | None = None,
     **_kwargs: Any,
-) -> dict[str, Any] | object:
+) -> MapSelectionPreview | object:
     fn = hooks.attack.attack_plan_preview
     if fn is None:
         return ENGINE_DEFAULT
@@ -64,7 +65,7 @@ def _retreat_path_preview(
     hooks: TitleHooks,
     board_hexes: list[Any] | None = None,
     **_kwargs: Any,
-) -> dict[str, Any] | object:
+) -> MapSelectionPreview | object:
     fn = hooks.movement.retreat_path_preview
     if fn is None:
         return ENGINE_DEFAULT
@@ -87,7 +88,7 @@ def _place_marker_preview(
     board_hexes: list[Any] | None = None,
     markers: list[Any] | None = None,
     **_kwargs: Any,
-) -> dict[str, Any] | object:
+) -> MapSelectionPreview | object:
     fn = hooks.ui.place_marker_preview
     if fn is None:
         return ENGINE_DEFAULT
@@ -138,7 +139,7 @@ def resolve_map_selection_preview(
     hooks: TitleHooks,
     board_hexes: list[Any] | None = None,
     markers: list[Any] | None = None,
-) -> dict[str, Any] | object:
+) -> MapSelectionPreview | object:
     """Dispatch preview for ``kind``; return ``ENGINE_DEFAULT`` if kind is unknown."""
 
     k = str(kind or "").strip()

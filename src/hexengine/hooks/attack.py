@@ -180,7 +180,7 @@ class AttackHooks:
     resolve_attack: Callable[[AttackContext], AttackResolution | object] | None = None
     auto_advance_phase_after_attack: Callable[[GameState], bool | object] | None = None
     attack_plan_preview: (
-        Callable[[AttackPlanPreviewContext], dict[str, Any] | object] | None
+        Callable[[AttackPlanPreviewContext], object] | None
     ) = None
     combat_outcome_after_applied: (
         Callable[[AfterAttackAppliedContext], object] | None

@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from hexengine.authoring.present import map_selection_preview, panel_action
 from hexengine.hexes.types import Hex, HexColRow
+from hexengine.hooks.ui import PlaceMarkerPreviewContext
 from hexengine.state.marker_placement import marker_destination_hexes_for_preview
+from hexengine.ui.display import MapSelectionPreview, PanelAction
 
 from .marker_rules import default_marker_placement_rule
 
@@ -58,84 +61,79 @@ def _parse_hex_wire(raw: Any) -> Hex | None:
 
 def _panel_actions(
     shell_ui: dict[str, Any], *, confirm_enabled: bool
-) -> list[dict[str, Any]]:
-    return [
-        {
-            "schema": 1,
-            "id": "place_marker_confirm",
-            "action_type": "MoveMarker",
-            "label": _shell_label(
+) -> tuple[PanelAction, ...]:
+    return (
+        panel_action(
+            id="place_marker_confirm",
+            action_type="MoveMarker",
+            label=_shell_label(
                 shell_ui, "place_marker_confirm_label", "Confirm move"
             ),
-            "title": _shell_label(
+            title=_shell_label(
                 shell_ui,
                 "place_marker_confirm_title",
                 "Move the marker to the selected hex.",
             ),
-            "payload": {},
-            "css_class": "hexengine-primary-action--confirm",
-            "enabled": confirm_enabled,
-            "group": "primary",
-        },
-        {
-            "schema": 1,
-            "id": "place_marker_cancel",
-            "action_type": "PlaceMarkerCancel",
-            "label": _shell_label(shell_ui, "place_marker_cancel_label", "Cancel"),
-            "title": "Cancel marker relocation.",
-            "payload": {},
-            "css_class": "hexengine-primary-action--cancel",
-            "enabled": True,
-            "group": "secondary",
-        },
-    ]
+            payload={},
+            css_class="hexengine-primary-action--confirm",
+            enabled=confirm_enabled,
+            group="primary",
+        ),
+        panel_action(
+            id="place_marker_cancel",
+            action_type="PlaceMarkerCancel",
+            label=_shell_label(shell_ui, "place_marker_cancel_label", "Cancel"),
+            title="Cancel marker relocation.",
+            payload={},
+            css_class="hexengine-primary-action--cancel",
+            enabled=True,
+            group="secondary",
+        ),
+    )
 
 
-def place_marker_preview(ctx) -> dict[str, Any]:
-    from hexengine.hooks.ui import PlaceMarkerPreviewContext
-
+def place_marker_preview(ctx: PlaceMarkerPreviewContext) -> MapSelectionPreview:
     if not isinstance(ctx, PlaceMarkerPreviewContext):
-        return {
-            "kind": "place_marker",
-            "status_text": "",
-            "confirm_enabled": False,
-            "panel_actions": [],
-        }
+        return map_selection_preview(
+            kind="place_marker",
+            status_text="",
+            confirm_enabled=False,
+        )
 
     st = ctx.state
     su = ctx.shell_ui if isinstance(ctx.shell_ui, dict) else {}
     draft = ctx.draft if isinstance(ctx.draft, dict) else {}
     mid = str(draft.get("marker_id", "")).strip()
     if not mid:
-        return {
-            "kind": "place_marker",
-            "status_text": _shell_label(
+        return map_selection_preview(
+            kind="place_marker",
+            status_text=_shell_label(
                 su, "place_marker_pick_marker_status", "Select a marker to relocate."
             ),
-            "confirm_enabled": False,
-            "valid_target_hexes": [],
-            "panel_actions": _panel_actions(su, confirm_enabled=False),
-        }
+            confirm_enabled=False,
+            valid_target_hexes=[],
+            panel_actions=_panel_actions(su, confirm_enabled=False),
+        )
 
     row = _marker_by_id(ctx.markers, mid)
     if row is None:
-        return {
-            "kind": "place_marker",
-            "status_text": "Unknown marker.",
-            "confirm_enabled": False,
-            "valid_target_hexes": [],
-            "panel_actions": _panel_actions(su, confirm_enabled=False),
-        }
+        return map_selection_preview(
+            kind="place_marker",
+            status_text="Unknown marker.",
+            confirm_enabled=False,
+            valid_target_hexes=[],
+            panel_actions=_panel_actions(su, confirm_enabled=False),
+        )
 
     from_hex = _position_hex(row)
     if from_hex is None:
-        return {
-            "kind": "place_marker",
-            "status_text": "Marker has no valid position.",
-            "confirm_enabled": False,
-            "valid_target_hexes": [],
-            "panel_actions": _panel_actions(su, confirm_enabled=False),
-        }
+        return map_selection_preview(
+            kind="place_marker",
+            status_text="Marker has no valid position.",
+            confirm_enabled=False,
+            valid_target_hexes=[],
+            panel_actions=_panel_actions(su, confirm_enabled=False),
+        )
 
     rule = default_marker_placement_rule()
     legal = marker_destination_hexes_for_preview(st, row, rule)
@@ -175,16 +173,16 @@ def place_marker_preview(ctx) -> dict[str, Any]:
             "That hex is not a legal marker destination.",
         )
 
-    return {
-        "kind": "place_marker",
-        "status_text": status,
-        "confirm_enabled": confirm,
-        "valid_target_hexes": legal_wire,
-        "preview_path_hexes": [_hex_wire(from_hex)]
+    return map_selection_preview(
+        kind="place_marker",
+        status_text=status,
+        confirm_enabled=confirm,
+        valid_target_hexes=legal_wire,
+        preview_path_hexes=[_hex_wire(from_hex)]
         + ([_hex_wire(to_hex)] if to_hex != from_hex else []),
-        "commit_payload": commit,
-        "panel_actions": _panel_actions(su, confirm_enabled=confirm),
-    }
+        commit_payload=commit,
+        panel_actions=_panel_actions(su, confirm_enabled=confirm),
+    )
 
 
 __all__ = ["place_marker_preview"]

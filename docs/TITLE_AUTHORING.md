@@ -154,7 +154,7 @@ Arc declarations use the same `kind` strings. Dock and inform hooks **look up** 
 
 **Do not** in pack code: build raw wire dicts for dock panels or inform popups (except tests); read `client.interaction_panels` for legality; branch on `combat_gate` for affordances — use [`arc_segment.py`](../games/hexdemo/arc_segment.py) helpers and `current_segment` via hook context.
 
-**Presentation DTOs (P2):** return `TurnDockPanel` / `InformPopup` from `hexengine.authoring.present` (`turn_dock_panel`, `panel_action`, `inform_popup`, …). The engine converts them in `hexengine.hooks.internal.ui_wire` before `StateUpdate` / `ui_popup` — see [`PACK_HOOK_CONTRACTS.md` § Target model](PACK_HOOK_CONTRACTS.md#target-model-not-fully-implemented).
+**Presentation DTOs (P2):** return `TurnDockPanel`, `InformPopup`, and `MapSelectionPreview` from `hexengine.authoring.present` (`turn_dock_panel`, `panel_action`, `inform_popup`, `map_selection_preview`, …). The engine converts them in `hexengine.hooks.internal.ui_wire` before `StateUpdate`, `ui_popup`, or `map_selection_preview` wire messages.
 
 **P3 (done):** `current_segment` on `StateUpdate` carries `presentation_id` and `interaction_mode` (title `enrich_current_segment` hook + engine default). The client turn-dock SEQUENCE skin keys off `interaction_mode`, not separate `*_draft` booleans.
 
@@ -367,7 +367,7 @@ Preview hooks receive `shell_ui` on context objects; dock hook receives it on `T
 
 1. Add kind string to [`InteractionKind`](../src/hexengine/gamedef/interactions.py) (engine).
 2. Register server row in [`map_selection_registry.py`](../src/hexengine/hooks/map_selection_registry.py); bind title hook.
-3. Implement preview: draft in → legality, `commit_payload`, `panel_actions` out.
+3. Implement preview hook: return `MapSelectionPreview` (draft in → legality, `commit_payload`, `panel_actions` out).
 4. Register client `_apply_*_preview` + draft gesture mixin (engine/hexdemo today).
 5. Add `client_panel_actions` routes if Confirm is not a plain RPC.
 6. Add `shell_ui` strings; document draft/response fields in pack README.

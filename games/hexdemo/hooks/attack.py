@@ -58,7 +58,7 @@ def auto_advance_phase_after_attack(state) -> bool:
 
 
 @bind_title_hook(AttackHook.ATTACK_PLAN_PREVIEW)
-def attack_plan_preview(ctx: AttackPlanPreviewContext) -> dict[str, Any]:
+def attack_plan_preview(ctx: AttackPlanPreviewContext):
     from ..combat_planning import compute_attack_plan_preview
 
     st = ctx.state

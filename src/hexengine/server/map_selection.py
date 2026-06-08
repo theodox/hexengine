@@ -5,9 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 from ..hooks.core import ENGINE_DEFAULT
+from ..hooks.internal.ui_wire import map_selection_preview_to_wire
 from ..hooks.map_selection_registry import resolve_map_selection_preview
 from ..hooks.title import TitleHooks
 from ..state import GameState
+from ..ui.display import empty_map_selection_preview
 
 
 def compute_map_selection_preview(
@@ -35,21 +37,9 @@ def compute_map_selection_preview(
         board_hexes=board_hexes,
         markers=markers,
     )
-    if raw is ENGINE_DEFAULT or not isinstance(raw, dict):
-        return _empty_preview(k)
-    return raw
-
-
-def _empty_preview(kind: str) -> dict[str, Any]:
-    return {
-        "kind": kind or "unknown",
-        "status_text": "",
-        "confirm_enabled": False,
-        "valid_target_hexes": [],
-        "eligible_attacker_ids": [],
-        "commit_payload": None,
-        "panel_actions": [],
-    }
+    if raw is ENGINE_DEFAULT:
+        return map_selection_preview_to_wire(empty_map_selection_preview(k))
+    return map_selection_preview_to_wire(raw)
 
 
 __all__ = ["compute_map_selection_preview"]

@@ -12,11 +12,13 @@ if SRC not in sys.path:
 
 from hexengine.authoring.present import (
     inform_popup,
+    map_selection_preview,
     panel_action,
     turn_dock_panel,
 )
 from hexengine.hooks.internal.ui_wire import (
     inform_popup_to_wire,
+    map_selection_preview_to_wire,
     turn_action_dock_to_wire,
 )
 from hexengine.ui.display import TurnDockPanel
@@ -65,6 +67,44 @@ def test_inform_popup_to_wire_rejects_dict() -> None:
 def test_inform_popup_dto_round_trip() -> None:
     dto = inform_popup(text="hello", ttl_ms=750)
     assert inform_popup_to_wire(dto)["ttl_ms"] == 750
+
+
+def test_map_selection_preview_to_wire_rejects_dict() -> None:
+    try:
+        map_selection_preview_to_wire(
+            {
+                "kind": "attack_plan",
+                "status_text": "x",
+                "confirm_enabled": False,
+            }
+        )
+    except TypeError as exc:
+        assert "MapSelectionPreview" in str(exc)
+    else:
+        raise AssertionError("expected TypeError")
+
+
+def test_map_selection_preview_dto_round_trip() -> None:
+    dto = map_selection_preview(
+        kind="attack_plan",
+        status_text="Pick a target",
+        confirm_enabled=False,
+        panel_actions=(
+            panel_action(
+                id="attack_plan_cancel",
+                action_type="AttackPlanCancel",
+                label="Cancel",
+                enabled=True,
+            ),
+        ),
+        disable_end_phase=True,
+        draft_presentation_id="attack_draft",
+    )
+    wire = map_selection_preview_to_wire(dto)
+    assert wire["kind"] == "attack_plan"
+    assert wire["panel_actions"][0]["id"] == "attack_plan_cancel"
+    assert wire["disable_end_phase"] is True
+    assert wire["draft_presentation_id"] == "attack_draft"
 
 
 def test_hexdemo_turn_action_dock_returns_dtos() -> None:

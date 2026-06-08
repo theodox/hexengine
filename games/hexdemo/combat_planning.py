@@ -10,10 +10,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from hexengine.authoring.present import map_selection_preview, panel_action
 from hexengine.hexes.los import has_line_of_sight
 from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
 from hexengine.hooks.attack import AttackContext, AttackHooks
+from hexengine.ui.display import MapSelectionPreview, PanelAction
 from hexengine.server.arcs.authority_attack import (
     normalize_attack_party_ids,
     sorted_unique_hexes_from_unit_ids,
@@ -272,37 +274,33 @@ def _panel_actions(
     *,
     confirm_enabled: bool,
     has_draft: bool,
-) -> list[dict[str, Any]]:
+) -> tuple[PanelAction, ...]:
     if not has_draft:
-        return []
-    return [
-        {
-            "schema": 1,
-            "id": "attack_plan_confirm",
-            "action_type": "Attack",
-            "label": _shell_label(shell_ui, "attack_confirm_label", "Confirm attack"),
-            "title": _shell_label(
+        return ()
+    return (
+        panel_action(
+            id="attack_plan_confirm",
+            action_type="Attack",
+            label=_shell_label(shell_ui, "attack_confirm_label", "Confirm attack"),
+            title=_shell_label(
                 shell_ui,
                 "attack_confirm_label",
                 "Confirm attack",
             ),
-            "payload": {},
-            "css_class": "hexengine-primary-action--confirm",
-            "enabled": confirm_enabled,
-        },
-        {
-            "schema": 1,
-            "id": "attack_plan_cancel",
-            "action_type": "AttackPlanCancel",
-            "label": _shell_label(shell_ui, "attack_cancel_label", "Cancel"),
-            "title": _shell_label(
-                shell_ui, "attack_cancel_label", "Cancel attack plan"
-            ),
-            "payload": {},
-            "css_class": "hexengine-primary-action--cancel",
-            "enabled": True,
-        },
-    ]
+            payload={},
+            css_class="hexengine-primary-action--confirm",
+            enabled=confirm_enabled,
+        ),
+        panel_action(
+            id="attack_plan_cancel",
+            action_type="AttackPlanCancel",
+            label=_shell_label(shell_ui, "attack_cancel_label", "Cancel"),
+            title=_shell_label(shell_ui, "attack_cancel_label", "Cancel attack plan"),
+            payload={},
+            css_class="hexengine-primary-action--cancel",
+            enabled=True,
+        ),
+    )
 
 
 def compute_attack_plan_preview(
@@ -313,23 +311,17 @@ def compute_attack_plan_preview(
     shell_ui: Mapping[str, Any],
     board_hexes: list[Hex],
     attack_hooks: AttackHooks,
-) -> dict[str, Any]:
-    """
-    Map-selection preview for ``kind=attack_plan``.
-
-    Returns a JSON-safe dict for ``map_selection_preview`` wire messages.
-    """
+) -> MapSelectionPreview:
+    """Map-selection preview for ``kind=attack_plan``."""
     blocked = attack_planning_blocked_reason(state, player_faction)
     if blocked:
-        return {
-            "kind": _ATTACK_PLAN_KIND,
-            "status_text": blocked,
-            "confirm_enabled": False,
-            "valid_target_hexes": [],
-            "eligible_attacker_ids": [],
-            "commit_payload": None,
-            "panel_actions": [],
-        }
+        return map_selection_preview(
+            kind=_ATTACK_PLAN_KIND,
+            status_text=blocked,
+            confirm_enabled=False,
+            valid_target_hexes=[],
+            eligible_attacker_ids=[],
+        )
 
     target = _parse_target_hex(draft)
     attacker_ids = _parse_attacker_ids(draft)
@@ -343,34 +335,31 @@ def compute_attack_plan_preview(
             "attack_pick_target_status",
             "Combat: select target hex and attackers, then confirm.",
         )
-        return {
-            "kind": _ATTACK_PLAN_KIND,
-            "status_text": status,
-            "confirm_enabled": False,
-            "valid_target_hexes": hexes_to_wire(targets),
-            "eligible_attacker_ids": [],
-            "commit_payload": None,
-            "panel_actions": [],
-        }
+        return map_selection_preview(
+            kind=_ATTACK_PLAN_KIND,
+            status_text=status,
+            confirm_enabled=False,
+            valid_target_hexes=hexes_to_wire(targets),
+            eligible_attacker_ids=[],
+        )
 
     if not _enemy_on_hex(state, target, str(player_faction).strip()):
         status = "No enemy unit on target"
-        return {
-            "kind": _ATTACK_PLAN_KIND,
-            "status_text": status,
-            "confirm_enabled": False,
-            "valid_target_hexes": hexes_to_wire(
+        return map_selection_preview(
+            kind=_ATTACK_PLAN_KIND,
+            status_text=status,
+            confirm_enabled=False,
+            valid_target_hexes=hexes_to_wire(
                 _valid_target_hexes(
                     state, board_hexes=board_hexes, player_faction=player_faction
                 )
             ),
-            "eligible_attacker_ids": [],
-            "commit_payload": None,
-            "panel_actions": _panel_actions(
+            eligible_attacker_ids=[],
+            panel_actions=_panel_actions(
                 shell_ui, confirm_enabled=False, has_draft=True
             ),
             **_attack_plan_draft_policy(draft),
-        }
+        )
 
     eligible = _eligible_attacker_ids(state, target, player_faction=player_faction)
     selected = [uid for uid in attacker_ids if uid in eligible]
@@ -400,24 +389,24 @@ def compute_attack_plan_preview(
             "Target set — adjust attackers or confirm.",
         )
 
-    return {
-        "kind": _ATTACK_PLAN_KIND,
-        "status_text": status,
-        "confirm_enabled": confirm_enabled,
-        "valid_target_hexes": hexes_to_wire(
+    return map_selection_preview(
+        kind=_ATTACK_PLAN_KIND,
+        status_text=status,
+        confirm_enabled=confirm_enabled,
+        valid_target_hexes=hexes_to_wire(
             _valid_target_hexes(
                 state, board_hexes=board_hexes, player_faction=player_faction
             )
         ),
-        "eligible_attacker_ids": eligible,
-        "commit_payload": commit if confirm_enabled else None,
-        "panel_actions": _panel_actions(
+        eligible_attacker_ids=eligible,
+        commit_payload=commit if confirm_enabled else None,
+        panel_actions=_panel_actions(
             shell_ui,
             confirm_enabled=confirm_enabled,
             has_draft=True,
         ),
         **_attack_plan_draft_policy(draft),
-    }
+    )
 
 
 __all__ = [

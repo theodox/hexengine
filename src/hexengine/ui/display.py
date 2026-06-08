@@ -140,6 +140,63 @@ class InformPopup:
 
 
 @dataclass(frozen=True, slots=True)
+class MapSelectionPreview:
+    """Map-selection preview (``map_selection_preview`` wire); server sets ``request_id``."""
+
+    kind: str
+    status_text: str
+    confirm_enabled: bool
+    panel_actions: tuple[PanelAction, ...] = ()
+    valid_target_hexes: tuple[dict[str, int], ...] | None = None
+    eligible_attacker_ids: tuple[str, ...] | None = None
+    commit_payload: dict[str, Any] | None = None
+    legal_next_hexes: tuple[dict[str, int], ...] | None = None
+    preview_path_hexes: tuple[dict[str, int], ...] | None = None
+    through_hexes: tuple[dict[str, int], ...] | None = None
+    disable_end_phase: bool | None = None
+    draft_presentation_id: str | None = None
+
+    def to_wire_dict(self) -> dict[str, Any]:
+        out: dict[str, Any] = {
+            "kind": str(self.kind).strip(),
+            "status_text": str(self.status_text),
+            "confirm_enabled": bool(self.confirm_enabled),
+            "panel_actions": [a.to_wire_dict() for a in self.panel_actions],
+        }
+        if self.valid_target_hexes is not None:
+            out["valid_target_hexes"] = [
+                dict(h) for h in self.valid_target_hexes if isinstance(h, dict)
+            ]
+        if self.eligible_attacker_ids is not None:
+            out["eligible_attacker_ids"] = [
+                str(uid).strip()
+                for uid in self.eligible_attacker_ids
+                if str(uid).strip()
+            ]
+        if self.commit_payload is not None:
+            out["commit_payload"] = dict(self.commit_payload)
+        if self.legal_next_hexes is not None:
+            out["legal_next_hexes"] = [
+                dict(h) for h in self.legal_next_hexes if isinstance(h, dict)
+            ]
+        if self.preview_path_hexes is not None:
+            out["preview_path_hexes"] = [
+                dict(h) for h in self.preview_path_hexes if isinstance(h, dict)
+            ]
+        if self.through_hexes is not None:
+            out["through_hexes"] = [
+                dict(h) for h in self.through_hexes if isinstance(h, dict)
+            ]
+        if isinstance(self.disable_end_phase, bool):
+            out["disable_end_phase"] = bool(self.disable_end_phase)
+        if self.draft_presentation_id is not None and str(
+            self.draft_presentation_id
+        ).strip():
+            out["draft_presentation_id"] = str(self.draft_presentation_id).strip()
+        return out
+
+
+@dataclass(frozen=True, slots=True)
 class InteractionPanel:
     """Generic ``interaction_panels`` row without turn-dock fields (schema 1)."""
 
@@ -295,6 +352,69 @@ def inform_popup(
     )
 
 
+def map_selection_preview(
+    *,
+    kind: str,
+    status_text: str,
+    confirm_enabled: bool,
+    panel_actions: tuple[PanelAction, ...] | list[PanelAction] = (),
+    valid_target_hexes: list[dict[str, int]] | None = None,
+    eligible_attacker_ids: list[str] | None = None,
+    commit_payload: dict[str, Any] | None = None,
+    legal_next_hexes: list[dict[str, int]] | None = None,
+    preview_path_hexes: list[dict[str, int]] | None = None,
+    through_hexes: list[dict[str, int]] | None = None,
+    disable_end_phase: bool | None = None,
+    draft_presentation_id: str | None = None,
+) -> MapSelectionPreview:
+    """Build one map-selection preview (author-facing)."""
+    actions = (
+        tuple(panel_actions)
+        if isinstance(panel_actions, tuple)
+        else tuple(panel_actions)
+    )
+
+    def _hex_tuple(rows: list[dict[str, int]] | None) -> tuple[dict[str, int], ...] | None:
+        if rows is None:
+            return None
+        return tuple(dict(h) for h in rows if isinstance(h, dict))
+
+    return MapSelectionPreview(
+        kind=kind,
+        status_text=status_text,
+        confirm_enabled=confirm_enabled,
+        panel_actions=actions,
+        valid_target_hexes=_hex_tuple(valid_target_hexes),
+        eligible_attacker_ids=(
+            tuple(str(uid).strip() for uid in eligible_attacker_ids)
+            if eligible_attacker_ids is not None
+            else None
+        ),
+        commit_payload=(
+            dict(commit_payload) if isinstance(commit_payload, dict) else None
+        ),
+        legal_next_hexes=_hex_tuple(legal_next_hexes),
+        preview_path_hexes=_hex_tuple(preview_path_hexes),
+        through_hexes=_hex_tuple(through_hexes),
+        disable_end_phase=disable_end_phase,
+        draft_presentation_id=draft_presentation_id,
+    )
+
+
+def empty_map_selection_preview(kind: str) -> MapSelectionPreview:
+    """Unsupported kind or unbound hook — confirm disabled, no highlights."""
+    k = str(kind or "").strip() or "unknown"
+    return MapSelectionPreview(
+        kind=k,
+        status_text="",
+        confirm_enabled=False,
+        valid_target_hexes=(),
+        eligible_attacker_ids=(),
+        commit_payload=None,
+        panel_actions=(),
+    )
+
+
 def interaction_panel(
     *,
     id: str,
@@ -384,14 +504,17 @@ __all__ = [
     "InformPopup",
     "InteractionMessage",
     "InteractionPanel",
+    "MapSelectionPreview",
     "PanelAction",
     "TurnDockPanel",
     "clear_template_cache",
+    "empty_map_selection_preview",
     "escape",
     "inform_popup",
     "interaction_message",
     "interaction_panel",
     "load_html_template",
+    "map_selection_preview",
     "pack_asset_href",
     "panel_action",
     "panel_actions_from_dicts",
