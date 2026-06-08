@@ -73,7 +73,7 @@ def test_hexdemo_validate_title_contract_includes_segment_registry() -> None:
 
 
 def test_validate_title_contract_requires_segment_registry_with_session_state_key() -> None:
-    from games.hexdemo.turn_arc_schedule import build_hexdemo_turn_arc_registry
+    from games.hexdemo.arcs.turn_schedule import build_hexdemo_turn_arc_registry
 
     from hexengine.gamedef.game_data import GameData
     from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer
@@ -96,7 +96,7 @@ def test_validate_title_contract_requires_segment_registry_with_session_state_ke
 
 
 def test_validate_title_contract_requires_enrich_current_segment() -> None:
-    from games.hexdemo.turn_arc_schedule import build_hexdemo_turn_arc_registry
+    from games.hexdemo.arcs.turn_schedule import build_hexdemo_turn_arc_registry
 
     from hexengine.gamedef.game_data import GameData
     from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer

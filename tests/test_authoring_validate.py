@@ -23,7 +23,7 @@ def test_validate_arc_contract_catches_missing_routine_spec() -> None:
 
 
 def test_validate_arc_contract_passes_hexdemo_registry() -> None:
-    from games.hexdemo.turn_arc_schedule import build_hexdemo_turn_arc_registry
+    from games.hexdemo.arcs.turn_schedule import build_hexdemo_turn_arc_registry
 
     reg = build_hexdemo_turn_arc_registry()
     bundle = TitleHooks(arcs=ArcsHooks(turn_arc_registry=lambda: reg))

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from games.hexdemo import combat_transitions
-from games.hexdemo.arc_segment import phase_advance_blocked
+from games.hexdemo.arcs.segment import phase_advance_blocked
 
 from hexengine.arcs import ArcCursor, with_arc_cursor
 from hexengine.state import GameState

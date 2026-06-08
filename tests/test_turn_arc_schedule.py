@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from games.hexdemo.game_config import default_match_config, game_definition_from_config
 from games.hexdemo.hooks import build_hooks
-from games.hexdemo.turn_arc_schedule import (
+from games.hexdemo.arcs.turn_schedule import (
     build_hexdemo_turn_arc_registry,
     hexdemo_schedule_slots,
 )

@@ -11,7 +11,7 @@ from hexengine.hooks.arcs import ArcHook
 from hexengine.hooks.wiring import bind_title_hook
 
 from ..combat_arc import BINDING, build_hexdemo_combat_arc_spec
-from ..turn_arc_schedule import build_hexdemo_turn_arc_registry
+from ..arcs.turn_schedule import build_hexdemo_turn_arc_registry
 
 _COMBAT_ARC_SPEC = build_hexdemo_combat_arc_spec()
 _TURN_ARC_REGISTRY = build_hexdemo_turn_arc_registry()

@@ -11,7 +11,7 @@ from hexengine.authoring.patterns.schedule import (
     interleaved_slots,
 )
 
-from .constants import HEXDEMO_FACTIONS
+from ..constants import HEXDEMO_FACTIONS
 
 _MOVE_ACTIONS = frozenset(
     {"MoveUnit", "NextPhase", "MoveMarker", "AddMarker", "RemoveMarker"}

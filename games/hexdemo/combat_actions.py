@@ -19,7 +19,7 @@ from hexengine.state.actions import (
     ClearUnitRetreatObligation,
     MoveUnit,
 )
-from . import arc_segment
+from .arcs import segment as arc_segment
 from .state import session_state
 
 

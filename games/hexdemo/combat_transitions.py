@@ -31,7 +31,7 @@ from hexengine.hooks.bucket import clear_session_bucket
 from hexengine.state import GameState
 from hexengine.state.action_manager import StateAction
 
-from . import arc_segment
+from .arcs import segment as arc_segment
 
 # Segment ``kind`` values on gate-bearing combat arc segments.
 GATE_AWAITING_RETREAT = "awaiting_retreat"

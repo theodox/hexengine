@@ -93,7 +93,7 @@ class HexdemoMovementRules:
             )
 
     def auto_advance_phase_after_move_spend(self, state: GameState) -> bool:
-        from .arc_segment import phase_advance_blocked  # breaks cycle: movement_rules → arc_segment → hooks → movement
+        from .arcs.segment import phase_advance_blocked  # breaks cycle: movement_rules → arcs.segment → hooks → movement
 
         if phase_advance_blocked(state):
             return False

@@ -14,7 +14,7 @@ from hexengine.hooks.wiring import bind_title_hook
 
 from .. import combat_rules
 from ..state import session_state
-from ..arc_segment import phase_advance_blocked
+from ..arcs.segment import phase_advance_blocked
 from ..combat_planning import compute_attack_plan_preview
 
 # Re-export for tests that patch RNG on the rules module path.

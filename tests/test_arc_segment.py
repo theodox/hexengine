@@ -12,7 +12,8 @@ for p in (GAMES, SRC):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from games.hexdemo import arc_segment, combat_arc
+from games.hexdemo import combat_arc
+from games.hexdemo.arcs import segment as arc_segment
 
 from hexengine.arcs import ArcCursor, SetArcCursor
 from hexengine.hexes.types import Hex

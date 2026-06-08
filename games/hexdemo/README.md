@@ -46,7 +46,7 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `hooks/title_load.py` | Splash/setup/server-log (`[hooks.title_load]` in manifest) |
 | `presentation/` | Viewer copy (`dock.py`, `inform.py`, `interaction_messages.py`) |
 | `segment_ui.py` | Segment `ui_mode` → presentation registry (`PRESENTATION_BY_UI_MODE`) |
-| `arc_segment.py` | Project `current_segment` per viewer; `phase_advance_blocked` for auto-advance |
+| `arcs/segment.py` | Project `current_segment` per viewer; `phase_advance_blocked` for auto-advance |
 | `combat_rules.py` | `HexdemoCombatRules` / `BINDING` — CRT, validate, arc guards/effects, `attack_arc_effect` |
 | `combat_outcome.py` | Post-attack `CombatOutcome` / `BucketPatch` builder |
 | `combat_arc.py` | `combat_rules_binding_to_arc_spec` + owner resolver → `ArcHook.COMBAT_ARC` |
@@ -56,7 +56,7 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `movement_rules.py` | Movement policy (`MovementRulesBinding`); `hooks/movement.py` adapts |
 | `combat_planning.py` | Attack plan preview (shared by `hooks/attack` and tests) |
 | `state/session_state.py` | Session-state reads (`bucket()`, retreat obligations, advance offer) |
-| `turn_arc_schedule.py` | Turn arc registry builder (move/combat schedule slots) |
+| `arcs/turn_schedule.py` | Turn arc registry builder (move/combat schedule slots) |
 | `focus.py` | Suggested unit focus after state sync |
 | `shell_ui.py` | Shell UI string keys for dock and previews |
 | `constants.py` | `PACK_SESSION_STATE_KEY`, `HEXDEMO_FACTIONS` |
