@@ -30,9 +30,9 @@ When you run `hexserver` (or start the local WebSocket server) with a scenario u
 - `hexdemo.game_config.HexdemoMatchConfig` — factions and `movement_budget`.
 - `hexdemo.game_config.hexdemo_four_phase_entries` / `game_definition_from_config` — define the single static rota (Union/Confederate Move/Combat) wrapped by `HexdemoGameDefinition`.
 
-The manifest entry `hexdemo.engine_entry.load_game_definition()` returns that definition; the engine does not pass a schedule from the CLI.
+The manifest entry `hexdemo.registry.build_game_definition()` returns that definition; the engine does not pass a schedule from the CLI.
 
-- `hexdemo.registry.build_game_definition()` — same as the manifest entry (convenience for tests).
+- `hexdemo.registry.build_game_definition()` — manifest entry callable.
 
 Faction ids are **`confederate`** and **`union`** (see `hexdemo.constants.HEXDEMO_FACTIONS`); scenario `faction =` on units must use these strings.
 
@@ -66,8 +66,7 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `resources/ui.css` | Pack skin modifiers (including SEQUENCE draft steps) |
 | `ui_markup.py` | Template render helpers + flag URLs (skinning tier 2–3; see `docs/SKINNING_AFFORDANCES_PLAN.md`) |
 | `game_config.py` | **Match config** (`HexdemoMatchConfig`), schedule wrapper, `focus_unit_id_after_state_sync` |
-| `registry.py` | `build_game_definition()` (uses `game_config`) |
-| `engine_entry.py` | Manifest `load_game_definition` entry |
+| `registry.py` | Manifest `build_game_definition()` (uses `game_config`) |
 | `marker_rules.py` | Optional `MarkerPlacementRule` hook |
 
 Movement and combat policy live in **`movement_rules.py`** and **`combat_rules.py`**; **`TitleHooks`** (`hooks/movement.py`, `hooks/attack.py`, `hooks/arcs.py`) are thin adapters. Attack resolution runs through the **combat arc `attack` segment** (`BINDING.attack_arc_effect`), not a separate engine handoff path. The server resolves rules through `GameDefinition.hooks` only.

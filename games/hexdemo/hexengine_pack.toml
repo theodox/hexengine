@@ -8,8 +8,8 @@ title = "Hexdemo"
 # Pack root is `games/hexdemo`; importable top-level `hexdemo` package lives there.
 # Prepend the `games` parent so `import hexdemo` resolves.
 path_add = ".."
-entry_module = "hexdemo.engine_entry"
-entry_callable = "load_game_definition"
+entry_module = "hexdemo.registry"
+entry_callable = "build_game_definition"
 
 [gamedata]
 file = "resources/game_data.toml"

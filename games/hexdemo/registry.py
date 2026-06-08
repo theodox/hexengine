@@ -1,7 +1,7 @@
 """
 Named entry points for `hexengine.gamedef.protocol.GameDefinition` factories.
 
-The engine loads this pack via hexengine_pack.toml and hexdemo.engine_entry.
+The engine loads this pack via hexengine_pack.toml (`hexdemo.registry.build_game_definition`).
 Match rules (turn order, factions, …) are assembled in hexdemo.game_config — edit
 HexdemoMatchConfig there (or build your own and extend this module) rather than only
 swapping ids here.
