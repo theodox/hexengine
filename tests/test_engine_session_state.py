@@ -6,7 +6,11 @@ import pytest
 
 from hexengine.state import GameState
 from hexengine.state.action_manager import ActionManager
-from hexengine.hooks.bucket import ApplyBucketPatch, BucketPatch
+from hexengine.hooks.bucket import (
+    ApplyBucketPatch,
+    BucketPatch,
+    clear_session_bucket,
+)
 from hexengine.state.movement_arc import HEXENGINE_MOVEMENT_ARC_KEY
 from hexengine.state.snapshot import game_state_from_wire_dict, game_state_to_wire_dict
 from hexengine.state.engine_session_state import (
@@ -96,6 +100,27 @@ def test_snapshot_wire_roundtrip_split_fields() -> None:
     st2 = game_state_from_wire_dict(wire)
     assert engine_read_session_state(st2, "hexdemo") == {"a": 1}
     assert st2.session_state_key == "hexdemo"
+
+
+def test_bucket_patch_remove_only() -> None:
+    patch = BucketPatch.remove_only("a", "b")
+    assert patch.values == {}
+    assert patch.remove_keys == ("a", "b")
+
+
+def test_clear_session_bucket() -> None:
+    st = GameState.create_empty().with_session_state(
+        {"keep": 1, "drop": 2},
+        session_state_key="hexdemo",
+    )
+    assert clear_session_bucket(st, ()) == []
+    assert clear_session_bucket(GameState.create_empty(), ("drop",)) == []
+    actions = clear_session_bucket(st, ("drop", "missing"))
+    assert len(actions) == 1
+    mgr = ActionManager(st)
+    mgr.execute(actions[0])
+    hx = engine_read_session_state(mgr.current_state, "hexdemo")
+    assert hx == {"keep": 1}
 
 
 def test_engine_state_roundtrip() -> None:

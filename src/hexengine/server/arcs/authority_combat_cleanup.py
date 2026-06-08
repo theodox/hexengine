@@ -15,6 +15,7 @@ from ...hooks.attack import CombatAdvanceMoveContext
 from ...hooks.title import TitleHooks
 from ...state import ActionManager, GameState
 from ..protocol import ActionRequest, PlayerInfo
+from .authority_arc_runtime import combat_arc_spec
 
 
 class AuthorityCombatCleanupHost(Protocol):
@@ -59,8 +60,6 @@ def move_unit_is_combat_advance_fulfillment(
         session_state_key=session_state_key,
         player_faction=str(player_faction),
     )
-    from .authority_arc_runtime import combat_arc_spec
-
     spec = combat_arc_spec(hooks)
     if spec is not None and spec.advance_move_detector is not None:
         return bool(spec.advance_move_detector(ctx))

@@ -7,7 +7,9 @@ from typing import Any
 
 from hexengine.arcs.segment_wire import (
     project_current_segment,
+    segment_allows_action,
     segment_blocks_routine_phase_advance,
+    segment_denies_action_for_faction,
 )
 from hexengine.server.arcs.authority_arc_runtime import lookup_arc_spec
 from hexengine.state import GameState
@@ -18,7 +20,7 @@ _SEGMENT_HOST: SimpleNamespace | None = None
 def _segment_host() -> SimpleNamespace:
     global _SEGMENT_HOST
     if _SEGMENT_HOST is None:
-        from .hooks import build_hooks
+        from .hooks import build_hooks  # breaks cycle: hooks → attack → arc_segment → hooks
 
         hooks = build_hooks()
         host = SimpleNamespace(hooks=hooks, movement_arc_spec=lambda: None)
@@ -54,8 +56,6 @@ def segment_denies_action(
 ) -> bool:
     """True when a segment is active and omits ``action_type`` from allowed_actions."""
 
-    from hexengine.arcs.segment_wire import segment_denies_action_for_faction
-
     return segment_denies_action_for_faction(
         _segment_host(), state, viewer_faction, action_type
     )
@@ -76,8 +76,6 @@ def segment_allows(
     action_type: str,
 ) -> bool:
     """True when the projected segment lists ``action_type`` in ``allowed_actions``."""
-
-    from hexengine.arcs.segment_wire import segment_allows_action
 
     seg = project_segment_for_faction(state, viewer_faction)
     if seg is None:

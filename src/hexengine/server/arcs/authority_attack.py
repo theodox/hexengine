@@ -18,6 +18,7 @@ from enum import StrEnum
 from typing import Any, Protocol
 
 from ...arcs import ArcCursor, SetArcCursor, read_arc_cursor, submit_event
+from ...arcs.segment_wire import segment_denies_action_for_faction
 from ...authoring.patterns.combat import SEG_ATTACK
 from ...hooks.title import TitleHooks
 from ...state import GameState
@@ -124,8 +125,6 @@ async def _execute_arc_attack(
     try:
         build_attack_context_from_wire(current_state, player_faction, params)
         if host._engine_session_state_key():
-            from ...arcs.segment_wire import segment_denies_action_for_faction
-
             if segment_denies_action_for_faction(
                 host, current_state, player_faction, "Attack"
             ):

@@ -25,12 +25,13 @@ Transitions:
 
 from __future__ import annotations
 
+from hexengine.arcs.segment_wire import segment_allows_action
 from hexengine.authoring.patterns.combat import CombatArcGateUiModes
+from hexengine.hooks.bucket import clear_session_bucket
 from hexengine.state import GameState
 from hexengine.state.action_manager import StateAction
-from hexengine.hooks.bucket import ApplyBucketPatch, BucketPatch
 
-from . import session_state
+from . import arc_segment
 
 # Segment ``kind`` values on gate-bearing combat arc segments.
 GATE_AWAITING_RETREAT = "awaiting_retreat"
@@ -64,17 +65,7 @@ PHASE_SCOPED_COMBAT_KEYS: tuple[str, ...] = (
 def clear_combat_state_actions(state: GameState) -> list[StateAction]:
     """Actions to drop phase-scoped combat keys from the hexdemo bucket on phase advance."""
 
-    ek = state.session_state_key
-    if not ek:
-        return []
-    if not session_state.bucket(state):
-        return []
-    return [
-        ApplyBucketPatch(
-            ek,
-            BucketPatch(values={}, remove_keys=PHASE_SCOPED_COMBAT_KEYS),
-        ),
-    ]
+    return clear_session_bucket(state, PHASE_SCOPED_COMBAT_KEYS)
 
 
 def attack_planning_blocked_reason(state: GameState, player_faction: str) -> str | None:
@@ -85,10 +76,6 @@ def attack_planning_blocked_reason(state: GameState, player_faction: str) -> str
     phase = str(state.turn.current_phase).strip()
     if phase not in ("Combat", "Attack"):
         return "Attack planning is only available during Combat"
-
-    from hexengine.arcs.segment_wire import segment_allows_action
-
-    from . import arc_segment
 
     seg = arc_segment.project_segment_for_faction(state, player_faction)
     if seg is None:

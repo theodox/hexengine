@@ -13,7 +13,7 @@ from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
 from hexengine.state import GameState
 from hexengine.state.action_manager import StateAction
-from hexengine.hooks.bucket import ApplyBucketPatch, BucketPatch
+from hexengine.hooks.bucket import ApplyBucketPatch, BucketPatch, clear_session_bucket
 from hexengine.hooks.unit import ApplyUnitAttributesPatch, UnitAttributesPatch
 from hexengine.state.actions import (
     ClearUnitRetreatObligation,
@@ -325,12 +325,7 @@ def clear_advance_gate(state: GameState, session_state_key: str) -> list[StateAc
         return []
     if session_state.advance_offer(state) is None:
         return []
-    return [
-        ApplyBucketPatch(
-            session_state_key,
-            BucketPatch(values={}, remove_keys=("advance",)),
-        )
-    ]
+    return clear_session_bucket(state, ("advance",), session_state_key=session_state_key)
 
 
 def resolve_combat_advance(
@@ -363,11 +358,8 @@ def resolve_combat_advance(
         if u is None or not u.active or u.faction != faction:
             continue
         actions.append(MoveUnit(uid, from_hex=u.position, to_hex=to_hex))
-    actions.append(
-        ApplyBucketPatch(
-            session_state_key,
-            BucketPatch(values={}, remove_keys=("advance",)),
-        )
+    actions.extend(
+        clear_session_bucket(state, ("advance",), session_state_key=session_state_key)
     )
     return actions
 

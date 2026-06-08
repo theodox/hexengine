@@ -19,8 +19,14 @@ class BucketPatch:
     values: dict[str, Any] = field(default_factory=dict)
     remove_keys: tuple[str, ...] = ()
 
+    @classmethod
+    def remove_only(cls, *remove_keys: str) -> BucketPatch:
+        """Patch that drops top-level bucket keys without merging new values."""
+
+        return cls(values={}, remove_keys=remove_keys)
+
     def to_action(self, session_state_key: str) -> "ApplyBucketPatch":
-        from .actions import ApplyBucketPatch
+        from .actions import ApplyBucketPatch  # breaks cycle: actions ↔ engine_session_state
 
         return ApplyBucketPatch(session_state_key, self)
 

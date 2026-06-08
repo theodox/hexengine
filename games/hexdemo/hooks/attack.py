@@ -14,6 +14,7 @@ from hexengine.hooks.wiring import bind_title_hook
 
 from .. import combat_rules, session_state
 from ..arc_segment import phase_advance_blocked
+from ..combat_planning import compute_attack_plan_preview
 
 # Re-export for tests that patch RNG on the rules module path.
 random = combat_rules.random
@@ -59,8 +60,6 @@ def auto_advance_phase_after_attack(state) -> bool:
 
 @bind_title_hook(AttackHook.ATTACK_PLAN_PREVIEW)
 def attack_plan_preview(ctx: AttackPlanPreviewContext):
-    from ..combat_planning import compute_attack_plan_preview
-
     st = ctx.state
     seen: set[tuple[int, int, int]] = set()
     board_hexes: list[Hex] = []

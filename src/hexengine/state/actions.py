@@ -16,16 +16,24 @@ from ..snapshot import (
     normalize_snapshot_value,
 )
 from .action_manager import StateAction
-from .game_state import TurnState
+from .engine_session_state import (
+    BucketPatch,
+    engine_bucket,
+    engine_read_session_state,
+    engine_write_session_state,
+    with_engine_bucket,
+)
+from .game_state import TurnState, UnitState
 from .movement_arc import (
     HEXENGINE_MOVEMENT_ARC_KEY,
     MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
     MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
     turn_state_from_movement_arc_snapshot,
 )
+from .unit_attributes import UnitAttributesPatch
 
 if TYPE_CHECKING:
-    from ..state.game_state import GameState, UnitState
+    from ..state.game_state import GameState
 
 LOGGER = logging.getLogger("actions")
 
@@ -126,8 +134,6 @@ class WriteHexengineMovementArc(StateAction):
         self._prev_value: Any = None
 
     def apply(self, state: GameState) -> GameState:
-        from .engine_session_state import with_engine_bucket
-
         self._had_key = HEXENGINE_MOVEMENT_ARC_KEY in state.engine_state
         self._prev_value = state.engine_state.get(HEXENGINE_MOVEMENT_ARC_KEY)
         if self.payload is None:
@@ -137,8 +143,6 @@ class WriteHexengineMovementArc(StateAction):
         return with_engine_bucket(state, HEXENGINE_MOVEMENT_ARC_KEY, dict(self.payload))
 
     def revert(self, state: GameState) -> GameState:
-        from .engine_session_state import with_engine_bucket
-
         if self._had_key:
             return with_engine_bucket(
                 state,
@@ -165,8 +169,6 @@ class ResolvePassMovementInterrupt(StateAction):
         self._saved_turn: TurnState | None = None
 
     def apply(self, state: GameState) -> GameState:
-        from .engine_session_state import engine_bucket, with_engine_bucket
-
         raw = engine_bucket(state, HEXENGINE_MOVEMENT_ARC_KEY)
         if not raw:
             raise ValueError("No hexengine movement arc")
@@ -220,8 +222,6 @@ class ApplyUnitAttributesPatch(StateAction):
     """Apply a ``UnitAttributesPatch`` to one unit (undo restores prior attributes)."""
 
     def __init__(self, unit_id: str, patch: UnitAttributesPatch) -> None:
-        from .unit_attributes import UnitAttributesPatch
-
         self.unit_id = str(unit_id).strip()
         if not self.unit_id:
             raise ValueError("unit_id must be non-empty")
@@ -329,8 +329,6 @@ class AddUnit(StateAction):
 
     def apply(self, state: GameState) -> GameState:
         """Add the unit, returning a new game state."""
-        from ..state.game_state import UnitState
-
         # Check if unit already exists
         if self.unit_id in state.board.units:
             raise ValueError(f"Unit {self.unit_id} already exists")
@@ -395,8 +393,6 @@ class SpendAction(StateAction):
 
     def revert(self, state: GameState) -> GameState:
         """Restore spent actions, returning a new game state."""
-        from dataclasses import replace
-
         current_phase = state.turn.current_phase
         current_faction = state.turn.current_faction
 
@@ -530,8 +526,6 @@ class ApplyBucketPatch(StateAction):
     """Apply a ``BucketPatch`` to a pack session-state bucket (undo restores prior snapshot)."""
 
     def __init__(self, session_state_key: str, patch: BucketPatch) -> None:
-        from .engine_session_state import BucketPatch
-
         self.session_state_key = str(session_state_key).strip()
         if not self.session_state_key:
             raise ValueError("session_state_key must be non-empty")
@@ -541,8 +535,6 @@ class ApplyBucketPatch(StateAction):
         self._saved_bucket: dict[str, Any] | None = None
 
     def apply(self, state: GameState) -> GameState:
-        from .engine_session_state import engine_read_session_state, engine_write_session_state
-
         prior = engine_read_session_state(state, self.session_state_key)
         self._saved_bucket = dict(prior)
         new_hx = {**prior, **dict(self.patch.values)}
@@ -553,8 +545,6 @@ class ApplyBucketPatch(StateAction):
     def revert(self, state: GameState) -> GameState:
         if self._saved_bucket is None:
             return state
-        from .engine_session_state import engine_write_session_state
-
         return engine_write_session_state(state, self.session_state_key, self._saved_bucket)
 
     def should_revert_prior(self) -> bool:
@@ -573,8 +563,6 @@ class ClearUnitRetreatObligation(StateAction):
         self._inner: ApplyBucketPatch | None = None
 
     def apply(self, state: GameState) -> GameState:
-        from .engine_session_state import engine_read_session_state
-
         hx = engine_read_session_state(state, self.session_state_key)
         if not hx:
             self._inner = None
@@ -584,8 +572,6 @@ class ClearUnitRetreatObligation(StateAction):
             self._inner = None
             return state
         ro.pop(self.unit_id, None)
-        from .engine_session_state import BucketPatch
-
         self._inner = ApplyBucketPatch(
             self.session_state_key,
             BucketPatch(values={"retreat_obligations": ro}),
@@ -707,8 +693,6 @@ def _apply_step_loss_to_unit(state: GameState, unit_id: str) -> GameState:
                 m = _int_attr(unit.attributes, "morale", 0)
                 patch["combat"] = max(0, c - 1)
                 patch["morale"] = max(0, m - 1)
-        from .unit_attributes import UnitAttributesPatch
-
         st = ApplyUnitAttributesPatch(
             unit_id, UnitAttributesPatch(values=patch)
         ).apply(state)
@@ -772,8 +756,6 @@ class ApplyCombatEffects(StateAction):
                 for u in st.board.active_units_at_hex(u0.position):
                     if u.faction != u0.faction:
                         continue
-                    from .unit_attributes import UnitAttributesPatch
-
                     st = ApplyUnitAttributesPatch(
                         str(u.unit_id),
                         UnitAttributesPatch(values={"disrupted": True}),

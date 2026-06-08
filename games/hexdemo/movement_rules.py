@@ -86,7 +86,7 @@ def validate_retreat_move(ctx, hexes_remaining: int) -> None:
 
 
 def auto_advance_phase_after_move_spend(state: GameState) -> bool:
-    from .arc_segment import phase_advance_blocked
+    from .arc_segment import phase_advance_blocked  # breaks cycle: movement_rules → arc_segment → hooks → movement
 
     if phase_advance_blocked(state):
         return False

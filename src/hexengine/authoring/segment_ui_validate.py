@@ -7,10 +7,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from ..arcs.registry import TurnArcRegistry
 from ..arcs.runner import ArcSpec
 from ..arcs.spec import Arc, Segment
 from ..hooks.core import ENGINE_DEFAULT
-from ..hooks.title import TitleHooks
+from ..hooks.title import TitleHooks, read_title_hooks_from_definition
 
 
 def _ui_mode_from_segment(segment: Segment) -> str | None:
@@ -42,8 +43,6 @@ def collect_declared_ui_modes(bundle: TitleHooks) -> set[str]:
     ui_modes: set[str] = set()
     reg_raw = bundle.arcs.turn_arc_registry_spec()
     if reg_raw is not ENGINE_DEFAULT:
-        from ..arcs.registry import TurnArcRegistry
-
         if isinstance(reg_raw, TurnArcRegistry):
             for spec in reg_raw.routine_specs.values():
                 if isinstance(spec, ArcSpec):
@@ -120,8 +119,6 @@ def validate_segment_presentation(bundle: TitleHooks) -> list[str]:
 
 
 def validate_segment_presentation_for_definition(game_definition: Any) -> list[str]:
-    from ..hooks.title import read_title_hooks_from_definition
-
     return validate_segment_presentation(
         read_title_hooks_from_definition(game_definition)
     )

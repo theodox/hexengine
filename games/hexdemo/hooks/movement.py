@@ -52,7 +52,7 @@ def validate_retreat_move(ctx, hexes_remaining):
 
 @bind_title_hook(MovementHook.RETREAT_PATH_PREVIEW)
 def retreat_path_preview_for_viewer(ctx):
-    from ..retreat_path_preview import retreat_path_preview
+    from ..retreat_path_preview import retreat_path_preview  # breaks cycle: movement → retreat_path_preview → movement
 
     return retreat_path_preview(ctx)
 

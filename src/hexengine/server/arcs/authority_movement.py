@@ -18,6 +18,7 @@ from ...hooks.movement import MoveContext, MovementStepContext
 from ...hooks.title import TitleHooks
 from ...retreat_path import parse_wire_path, validate_retreat_path
 from ...state import ActionManager, GameState
+from ...state.engine_session_state import engine_bucket
 from ...state.actions import MoveUnit, SetTurnState, WriteHexengineMovementArc
 from ...state.logic import is_valid_move, shortest_move_path
 from ...state.movement_arc import (
@@ -56,8 +57,6 @@ def dedupe_faction_ids(items: tuple[str, ...]) -> tuple[str, ...]:
 
 def read_movement_arc(state: GameState) -> dict[str, Any] | None:
     """Return movement **arc** payload in `extension`, if any."""
-
-    from ...state.engine_session_state import engine_bucket
 
     raw = engine_bucket(state, HEXENGINE_MOVEMENT_ARC_KEY)
     return raw if raw else None

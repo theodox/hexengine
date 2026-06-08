@@ -14,7 +14,7 @@ class UnitAttributesPatch:
     remove_keys: tuple[str, ...] = ()
 
     def to_action(self, unit_id: str) -> "ApplyUnitAttributesPatch":
-        from .actions import ApplyUnitAttributesPatch
+        from .actions import ApplyUnitAttributesPatch  # breaks cycle: actions ↔ unit_attributes
 
         return ApplyUnitAttributesPatch(unit_id, self)
 

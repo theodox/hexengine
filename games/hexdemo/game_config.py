@@ -28,7 +28,10 @@ from hexengine.gamedef.game_data_toml import load_game_data_for_pack_root
 from hexengine.gamedef.protocol import GameDefinition
 from hexengine.state import DEFAULT_MOVEMENT_BUDGET, GameState
 
+from . import combat_transitions, focus
 from .constants import HEXDEMO_FACTIONS
+from .hooks import build_hooks
+from .marker_rules import default_marker_placement_rule
 
 _HEXDEMO_PACK_ROOT = Path(__file__).resolve().parent
 
@@ -67,14 +70,10 @@ class HexdemoGameDefinition:
 
     @property
     def hooks(self):
-        from .hooks import build_hooks
-
         return build_hooks()
 
     @property
     def marker_placement_rule(self):
-        from .marker_rules import default_marker_placement_rule
-
         return default_marker_placement_rule()
 
     @property
@@ -95,8 +94,6 @@ class HexdemoGameDefinition:
         self, state: GameState, viewer_faction: str | None
     ) -> str | None:
         """Optional hook: which unit the client should select after a state sync."""
-        from . import focus
-
         return focus.focus_unit_id_after_state_sync(state, viewer_faction)
 
     def default_attributes_for_unit_type(self, unit_type: str) -> dict[str, Any]:
@@ -137,8 +134,6 @@ class HexdemoGameDefinition:
         its own phase-scoped combat bookkeeping here (the engine does not know these
         bucket keys).
         """
-        from . import combat_transitions
-
         return combat_transitions.clear_combat_state_actions(state)
 
 
