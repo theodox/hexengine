@@ -564,7 +564,7 @@ class ApplyBucketPatch(StateAction):
 
 
 class ClearUnitRetreatObligation(StateAction):
-    """Clear one unit's entry from title retreat_obligations after a fulfillment move."""
+    """Clear one unit's entry from session-state retreat_obligations after a fulfillment move."""
 
     def __init__(self, unit_id: str, session_state_key: str) -> None:
         self.unit_id = unit_id

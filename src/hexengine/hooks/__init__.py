@@ -14,6 +14,7 @@ Hook surface for title-authored rules (`hexengine.hooks`).
 4. Build `TitleHooks` with `assemble_title_hooks` from your hook modules.
 
 This package root exposes a **small convenience**: `ENGINE_DEFAULT` and `TitleHooks`.
+Session-state patches: `hexengine.hooks.bucket` (`BucketPatch`, `ApplyBucketPatch`).
 
 **Engine-only:** `hexengine.hooks.internal` (catalog, `@hook`, `validate_title_contract`,
 movement budget catalog entry, combat-advance default).

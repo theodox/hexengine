@@ -84,7 +84,7 @@ Transient turn banner rows. Omitted from wire when `None`. Client shows **one** 
 **Server composition:** unless `UIHook.INTERACTION_MESSAGES` returns a full list, the server merges:
 
 1. **Phase row** — `PHASE_BANNER_TEXT_FOR_VIEWER` → `text`; optional `PHASE_BANNER_HTML_FOR_VIEWER` → `html`
-2. **Combat rows** — `UIHook.COMBAT_INTERACTION_MESSAGES` → `list[InteractionMessage]` (hexdemo: [`hooks/ui.py`](../games/hexdemo/hooks/ui.py)). Context includes `shell_ui` from `game_data.toml`. When the hook returns `ENGINE_DEFAULT`, the engine builds rows from `current_segment.ui_mode` plus `COMBAT_INSTRUCTION_FOR_VIEWER` and `ADVANCE_GATE_BANNERS_FOR_VIEWER` ([`ui_combat_messages.py`](../src/hexengine/hooks/ui_combat_messages.py)). The engine does not read title bucket `combat_gate` for banners.
+2. **Combat rows** — `UIHook.COMBAT_INTERACTION_MESSAGES` → `list[InteractionMessage]` (hexdemo: [`hooks/ui.py`](../games/hexdemo/hooks/ui.py)). Context includes `shell_ui` from `game_data.toml`. When the hook returns `ENGINE_DEFAULT`, the engine builds rows from `current_segment.ui_mode` plus `COMBAT_INSTRUCTION_FOR_VIEWER` and `ADVANCE_GATE_BANNERS_FOR_VIEWER` ([`ui_combat_messages.py`](../src/hexengine/hooks/ui_combat_messages.py)). The engine does not read session-state `combat_gate` for banners.
 
 `game_server` does not parse `last_combat` / `combat_gate` directly for banners (engine boundary 2). **`combat_event`** messages for retreat UI still use `last_combat` in [`_broadcast_combat_events`](../src/hexengine/server/game_server.py) — separate from INFORM.
 
@@ -261,7 +261,7 @@ When the combat overlay finishes (classify `done` or last cleanup step), the eng
 
 **Removed (do not document or bind):** `AFTER_ATTACK_APPLIED`, `ON_RETREAT_OBLIGATION_CLEARED`, `COMBAT_DISRUPT_INSTEAD_OF_RETREAT`, `COMBAT_RESOLVE_ADVANCE`, `IS_COMBAT_ADVANCE_MOVE`. Cleanup uses arc effects; advance `MoveUnit` uses [`ArcSpec.advance_move_detector`](../src/hexengine/arcs/runner.py) on `COMBAT_ARC`.
 
-**Bucket patches:** return [`CombatOutcome`](../src/hexengine/hooks/combat_outcome.py) from `combat_outcome_after_applied` (or embed in `resolve_attack`); engine applies `PatchTitleBucket` via [`combat_outcome_apply`](../src/hexengine/server/arcs/combat_outcome_apply.py). Read bucket via [`engine_read_session_state`](../src/hexengine/state/engine_session_state.py) / pack `session_state` module.
+**Session-state patches:** build [`BucketPatch`](../src/hexengine/hooks/bucket.py) (author import from `hexengine.hooks.bucket`). Return it inside [`CombatOutcome`](../src/hexengine/hooks/combat_outcome.py) from `combat_outcome_after_applied` (or embed in `resolve_attack`); engine applies [`ApplyBucketPatch`](../src/hexengine/state/actions.py) via [`combat_outcome_apply`](../src/hexengine/server/arcs/combat_outcome_apply.py). Read session state via pack `session_state.bucket()` or engine `engine_read_session_state`.
 
 **Movement author layout:** policy in pack-root [`movement_rules.py`](../games/hexdemo/movement_rules.py) implementing [`MovementRulesBinding`](../src/hexengine/hooks/movement_rules.py); [`hooks/movement.py`](../games/hexdemo/hooks/movement.py) binds slots. Stepwise payload and arc cursor sync stay in `authority_movement` / movement arc runner.
 

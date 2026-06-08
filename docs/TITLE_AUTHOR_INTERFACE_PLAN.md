@@ -163,7 +163,7 @@ Authors work in **three layers** only (aligned with [`TITLE_AUTHORING.md` § Flo
 | Before | After |
 |--------|-------|
 | `resolve_attack` → `AttackResolution` | `resolve_attack` → `CombatOutcome` (includes effects + bucket patch) |
-| `after_attack_applied` → `PatchTitleBucket` list | *(removed — engine applies from outcome)* |
+| `after_attack_applied` → `ApplyBucketPatch` list | *(removed — engine applies `CombatOutcome.patch`)* |
 | Arc guards read bucket | Unchanged; bucket shape stable via `session_state` helpers |
 
 #### Tests

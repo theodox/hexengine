@@ -67,7 +67,7 @@ class CombatEventSummary:
 
     The engine builds `CombatEventWire` per connected player from this summary plus the
     per-viewer `combat_instruction_for_viewer` hook; titles own how to derive it from
-    their match state (the engine does not read title bucket combat keys).
+    their match state (the engine does not read pack session-state combat keys).
     """
 
     attack_kind: str

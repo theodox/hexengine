@@ -180,23 +180,31 @@ Server prepends `games/` when loading a scenario path; see hexdemo README for lo
 
 ---
 
-## Title bucket and combat (hexdemo pattern)
+## Session state and bucket patches
 
-Match-scoped title state lives in **`GameState.session_state`** (one bucket per match; pack id in **`GameState.session_state_key`** from `GameData.session_state_key`). Read/write through one module (hexdemo: [`session_state.py`](../games/hexdemo/session_state.py) — use `bucket()` and typed helpers such as `attacks_this_phase()` rather than scattering raw key strings). Engine ephemeral keys live in **`GameState.engine_state`** and must use the `hexengine_` prefix (see [`engine_session_state.py`](../src/hexengine/state/engine_session_state.py)).
+**Session state** is per-match pack data on **`GameState.session_state`** (not the browser/WebSocket client session). The pack id is **`GameState.session_state_key`**, set from **`GameData.session_state_key`** in `game_data.toml`.
 
-Authoritative match state uses **`GameState.session_state`** (title bucket) and **`GameState.engine_state`** (keys prefixed `hexengine_`). Snapshots and `StateUpdate` game_state carry `session_state`, `engine_state`, and `session_state_key`. Prefer `session_state.bucket()` / `hexengine.state.engine_session_state.engine_read_session_state` over reading raw fields when the pack id matters.
+| Layer | Authors import | Engine uses |
+|-------|----------------|-------------|
+| **Read** | Pack `session_state.bucket(state)` + typed helpers | `engine_read_session_state(state, key)` |
+| **Write (delta)** | `BucketPatch` + `ApplyBucketPatch` from [`hexengine.hooks.bucket`](../src/hexengine/hooks/bucket.py) | Same action; merge via `engine_write_session_state` |
+| **Combat handoff** | `CombatOutcome(patch=BucketPatch(...))` from `combat_outcome_after_applied` | `combat_outcome_apply` → `ApplyBucketPatch` before classify |
+
+**Glossary:** *bucket* = the session-state dict; *patch* = a partial update (`BucketPatch.values` merged, `remove_keys` dropped). Do not scatter raw key strings — centralize reads in one pack module (hexdemo: [`session_state.py`](../games/hexdemo/session_state.py)).
+
+**Engine ephemeral data** lives in **`GameState.engine_state`** (`hexengine_*` keys only). Snapshots and `StateUpdate.game_state` carry `session_state`, `engine_state`, and `session_state_key`.
 
 ### Combat and movement (hexdemo)
 
 | Layer | Module | Role |
 |-------|--------|------|
 | **Combat binding** | [`combat_rules.py`](../games/hexdemo/combat_rules.py) | `HexdemoCombatRules` / `BINDING`: CRT, validate, `CombatOutcome`, arc guards/effects, `attack_arc_effect` |
-| **Outcome builder** | [`combat_outcome.py`](../games/hexdemo/combat_outcome.py) | `build_combat_outcome_after_applied` → bucket patch for classify |
+| **Outcome builder** | [`combat_outcome.py`](../games/hexdemo/combat_outcome.py) | `build_combat_outcome_after_applied` → `BucketPatch` for classify |
 | **Arc spec** | [`combat_arc.py`](../games/hexdemo/combat_arc.py) | `combat_rules_binding_to_arc_spec`; owner resolver; `ArcHook.COMBAT_ARC` |
 | **Cleanup mutations** | [`combat_actions.py`](../games/hexdemo/combat_actions.py) | Retreat step, disrupt, advance resolve (called from binding) |
 | **Gate ui_modes / phase clear** | [`combat_transitions.py`](../games/hexdemo/combat_transitions.py) | `COMBAT_ARC_GATE_UI_MODES`, `clear_combat_state_actions`, attack-planning block copy |
 | **Combat gate dock rows** | [`authoring/patterns/combat.py`](../src/hexengine/authoring/patterns/combat.py) | `combat_gate_panel_actions` — Disrupt / Advance / Skip `PanelAction` rows from `allowed_actions` + `shell_ui` |
-| **Title bucket / retreat reads** | [`session_state.py`](../games/hexdemo/session_state.py) | `bucket()`, retreat obligations, advance offer |
+| **Session-state reads** | [`session_state.py`](../games/hexdemo/session_state.py) | `bucket()`, retreat obligations, advance offer |
 | **Movement policy** | [`movement_rules.py`](../games/hexdemo/movement_rules.py) | Budget, ZoC, step cost, retreat constraints |
 | **Hook adapters** | [`hooks/attack.py`](../games/hexdemo/hooks/attack.py), [`hooks/movement.py`](../games/hexdemo/hooks/movement.py) | `@bind_title_hook` only |
 | **Segment projection** | [`arc_segment.py`](../games/hexdemo/arc_segment.py) | `phase_advance_blocked`, planning block helpers |
@@ -214,7 +222,7 @@ Assembled with [`assemble_title_hooks`](../src/hexengine/hooks/wiring.py). Enum 
 | Bundle | Typical responsibilities | Contract / validation |
 |--------|-------------------------|---------------------|
 | **movement** | Step cost, ZoC, retreat obligations, retreat path preview, **auto-advance after move spend** | Movement arc; retreat preview optional; `AUTO_ADVANCE_PHASE_AFTER_MOVE_SPEND` (catalog default: advance when action pool empty) |
-| **attack** | `validate_attack` (rules only — segment legality is engine-default when extension key is set), `resolve_attack`, attack plan preview, optional **`combat_outcome_after_applied`** (`CombatOutcome` bucket handoff), **auto-advance after attack** | **Required** if schedule includes combat (`validate_title_contract`); `AUTO_ADVANCE_PHASE_AFTER_ATTACK` has no catalog default (omit hook = no auto-advance) |
+| **attack** | `validate_attack` (rules only — segment legality is engine-default when `session_state_key` is set), `resolve_attack`, attack plan preview, optional **`combat_outcome_after_applied`** (`CombatOutcome` + `BucketPatch`), **auto-advance after attack** | **Required** if schedule includes combat (`validate_title_contract`); `AUTO_ADVANCE_PHASE_AFTER_ATTACK` has no catalog default (omit hook = no auto-advance) |
 | **ui** | Banners, dock, popups, overlays, combat banners | `COMBAT_INTERACTION_MESSAGES`, `TURN_ACTION_DOCK_FOR_VIEWER` |
 | **arcs** | Turn registry, **combat arc** (`SEG_ATTACK` + cleanup subgraph), optional **combat rules binding** for contract check | `TURN_ARC_REGISTRY`, `COMBAT_ARC` (required); `COMBAT_RULES_BINDING` (hexdemo: validates `BINDING` methods at startup) |
 

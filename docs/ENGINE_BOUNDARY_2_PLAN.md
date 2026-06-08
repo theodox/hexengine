@@ -44,14 +44,14 @@ Branch: `engine_boundary_2` (from skinning squash on `main`).
 
 | Area | Today | Strain |
 |------|--------|--------|
-| Match state | Was `extension["hexdemo"]` + `hexengine_*` | Now `session_state` / `engine_state` / `session_state_key`; `extension_key` still on hooks/actions for API |
+| Match state | Was `extension["hexdemo"]` + `hexengine_*` | Now `session_state` / `engine_state` / `session_state_key`; `BucketPatch` + `ApplyBucketPatch` for writes |
 | Combat FSM | Implicit in bucket keys: `combat_gate`, `last_combat`, `retreat_obligations`, `advance`, `attacks_this_phase` | Engine + hexdemo + `game_server` INFORM all parse same strings |
 | Phase advance | Title hooks for move/attack; explicit `NextPhase` on dock | Improved; gate checks duplicated (dock, movement auto-advance) |
 | Engine actions | ~~`OpenCombatAdvance`, `ResolveCombatAdvance`, `ResolveDisruptInsteadOfRetreat`, `ClearTitleCombatExtension`~~ removed | Combat cleanup + phase-scoped key clearing now title-owned (`games/hexdemo/combat_actions.py`, `combat_transitions.clear_combat_state_actions`); engine actions hold no hexdemo key literals |
 
 ---
 
-## Phase A — Title bucket ergonomics (no wire break) ✅
+## Phase A — Session-state ergonomics (no wire break) ✅
 
 **Objective:** Single place to resolve the title key; less `extension.get("hexdemo")` noise.
 
@@ -67,8 +67,8 @@ Branch: `engine_boundary_2` (from skinning squash on `main`).
 | API | Behavior |
 |-----|----------|
 | `engine_read_session_state(state, key) -> dict` | `state.session_state` when `key == state.session_state_key`, else `{}` |
-| `with_engine_read_session_state(state, key, bucket: dict) -> GameState` | Shallow replace title bucket |
-| `patch_engine_read_session_state_action(key, patch, *, remove=()) -> StateAction` | Generic undoable patch (replaces ad-hoc copies in actions) |
+| `engine_write_session_state(state, key, bucket: dict) -> GameState` | Shallow replace session-state dict |
+| `ApplyBucketPatch` + `BucketPatch` | Generic undoable patch (replaces ad-hoc copies in actions) |
 
 Reserved top-level keys: prefix `hexengine_` (e.g. `hexengine_movement_arc`) — engine only.
 
@@ -84,7 +84,7 @@ Reserved top-level keys: prefix `hexengine_` (e.g. `hexengine_movement_arc`) —
 
 **Exit criteria:** No new `state.extension.get(PACK_…)` outside `session_state.py` in hexdemo; server uses `engine_read_session_state()` in new/edited code paths.
 
-**Tests:** Existing combat/movement tests green; add unit tests for `engine_read_session_state` / `patch_engine_read_session_state_action` revert.
+**Tests:** Existing combat/movement tests green; `test_engine_session_state.py` covers read/write and `ApplyBucketPatch` revert.
 
 ---
 
@@ -122,11 +122,11 @@ Reserved top-level keys: prefix `hexengine_` (e.g. `hexengine_movement_arc`) —
 
 **Objective:** Titles return follow-up state changes; engine runs arcs in fixed order.
 
-**Status:** C.1 hook + authority step; C.2 `ClearUnitRetreatObligation` via `PatchTitleBucket`, disrupt gate upgrade in hexdemo `follow_up_after_attack` (removed from `ApplyCombatEffects`); C.3 `ON_RETREAT_OBLIGATION_CLEARED` + unified server dispatch (retreat fulfillment + disrupt path). `Attack.apply` bucket writes remain engine-side until a later migration.
+**Status:** C.1 hook + authority step; C.2 `ClearUnitRetreatObligation` via `ApplyBucketPatch`, disrupt gate upgrade in hexdemo `follow_up_after_attack` (removed from `ApplyCombatEffects`); C.3 `ON_RETREAT_OBLIGATION_CLEARED` + unified server dispatch (retreat fulfillment + disrupt path). `Attack.apply` session writes remain engine-side until a later migration.
 
 ### C.1 Hook: `after_attack_applied(ctx) -> list[StateAction] | ENGINE_DEFAULT` ✅
 
-Context: `GameState`, `AttackResolution`, `extension_key`, attacker/defender ids, player faction.
+Context: `GameState`, `AttackResolution`, `session_state_key`, attacker/defender ids, player faction.
 
 - `authority_attack` after `Attack` + `ApplyCombatEffects`:
   1. Existing resolve path
@@ -138,7 +138,7 @@ Context: `GameState`, `AttackResolution`, `extension_key`, attacker/defender ids
 
 ### C.2 Generalize cleanup actions ✅ (incremental)
 
-- Prefer `PatchTitleBucket` over ad-hoc bucket copies (`ClearUnitRetreatObligation` migrated).
+- Prefer `ApplyBucketPatch` over ad-hoc session-state copies (`ClearUnitRetreatObligation` migrated).
 - Done: `OpenCombatAdvance` / `ResolveCombatAdvance` / `ResolveDisruptInsteadOfRetreat` extracted to pack-local `games/hexdemo/combat_actions.py`; engine cleanup arc dispatches title hooks (`COMBAT_RESOLVE_ADVANCE`, `COMBAT_DISRUPT_INSTEAD_OF_RETREAT`, `ON_RETREAT_OBLIGATION_CLEARED`).
 
 ### C.3 Optional: `on_retreat_obligation_cleared(ctx)` ✅
@@ -204,7 +204,7 @@ GameState
 | Item | Action |
 |------|--------|
 | [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md) | Rows #9–11 + boundary-2 quick reference |
-| [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) | Title bucket / `session_state` / combat transitions section |
+| [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) | Session state / `BucketPatch` / combat transitions section |
 | [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md) | `COMBAT_INTERACTION_MESSAGES`, segment presentation (P3–P5), attack follow-up hooks |
 | This plan | Phases A–F marked complete on `engine_boundary_2` |
 
@@ -241,7 +241,7 @@ Each PR should keep pytest green (`test_combat_hexdemo`, `test_hooks_contract`, 
 | Question | Resolution |
 |----------|------------|
 | `blocks_routine_phase_advance` on `UIHook` vs `MovementHook`? | **Resolved — removed.** Use `current_segment` + `segment_blocks_routine_phase_advance`; hexdemo via `arc_segment`. |
-| Clear whole title bucket on `NextPhase` vs named keys only? | **Named keys** (`PHASE_SCOPED_COMBAT_KEYS` in `combat_transitions.py`). |
+| Clear whole session state on `NextPhase` vs named keys only? | **Named keys** (`PHASE_SCOPED_COMBAT_KEYS` in `combat_transitions.py`). |
 | Require `after_attack_applied` when extension key set? | **No** — optional hook; hexdemo binds `follow_up_after_attack`. |
 
 ---

@@ -92,7 +92,7 @@ Blocking scripted events (season cards, scenario intros, “click Continue”) u
 | Copy + image | Dock `headline` + `html` from `resources/templates/` (HTML ladder); optional `interaction_messages` for a banner line |
 | Acknowledge / choice | DECIDE: one or more dock action rows (e.g. `AcknowledgeEvent`, branch A / B) |
 | Skin key | `presentation_id` (e.g. `event_prompt`) — opaque to engine; pack CSS may center or modal-style the panel |
-| Queue / script id | Title bucket (`session_state`); not client-readable for legality |
+| Queue / script id | Session state (`session_state`); not client-readable for legality |
 
 Do **not** use `ui_popup` for blocking prompts — that lane is hex-anchored, ephemeral INFORM. Do **not** put `onclick` in prompt HTML; every commit is a dock action row.
 
@@ -204,7 +204,7 @@ Frozen dataclass in [`ui_turn_action_dock.py`](../src/hexengine/hooks/ui_turn_ac
 |-------|------|-------|
 | `state` | `GameState` | Authoritative match state |
 | `viewer_faction` | `str \| None` | Recipient faction |
-| `extension_key` | `str \| None` | From `GameData.session_state_key` |
+| `session_state_key` | `str \| None` | From `GameData.session_state_key` |
 | `shell_ui` | `Mapping[str, Any]` | Declarative labels from `GameData` |
 | `schedule_index` | `int` | Current rota index |
 | `current_faction` | `str` | Turn owner |

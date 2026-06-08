@@ -1,4 +1,4 @@
-"""Read mandatory retreat steps from a title-owned GameState.extension bucket."""
+"""Read mandatory retreat steps from pack session state."""
 
 from __future__ import annotations
 

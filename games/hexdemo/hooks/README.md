@@ -40,11 +40,11 @@ Hexdemo today:
 | Rules (policy) | Hook adapters |
 |----------------|---------------|
 | `../combat_rules.py` — `BINDING`: CRT, validate, outcome, arc guards/effects | `attack.py`, `arcs.py` |
-| `../combat_outcome.py` — post-attack bucket patch builder | `attack.py` → `COMBAT_OUTCOME_AFTER_APPLIED` |
+| `../combat_outcome.py` — post-attack `BucketPatch` builder | `attack.py` → `COMBAT_OUTCOME_AFTER_APPLIED` |
 | `../combat_actions.py` — retreat/disrupt/advance state actions | Called from `BINDING` only |
 | `../combat_transitions.py` — gate kind strings, phase-scoped clear, planning block | Used by arc spec + `game_config` |
 | `../movement_rules.py` — budget, ZoC, step cost, retreat constraints | `movement.py` |
-| `../session_state.py` — bucket + retreat obligation reads | `movement_rules`, `combat_rules` |
+| `../session_state.py` — session-state reads (`bucket()`, retreat helpers) | `movement_rules`, `combat_rules` |
 | `../marker_rules.py` — `MarkerPlacementRule` factory | Injected on `GameServer`, not `TitleHooks` |
 
 Keep **one coherent policy** in pack-root modules when it is reused (server validation + client preview + unit tests). Movement legality lives in [`movement_rules.py`](../movement_rules.py); `hooks/movement.py` is adapters only.

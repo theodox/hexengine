@@ -48,14 +48,14 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `segment_ui.py` | Segment `ui_mode` → presentation registry (`PRESENTATION_BY_UI_MODE`) |
 | `arc_segment.py` | Project `current_segment` per viewer; `phase_advance_blocked` for auto-advance |
 | `combat_rules.py` | `HexdemoCombatRules` / `BINDING` — CRT, validate, arc guards/effects, `attack_arc_effect` |
-| `combat_outcome.py` | Post-attack `CombatOutcome` bucket builder |
+| `combat_outcome.py` | Post-attack `CombatOutcome` / `BucketPatch` builder |
 | `combat_arc.py` | `combat_rules_binding_to_arc_spec` + owner resolver → `ArcHook.COMBAT_ARC` |
 | `hooks/turn_action_dock.py` | Commit dock — `combat_gate_panel_actions` + End Phase + segment presentation |
 | `combat_transitions.py` | Gate kind strings, phase-scoped bucket clear, attack-planning block reason |
 | `combat_actions.py` | Pack-local cleanup state actions (disrupt, advance, retreat step) |
 | `movement_rules.py` | Movement policy (`MovementRulesBinding`); `hooks/movement.py` adapts |
 | `combat_planning.py` | Attack plan preview (shared by `hooks/attack` and tests) |
-| `session_state.py` | Match bucket accessor and retreat-obligation reads |
+| `session_state.py` | Session-state reads (`bucket()`, retreat obligations, advance offer) |
 | `turn_arc_schedule.py` | Turn arc registry builder (move/combat schedule slots) |
 | `focus.py` | Suggested unit focus after state sync |
 | `shell_ui.py` | Shell UI string keys for dock and previews |

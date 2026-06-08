@@ -9,7 +9,7 @@ segments until it rests on an owned segment (or the arc finishes).
 
 The engine reads no title shapes. The only title-specific inputs are callables the title
 supplies in the spec: transition guards/effects and an owner resolver for OwnerRef. The
-runner invokes them but never inspects title bucket contents itself.
+runner invokes them but never inspects session-state contents itself.
 
 All mutation goes through an ActionSink (ActionManager satisfies it). Each StateAction is
 executed exactly once, so undo/redo, snapshots, and the rng_log stay consistent — there

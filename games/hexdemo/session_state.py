@@ -2,7 +2,7 @@
 Hexdemo match-scoped session state in ``GameState.session_state``.
 
 One pack id per session (`PACK_SESSION_STATE_KEY`). All reads of the hexdemo
-bucket should go through ``bucket()`` so extension layout stays in one place.
+bucket should go through ``bucket()`` so key layout stays in one place.
 """
 
 from __future__ import annotations
