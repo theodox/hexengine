@@ -29,7 +29,7 @@ These are **layers**, not two different species of title code.
 **Healthy pattern:** hooks stay thin; they call into **rules** modules.
 
 ```text
-MoveUnit / movement arc  →  MovementHook.*  →  hooks/movement.py  →  ../movement_rules.py (+ ../state retreat reads)
+MoveUnit / movement arc  →  MovementHook.*  →  hooks/movement.py  →  ../movement/rules.py (+ ../state retreat reads)
 Attack RPC               →  combat arc attack segment → BINDING.attack_arc_effect
                          →  AttackHook.* (preview, auto-advance) → hooks/attack.py → ../combat/rules.py
 Combat cleanup RPCs      →  combat arc       →  hooks/arcs.py      →  ../combat/arc.py → ../combat/rules.BINDING
@@ -43,11 +43,11 @@ Hexdemo today:
 | `../combat/outcome.py` — post-attack `BucketPatch` builder | `attack.py` → `COMBAT_OUTCOME_AFTER_APPLIED` |
 | `../combat/actions.py` — retreat/disrupt/advance state actions | Called from `BINDING` only |
 | `../combat/transitions.py` — gate `ui_mode` strings, phase-scoped clear, planning block | Used by arc spec + `game_config` |
-| `../movement_rules.py` — budget, ZoC, step cost, retreat constraints | `movement.py` |
+| `../movement/rules.py` — budget, ZoC, step cost, retreat constraints | `movement.py` |
 | `../state/session_state.py` — session-state reads (`bucket()`, retreat helpers) | `movement_rules`, `combat/rules` |
 | `../marker_rules.py` — `MarkerPlacementRule` factory | Injected on `GameServer`, not `TitleHooks` |
 
-Keep **one coherent policy** in pack-root modules when it is reused (server validation + client preview + unit tests). Movement legality lives in [`movement_rules.py`](../movement_rules.py); `hooks/movement.py` is adapters only.
+Keep **one coherent policy** in pack modules when it is reused (server validation + client preview + unit tests). Movement legality lives in [`movement/rules.py`](../movement/rules.py); `hooks/movement.py` is adapters only.
 
 Longer term, the engine may offer **composable rule pieces** (ZOC, terrain, morale, …) that titles assemble declaratively, with custom rules alongside — see `docs/RULE_COMPOSITION.md` (planning only; not implemented).
 
@@ -55,8 +55,9 @@ Longer term, the engine may offer **composable rule pieces** (ZOC, terrain, mora
 
 | Module | Role | Wired via |
 |--------|------|-----------|
-| `movement.py` | Thin adapters to `movement_rules.py`; retreat path preview | `@bind_title_hook(MovementHook.…)` |
-| `../movement_rules.py` | Budget, ZoC, retreat constraints, step cost, auto-advance | Called from hooks; tests import directly |
+| `movement.py` | Wires `movement.rules.BINDING`; retreat path preview | `MOVEMENT_HOOKS` dict |
+| `../movement/rules.py` | Budget, ZoC, retreat constraints, step cost, auto-advance | Called from hooks; tests import directly |
+| `../movement/retreat_preview.py` | Retreat path map-selection preview | `retreat_path_preview` hook slot |
 | `attack.py` | Thin adapters: validate, resolve, outcome, plan preview, auto-advance | `@bind_title_hook(AttackHook.…)` — no cleanup slots |
 | `../combat/rules.py` | `HexdemoCombatRules` / `BINDING`: CRT, validate, arc guards/effects, `attack_arc_effect` | `ArcHook.COMBAT_RULES_BINDING` |
 | `../combat/outcome.py` | `build_combat_outcome_after_applied` → `CombatOutcome` | Called from binding / `attack.py` |

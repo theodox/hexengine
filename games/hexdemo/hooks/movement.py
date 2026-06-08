@@ -1,8 +1,8 @@
-"""Wire ``MovementHook`` slots to ``movement_rules.BINDING``."""
+"""Wire ``MovementHook`` slots to ``movement.rules.BINDING``."""
 
 from __future__ import annotations
 
-from ..movement_rules import BINDING
+from ..movement.rules import BINDING
 
 _MOVEMENT_SLOTS = (
     "movement_step_cost_for_unit",
@@ -20,7 +20,7 @@ MOVEMENT_HOOKS = {name: getattr(BINDING, name) for name in _MOVEMENT_SLOTS}
 
 
 def retreat_path_preview_for_viewer(ctx):
-    from ..retreat_path_preview import retreat_path_preview  # breaks cycle: movement → retreat_path_preview → movement
+    from ..movement.retreat_preview import retreat_path_preview  # breaks cycle: movement → retreat_preview → movement
 
     return retreat_path_preview(ctx)
 

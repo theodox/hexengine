@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from games.hexdemo.movement_rules import BINDING
+from games.hexdemo.movement.rules import BINDING
 
 from hexengine.hexes.edges import (
     edge_between,

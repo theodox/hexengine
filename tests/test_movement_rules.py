@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from games.hexdemo.hooks import build_hooks
-from games.hexdemo.movement_rules import BINDING
+from games.hexdemo.movement.rules import BINDING
 
 from hexengine.hexes.types import Hex
 from hexengine.hooks.movement import MoveContext
