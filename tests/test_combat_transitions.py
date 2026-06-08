@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from games.hexdemo import combat_transitions
+from games.hexdemo.combat import transitions as combat_transitions
 from games.hexdemo.arcs.segment import phase_advance_blocked
 
 from hexengine.arcs import ArcCursor, with_arc_cursor

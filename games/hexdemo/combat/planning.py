@@ -24,8 +24,8 @@ from hexengine.server.preview import hexes_to_wire
 from hexengine.state import GameState
 from hexengine.state.map_feature_queries import edges_block_los_predicate
 
-from .state import session_state
-from .combat_transitions import attack_planning_blocked_reason
+from ..state import session_state
+from .transitions import attack_planning_blocked_reason
 
 _ATTACK_KIND = "combined"
 _ATTACK_PLAN_KIND = "attack_plan"

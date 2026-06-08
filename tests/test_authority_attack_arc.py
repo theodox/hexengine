@@ -6,7 +6,7 @@ import asyncio
 from dataclasses import dataclass
 from unittest.mock import patch
 
-from games.hexdemo import combat_arc, combat_rules
+from games.hexdemo.combat import arc as combat_arc, rules as combat_rules
 from games.hexdemo.hooks import build_hooks
 
 from hexengine.arcs import ArcCursor, SetArcCursor, read_arc_cursor

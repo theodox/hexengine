@@ -11,7 +11,11 @@ import asyncio
 from dataclasses import replace
 from types import SimpleNamespace
 
-from games.hexdemo import combat_actions, combat_arc, combat_transitions
+from games.hexdemo.combat import (
+    actions as combat_actions,
+    arc as combat_arc,
+    transitions as combat_transitions,
+)
 from games.hexdemo.hooks import build_hooks
 
 from hexengine.arcs import read_arc_cursor

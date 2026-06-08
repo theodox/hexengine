@@ -10,7 +10,7 @@ GAMES = str(REPO_ROOT / "games")
 if GAMES not in sys.path:
     sys.path.insert(0, GAMES)
 
-from hexdemo.combat_transitions import (
+from hexdemo.combat.transitions import (
     GATE_AWAITING_ADVANCE,
     GATE_AWAITING_RETREAT,
     GATE_AWAITING_RETREAT_OR_DISRUPT,

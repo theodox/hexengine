@@ -21,7 +21,7 @@ from hexengine.state.engine_session_state import engine_read_session_state
 
 
 def _hexdemo_outcome_follow_up_actions(ctx: AfterAttackAppliedContext) -> list:
-    from games.hexdemo import combat_outcome
+    from games.hexdemo.combat import outcome as combat_outcome
 
     built = combat_outcome.build_combat_outcome_after_applied(ctx)
     return built.follow_up_state_actions(ctx.session_state_key)
@@ -1304,7 +1304,7 @@ def test_two_union_units_require_two_attacks_before_advance() -> None:
 
 
 def test_advance_opens_after_defender_destroyed_outcome() -> None:
-    from games.hexdemo import combat_actions, combat_arc
+    from games.hexdemo.combat import actions as combat_actions, arc as combat_arc
 
     from hexengine.arcs import read_arc_cursor
     from hexengine.server.arcs import begin_combat_arc
@@ -1366,7 +1366,7 @@ def test_advance_opens_after_defender_destroyed_outcome() -> None:
 def test_advance_opens_when_defender_eliminated_via_step_loss() -> None:
     """LOSS removes the defender but leaves ``last_combat.outcome`` as ``none``."""
 
-    from games.hexdemo import combat_actions
+    from games.hexdemo.combat import actions as combat_actions
 
     from hexengine.state.actions import DeleteUnit
 
@@ -1427,7 +1427,7 @@ def test_advance_opens_when_defender_eliminated_via_step_loss() -> None:
 
 
 def test_no_advance_when_defender_still_occupies_hex() -> None:
-    from games.hexdemo import combat_actions
+    from games.hexdemo.combat import actions as combat_actions
 
     h_att, h_def = Hex(0, 0, 0), Hex(1, -1, 0)
     board = BoardState(

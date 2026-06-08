@@ -31,20 +31,20 @@ These are **layers**, not two different species of title code.
 ```text
 MoveUnit / movement arc  →  MovementHook.*  →  hooks/movement.py  →  ../movement_rules.py (+ ../state retreat reads)
 Attack RPC               →  combat arc attack segment → BINDING.attack_arc_effect
-                         →  AttackHook.* (preview, auto-advance) → hooks/attack.py → ../combat_rules.py
-Combat cleanup RPCs      →  combat arc       →  hooks/arcs.py      →  ../combat_arc.py → ../combat_rules.BINDING
+                         →  AttackHook.* (preview, auto-advance) → hooks/attack.py → ../combat/rules.py
+Combat cleanup RPCs      →  combat arc       →  hooks/arcs.py      →  ../combat/arc.py → ../combat/rules.BINDING
 ```
 
 Hexdemo today:
 
 | Rules (policy) | Hook adapters |
 |----------------|---------------|
-| `../combat_rules.py` — `BINDING`: CRT, validate, outcome, arc guards/effects | `attack.py`, `arcs.py` |
-| `../combat_outcome.py` — post-attack `BucketPatch` builder | `attack.py` → `COMBAT_OUTCOME_AFTER_APPLIED` |
-| `../combat_actions.py` — retreat/disrupt/advance state actions | Called from `BINDING` only |
-| `../combat_transitions.py` — gate `ui_mode` strings, phase-scoped clear, planning block | Used by arc spec + `game_config` |
+| `../combat/rules.py` — `BINDING`: CRT, validate, outcome, arc guards/effects | `attack.py`, `arcs.py` |
+| `../combat/outcome.py` — post-attack `BucketPatch` builder | `attack.py` → `COMBAT_OUTCOME_AFTER_APPLIED` |
+| `../combat/actions.py` — retreat/disrupt/advance state actions | Called from `BINDING` only |
+| `../combat/transitions.py` — gate `ui_mode` strings, phase-scoped clear, planning block | Used by arc spec + `game_config` |
 | `../movement_rules.py` — budget, ZoC, step cost, retreat constraints | `movement.py` |
-| `../state/session_state.py` — session-state reads (`bucket()`, retreat helpers) | `movement_rules`, `combat_rules` |
+| `../state/session_state.py` — session-state reads (`bucket()`, retreat helpers) | `movement_rules`, `combat/rules` |
 | `../marker_rules.py` — `MarkerPlacementRule` factory | Injected on `GameServer`, not `TitleHooks` |
 
 Keep **one coherent policy** in pack-root modules when it is reused (server validation + client preview + unit tests). Movement legality lives in [`movement_rules.py`](../movement_rules.py); `hooks/movement.py` is adapters only.
@@ -58,9 +58,9 @@ Longer term, the engine may offer **composable rule pieces** (ZOC, terrain, mora
 | `movement.py` | Thin adapters to `movement_rules.py`; retreat path preview | `@bind_title_hook(MovementHook.…)` |
 | `../movement_rules.py` | Budget, ZoC, retreat constraints, step cost, auto-advance | Called from hooks; tests import directly |
 | `attack.py` | Thin adapters: validate, resolve, outcome, plan preview, auto-advance | `@bind_title_hook(AttackHook.…)` — no cleanup slots |
-| `../combat_rules.py` | `HexdemoCombatRules` / `BINDING`: CRT, validate, arc guards/effects, `attack_arc_effect` | `ArcHook.COMBAT_RULES_BINDING` |
-| `../combat_outcome.py` | `build_combat_outcome_after_applied` → `CombatOutcome` | Called from binding / `attack.py` |
-| `../combat_arc.py` | `combat_rules_binding_to_arc_spec` + owner resolver | `ArcHook.COMBAT_ARC` via `hooks/arcs.py` |
+| `../combat/rules.py` | `HexdemoCombatRules` / `BINDING`: CRT, validate, arc guards/effects, `attack_arc_effect` | `ArcHook.COMBAT_RULES_BINDING` |
+| `../combat/outcome.py` | `build_combat_outcome_after_applied` → `CombatOutcome` | Called from binding / `attack.py` |
+| `../combat/arc.py` | `combat_rules_binding_to_arc_spec` + owner resolver | `ArcHook.COMBAT_ARC` via `hooks/arcs.py` |
 | `arcs.py` | `COMBAT_ARC`, `COMBAT_RULES_BINDING`, `TURN_ARC_REGISTRY` | `@bind_title_hook(ArcHook.…)` |
 | `ui.py` | Phase/combat banners, inspect, inform popups, combat event summary | `@bind_title_hook(UIHook.…)`; copy from `presentation/` |
 | `../presentation/inform.py` | INFORM map callouts keyed by `inform_profile` + `reason` | Used by `ui.inform_popup_for_viewer` |

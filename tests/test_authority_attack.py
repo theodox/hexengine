@@ -271,7 +271,7 @@ def test_attack_rejected_on_retreat_gate_before_title_validate() -> None:
     """Engine segment gate runs before ``validate_attack`` for extension-key titles."""
     import dataclasses
 
-    from games.hexdemo import combat_arc
+    from games.hexdemo.combat import arc as combat_arc
     from games.hexdemo.hooks import build_hooks
 
     board = BoardState(

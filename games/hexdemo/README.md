@@ -47,14 +47,14 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `presentation/` | Viewer copy (`dock.py`, `inform.py`, `interaction_messages.py`) |
 | `segment_ui.py` | Segment `ui_mode` → presentation registry (`PRESENTATION_BY_UI_MODE`) |
 | `arcs/segment.py` | Project `current_segment` per viewer; `phase_advance_blocked` for auto-advance |
-| `combat_rules.py` | `HexdemoCombatRules` / `BINDING` — CRT, validate, arc guards/effects, `attack_arc_effect` |
-| `combat_outcome.py` | Post-attack `CombatOutcome` / `BucketPatch` builder |
-| `combat_arc.py` | `combat_rules_binding_to_arc_spec` + owner resolver → `ArcHook.COMBAT_ARC` |
+| `combat/rules.py` | `HexdemoCombatRules` / `BINDING` — CRT, validate, arc guards/effects, `attack_arc_effect` |
+| `combat/outcome.py` | Post-attack `CombatOutcome` / `BucketPatch` builder |
+| `combat/arc.py` | `combat_rules_binding_to_arc_spec` + owner resolver → `ArcHook.COMBAT_ARC` |
 | `hooks/turn_action_dock.py` | Commit dock — `combat_gate_panel_actions` + End Phase + segment presentation |
-| `combat_transitions.py` | Gate `ui_mode` strings, phase-scoped session-state clear, attack-planning block reason |
-| `combat_actions.py` | Pack-local cleanup state actions (disrupt, advance, retreat step) |
+| `combat/transitions.py` | Gate `ui_mode` strings, phase-scoped session-state clear, attack-planning block reason |
+| `combat/actions.py` | Pack-local cleanup state actions (disrupt, advance, retreat step) |
 | `movement_rules.py` | Movement policy (`MovementRulesBinding`); `hooks/movement.py` adapts |
-| `combat_planning.py` | Attack plan preview (shared by `hooks/attack` and tests) |
+| `combat/planning.py` | Attack plan preview (shared by `hooks/attack` and tests) |
 | `state/session_state.py` | Session-state reads (`bucket()`, retreat obligations, advance offer) |
 | `arcs/turn_schedule.py` | Turn arc registry builder (move/combat schedule slots) |
 | `focus.py` | Suggested unit focus after state sync |
@@ -69,7 +69,7 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `registry.py` | Manifest `build_game_definition()` (uses `game_config`) |
 | `marker_rules.py` | Optional `MarkerPlacementRule` hook |
 
-Movement and combat policy live in **`movement_rules.py`** and **`combat_rules.py`**; **`TitleHooks`** (`hooks/movement.py`, `hooks/attack.py`, `hooks/arcs.py`) are thin adapters. Attack resolution runs through the **combat arc `attack` segment** (`BINDING.attack_arc_effect`), not a separate engine handoff path. The server resolves rules through `GameDefinition.hooks` only.
+Movement and combat policy live in **`movement_rules.py`** and **`combat/`**; **`TitleHooks`** (`hooks/movement.py`, `hooks/attack.py`, `hooks/arcs.py`) are thin adapters. Attack resolution runs through the **combat arc `attack` segment** (`BINDING.attack_arc_effect`), not a separate engine handoff path. The server resolves rules through `GameDefinition.hooks` only.
 
 ## Zip packs
 

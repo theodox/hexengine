@@ -6,7 +6,7 @@ import asyncio
 from dataclasses import replace
 from types import SimpleNamespace
 
-from games.hexdemo import combat_arc
+from games.hexdemo.combat import arc as combat_arc
 from games.hexdemo.hooks import build_hooks
 
 from hexengine.arcs import read_arc_cursor

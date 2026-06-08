@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from games.hexdemo import combat_transitions
+from games.hexdemo.combat import transitions as combat_transitions
 
 from hexengine.arcs import ArcCursor, with_arc_cursor
 from hexengine.hooks.ui_combat_messages import (

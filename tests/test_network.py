@@ -715,7 +715,7 @@ class TestGameServer(unittest.TestCase):
                             rng_entry={"op": "test"},
                         )
 
-                    from games.hexdemo import combat_outcome
+                    from games.hexdemo.combat import outcome as combat_outcome
 
                     return _wire_network_test_hooks(
                         TitleHooks(

@@ -151,7 +151,7 @@ def test_hexdemo_combat_phase_enables_end_phase_without_gate() -> None:
 
 
 def test_hexdemo_retreat_gate_shows_for_non_turn_owner() -> None:
-    from games.hexdemo import combat_arc
+    from games.hexdemo.combat import arc as combat_arc
     from games.hexdemo.hooks import build_hooks
     from games.hexdemo.hooks.turn_action_dock import turn_action_dock_for_viewer
 
@@ -231,7 +231,7 @@ def test_hexdemo_retreat_gate_shows_for_non_turn_owner() -> None:
 
 
 def test_hexdemo_retreat_obligation_shows_dock_for_non_turn_owner() -> None:
-    from games.hexdemo import combat_arc
+    from games.hexdemo.combat import arc as combat_arc
     from games.hexdemo.hooks import build_hooks
     from games.hexdemo.hooks.turn_action_dock import turn_action_dock_for_viewer
 
@@ -304,7 +304,7 @@ def test_hexdemo_retreat_obligation_shows_dock_for_non_turn_owner() -> None:
 
 
 def test_hexdemo_advance_gate_disables_end_phase() -> None:
-    from games.hexdemo import combat_arc
+    from games.hexdemo.combat import arc as combat_arc
     from games.hexdemo.hooks import build_hooks
     from games.hexdemo.hooks.turn_action_dock import turn_action_dock_for_viewer
 

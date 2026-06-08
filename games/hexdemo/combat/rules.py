@@ -33,8 +33,8 @@ from hexengine.server.arcs.authority_attack_commit import (
 from hexengine.state import UnitState
 from hexengine.state.action_manager import StateAction
 from hexengine.state.map_feature_queries import edges_block_los_predicate
-from . import combat_actions, combat_outcome
-from .state import session_state
+from . import actions, outcome
+from ..state import session_state
 
 # When the board has no explicit or unset-default terrain for a hex, CRT math still
 # needs a stable type (matches legacy tests and minimal `BoardState` fixtures).
@@ -519,7 +519,7 @@ def resolve_attack(ctx: AttackContext) -> AttackResolution:
 def combat_outcome_after_applied(
     ctx: AfterAttackAppliedContext,
 ) -> CombatOutcome:
-    return combat_outcome.build_combat_outcome_after_applied(ctx)
+    return outcome.build_combat_outcome_after_applied(ctx)
 
 
 def _attack_commit_host(rules: HexdemoCombatRules):
@@ -544,7 +544,7 @@ class HexdemoCombatRules:
     def detect_combat_advance_move(self, ctx: CombatAdvanceMoveContext) -> bool:
         if not ctx.session_state_key:
             return False
-        return combat_actions.is_combat_advance_move(
+        return actions.is_combat_advance_move(
             ctx.state, ctx.params, ctx.player_faction, ctx.session_state_key
         )
 
@@ -562,7 +562,7 @@ class HexdemoCombatRules:
         if not ctx.session_state_key:
             return False
         return bool(
-            combat_actions.maybe_open_advance_after_retreat(
+            actions.maybe_open_advance_after_retreat(
                 ctx.state, ctx.session_state_key
             )
         )
@@ -580,14 +580,14 @@ class HexdemoCombatRules:
     def is_combat_advance_move(self, ctx: ArcContext) -> bool:
         if not ctx.session_state_key or not ctx.owner_faction:
             return False
-        return combat_actions.is_combat_advance_move(
+        return actions.is_combat_advance_move(
             ctx.state, ctx.params, ctx.owner_faction, ctx.session_state_key
         )
 
     def apply_retreat_step(self, ctx: ArcContext) -> list[StateAction]:
         if not ctx.session_state_key or not ctx.owner_faction:
             return []
-        return combat_actions.apply_retreat_fulfillment_step(
+        return actions.apply_retreat_fulfillment_step(
             ctx.state,
             ctx.session_state_key,
             ctx.owner_faction,
@@ -595,22 +595,22 @@ class HexdemoCombatRules:
         )
 
     def disrupt_instead(self, ctx: ArcContext) -> list[StateAction]:
-        return combat_actions.disrupt_instead_of_retreat(
+        return actions.disrupt_instead_of_retreat(
             ctx.state, ctx.session_state_key or "", ctx.owner_faction or ""
         )
 
     def open_advance(self, ctx: ArcContext) -> list[StateAction]:
-        return combat_actions.maybe_open_advance_after_retreat(
+        return actions.maybe_open_advance_after_retreat(
             ctx.state, ctx.session_state_key or ""
         )
 
     def resolve_advance(self, ctx: ArcContext) -> list[StateAction]:
-        return combat_actions.resolve_combat_advance(
+        return actions.resolve_combat_advance(
             ctx.state, ctx.session_state_key or "", ctx.owner_faction or ""
         )
 
     def clear_advance_gate(self, ctx: ArcContext) -> list[StateAction]:
-        return combat_actions.clear_advance_gate(ctx.state, ctx.session_state_key or "")
+        return actions.clear_advance_gate(ctx.state, ctx.session_state_key or "")
 
     def attack_arc_effect(self, ctx: ArcContext) -> list[StateAction]:
         player_faction = str(ctx.owner_faction or "").strip()

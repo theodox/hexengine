@@ -28,7 +28,8 @@ from hexengine.gamedef.game_data_toml import load_game_data_for_pack_root
 from hexengine.gamedef.protocol import GameDefinition
 from hexengine.state import DEFAULT_MOVEMENT_BUDGET, GameState
 
-from . import combat_transitions, focus
+from .combat import transitions as combat_transitions
+from . import focus
 from .constants import HEXDEMO_FACTIONS
 from .hooks import build_hooks
 from .marker_rules import default_marker_placement_rule

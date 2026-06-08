@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from games.hexdemo import combat_arc
+from games.hexdemo.combat import arc as combat_arc
 from games.hexdemo.hooks import build_hooks
 
 from hexengine.arcs import ArcCursor, SetArcCursor

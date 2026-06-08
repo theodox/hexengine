@@ -22,7 +22,7 @@ from hexengine.hooks.combat_outcome import CombatOutcome
 
 
 
-from .state import session_state
+from ..state import session_state
 
 
 

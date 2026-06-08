@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from games.hexdemo import combat_arc, combat_transitions
+from games.hexdemo.combat import arc as combat_arc, transitions as combat_transitions
 
 from hexengine.arcs import CURRENT, NO_OWNER, OwnerRef
 from hexengine.hexes.types import Hex

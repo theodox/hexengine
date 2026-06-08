@@ -12,10 +12,10 @@ from hexengine.hooks.attack import (
 )
 from hexengine.hooks.wiring import bind_title_hook
 
-from .. import combat_rules
-from ..state import session_state
+from ..combat import rules as combat_rules
+from ..combat.planning import compute_attack_plan_preview
 from ..arcs.segment import phase_advance_blocked
-from ..combat_planning import compute_attack_plan_preview
+from ..state import session_state
 
 # Re-export for tests that patch RNG on the rules module path.
 random = combat_rules.random

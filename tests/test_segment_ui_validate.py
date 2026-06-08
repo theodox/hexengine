@@ -26,7 +26,7 @@ from hexengine.hooks.ui import UIHooks
 
 
 def test_collect_declared_kinds_includes_routine_and_combat_gates() -> None:
-    from games.hexdemo.combat_transitions import (
+    from games.hexdemo.combat.transitions import (
         GATE_AWAITING_ADVANCE,
         GATE_AWAITING_RETREAT,
         GATE_AWAITING_RETREAT_OR_DISRUPT,
