@@ -34,7 +34,7 @@ Branch: `engine_boundary_2` (from skinning squash on `main`).
 
 1. **One match = one title.** `GameData.session_state_key` is fixed for the server process; do not design for hot-swapping packs mid-session.
 2. **Engine = mechanism.** Undoable `StateAction`s, RPC arcs, schedule math (`get_next_phase`), primitive transports.
-3. **Title = policy + graph.** When to set gates, obligations, auto-advance, INFORM copy, `dock_arc`, preview kinds.
+3. **Title = policy + graph.** When to set gates, obligations, auto-advance, INFORM copy, segment `ui_mode` / `presentation_id`, and `InteractionKind` previews.
 4. **No engine combat phase enum.** Titles may use enums in pack code; engine must not require a universal graph.
 5. **Client does not read extension for legality.** Wire + hooks only for commit paths (existing skinning rule).
 
@@ -101,7 +101,7 @@ Reserved top-level keys: prefix `hexengine_` (e.g. `hexengine_movement_arc`) —
 | Hook | Bundle | Purpose |
 |------|--------|---------|
 | *(removed)* `blocks_routine_phase_advance` | was `UIHook` | **Superseded** — active segment `allowed_actions` |
-| `combat_interaction_messages(ctx) -> list[InteractionMessage] \| ENGINE_DEFAULT` | `UIHook` | Per-viewer INFORM rows from segment kind + partial combat hooks |
+| `combat_interaction_messages(ctx) -> list[InteractionMessage] \| ENGINE_DEFAULT` | `UIHook` | Per-viewer INFORM rows from segment `ui_mode` + partial combat hooks |
 
 - Phase advance blocking and End Phase dock enablement: `current_segment` + `segment_blocks_routine_phase_advance`.
 - Auto-advance after move/attack: title attack/movement hooks call `arc_segment.phase_advance_blocked` (hexdemo).
@@ -163,7 +163,7 @@ Context: `GameState`, `AttackResolution`, `session_state_key`, attacker/defender
 
 | Export | Role |
 |--------|------|
-| Gate constants | `GATE_AWAITING_RETREAT`, `GATE_AWAITING_RETREAT_OR_DISRUPT`, `GATE_AWAITING_ADVANCE` (match segment `kind`) |
+| Gate constants | `GATE_AWAITING_RETREAT`, `GATE_AWAITING_RETREAT_OR_DISRUPT`, `GATE_AWAITING_ADVANCE` (match segment `ui_mode`) |
 | `GATES_BLOCKING_ROUTINE` | Declaration parity / local guards |
 | `attack_planning_blocked_reason` | Attack plan preview + validation messaging |
 | `follow_up_after_attack` | `AttackHook.AFTER_ATTACK_APPLIED` bucket patches |
@@ -242,7 +242,7 @@ Each PR should keep pytest green (`test_combat_hexdemo`, `test_hooks_contract`, 
 |----------|------------|
 | `blocks_routine_phase_advance` on `UIHook` vs `MovementHook`? | **Resolved — removed.** Use `current_segment` + `segment_blocks_routine_phase_advance`; hexdemo via `arc_segment`. |
 | Clear whole session state on `NextPhase` vs named keys only? | **Named keys** (`PHASE_SCOPED_COMBAT_KEYS` in `combat_transitions.py`). |
-| Require `after_attack_applied` when extension key set? | **No** — optional hook; hexdemo binds `follow_up_after_attack`. |
+| Require `after_attack_applied` when `session_state_key` set? | **No** — optional hook; hexdemo binds `follow_up_after_attack`. |
 
 ---
 

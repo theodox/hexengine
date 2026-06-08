@@ -23,11 +23,13 @@ Gameplay hooks are **typed in Python** (`MovementHook`, `AttackHook`, `UIHook`, 
 
 ## Authoring vs wire
 
-**Title authors** should not treat wire payloads as the primary API. They declare **flow** in arcs (segments, `kind`, allowed actions) and **presentation** in `shell_ui`, templates, pack markup helpers, and thin hook adapters. The engine **projects** hook results and segment state onto wire messages the client renders.
+**Title authors** should not treat wire payloads as the primary API. They declare **flow** in arcs (segments, `ui_mode`, allowed actions) and **presentation** in `shell_ui`, templates, pack markup helpers, and thin hook adapters. The engine **projects** hook results and segment state onto wire messages the client renders.
+
+**Terminology:** **`ui_mode`** is the arc segment UI/policy bucket (`current_segment.ui_mode`). **`InteractionKind`** names map-selection preview flows (`attack_plan`, `retreat_path`, …); the preview RPC wire field is still `kind`. Banner, popup, and overlay wire rows also carry a **`kind`** field for CSS priority — unrelated to segment `ui_mode`.
 
 | You author | You do not author (engine internal) |
 |------------|-------------------------------------|
-| Arc segments + segment `kind` strings | `StateUpdate` message assembly |
+| Arc segments + segment `ui_mode` strings | `StateUpdate` message assembly |
 | [`TitleHooks`](../src/hexengine/hooks/wiring.py) callables + contexts | WebSocket `schema` / `omit_if_none` rules |
 | `shell_ui`, templates, `presentation_id` skin keys | `BrowserWebSocketClient` field parsing for legality |
 | Preview hook: draft in → legality + `commit_payload` out | Client computing legal hex sets locally |
@@ -46,7 +48,7 @@ Gameplay hooks are **typed in Python** (`MovementHook`, `AttackHook`, `UIHook`, 
 
 **P4:** INFORM ``inspect`` resolves ``inform_profile`` from ``current_segment`` when the client omits ``inform_kind`` (`hexengine.arcs.inform_wire`). Title popups key off profile + reason (hexdemo: `presentation/inform.py`).
 
-**P5:** ``validate_arc_contract`` / ``validate_title_contract`` ensure declared arc segment ``kind`` values ⊆ ``segment_presentation_registry`` (`hexengine.authoring.segment_ui_validate`). Titles with ``session_state_key`` must bind ``UIHook.SEGMENT_PRESENTATION_REGISTRY``.
+**P5:** ``validate_arc_contract`` / ``validate_title_contract`` ensure declared arc segment ``ui_mode`` values ⊆ ``segment_presentation_registry`` (`hexengine.authoring.segment_ui_validate`). Titles with ``session_state_key`` must bind ``UIHook.SEGMENT_PRESENTATION_REGISTRY``.
 
 ## UI affordances — wire schemas and hooks (v1)
 
@@ -213,7 +215,7 @@ SELECT drafts (map/unit picks before commit) use one RPC pair. Drafts are **clie
 | `inspect_unit` | — | Inspect uses `INFORM_POPUP`, not map-selection preview |
 | `place_marker` | `UIHook.PLACE_MARKER_PREVIEW` → `hooks.ui.place_marker_preview` | `marker_id`, `to_hex`; legal destinations from title rule; `MoveMarker` commit (hexdemo). Shift+click marker to start; drag unchanged. |
 
-To add a kind: extend `InteractionKind`, register a row in [`map_selection_registry.py`](../src/hexengine/hooks/map_selection_registry.py), bind a title hook, declare client wiring in `game_data.toml` → `[client_contract.select_modes]` and optional `[client_contract.panel_action_routes]` (mirrored on `turn_rules.client_contract`; see [`client_contract.py`](../src/hexengine/gamedef/client_contract.py)). Engine defaults in [`client_map_selection_registry.py`](../src/hexengine/game/arcs/client_map_selection_registry.py) and [`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py) apply when the manifest omits rows.
+To add an `InteractionKind`: extend the enum, register a row in [`map_selection_registry.py`](../src/hexengine/hooks/map_selection_registry.py), bind a title hook, declare client wiring in `game_data.toml` → `[client_contract.select_modes]` and optional `[client_contract.panel_action_routes]` (mirrored on `turn_rules.client_contract`; see [`client_contract.py`](../src/hexengine/gamedef/client_contract.py)). Engine defaults in [`client_map_selection_registry.py`](../src/hexengine/game/arcs/client_map_selection_registry.py) and [`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py) apply when the manifest omits rows.
 
 ### UI hook inventory
 
@@ -225,12 +227,12 @@ Bind with `@bind_title_hook(UIHook.…)` in the title hooks package. Values matc
 | **`PHASE_BANNER_TEXT_FOR_VIEWER`** | Default message composition | `(ctx: PhaseBannerContext)` | `str` | [`default_phase_banner_text_for_viewer`](../src/hexengine/hooks/ui.py) |
 | **`PHASE_BANNER_HTML_FOR_VIEWER`** | Default message composition | `(ctx: PhaseBannerContext)` | `str` | Omitted — phase row is text-only |
 | **`COMBAT_INSTRUCTION_FOR_VIEWER`** | After combat with retreat context | `(ctx: CombatInteractionContext)` | `(instruction, message)` | [`default_combat_instruction_for_viewer`](../src/hexengine/hooks/ui.py) |
-| **`ADVANCE_GATE_BANNERS_FOR_VIEWER`** | Active segment kind is advance gate | `(ctx: AdvanceGateInteractionContext)` | `(text_advancing, text_other)` | [`default_advance_gate_banners_for_viewer`](../src/hexengine/hooks/ui.py) |
+| **`ADVANCE_GATE_BANNERS_FOR_VIEWER`** | Active segment `ui_mode` is advance gate | `(ctx: AdvanceGateInteractionContext)` | `(text_advancing, text_other)` | [`default_advance_gate_banners_for_viewer`](../src/hexengine/hooks/ui.py) |
 | **`INFORM_POPUP`** | `InspectRequest` (`unit` / `marker` / `inform`) | `(ctx: InformPopupContext)` | `InformPopup` | [`default_inform_popup_for_viewer`](../src/hexengine/hooks/inform_popup.py) |
 | **`MAP_OVERLAYS`** | Every per-player `StateUpdate` | `(state, viewer_faction)` | `list[MapOverlay]` | `[]` |
 | **`ENRICH_CURRENT_SEGMENT`** | Every per-player `current_segment` projection | `(ctx: SegmentPresentationContext)` | `SegmentPresentationPatch` | No enrichment (base segment only) |
 | **`TURN_ACTION_DOCK_FOR_VIEWER`** | Every per-player `StateUpdate` | `(ctx: TurnActionDockContext)` | `list[TurnDockPanel]` | Engine catalog ([`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py)). No draft on context — see [draft locus](TURN_ACTION_DOCK_CONTRACT.md#draft-locus-invariant). |
-| **`COMBAT_INTERACTION_MESSAGES`** | Default `interaction_messages` combat slice (after phase row) | `(ctx: CombatInteractionMessagesContext)` | `list[InteractionMessage]` | [`default_combat_interaction_messages`](../src/hexengine/hooks/ui_combat_messages.py) using segment kind + partial combat/advance hooks |
+| **`COMBAT_INTERACTION_MESSAGES`** | Default `interaction_messages` combat slice (after phase row) | `(ctx: CombatInteractionMessagesContext)` | `list[InteractionMessage]` | [`default_combat_interaction_messages`](../src/hexengine/hooks/ui_combat_messages.py) using segment `ui_mode` + partial combat/advance hooks |
 | **`COMBAT_EVENT_SUMMARY`** | After combat, to fan out `combat_event` wires | `(state)` | `CombatEventSummary \| None` | `None` (no `combat_event` broadcast) |
 
 **Partial vs full message hooks**
@@ -253,7 +255,7 @@ For packs with `session_state_key`, the engine rejects `Attack` when `current_se
 |------|--------------|---------------------|--------|---------------------------|
 | **`VALIDATE_ATTACK`** | After engine segment gate, before resolve | `(ctx: AttackContext)` | `None` or raise | Unsupported attack |
 | **`RESOLVE_ATTACK`** | Combat arc `attack` segment (or imperative path without `SEG_ATTACK`) | `(ctx: AttackContext)` | `AttackResolution` or `CombatOutcome` (with embedded resolution) | Unsupported attack |
-| **`ATTACK_PLAN_PREVIEW`** | `map_selection_preview` kind `attack_plan` | `(ctx: AttackPlanPreviewContext)` | `MapSelectionPreview` | Empty/minimal preview |
+| **`ATTACK_PLAN_PREVIEW`** | `map_selection_preview` `InteractionKind` `attack_plan` | `(ctx: AttackPlanPreviewContext)` | `MapSelectionPreview` | Empty/minimal preview |
 | **`AUTO_ADVANCE_PHASE_AFTER_ATTACK`** | After attack applied + broadcast | `(state: GameState)` | `bool` | No auto-advance |
 | **`COMBAT_OUTCOME_AFTER_APPLIED`** | After `Attack` + `ApplyCombatEffects` inside arc `attack` effect | `(ctx: AfterAttackAppliedContext)` | [`CombatOutcome`](../src/hexengine/hooks/combat_outcome.py) | No bucket follow-up |
 
@@ -305,7 +307,7 @@ Authors should be able to answer, without reading engine internals:
 1. **Which hooks does my pack implement?** (required vs optional vs engine default)
 2. **What is each hook’s signature and when does it run?** (arc segment, server RPC, client-only, …)
 3. **What fails if I get it wrong?** — prefer **fail at pack load / server start / typecheck**, not mid-match or silent skip.
-4. **Which UX mode is active?** — one **segment presentation registry** row per `kind` (primitive, `presentation_id`, optional `interaction_mode`, inform profile) — see [`TITLE_AUTHORING.md` § Segment presentation registry](TITLE_AUTHORING.md#segment-presentation-registry).
+4. **Which UX mode is active?** — one **segment presentation registry** row per `ui_mode` (primitive, `presentation_id`, optional `interaction_mode`, inform profile) — see [`TITLE_AUTHORING.md` § Segment presentation registry](TITLE_AUTHORING.md#segment-presentation-registry).
 
 **Shipped toward this model:** presentation DTOs + `ui_wire` adapters (P2); `current_segment` enrich (P3); inform profile from segment (P4); segment registry validation (P5); `[client_contract]` in `game_data.toml` for client select modes and panel-action routes; combat gate dock rows in `combat_gate_panel_actions` (title helper, not engine wire).
 
@@ -316,7 +318,7 @@ Authors should be able to answer, without reading engine internals:
 - **Required vs optional** per hook point (not inferred only from “table present” in TOML).
 - Document **arc segment** (engine) vs **pack hook** (title) for client flows — same vocabulary as [`hexengine.game.arcs.client_title_load`](../src/hexengine/game/arcs/client_title_load.py).
 - Extend `validate_title_contract` (or siblings) for more schedule/hook combinations, not only combat/attack.
-- **Segment UI registry (P5):** every explicit `kind` used in declared arcs has a registry row — enforced at startup when `SEGMENT_PRESENTATION_REGISTRY` is bound.
+- **Segment UI registry (P5):** every explicit `ui_mode` used in declared arcs has a registry row — enforced at startup when `SEGMENT_PRESENTATION_REGISTRY` is bound.
 
 ### 2. Early validation (“compile-time” in the broad sense)
 

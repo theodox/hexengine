@@ -224,10 +224,10 @@ Full combat integration suite + replay/undo tests if present.
 
 #### Sub-steps
 
-1. **`games/template/`:** Add stub `combat_arc.py` with `CombatRulesBinding` implementing no-op / minimal resolve; `COMBAT_ARC` optional until extension key + combat schedule.
+1. **`games/template/`:** Add stub `combat_arc.py` with `CombatRulesBinding` implementing no-op / minimal resolve; `COMBAT_ARC` optional until `session_state_key` + combat schedule.
 2. **`authoring.patterns.combat`:** Export `combat_rules_binding_to_arc_spec(binding, gates)` helper.
-3. **`TITLE_AUTHORING.md`:** “Minimal combat title” checklist (registry + binding + segment registry + presentation row per kind).
-4. **`validate_title_contract`:** When extension key + combat schedule, require binding implements required methods (structural check or protocol).
+3. **`TITLE_AUTHORING.md`:** “Minimal combat title” checklist (registry + binding + segment registry + presentation row per `ui_mode`).
+4. **`validate_title_contract`:** When `session_state_key` + combat schedule, require binding implements required methods (structural check or protocol).
 
 ---
 

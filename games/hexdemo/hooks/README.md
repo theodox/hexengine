@@ -42,7 +42,7 @@ Hexdemo today:
 | `../combat_rules.py` — `BINDING`: CRT, validate, outcome, arc guards/effects | `attack.py`, `arcs.py` |
 | `../combat_outcome.py` — post-attack `BucketPatch` builder | `attack.py` → `COMBAT_OUTCOME_AFTER_APPLIED` |
 | `../combat_actions.py` — retreat/disrupt/advance state actions | Called from `BINDING` only |
-| `../combat_transitions.py` — gate kind strings, phase-scoped clear, planning block | Used by arc spec + `game_config` |
+| `../combat_transitions.py` — gate `ui_mode` strings, phase-scoped clear, planning block | Used by arc spec + `game_config` |
 | `../movement_rules.py` — budget, ZoC, step cost, retreat constraints | `movement.py` |
 | `../session_state.py` — session-state reads (`bucket()`, retreat helpers) | `movement_rules`, `combat_rules` |
 | `../marker_rules.py` — `MarkerPlacementRule` factory | Injected on `GameServer`, not `TitleHooks` |

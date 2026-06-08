@@ -51,7 +51,7 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `combat_outcome.py` | Post-attack `CombatOutcome` / `BucketPatch` builder |
 | `combat_arc.py` | `combat_rules_binding_to_arc_spec` + owner resolver → `ArcHook.COMBAT_ARC` |
 | `hooks/turn_action_dock.py` | Commit dock — `combat_gate_panel_actions` + End Phase + segment presentation |
-| `combat_transitions.py` | Gate kind strings, phase-scoped bucket clear, attack-planning block reason |
+| `combat_transitions.py` | Gate `ui_mode` strings, phase-scoped session-state clear, attack-planning block reason |
 | `combat_actions.py` | Pack-local cleanup state actions (disrupt, advance, retreat step) |
 | `movement_rules.py` | Movement policy (`MovementRulesBinding`); `hooks/movement.py` adapts |
 | `combat_planning.py` | Attack plan preview (shared by `hooks/attack` and tests) |

@@ -99,7 +99,7 @@ Typical authoring:
 - **Exit** on DECIDE commit: clear prompt state in `session_state`, resume the suspended segment or advance the cursor.
 - **Not a draft** — no client-local SELECT sub-arc; validity is server-side on commit.
 
-In title docs, prefer **prompt segment** for narrative or scripted interrupts. Reserve **gate** for segments whose segment kind or `dock_arc` is combat-shaped (`retreat_gate`, `advance_gate`) unless you explicitly mean this segment shape.
+In title docs, prefer **prompt segment** for narrative or scripted interrupts. Reserve **gate** for segments whose `ui_mode` is combat-shaped (`awaiting_retreat`, `awaiting_advance`, …) unless you explicitly mean this segment shape.
 
 ### Why not generators as the standard
 
@@ -185,7 +185,7 @@ The wire replaces server-prebaked `primary_actions` and the `dock_arc` string wi
 
 | Field | Role |
 |-------|------|
-| `kind` | title segment label (`routine` / `retreat_gate` / `advance_gate` / …); replaces `dock_arc` |
+| `ui_mode` | title segment UI/policy bucket (`move` / `combat` / `awaiting_retreat` / …); replaces `dock_arc` |
 | `owner` | faction(s) that may act (a faction, a set for simultaneous turns, or none for an automatic segment) |
 | `allowed_actions` | action types legal in this segment |
 | `locus` | server-authoritative vs client-local (whether an action commits immediately or opens a draft sub-arc) |
@@ -218,7 +218,7 @@ Each phase keeps pytest green (`test_combat_hexdemo`, `test_combat_transitions`,
 ### Phase 0 — Spec and types (no behavior change)
 - **[done] 0a** — Core spec types in `hexengine/arcs/spec.py`: `Owner` (tagged union: `OwnerScope.CURRENT`/`NO_OWNER`, explicit `Faction`, title-resolved `OwnerRef`), `Trigger` (`Event` / `AUTO`), `Target` (`Goto` / `Interrupt` / `FlowEnd.DONE`/`RESUME`), `ArcContext`, `Transition` (callable `guard`/`effect`), `Segment` (the triple; derives `allowed_actions` from `Event` triggers), and `Arc` with `validate()` (the seed of load-time validation). Spec is code; only the cursor (0b) is serialized. Tests in `tests/test_arc_spec.py`.
 - **[done] 0b** — Snapshot-able **arc cursor** in `hexengine/arcs/cursor.py`: `ArcCursor` (arc id + segment id + one optional depth-1 `SuspendedFrame`) with pure transitions (`advanced_to`/`suspended_into`/`resumed`), JSON-safe `cursor_to_snapshot`/`cursor_from_snapshot`, engine-state helpers (`read_arc_cursor`/`with_arc_cursor` under reserved key `hexengine_arc_cursor`), and the `SetArcCursor` `StateAction` (undo restores the exact prior cursor entry, including the no-cursor boundary). Undo/redo of the cursor alone covered in `tests/test_arc_cursor.py`.
-- **[done] 0c** — Context-manager builder in `hexengine/arcs/builder.py`: `arc(id)` / `a.segment(id, owner=, kind=)` blocks, `s.on(event, ...)` / `s.auto(...)` with keyword targets (`goto` / `done` / `resume` / `interrupt`+`resume_at`), `branch`/`auto_branch`+`case` for guarded fan-out, entry defaults to the first segment, and `build()` returns a validated `Arc`. Thin and side-effect-free — emits the canonical spec exactly (asserted by an equality test) with no operator overloading; `allowed_actions` is derived, never declared. Worked combat-arc example + sugar/validation tests in `tests/test_arc_builder.py`. **Phase 0 complete.**
+- **[done] 0c** — Context-manager builder in `hexengine/authoring/builder.py`: `arc(id)` / `a.segment(id, owner=, ui_mode=)` blocks, `s.on(event, ...)` / `s.auto(...)` with keyword targets (`goto` / `done` / `resume` / `interrupt`+`resume_at`), `branch`/`auto_branch`+`case` for guarded fan-out, entry defaults to the first segment, and `build()` returns a validated `Arc`. Thin and side-effect-free — emits the canonical spec exactly (asserted by an equality test) with no operator overloading; `allowed_actions` is derived, never declared. Worked combat-arc example + sugar/validation tests in `tests/test_arc_builder.py`. **Phase 0 complete.**
 
 Notes: the **transition** type already carries trigger kind (external-event `Event` vs automatic/ownerless `AUTO`) + optional guard predicate over `GameState`; RNG-bearing effects draw from `rng_log`.
 
@@ -293,7 +293,7 @@ earlier `attack → retreat_gate interrupt → advance_gate` sketch is supersede
 Effects reuse title functions (return `list[StateAction]`): `combat_rules.BINDING`
 methods delegating to `combat_actions.*`; post-attack bucket handoff is
 `combat_outcome.build_combat_outcome_after_applied` → `CombatOutcome` inside the arc
-`attack` effect. **`combat_gate` mirror is retired**; segment `kind` on the arc cursor is authoritative.
+`attack` effect. **`combat_gate` mirror is retired**; segment `ui_mode` on the arc cursor is authoritative.
 
 #### New engine/title surfaces needed
 
@@ -322,7 +322,7 @@ methods delegating to `combat_actions.*`; post-attack bucket handoff is
   Effects/guards reference the existing title functions; `apply_retreat_step` is a 2c
   stub (raises until the retreat move/clear logic moves here). Added `resolve_owner_ref`
   (the `"retreating"` `OwnerRefResolver`) and `combat_actions.clear_advance_gate`.
-  Gate-bearing segments carry their `combat_gate` string as `kind`. Parity test
+  Gate-bearing segments carry gate `ui_mode` strings (retired `combat_gate` mirror). Parity test
   `tests/test_combat_arc_declaration.py` asserts owners, derived `allowed_actions`,
   one-to-one segment↔`GATES_BLOCKING_ROUTINE` mapping, and resolver behavior;
   `Arc.validate()` passes. No routing — all existing combat tests stay green.
@@ -472,7 +472,7 @@ gating, and client draft entry from it instead of ``combat_gate`` string matchin
 #### Sub-steps (completed)
 
 1. **5a — Segment wire projector.** ``hexengine/arcs/segment_wire.py`` projects
-   ``arc_id``, ``segment_id``, ``kind``, ``owner``, ``allowed_actions``, and
+   ``arc_id``, ``segment_id``, ``ui_mode``, ``owner``, ``allowed_actions``, and
    ``action_locus`` (``server`` vs ``client_draft``) from the active cursor.
 2. **5b — StateUpdate field.** ``current_segment`` on ``StateUpdate`` (per viewer);
    ``TurnActionDockContext.current_segment`` for dock hooks.
@@ -508,7 +508,7 @@ Only `hooks.internal.authoring_bridge` (movement default assembly) and
    checks.
 2. **6b — Hexdemo consumes patterns.** `turn_arc_schedule.py` uses `interleaved_slots` +
    `build_turn_registry`; `combat_arc.py` uses `build_combat_cleanup_arc` with title-bound
-   guards/effects and gate kind strings.
+   guards/effects and gate `ui_mode` strings.
 3. **6c — Load-time validation.** `validate_arc_contract` wired through
    `validate_title_contract` at `GameServer` init.
 4. **6d — Movement default via bridge.** `build_movement_arc` in
@@ -531,7 +531,7 @@ and validate), not `hexengine.arcs.patterns`.
 - Title `combat_gate` bucket field retired (not written); engine and pack read `current_segment`.
 - Client draft CSS uses `effective_turn_dock_presentation_id` (client-local sub-arcs); server hook uses idle `presentation_id` from enriched `current_segment`. Draft locus: [`TURN_ACTION_DOCK_CONTRACT.md` § Draft locus](TURN_ACTION_DOCK_CONTRACT.md#draft-locus-invariant).
 
-**Author-facing UX (next):** segment `kind` plus a title **presentation registry** (`presentation_id`, primitive, `interaction_mode`) so hooks and templates stay insulated from wire — see [`TITLE_AUTHORING.md` § Flow vs presentation](TITLE_AUTHORING.md#flow-vs-presentation-authoring-model) and [`PACK_HOOK_CONTRACTS.md` § Authoring vs wire](PACK_HOOK_CONTRACTS.md#authoring-vs-wire).
+**Author-facing UX (done):** segment `ui_mode` plus a title **presentation registry** (`presentation_id`, primitive, `interaction_mode`) so hooks and templates stay insulated from wire — see [`TITLE_AUTHORING.md` § Flow vs presentation](TITLE_AUTHORING.md#flow-vs-presentation-authoring-model) and [`PACK_HOOK_CONTRACTS.md` § Authoring vs wire](PACK_HOOK_CONTRACTS.md#authoring-vs-wire).
 
 **Author programming interface (sibling track):** [`TITLE_AUTHOR_INTERFACE_PLAN.md`](TITLE_AUTHOR_INTERFACE_PLAN.md) — collapse attack hook pipeline + combat arc binding into one title-facing API (`CombatOutcome`, single `CombatRulesBinding`); Phase D routes `Attack` through `submit_event`.
 

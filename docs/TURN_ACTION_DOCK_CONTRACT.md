@@ -65,7 +65,7 @@ Titles expose many player-facing flows; the engine reuses a small set of **primi
 | **DECIDE** | Choose among discrete options and **commit** | Dock `actions[]` and/or `inputs[]` → `action_request` | Immediate on click (or after inputs merged) |
 | **SEQUENCE** | Ordered steps of INFORM → SELECT → DECIDE (repeat) | Title session + `presentation_id` / step index; not a fifth wire | Per-step commits |
 
-**Composition rule:** SEQUENCE is title-orchestrated composition of the other three. The engine does not need a `sequence` RPC; the title advances steps and swaps `presentation_id`, preview `kind`, and banner copy.
+**Composition rule:** SEQUENCE is title-orchestrated composition of the other three. The engine does not need a `sequence` RPC; the title advances steps and swaps `presentation_id`, preview `InteractionKind`, and banner copy.
 
 ### Mapping common title flows
 

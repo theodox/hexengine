@@ -96,7 +96,7 @@ Authors work in **two layers only**:
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  FLOW (declarative, authoritative)                     │
-│  Arc segments: owner, allowed actions, segment kind        │
+│  Arc segments: owner, allowed actions, ui_mode             │
 │  + title registry: primitive, interaction mode, skin id  │
 └──────────────────────────┬──────────────────────────────┘
                            │ engine projects (internal)
@@ -117,7 +117,7 @@ Wire field tables live in [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md) for
 
 **Reference pattern** (hexdemo: [`segment_ui.py`](../games/hexdemo/segment_ui.py); template pack should copy the same shape):
 
-One **registry row per segment UX mode**, aligned with the `kind` string on arc segments. Each row ties flow to presentation without duplicating logic across engine, dock hook, and client.
+One **registry row per segment UX mode**, aligned with the `ui_mode` string on arc segments. Each row ties flow to presentation without duplicating logic across engine, dock hook, and client.
 
 | Registry field | Author meaning | Engine / client use (internal) |
 |----------------|----------------|--------------------------------|
@@ -131,8 +131,8 @@ One **registry row per segment UX mode**, aligned with the `kind` string on arc 
 
 ```python
 # games/<pack>/segment_ui.py — one place to read “what UX mode is this?”
-SegmentUi(
-    kind="awaiting_retreat",
+SegmentPresentation(
+    ui_mode="awaiting_retreat",
     presentation_id="retreat_gate",
     primitive=Primitive.SELECT,
     interaction_mode="retreat_path",
@@ -140,7 +140,7 @@ SegmentUi(
 )
 ```
 
-Arc declarations use the same `kind` strings. Dock and inform hooks **look up** the row and call pack helpers (`ui_markup`, `shell_ui`); they do not re-derive mode from phase names or bucket strings.
+Arc declarations use the same `ui_mode` strings. Dock and inform hooks **look up** the row and call pack helpers (`ui_markup`, `shell_ui`); they do not re-derive mode from phase names or bucket strings.
 
 **Presentation customization** (goal b) is keyed by `presentation_id` and `inform_profile`:
 
@@ -173,7 +173,7 @@ Arc declarations use the same `kind` strings. Dock and inform hooks **look up** 
 | `hexengine_pack.toml` | Pack root | `[python].entry_*`, `[hooks.title_load]`, pack id |
 | `load_game_definition` | `engine_entry.py` | Required for authoritative server |
 | Scenario | `scenarios/<id>/scenario.toml` | Units, map, markers — schema in `hexengine.scenarios` |
-| `GameData` | `resources/game_data.toml` | `shell_ui`, styles, extension key, `[client_contract]` client wiring |
+| `GameData` | `resources/game_data.toml` | `shell_ui`, styles, `session_state_key`, `[client_contract]` client wiring |
 | PYTHONPATH | `games/` directory | `import hexdemo` (or your pack id) |
 
 Server prepends `games/` when loading a scenario path; see hexdemo README for local dev exports.
@@ -358,13 +358,13 @@ Preview hooks receive `shell_ui` on context objects; dock hook receives it on `T
 4. Add `hexengine_pack.toml` and verify `validate_title_contract` at server start.
 5. Point authors at this guide; run pyright on `games/<pack>/`.
 
-### Minimal combat title (extension key + combat schedule)
+### Minimal combat title (`session_state_key` + combat schedule)
 
 1. Set `session_state_key` in `game_data.toml`; add `session_state.py` accessors (no raw bucket strings in author code).
 2. Declare `ArcHook.TURN_ARC_REGISTRY` with combat schedule slots (`allowed_actions` includes `Attack`).
 3. Implement one `CombatRulesBinding` in `combat_arc.py`; build `ArcSpec` with [`combat_rules_binding_to_arc_spec`](../src/hexengine/authoring/patterns/combat.py) and bind `ArcHook.COMBAT_ARC` (optional `ArcHook.COMBAT_RULES_BINDING` for contract validation).
 4. Thin `hooks/attack.py` adapters to binding methods; add `movement_rules.py` if retreat/move policy is non-default.
-5. Register segment kinds in `segment_ui.py` (routine `combat`, each combat gate kind); bind `UIHook.SEGMENT_PRESENTATION_REGISTRY`, `ENRICH_CURRENT_SEGMENT`, and `TURN_ACTION_DOCK_FOR_VIEWER`.
+5. Register segment `ui_mode` values in `segment_ui.py` (routine `combat`, each combat gate `ui_mode`); bind `UIHook.SEGMENT_PRESENTATION_REGISTRY`, `ENRICH_CURRENT_SEGMENT`, and `TURN_ACTION_DOCK_FOR_VIEWER`.
 6. In the dock hook, call `combat_gate_panel_actions(seg, ctx.shell_ui)` plus `_end_phase_row`; add presentation rows under `presentation/` for each `presentation_id`; run `validate_title_contract` and combat integration tests.
 
 ### New INFORM copy
@@ -375,7 +375,7 @@ Preview hooks receive `shell_ui` on context objects; dock hook receives it on `T
 
 ### New click-confirm map flow (`InteractionKind`)
 
-1. Add kind string to [`InteractionKind`](../src/hexengine/gamedef/interactions.py) (engine).
+1. Add enum value to [`InteractionKind`](../src/hexengine/gamedef/interactions.py) (engine).
 2. Register server row in [`map_selection_registry.py`](../src/hexengine/hooks/map_selection_registry.py); bind title hook.
 3. Implement preview hook: return `MapSelectionPreview` (draft in → legality, `commit_payload`, `panel_actions` out).
 4. Register client `_apply_*_preview` + draft gesture mixin (engine/hexdemo today).
@@ -394,7 +394,7 @@ Preview hooks receive `shell_ui` on context objects; dock hook receives it on `T
 
 | Status | Topics |
 |--------|--------|
-| **Stable (v1)** | Three lanes, dock + `panel_actions` merge, registry kinds `attack_plan` / `retreat_path` / `place_marker`, drag previews, `ENGINE_DEFAULT`, HTML ladder tiers 1–3, `current_segment`-driven legality, `authoring.present` DTOs + `ui_wire` serialization, `combat_gate_panel_actions` for cleanup gate dock rows |
+| **Stable (v1)** | Three lanes, dock + `panel_actions` merge, `InteractionKind` values `attack_plan` / `retreat_path` / `place_marker`, drag previews, `ENGINE_DEFAULT`, HTML ladder tiers 1–3, `current_segment`-driven legality, `authoring.present` DTOs + `ui_wire` serialization, `combat_gate_panel_actions` for cleanup gate dock rows |
 | **Evolving** | Client-held draft; SEQUENCE skin from `current_segment.interaction_mode`; segment registry + `presentation/inform.py` (hexdemo reference); manifest `[client_contract]` client routes |
 | **Planned** | Action label catalog in `shell_ui`; gesture policy from segment; stricter manifest validation; [`RULE_COMPOSITION.md`](RULE_COMPOSITION.md) |
 
