@@ -29,10 +29,10 @@ from hexengine.gamedef.protocol import GameDefinition
 from hexengine.state import DEFAULT_MOVEMENT_BUDGET, GameState
 
 from .combat import transitions as combat_transitions
-from . import focus
 from .constants import HEXDEMO_FACTIONS
 from .hooks import build_hooks
-from .marker_rules import default_marker_placement_rule
+from .ui.focus import focus_unit_id_after_state_sync
+from .ui.marker_rules import default_marker_placement_rule
 
 _HEXDEMO_PACK_ROOT = Path(__file__).resolve().parent
 
@@ -95,7 +95,7 @@ class HexdemoGameDefinition:
         self, state: GameState, viewer_faction: str | None
     ) -> str | None:
         """Optional hook: which unit the client should select after a state sync."""
-        return focus.focus_unit_id_after_state_sync(state, viewer_faction)
+        return focus_unit_id_after_state_sync(state, viewer_faction)
 
     def default_attributes_for_unit_type(self, unit_type: str) -> dict[str, Any]:
         fn = getattr(self._base, "default_attributes_for_unit_type", None)

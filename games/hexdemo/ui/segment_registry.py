@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from .combat.transitions import (
+from ..combat.transitions import (
     GATE_AWAITING_ADVANCE,
     GATE_AWAITING_RETREAT,
     GATE_AWAITING_RETREAT_OR_DISRUPT,

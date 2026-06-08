@@ -23,7 +23,7 @@ from hexengine.ui.display import (
     render_html_template,
 )
 
-PACK_ROOT = Path(__file__).resolve().parent
+PACK_ROOT = Path(__file__).resolve().parent.parent
 PACK_ID = "hexdemo"
 _ASSET_BASE_URL = pack_asset_base_url(PACK_ID)
 

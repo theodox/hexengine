@@ -10,7 +10,7 @@ from hexengine.hooks.ui_segment import (
 )
 from hexengine.hooks.wiring import bind_title_hook
 
-from ..segment_ui import resolve_presentation_id, segment_presentation
+from ..ui.segment_registry import resolve_presentation_id, segment_presentation
 
 
 @bind_title_hook(UIHook.ENRICH_CURRENT_SEGMENT)

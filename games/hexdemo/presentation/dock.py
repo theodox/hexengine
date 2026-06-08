@@ -14,7 +14,7 @@ from typing import Any
 
 from hexengine.hooks.ui_turn_action_dock import _shell_ui_label
 
-from ..ui_markup import render_dock_gate_panel_html
+from ..ui.markup import render_dock_gate_panel_html
 
 # Server idle skins (dock hook / segment registry).
 _SERVER_DOCK_SKINS: dict[str, tuple[str, str, bool]] = {

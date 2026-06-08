@@ -125,7 +125,7 @@ def _ensure_games_on_path() -> None:
 
 def test_hexdemo_focus_unit_after_sync() -> None:
     _ensure_games_on_path()
-    from hexdemo.focus import focus_unit_id_after_state_sync
+    from hexdemo.ui.focus import focus_unit_id_after_state_sync
     from hexengine.hexes.types import Hex
     from hexengine.state import GameState
     from hexengine.state.game_state import BoardState, TurnState, UnitState

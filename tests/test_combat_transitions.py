@@ -24,7 +24,7 @@ def test_phase_advance_allowed_on_routine_move_segment() -> None:
 
 
 def test_segment_registry_maps_retreat_gate_kind() -> None:
-    from games.hexdemo.segment_ui import resolve_presentation_id
+    from games.hexdemo.ui.segment_registry import resolve_presentation_id
 
     segment = {
         "schema": 1,

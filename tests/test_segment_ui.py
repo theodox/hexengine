@@ -16,7 +16,7 @@ from hexdemo.combat.transitions import (
     GATE_AWAITING_RETREAT_OR_DISRUPT,
 )
 from hexdemo.presentation.dock import dock_headline
-from hexdemo.segment_ui import (
+from hexdemo.ui.segment_registry import (
     PRESENTATION_BY_UI_MODE,
     Primitive,
     resolve_presentation_id,

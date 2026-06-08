@@ -47,7 +47,7 @@ def test_validate_segment_presentation_catches_missing_kind() -> None:
     from dataclasses import replace
 
     from games.hexdemo.hooks import build_hooks
-    from games.hexdemo.segment_ui import PRESENTATION_BY_UI_MODE
+    from games.hexdemo.ui.segment_registry import PRESENTATION_BY_UI_MODE
 
     incomplete = {
         k: v for k, v in PRESENTATION_BY_UI_MODE.items() if k != "combat"

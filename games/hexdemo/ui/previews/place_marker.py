@@ -10,7 +10,7 @@ from hexengine.hooks.ui import PlaceMarkerPreviewContext
 from hexengine.state.marker_placement import marker_destination_hexes_for_preview
 from hexengine.ui.display import MapSelectionPreview, PanelAction
 
-from .marker_rules import default_marker_placement_rule
+from ..marker_rules import default_marker_placement_rule
 
 
 def _shell_label(shell_ui: dict[str, Any], key: str, default: str) -> str:

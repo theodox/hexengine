@@ -2,7 +2,7 @@
 Hexdemo UI hooks.
 
 Presentation copy lives in ``hexdemo.presentation``; phase/inspect templates in
-``hexdemo.ui_markup``.
+``hexdemo.ui.markup``.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ from ..presentation.interaction_messages import (
 from ..presentation.interaction_messages import (
     combat_instruction_for_viewer as combat_instruction_copy,
 )
-from ..ui_markup import (
+from ..ui.markup import (
     phase_banner_label,
     render_phase_banner_html,
     unit_inspect_popup,

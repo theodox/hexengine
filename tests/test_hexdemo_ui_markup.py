@@ -36,7 +36,7 @@ def test_hexdemo_flag_assets_exist() -> None:
 
 def test_render_phase_banner_html_escapes_label() -> None:
     _ensure_games_on_path()
-    from hexdemo.ui_markup import PACK_ROOT
+    from hexdemo.ui.markup import PACK_ROOT
     from hexengine.ui.display import (
         clear_template_cache,
         load_html_template,
@@ -46,7 +46,7 @@ def test_render_phase_banner_html_escapes_label() -> None:
     assert "hexdemo-turn-banner" in load_html_template(
         PACK_ROOT, "templates/phase_banner.html"
     )
-    from hexdemo.ui_markup import render_phase_banner_html
+    from hexdemo.ui.markup import render_phase_banner_html
     from hexengine.hooks.ui import PhaseBannerContext
     from hexengine.state import GameState
 
@@ -72,7 +72,7 @@ def test_render_phase_banner_html_escapes_label() -> None:
 
 def test_render_unit_inspect_html() -> None:
     _ensure_games_on_path()
-    from hexdemo.ui_markup import render_unit_inspect_html
+    from hexdemo.ui.markup import render_unit_inspect_html
     from hexengine.hexes.types import Hex
     from hexengine.state.game_state import UnitState
 
@@ -92,7 +92,7 @@ def test_render_unit_inspect_html() -> None:
 
 def test_render_html_template_missing_raises() -> None:
     _ensure_games_on_path()
-    from hexdemo.ui_markup import PACK_ROOT
+    from hexdemo.ui.markup import PACK_ROOT
     from hexengine.ui.display import clear_template_cache, render_html_template
 
     clear_template_cache()

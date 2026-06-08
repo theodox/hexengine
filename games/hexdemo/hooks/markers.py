@@ -5,7 +5,7 @@ from __future__ import annotations
 from hexengine.hooks.ui import UIHook
 from hexengine.hooks.wiring import bind_title_hook
 
-from ..place_marker_preview import place_marker_preview
+from ..ui.previews.place_marker import place_marker_preview
 
 
 @bind_title_hook(UIHook.PLACE_MARKER_PREVIEW)

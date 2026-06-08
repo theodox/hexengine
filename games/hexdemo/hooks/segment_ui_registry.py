@@ -5,7 +5,7 @@ from __future__ import annotations
 from hexengine.hooks.ui import UIHook
 from hexengine.hooks.wiring import bind_title_hook
 
-from ..segment_ui import PRESENTATION_BY_UI_MODE
+from ..ui.segment_registry import PRESENTATION_BY_UI_MODE
 
 
 @bind_title_hook(UIHook.SEGMENT_PRESENTATION_REGISTRY)
