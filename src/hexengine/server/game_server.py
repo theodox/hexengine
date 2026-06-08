@@ -636,7 +636,7 @@ class GameServer:
         asset_base = self._pack_asset_base_url()
         if asset_base:
             out["asset_base_url"] = asset_base
-        out["client_contract"] = {
+        out_cc: dict[str, Any] = {
             "schema": 1,
             "features": sorted(
                 f
@@ -674,6 +674,14 @@ class GameServer:
                 if f is not None
             ),
         }
+        cc_manifest = getattr(gd, "client_contract", None)
+        if cc_manifest is not None:
+            wire_manifest = cc_manifest.to_wire_dict()
+            for key in ("select_modes", "panel_action_routes"):
+                rows = wire_manifest.get(key)
+                if rows:
+                    out_cc[key] = rows
+        out["client_contract"] = out_cc
         return out
 
     def _iter_board_hexes(self, state: GameState) -> list[Hex]:
@@ -1072,30 +1080,31 @@ class GameServer:
             return None
         st = self.action_manager.current_state
 
+        from ..hooks.internal.ui_wire import interaction_messages_to_wire
+        from ..ui.display import InteractionMessage
+
         # Title override: allow full control via hooks.ui.interaction_messages.
         viewer_faction = str(player.faction) if player.faction else None
         title_out = self.hooks.ui.messages(st, viewer_faction)
         if title_out is not ENGINE_DEFAULT:
-            return list(title_out) if isinstance(title_out, list) else None
+            return interaction_messages_to_wire(title_out) or None
 
-        out: list[dict[str, Any]] = []
+        out: list[InteractionMessage] = []
 
         # Phase/turn transition banner (deduped client-side).
         schedule_index = int(st.turn.schedule_index)
         phase_line = self._phase_interaction_banner_text(st, viewer_faction)
         phase_html = self._phase_interaction_banner_html(st, viewer_faction)
-        phase_row: dict[str, Any] = {
-            "schema": 1,
-            "kind": "phase",
-            "dedupe_key": f"phase:{schedule_index}",
-            # No ttl: turn/phase is persistent until the next StateUpdate replaces it.
-            "ttl_ms": None,
-            "css_class": "interaction-msg--phase",
-            "text": phase_line,
-        }
-        if phase_html:
-            phase_row["html"] = phase_html
-        out.append(phase_row)
+        out.append(
+            InteractionMessage(
+                kind="phase",
+                text=phase_line,
+                html=phase_html,
+                dedupe_key=f"phase:{schedule_index}",
+                ttl_ms=None,
+                css_class="interaction-msg--phase",
+            )
+        )
 
         from ..hooks.ui_combat_messages import (
             CombatInteractionMessagesContext,
@@ -1129,15 +1138,15 @@ class GameServer:
                 ),
             )
         elif isinstance(combat_raw, list):
-            combat_rows = [dict(r) for r in combat_raw if isinstance(r, dict)]
+            combat_rows = combat_raw
         else:
             raise TypeError(
-                "hooks.ui.combat_interaction_messages must return list[dict] or "
-                "hooks.ENGINE_DEFAULT"
+                "hooks.ui.combat_interaction_messages must return "
+                "list[InteractionMessage] or hooks.ENGINE_DEFAULT"
             )
         out.extend(combat_rows)
 
-        return out or None
+        return interaction_messages_to_wire(out) or None
 
     def _shell_ui_label(self, key: str, default: str) -> str:
         su = self.game_data.shell_ui
@@ -1254,51 +1263,12 @@ class GameServer:
             return []
         st = self.action_manager.current_state
         viewer_faction = str(player.faction) if player.faction else None
+        from ..hooks.internal.ui_wire import map_overlays_to_wire
+
         raw = self.hooks.ui.overlays(st, viewer_faction)
         if raw is ENGINE_DEFAULT:
             return []
-        if not isinstance(raw, list):
-            return []
-
-        out: list[dict[str, Any]] = []
-        for item in raw:
-            if not isinstance(item, dict):
-                continue
-            sch = item.get("schema", 1)
-            try:
-                if int(sch) != 1:
-                    continue
-            except (TypeError, ValueError):
-                continue
-            oid = str(item.get("id", "")).strip()
-            if not oid:
-                continue
-            kind = str(item.get("kind", "")).strip().lower()
-            if kind != "glyph":
-                continue
-            hx = item.get("hex")
-            if not isinstance(hx, dict):
-                continue
-            try:
-                hi = int(hx["i"])
-                hj = int(hx["j"])
-                hk = int(hx["k"])
-            except (KeyError, TypeError, ValueError):
-                continue
-            text = str(item.get("text", ""))
-            css_class = item.get("css_class")
-            css_out = str(css_class).strip() if isinstance(css_class, str) else None
-            row: dict[str, Any] = {
-                "schema": 1,
-                "id": oid,
-                "kind": "glyph",
-                "hex": {"i": hi, "j": hj, "k": hk},
-                "text": text,
-            }
-            if css_out:
-                row["css_class"] = css_out
-            out.append(row)
-        return out
+        return map_overlays_to_wire(raw)
 
     async def _broadcast_combat_events(self, state_after: GameState) -> None:
         raw = self.hooks.ui.combat_event_summary_for(state_after)

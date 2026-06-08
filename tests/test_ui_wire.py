@@ -12,12 +12,16 @@ if SRC not in sys.path:
 
 from hexengine.authoring.present import (
     inform_popup,
+    interaction_message,
+    map_overlay_glyph,
     map_selection_preview,
     panel_action,
     turn_dock_panel,
 )
 from hexengine.hooks.internal.ui_wire import (
     inform_popup_to_wire,
+    interaction_messages_to_wire,
+    map_overlays_to_wire,
     map_selection_preview_to_wire,
     turn_action_dock_to_wire,
 )
@@ -67,6 +71,61 @@ def test_inform_popup_to_wire_rejects_dict() -> None:
 def test_inform_popup_dto_round_trip() -> None:
     dto = inform_popup(text="hello", ttl_ms=750)
     assert inform_popup_to_wire(dto)["ttl_ms"] == 750
+
+
+def test_interaction_messages_to_wire_rejects_dict_rows() -> None:
+    try:
+        interaction_messages_to_wire(
+            [{"schema": 1, "kind": "phase", "text": "x"}]
+        )
+    except TypeError as exc:
+        assert "InteractionMessage" in str(exc)
+    else:
+        raise AssertionError("expected TypeError")
+
+
+def test_interaction_messages_dto_round_trip() -> None:
+    dto = interaction_message(
+        kind="retreat",
+        text="Retreat now",
+        dedupe_key="combat_prompt",
+        css_class="interaction-msg--retreat",
+    )
+    wire = interaction_messages_to_wire([dto])
+    assert wire[0]["kind"] == "retreat"
+    assert wire[0]["dedupe_key"] == "combat_prompt"
+
+
+def test_map_overlays_to_wire_rejects_dict_rows() -> None:
+    try:
+        map_overlays_to_wire(
+            [
+                {
+                    "schema": 1,
+                    "id": "t1",
+                    "kind": "glyph",
+                    "hex": {"i": 0, "j": 0, "k": 0},
+                    "text": "x",
+                }
+            ]
+        )
+    except TypeError as exc:
+        assert "MapOverlay" in str(exc)
+    else:
+        raise AssertionError("expected TypeError")
+
+
+def test_map_overlay_glyph_dto_round_trip() -> None:
+    dto = map_overlay_glyph(
+        id="combat-target-1",
+        hex={"i": 1, "j": -1, "k": 0},
+        text="🟎",
+        css_class="hexdemo-combat-glyph-overlay",
+    )
+    wire = map_overlays_to_wire([dto])[0]
+    assert wire["id"] == "combat-target-1"
+    assert wire["hex"] == {"i": 1, "j": -1, "k": 0}
+    assert wire["css_class"] == "hexdemo-combat-glyph-overlay"
 
 
 def test_map_selection_preview_to_wire_rejects_dict() -> None:

@@ -154,7 +154,7 @@ Arc declarations use the same `kind` strings. Dock and inform hooks **look up** 
 
 **Do not** in pack code: build raw wire dicts for dock panels or inform popups (except tests); read `client.interaction_panels` for legality; branch on `combat_gate` for affordances — use [`arc_segment.py`](../games/hexdemo/arc_segment.py) helpers and `current_segment` via hook context.
 
-**Presentation DTOs (P2):** return `TurnDockPanel`, `InformPopup`, and `MapSelectionPreview` from `hexengine.authoring.present` (`turn_dock_panel`, `panel_action`, `inform_popup`, `map_selection_preview`, …). The engine converts them in `hexengine.hooks.internal.ui_wire` before `StateUpdate`, `ui_popup`, or `map_selection_preview` wire messages.
+**Presentation DTOs (P2):** return `TurnDockPanel`, `InformPopup`, `MapSelectionPreview`, `InteractionMessage`, and `MapOverlay` from `hexengine.authoring.present` (`turn_dock_panel`, `panel_action`, `inform_popup`, `map_selection_preview`, `interaction_message`, `map_overlay_glyph`, …). The engine converts them in `hexengine.hooks.internal.ui_wire` before `StateUpdate`, `ui_popup`, or `map_selection_preview` wire messages.
 
 **P3 (done):** `current_segment` on `StateUpdate` carries `presentation_id` and `interaction_mode` (title `enrich_current_segment` hook + engine default). The client turn-dock SEQUENCE skin keys off `interaction_mode`, not separate `*_draft` booleans.
 
@@ -173,7 +173,7 @@ Arc declarations use the same `kind` strings. Dock and inform hooks **look up** 
 | `hexengine_pack.toml` | Pack root | `[python].entry_*`, `[hooks.title_load]`, pack id |
 | `load_game_definition` | `engine_entry.py` | Required for authoritative server |
 | Scenario | `scenarios/<id>/scenario.toml` | Units, map, markers — schema in `hexengine.scenarios` |
-| `GameData` | `resources/game_data.toml` | `shell_ui`, styles, extension key |
+| `GameData` | `resources/game_data.toml` | `shell_ui`, styles, extension key, `[client_contract]` client wiring |
 | PYTHONPATH | `games/` directory | `import hexdemo` (or your pack id) |
 
 Server prepends `games/` when loading a scenario path; see hexdemo README for local dev exports.
@@ -240,9 +240,9 @@ Full field tables: [`PACK_HOOK_CONTRACTS.md` § UI affordances](PACK_HOOK_CONTRA
 
 | Hook(s) | Typical return (author) |
 |------|---------|--------------|
-| `PHASE_BANNER_*`, `COMBAT_INSTRUCTION_*`, `ADVANCE_GATE_*`, or full `INTERACTION_MESSAGES` | Message rows: `text`, optional `html`, `kind`, `ttl_ms`, … (engine adds `schema` on wire) |
+| `PHASE_BANNER_*`, `COMBAT_INSTRUCTION_*`, `ADVANCE_GATE_*`, or full `INTERACTION_MESSAGES` | Return `InteractionMessage` via `interaction_message()`; engine serializes in `ui_wire` |
 | **`INFORM_POPUP`** | `InformPopup` DTO (`text`, optional `html`, `kind`, `ttl_ms`, `css_class`) — server sets anchor `hex` |
-| `MAP_OVERLAYS` | List of overlay specs (id, kind, hex, text, …) |
+| `MAP_OVERLAYS` | `list[MapOverlay]` via `map_overlay_glyph()` (glyph kind today) |
 
 **One `ui_popup` path:** all `InspectRequest` targets (`unit`, `marker`, `inform`) go through **`INFORM_POPUP`** → `inform_popup_to_wire` → `ui_popup` on the client (`_handle_ui_popup`). Do not call `popup_manager.create_popup` from title/game client code for player-facing copy.
 
@@ -318,7 +318,7 @@ Titles emit normal action rows; these matches are handled in the client before R
 | `id: place_marker_confirm` | Local confirm → `MoveMarker` |
 | `Attack` when preview `confirm_enabled` | `preview_commit` with `commit_payload` |
 
-New special commits may require an engine row in `PANEL_ACTION_ROUTES` until manifest-driven routes exist.
+Declare special commits in `game_data.toml` → `[client_contract.panel_action_routes]` (mirrored on `turn_rules.client_contract`). Engine defaults apply when the manifest omits rows.
 
 ---
 
@@ -369,7 +369,7 @@ Preview hooks receive `shell_ui` on context objects; dock hook receives it on `T
 2. Register server row in [`map_selection_registry.py`](../src/hexengine/hooks/map_selection_registry.py); bind title hook.
 3. Implement preview hook: return `MapSelectionPreview` (draft in → legality, `commit_payload`, `panel_actions` out).
 4. Register client `_apply_*_preview` + draft gesture mixin (engine/hexdemo today).
-5. Add `client_panel_actions` routes if Confirm is not a plain RPC.
+5. Add `[client_contract.panel_action_routes]` rows if Confirm is not a plain RPC.
 6. Add `shell_ui` strings; document draft/response fields in pack README.
 7. Update this guide + contract doc when shipped.
 

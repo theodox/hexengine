@@ -139,6 +139,54 @@ class InformPopup:
         return out
 
 
+def _hex_coords_from_author_value(hex: Any) -> tuple[int, int, int]:
+    if isinstance(hex, dict):
+        try:
+            return (int(hex["i"]), int(hex["j"]), int(hex["k"]))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError("map overlay hex requires i, j, k integers") from exc
+    i = getattr(hex, "i", None)
+    j = getattr(hex, "j", None)
+    k = getattr(hex, "k", None)
+    if i is not None and j is not None and k is not None:
+        try:
+            return (int(i), int(j), int(k))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("map overlay hex requires i, j, k integers") from exc
+    raise ValueError("map overlay hex must be a dict or Hex-like object")
+
+
+@dataclass(frozen=True, slots=True)
+class MapOverlay:
+    """Map-space overlay row (``StateUpdate.map_overlays``, schema 1)."""
+
+    id: str
+    hex: tuple[int, int, int]
+    text: str
+    kind: str = "glyph"
+    css_class: str | None = None
+    schema: int = 1
+
+    def to_wire_dict(self) -> dict[str, Any]:
+        oid = str(self.id).strip()
+        if not oid:
+            raise ValueError("MapOverlay requires non-empty id")
+        kind = str(self.kind).strip().lower() or "glyph"
+        if kind != "glyph":
+            raise ValueError(f"unsupported map overlay kind: {kind!r}")
+        hi, hj, hk = self.hex
+        out: dict[str, Any] = {
+            "schema": int(self.schema),
+            "id": oid,
+            "kind": "glyph",
+            "hex": {"i": int(hi), "j": int(hj), "k": int(hk)},
+            "text": str(self.text),
+        }
+        if self.css_class is not None and str(self.css_class).strip():
+            out["css_class"] = str(self.css_class).strip()
+        return out
+
+
 @dataclass(frozen=True, slots=True)
 class MapSelectionPreview:
     """Map-selection preview (``map_selection_preview`` wire); server sets ``request_id``."""
@@ -437,6 +485,26 @@ def interaction_panel(
     ).to_wire_dict()
 
 
+def map_overlay_glyph(
+    *,
+    id: str,
+    hex: Any,
+    text: str,
+    css_class: str | None = None,
+    schema: int = 1,
+) -> MapOverlay:
+    """Build one glyph overlay anchored at a board hex (author-facing)."""
+    coords = _hex_coords_from_author_value(hex)
+    return MapOverlay(
+        id=id,
+        hex=coords,
+        text=text,
+        kind="glyph",
+        css_class=css_class,
+        schema=schema,
+    )
+
+
 def interaction_message(
     *,
     kind: str,
@@ -446,8 +514,8 @@ def interaction_message(
     dedupe_key: str | None = None,
     ttl_ms: int | None = None,
     css_class: str | None = None,
-) -> dict[str, Any]:
-    """Build one ``interaction_messages`` wire dict (dual-field rule: ``text`` + optional ``html``)."""
+) -> InteractionMessage:
+    """Build one ``interaction_messages`` row (author-facing)."""
     return InteractionMessage(
         kind=kind,
         text=text,
@@ -456,7 +524,7 @@ def interaction_message(
         dedupe_key=dedupe_key,
         ttl_ms=ttl_ms,
         css_class=css_class,
-    ).to_wire_dict()
+    )
 
 
 @lru_cache(maxsize=32)
@@ -504,6 +572,7 @@ __all__ = [
     "InformPopup",
     "InteractionMessage",
     "InteractionPanel",
+    "MapOverlay",
     "MapSelectionPreview",
     "PanelAction",
     "TurnDockPanel",
@@ -514,6 +583,7 @@ __all__ = [
     "interaction_message",
     "interaction_panel",
     "load_html_template",
+    "map_overlay_glyph",
     "map_selection_preview",
     "pack_asset_href",
     "panel_action",

@@ -577,7 +577,7 @@ class ClientInteractionPanelsMixin:
             )
 
     def _handle_panel_action_click(self, spec: dict[str, Any], panel_id: str) -> None:
-        route = resolve_panel_action_route(spec)
+        route = resolve_panel_action_route(spec, self)
         if route is not None and dispatch_panel_action_route(self, spec, route):
             return
 

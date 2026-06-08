@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from .client_contract import client_contract_manifest_from_mapping
 from .game_data import GameData
 
 _MANIFEST_NAME = "hexengine_pack.toml"
@@ -119,6 +120,7 @@ def game_data_from_mapping(data: Mapping[str, Any]) -> GameData:
     hi = _highlight_dict(data.get("hex_highlight_ui"))
     shell = _shell_ui_dict(data.get("shell_ui"))
     kind_styles = _str_dict(data.get("interaction_kind_styles"))
+    client_contract = client_contract_manifest_from_mapping(data.get("client_contract"))
 
     return GameData(
         gamedata_schema=1,
@@ -132,6 +134,7 @@ def game_data_from_mapping(data: Mapping[str, Any]) -> GameData:
         hex_highlight_ui=hi,
         shell_ui=shell,
         interaction_kind_styles=kind_styles,
+        client_contract=client_contract,
     )
 
 

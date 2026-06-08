@@ -6,6 +6,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from .client_contract import ClientContractManifest, client_contract_manifest_from_wire
+
 
 def _strip_str(v: Any) -> str | None:
     if isinstance(v, str) and v.strip():
@@ -136,6 +138,7 @@ class ClientTitleData:
     faction_ui: ClientFactionUi | None
     faction_display_contract_error: str | None
     client_contract_features: frozenset[str]
+    client_contract: ClientContractManifest
     shell_ui: ClientShellUi
     interaction_kind_styles: dict[str, str]
 
@@ -155,6 +158,7 @@ class ClientTitleData:
             faction_ui=None,
             faction_display_contract_error=None,
             client_contract_features=frozenset(),
+            client_contract=ClientContractManifest(),
             shell_ui=ClientShellUi(),
             interaction_kind_styles=dict(_DEFAULT_INTERACTION_KIND_STYLES),
         )
@@ -216,6 +220,7 @@ class ClientTitleData:
 
         cc = wire.get("client_contract")
         feats: frozenset[str] = frozenset()
+        manifest = ClientContractManifest()
         if isinstance(cc, dict):
             raw_feats = cc.get("features")
             if isinstance(raw_feats, list):
@@ -224,6 +229,7 @@ class ClientTitleData:
                     for x in raw_feats
                     if isinstance(x, str) and str(x).strip()
                 )
+            manifest = client_contract_manifest_from_wire(cc)
 
         return ClientTitleData(
             max_active_units_per_hex=max_stack,
@@ -233,6 +239,7 @@ class ClientTitleData:
             faction_ui=faction_ui,
             faction_display_contract_error=fd_err,
             client_contract_features=feats,
+            client_contract=manifest,
             shell_ui=ClientShellUi.from_wire_dict(wire.get("shell_ui")),
             interaction_kind_styles=_interaction_kind_styles_from_wire(
                 wire.get("interaction_kind_styles")

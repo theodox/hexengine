@@ -68,5 +68,5 @@ def test_default_combat_interaction_messages_advance_row_uses_segment() -> None:
         combat_instruction=lambda _o, _r: ("resolved", "ok"),
         advance_gate_banners=lambda _f: ("Advance now", "Wait"),
     )
-    kinds = [r["kind"] for r in rows]
+    kinds = [r.kind for r in rows]
     assert "advance" in kinds

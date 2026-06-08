@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..state import GameState
+from ..ui.display import InteractionMessage, interaction_message
 
 _SEGMENT_KIND_RETREAT = frozenset({"awaiting_retreat", "awaiting_retreat_or_disrupt"})
 _SEGMENT_KIND_ADVANCE = frozenset({"awaiting_advance"})
@@ -43,7 +44,7 @@ def default_combat_interaction_messages(
     *,
     combat_instruction: Callable[[str, str | None], tuple[str, str]],
     advance_gate_banners: Callable[[str], tuple[str, str]],
-) -> list[dict[str, Any]]:
+) -> list[InteractionMessage]:
     """
     Engine default combat/retreat/advance rows for ``interaction_messages``.
 
@@ -60,7 +61,7 @@ def default_combat_interaction_messages(
     segment = ctx.current_segment if isinstance(ctx.current_segment, Mapping) else None
     segment_kind = str(segment.get("kind", "")).strip() if segment else ""
 
-    out: list[dict[str, Any]] = []
+    out: list[InteractionMessage] = []
     viewer = str(ctx.viewer_faction).strip() if ctx.viewer_faction else ""
 
     last_combat = hx.get("last_combat")
@@ -85,20 +86,19 @@ def default_combat_interaction_messages(
             else "info"
         )
         out.append(
-            {
-                "schema": 1,
-                "kind": kind,
-                "dedupe_key": "combat_prompt",
-                "ttl_ms": None if kind in ("retreat", "wait") else 4_000,
-                "css_class": (
+            interaction_message(
+                kind=kind,
+                dedupe_key="combat_prompt",
+                ttl_ms=None if kind in ("retreat", "wait") else 4_000,
+                css_class=(
                     "interaction-msg--retreat"
                     if kind == "retreat"
                     else "interaction-msg--wait"
                     if kind == "wait"
                     else "interaction-msg--info"
                 ),
-                "text": msg,
-            }
+                text=msg,
+            )
         )
 
     if segment_kind in _SEGMENT_KIND_ADVANCE:
@@ -110,25 +110,23 @@ def default_combat_interaction_messages(
             t_adv, t_wait = advance_gate_banners(adv_faction)
             if adv_faction == viewer:
                 out.append(
-                    {
-                        "schema": 1,
-                        "kind": "advance",
-                        "dedupe_key": "combat_advance",
-                        "ttl_ms": None,
-                        "css_class": "interaction-msg--advance",
-                        "text": t_adv,
-                    }
+                    interaction_message(
+                        kind="advance",
+                        dedupe_key="combat_advance",
+                        ttl_ms=None,
+                        css_class="interaction-msg--advance",
+                        text=t_adv,
+                    )
                 )
             else:
                 out.append(
-                    {
-                        "schema": 1,
-                        "kind": "wait",
-                        "dedupe_key": "combat_advance_wait",
-                        "ttl_ms": None,
-                        "css_class": "interaction-msg--wait",
-                        "text": t_wait,
-                    }
+                    interaction_message(
+                        kind="wait",
+                        dedupe_key="combat_advance_wait",
+                        ttl_ms=None,
+                        css_class="interaction-msg--wait",
+                        text=t_wait,
+                    )
                 )
 
     return out

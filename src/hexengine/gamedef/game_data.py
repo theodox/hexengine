@@ -8,6 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+from .client_contract import ClientContractManifest
+
 
 @dataclass(frozen=True, slots=True)
 class GameData:
@@ -26,6 +28,8 @@ class GameData:
     shell_ui: dict[str, Any] = field(default_factory=dict)
     #: Map interaction message `kind` -> CSS class (overrides engine defaults on client).
     interaction_kind_styles: dict[str, str] = field(default_factory=dict)
+    #: Browser client wiring: SELECT apply handlers, draft checks, panel action routes.
+    client_contract: ClientContractManifest | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(

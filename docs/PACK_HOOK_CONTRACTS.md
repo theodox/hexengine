@@ -84,11 +84,11 @@ Transient turn banner rows. Omitted from wire when `None`. Client shows **one** 
 **Server composition:** unless `UIHook.INTERACTION_MESSAGES` returns a full list, the server merges:
 
 1. **Phase row** — `PHASE_BANNER_TEXT_FOR_VIEWER` → `text`; optional `PHASE_BANNER_HTML_FOR_VIEWER` → `html`
-2. **Combat rows** — `UIHook.COMBAT_INTERACTION_MESSAGES` → `list[dict]` (hexdemo: [`hooks/ui.py`](../games/hexdemo/hooks/ui.py)). Context includes `shell_ui` from `game_data.toml`. When the hook returns `ENGINE_DEFAULT`, the engine builds rows from `current_segment.kind` plus `COMBAT_INSTRUCTION_FOR_VIEWER` and `ADVANCE_GATE_BANNERS_FOR_VIEWER` ([`ui_combat_messages.py`](../src/hexengine/hooks/ui_combat_messages.py)). The engine does not read title bucket `combat_gate` for banners.
+2. **Combat rows** — `UIHook.COMBAT_INTERACTION_MESSAGES` → `list[InteractionMessage]` (hexdemo: [`hooks/ui.py`](../games/hexdemo/hooks/ui.py)). Context includes `shell_ui` from `game_data.toml`. When the hook returns `ENGINE_DEFAULT`, the engine builds rows from `current_segment.kind` plus `COMBAT_INSTRUCTION_FOR_VIEWER` and `ADVANCE_GATE_BANNERS_FOR_VIEWER` ([`ui_combat_messages.py`](../src/hexengine/hooks/ui_combat_messages.py)). The engine does not read title bucket `combat_gate` for banners.
 
 `game_server` does not parse `last_combat` / `combat_gate` directly for banners (engine boundary 2). **`combat_event`** messages for retreat UI still use `last_combat` in [`_broadcast_combat_events`](../src/hexengine/server/game_server.py) — separate from INFORM.
 
-**Full override:** `INTERACTION_MESSAGES(state, viewer_faction)` → `list[dict]` replaces the entire default list. Partial hooks are ignored when this hook is bound and does not return `ENGINE_DEFAULT`.
+**Full override:** `INTERACTION_MESSAGES(state, viewer_faction)` → `list[InteractionMessage]` replaces the entire default list. Partial hooks are ignored when this hook is bound and does not return `ENGINE_DEFAULT`.
 
 Example phase row (engine-shaped):
 
@@ -147,7 +147,7 @@ Gate rows (disrupt, advance, end phase) are composed inside the turn action dock
 
 ### `StateUpdate.map_overlays`
 
-Map-space DOM overlays under `#map-world`. See inline doc on [`StateUpdate`](../src/hexengine/server/protocol/server.py). Built from `UIHook.MAP_OVERLAYS` or engine default (empty list).
+Map-space DOM overlays under `#map-world`. See inline doc on [`StateUpdate`](../src/hexengine/server/protocol/server.py). Built from `UIHook.MAP_OVERLAYS` (`MapOverlay` DTO via `map_overlay_glyph`) or engine default (empty list); serialized in [`map_overlays_to_wire`](../src/hexengine/hooks/internal/ui_wire.py).
 
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
@@ -213,7 +213,7 @@ SELECT drafts (map/unit picks before commit) use one RPC pair. Drafts are **clie
 | `inspect_unit` | — | Inspect uses `INFORM_POPUP`, not map-selection preview |
 | `place_marker` | `UIHook.PLACE_MARKER_PREVIEW` → `hooks.ui.place_marker_preview` | `marker_id`, `to_hex`; legal destinations from title rule; `MoveMarker` commit (hexdemo). Shift+click marker to start; drag unchanged. |
 
-To add a kind: extend `InteractionKind`, register a row in [`map_selection_registry.py`](../src/hexengine/hooks/map_selection_registry.py), bind a title hook, add a client apply row in [`client_map_selection_registry.py`](../src/hexengine/game/arcs/client_map_selection_registry.py) (`_MAP_SELECTION_APPLY_METHODS`), optionally add panel-action routes in [`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py), and document draft/response fields in the title pack.
+To add a kind: extend `InteractionKind`, register a row in [`map_selection_registry.py`](../src/hexengine/hooks/map_selection_registry.py), bind a title hook, declare client wiring in `game_data.toml` → `[client_contract.select_modes]` and optional `[client_contract.panel_action_routes]` (mirrored on `turn_rules.client_contract`; see [`client_contract.py`](../src/hexengine/gamedef/client_contract.py)). Engine defaults in [`client_map_selection_registry.py`](../src/hexengine/game/arcs/client_map_selection_registry.py) and [`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py) apply when the manifest omits rows.
 
 ### UI hook inventory
 
@@ -221,21 +221,21 @@ Bind with `@bind_title_hook(UIHook.…)` in the title hooks package. Values matc
 
 | Hook | When invoked | Signature | Return | `ENGINE_DEFAULT` behavior |
 |------|--------------|-----------|--------|---------------------------|
-| **`INTERACTION_MESSAGES`** | Every per-player `StateUpdate` | `(state, viewer_faction)` | `list[dict]` | Server builds default list (phase + combat + advance rows) |
+| **`INTERACTION_MESSAGES`** | Every per-player `StateUpdate` | `(state, viewer_faction)` | `list[InteractionMessage]` | Server builds default list (phase + combat + advance rows) |
 | **`PHASE_BANNER_TEXT_FOR_VIEWER`** | Default message composition | `(ctx: PhaseBannerContext)` | `str` | [`default_phase_banner_text_for_viewer`](../src/hexengine/hooks/ui.py) |
 | **`PHASE_BANNER_HTML_FOR_VIEWER`** | Default message composition | `(ctx: PhaseBannerContext)` | `str` | Omitted — phase row is text-only |
 | **`COMBAT_INSTRUCTION_FOR_VIEWER`** | After combat with retreat context | `(ctx: CombatInteractionContext)` | `(instruction, message)` | [`default_combat_instruction_for_viewer`](../src/hexengine/hooks/ui.py) |
 | **`ADVANCE_GATE_BANNERS_FOR_VIEWER`** | Active segment kind is advance gate | `(ctx: AdvanceGateInteractionContext)` | `(text_advancing, text_other)` | [`default_advance_gate_banners_for_viewer`](../src/hexengine/hooks/ui.py) |
 | **`INFORM_POPUP`** | `InspectRequest` (`unit` / `marker` / `inform`) | `(ctx: InformPopupContext)` | `InformPopup` | [`default_inform_popup_for_viewer`](../src/hexengine/hooks/inform_popup.py) |
-| **`MAP_OVERLAYS`** | Every per-player `StateUpdate` | `(state, viewer_faction)` | `list[dict]` | `[]` |
+| **`MAP_OVERLAYS`** | Every per-player `StateUpdate` | `(state, viewer_faction)` | `list[MapOverlay]` | `[]` |
 | **`TURN_ACTION_DOCK_FOR_VIEWER`** | Every per-player `StateUpdate` | `(ctx: TurnActionDockContext)` | `list[TurnDockPanel]` | Engine catalog ([`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py)). No draft on context — see [draft locus](TURN_ACTION_DOCK_CONTRACT.md#draft-locus-invariant). |
-| **`COMBAT_INTERACTION_MESSAGES`** | Default `interaction_messages` combat slice (after phase row) | `(ctx: CombatInteractionMessagesContext)` | `list[dict]` | [`default_combat_interaction_messages`](../src/hexengine/hooks/ui_combat_messages.py) using segment kind + partial combat/advance hooks |
+| **`COMBAT_INTERACTION_MESSAGES`** | Default `interaction_messages` combat slice (after phase row) | `(ctx: CombatInteractionMessagesContext)` | `list[InteractionMessage]` | [`default_combat_interaction_messages`](../src/hexengine/hooks/ui_combat_messages.py) using segment kind + partial combat/advance hooks |
 | **`COMBAT_EVENT_SUMMARY`** | After combat, to fan out `combat_event` wires | `(state)` | `CombatEventSummary \| None` | `None` (no `combat_event` broadcast) |
 
 **Partial vs full message hooks**
 
 - **Partial** — customize one slice; server merges into the default `interaction_messages` list.
-- **Full** — `INTERACTION_MESSAGES` replaces the entire list; do not rely on partial hooks when the full hook is bound.
+- **Full** — `INTERACTION_MESSAGES` replaces the entire list with `InteractionMessage` DTOs; do not rely on partial hooks when the full hook is bound.
 - **Phase banner** — always provide sensible `text` via `PHASE_BANNER_TEXT_FOR_VIEWER` even when `PHASE_BANNER_HTML_FOR_VIEWER` supplies display HTML.
 
 Context dataclasses: [`CombatInteractionContext`](../src/hexengine/hooks/ui.py), [`AdvanceGateInteractionContext`](../src/hexengine/hooks/ui.py), [`CombatInteractionMessagesContext`](../src/hexengine/hooks/ui_combat_messages.py), [`PhaseBannerContext`](../src/hexengine/hooks/ui.py), [`TurnActionDockContext`](../src/hexengine/hooks/ui_turn_action_dock.py).
@@ -282,7 +282,7 @@ Tiered approach for title HTML without arbitrary inline JS. Expanded narrative a
 | **2 — Static templates** | `resources/templates/*.html` loaded with `read_pack_resource_text`; `{placeholders}` with **`html.escape`** on dynamic values | Designer-editable layout shells |
 | **3 — Pack helpers** | Title module (e.g. `ui_markup.py`) wrapping templates + escape | Repeated patterns within one pack |
 | **4 — Engine helpers** | [`hexengine.ui.display`](../src/hexengine/ui/display.py): `escape`, `interaction_message`, `InteractionMessage`, `load_html_template`, `render_html_template`, `pack_asset_href` | Shared API across packs |
-| **5 — Full hook override** | `INTERACTION_MESSAGES` returns complete `list[dict]` with `html` per row | Total control over banner composition |
+| **5 — Full hook override** | `INTERACTION_MESSAGES` returns complete `list[InteractionMessage]` with optional `html` per row | Total control over banner composition |
 
 **Wire surfaces that accept `html` (v1)**
 

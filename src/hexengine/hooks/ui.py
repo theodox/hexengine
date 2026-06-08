@@ -26,7 +26,7 @@ from enum import StrEnum
 from typing import Any
 
 from ..state import GameState
-from ..ui.display import InformPopup, TurnDockPanel
+from ..ui.display import InformPopup, InteractionMessage, MapOverlay, TurnDockPanel
 from .core import ENGINE_DEFAULT, RuleViolation
 from .inform_popup import InformPopupContext
 from .ui_combat_messages import CombatInteractionMessagesContext
@@ -155,13 +155,13 @@ class UIHooks:
     UI policy surface consulted by the server when building per-recipient `StateUpdate`.
 
     - Return `ENGINE_DEFAULT` to request engine defaults.
-    - Return a list of message dicts to fully control transient per-viewer banners.
-      Each dict requires `kind` and plain-text `text`; optional `html` renders rich
-      content in the turn banner (client prefers `html` over `text` when both are set).
+    - Return a list of ``InteractionMessage`` DTOs to fully control transient banners.
+      Optional ``html`` renders rich content in the turn banner (client prefers
+      ``html`` over ``text`` when both are set).
     """
 
     interaction_messages: (
-        Callable[[GameState, str | None], list[dict[str, Any]] | object] | None
+        Callable[[GameState, str | None], list[InteractionMessage] | object] | None
     ) = None
 
     inform_popup: (
@@ -169,7 +169,7 @@ class UIHooks:
     ) = None
 
     map_overlays: (
-        Callable[[GameState, str | None], list[dict[str, Any]] | object] | None
+        Callable[[GameState, str | None], list[MapOverlay] | object] | None
     ) = None
 
     combat_instruction_for_viewer: (
@@ -203,7 +203,7 @@ class UIHooks:
     ) = None
 
     combat_interaction_messages: (
-        Callable[[CombatInteractionMessagesContext], list[dict[str, Any]] | object]
+        Callable[[CombatInteractionMessagesContext], list[InteractionMessage] | object]
         | None
     ) = None
 
@@ -213,7 +213,7 @@ class UIHooks:
 
     def messages(
         self, state: GameState, viewer_faction: str | None
-    ) -> list[dict[str, Any]] | object:
+    ) -> list[InteractionMessage] | object:
         if self.interaction_messages is None:
             return ENGINE_DEFAULT
         return self.interaction_messages(state, viewer_faction)
@@ -225,7 +225,7 @@ class UIHooks:
 
     def overlays(
         self, state: GameState, viewer_faction: str | None
-    ) -> list[dict[str, Any]] | object:
+    ) -> list[MapOverlay] | object:
         if self.map_overlays is None:
             return ENGINE_DEFAULT
         return self.map_overlays(state, viewer_faction)
@@ -282,7 +282,7 @@ class UIHooks:
 
     def combat_interaction_messages_for(
         self, ctx: CombatInteractionMessagesContext
-    ) -> list[dict[str, Any]] | object:
+    ) -> list[InteractionMessage] | object:
         if self.combat_interaction_messages is None:
             return ENGINE_DEFAULT
         return self.combat_interaction_messages(ctx)

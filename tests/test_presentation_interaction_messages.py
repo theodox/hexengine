@@ -71,7 +71,7 @@ def test_combat_interaction_messages_hook_uses_ctx_shell_ui() -> None:
             shell_ui={"combat_outcome_none": "Quiet round."},
         )
     )
-    assert any(r.get("text") == "Quiet round." for r in rows)
+    assert any(r.text == "Quiet round." for r in rows)
 
 
 def test_advance_gate_banners_shell_ui() -> None:

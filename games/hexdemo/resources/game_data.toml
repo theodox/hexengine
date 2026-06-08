@@ -63,3 +63,61 @@ advance = "interaction-msg--advance"
 wait = "interaction-msg--wait"
 phase = "interaction-msg--phase"
 info = "interaction-msg--info"
+
+# Browser client wiring (mirrored on turn_rules.client_contract).
+[client_contract]
+schema = 1
+
+[[client_contract.select_modes]]
+kind = "attack_plan"
+apply_method = "_apply_attack_plan_preview"
+draft_active_method = "_attack_plan_draft_active"
+draft_presentation_id = "attack_draft"
+
+[[client_contract.select_modes]]
+kind = "retreat_path"
+apply_method = "_apply_retreat_path_preview"
+draft_active_method = "_retreat_path_draft_active"
+draft_presentation_id = "retreat_path_draft"
+
+[[client_contract.select_modes]]
+kind = "place_marker"
+apply_method = "_apply_place_marker_preview"
+draft_active_method = "_place_marker_relocate_active"
+draft_presentation_id = "place_marker_draft"
+
+[[client_contract.panel_action_routes]]
+mode = "local"
+match_action_type = "AttackPlanCancel"
+method = "cancel_attack_plan"
+
+[[client_contract.panel_action_routes]]
+mode = "local"
+match_action_type = "RetreatPathCancel"
+method = "cancel_retreat_path"
+
+[[client_contract.panel_action_routes]]
+mode = "local"
+match_action_type = "RetreatPathUndo"
+method = "undo_retreat_path_hex"
+
+[[client_contract.panel_action_routes]]
+mode = "local"
+match_id = "retreat_path_confirm"
+method = "confirm_retreat_path"
+
+[[client_contract.panel_action_routes]]
+mode = "local"
+match_action_type = "PlaceMarkerCancel"
+method = "cancel_place_marker"
+
+[[client_contract.panel_action_routes]]
+mode = "local"
+match_id = "place_marker_confirm"
+method = "confirm_place_marker"
+
+[[client_contract.panel_action_routes]]
+mode = "preview_commit"
+match_action_type = "Attack"
+wire_action_type = "Attack"
+after_method = "cancel_attack_plan"

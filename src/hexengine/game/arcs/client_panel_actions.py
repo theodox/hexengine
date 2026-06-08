@@ -1,8 +1,9 @@
 """
 Turn action dock button dispatch (local handlers + preview commit ratify).
 
-Titles emit ``action_type`` / ``id`` on dock and preview ``panel_actions`` rows;
-the client resolves them here before falling through to ``action_request``.
+Titles declare routes in ``game_data.toml`` → ``[client_contract.panel_action_routes]``;
+the server mirrors them on ``turn_rules.client_contract``. When a title omits routes,
+the engine falls back to built-in defaults (hexdemo-shaped flows).
 """
 
 from __future__ import annotations
@@ -44,7 +45,7 @@ def _route_matches(spec: dict[str, Any], route: PanelActionRoute) -> bool:
     return False
 
 
-PANEL_ACTION_ROUTES: tuple[PanelActionRoute, ...] = (
+DEFAULT_PANEL_ACTION_ROUTES: tuple[PanelActionRoute, ...] = (
     PanelActionRoute(
         mode="local",
         match_action_type="AttackPlanCancel",
@@ -83,9 +84,48 @@ PANEL_ACTION_ROUTES: tuple[PanelActionRoute, ...] = (
     ),
 )
 
+# Back-compat alias for tests and docs that reference the old name.
+PANEL_ACTION_ROUTES = DEFAULT_PANEL_ACTION_ROUTES
 
-def resolve_panel_action_route(spec: dict[str, Any]) -> PanelActionRoute | None:
-    for route in PANEL_ACTION_ROUTES:
+
+def _manifest_routes(game: Any | None) -> tuple[PanelActionRoute, ...] | None:
+    if game is None:
+        return None
+    td_fn = getattr(game, "_client_title_data", None)
+    if not callable(td_fn):
+        return None
+    rows = td_fn().client_contract.panel_action_routes
+    if not rows:
+        return None
+    return tuple(
+        PanelActionRoute(
+            mode=row.mode,
+            method=row.method,
+            wire_action_type=row.wire_action_type,
+            after_method=row.after_method,
+            match_action_type=row.match_action_type,
+            match_id=row.match_id,
+        )
+        for row in rows
+    )
+
+
+def panel_action_routes_for_game(game: Any | None = None) -> tuple[PanelActionRoute, ...]:
+    """Title manifest when present, else engine defaults."""
+    manifest = _manifest_routes(game)
+    if manifest is not None:
+        return manifest
+    return DEFAULT_PANEL_ACTION_ROUTES
+
+
+def resolve_panel_action_route(
+    spec: dict[str, Any],
+    game: Any | None = None,
+    *,
+    routes: tuple[PanelActionRoute, ...] | None = None,
+) -> PanelActionRoute | None:
+    rows = routes if routes is not None else panel_action_routes_for_game(game)
+    for route in rows:
         if _route_matches(spec, route):
             return route
     return None
@@ -133,8 +173,10 @@ def dispatch_panel_action_route(
 
 
 __all__ = [
+    "DEFAULT_PANEL_ACTION_ROUTES",
     "PANEL_ACTION_ROUTES",
     "PanelActionRoute",
     "dispatch_panel_action_route",
+    "panel_action_routes_for_game",
     "resolve_panel_action_route",
 ]

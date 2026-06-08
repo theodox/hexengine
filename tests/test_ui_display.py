@@ -21,7 +21,11 @@ HEXDEMO_ROOT = REPO_ROOT / "games" / "hexdemo"
 
 def test_interaction_message_to_wire_dict_minimal() -> None:
     row = interaction_message(kind="phase", text="Union: move (actions: 1)")
-    assert row == {"schema": 1, "kind": "phase", "text": "Union: move (actions: 1)"}
+    assert row.to_wire_dict() == {
+        "schema": 1,
+        "kind": "phase",
+        "text": "Union: move (actions: 1)",
+    }
 
 
 def test_interaction_message_to_wire_dict_with_html() -> None:

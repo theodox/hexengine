@@ -8,6 +8,7 @@ Presentation copy lives in ``hexdemo.presentation``; phase/inspect templates in
 from __future__ import annotations
 
 from hexengine.authoring.present import inform_popup
+from hexengine.ui.display import InteractionMessage
 from hexengine.hooks.inform_popup import InformPopupContext
 from hexengine.hooks.ui import (
     AdvanceGateInteractionContext,
@@ -100,7 +101,7 @@ def advance_gate_banners_for_viewer(
 @bind_title_hook(UIHook.COMBAT_INTERACTION_MESSAGES)
 def combat_interaction_messages(
     ctx: CombatInteractionMessagesContext,
-) -> list[dict[str, object]]:
+) -> list[InteractionMessage]:
     su = dict(ctx.shell_ui) if ctx.shell_ui else {}
 
     def combat_instruction(outcome: str, retreat_owner: str | None) -> tuple[str, str]:
