@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from games.hexdemo.hooks.movement import movement_step_cost_for_unit
+from games.hexdemo.movement_rules import BINDING
 
 from hexengine.hexes.edges import (
     edge_between,
@@ -550,7 +550,7 @@ def test_hexdemo_river_adds_step_cost() -> None:
     )
 
     def step_fn(s, f, t, b):
-        return movement_step_cost_for_unit(s, "u", f, t, b)
+        return BINDING.movement_step_cost_for_unit(s, "u", f, t, b)
 
     r1 = compute_reachable_hexes(st, h0, 1.0, step_cost=step_fn)
     assert h1 not in r1
@@ -588,7 +588,7 @@ def test_hexdemo_road_linear_lowers_step_cost() -> None:
     )
 
     def step_fn(s, f, t, b):
-        return movement_step_cost_for_unit(s, "u", f, t, b)
+        return BINDING.movement_step_cost_for_unit(s, "u", f, t, b)
 
     # Budget 0.75: two road steps (0.5+0.5) would exceed; one road step to h1 is ok.
     r = compute_reachable_hexes(st, h0, 0.75, step_cost=step_fn)

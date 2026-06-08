@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from games.hexdemo import movement_rules
-from games.hexdemo.hooks import movement as movement_hooks
+from games.hexdemo.hooks import build_hooks
+from games.hexdemo.movement_rules import BINDING
 
 from hexengine.hexes.types import Hex
 from hexengine.hooks.movement import MoveContext
@@ -33,8 +33,9 @@ def _state_with_unit() -> GameState:
 
 def test_movement_budget_reads_unit_attribute() -> None:
     st = _state_with_unit()
-    assert movement_rules.movement_budget_for_unit(st, "u1") == 4.0
-    assert movement_hooks.movement_budget_for_unit(st, "u1") == 4.0
+    assert BINDING.movement_budget_for_unit(st, "u1") == 4.0
+    hooks = build_hooks()
+    assert hooks.movement.movement_budget_for_unit(st, "u1") == 4.0
 
 
 def test_validate_retreat_move_requires_exact_distance() -> None:
@@ -46,9 +47,9 @@ def test_validate_retreat_move_requires_exact_distance() -> None:
         player_faction="union",
         is_retreat_fulfillment=True,
     )
-    movement_rules.validate_retreat_move(ctx, 1)
+    BINDING.validate_retreat_move(ctx, 1)
     try:
-        movement_rules.validate_retreat_move(ctx, 2)
+        BINDING.validate_retreat_move(ctx, 2)
         raise AssertionError("expected ValueError")
     except ValueError as e:
         assert "exactly 2" in str(e)

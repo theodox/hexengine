@@ -23,18 +23,17 @@ from . import (
     arcs,
     attack,
     markers,
-    movement,
     overlays,
     segment_presentation,
     segment_ui_registry,
     turn_action_dock,
     ui,
 )
+from .movement import MOVEMENT_HOOKS
 
 
 def build_hooks() -> TitleHooks:
     return assemble_title_hooks(
-        movement,
         attack,
         ui,
         overlays,
@@ -43,6 +42,7 @@ def build_hooks() -> TitleHooks:
         segment_ui_registry,
         markers,
         arcs,
+        movement=MOVEMENT_HOOKS,
     )
 
 
