@@ -2,8 +2,9 @@
 Hexdemo turn action dock: one commit panel per viewer on host ``user-controls``.
 
 Attack-plan confirm/cancel merge on the client from ``map_selection_preview``.
-Rows and End-Phase gating derive from ``current_segment``; copy/HTML from the
-segment presentation registry (``segment_ui`` + ``presentation.dock``).
+Combat gate rows from ``combat_gate_panel_actions``; End-Phase gating from
+``current_segment``; copy/HTML from the segment presentation registry
+(``segment_ui`` + ``presentation.dock``).
 """
 
 from __future__ import annotations

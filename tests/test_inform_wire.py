@@ -52,7 +52,7 @@ def test_resolve_inform_lane_from_segment_profile() -> None:
     lane = resolve_inform_lane(server, server.game_state, viewer_faction="union")
     assert lane.inform_kind == "attack_plan"
     assert lane.inform_profile == "attack_plan"
-    assert lane.segment_kind == "combat"
+    assert lane.segment_ui_mode == "combat"
 
 
 def test_default_inform_popup_uses_profile_shell_key() -> None:
@@ -67,7 +67,7 @@ def test_default_inform_popup_uses_profile_shell_key() -> None:
         unit_id=None,
         shell_ui={"attack_plan_no_attackable_enemy": "Custom copy."},
         inform_profile="attack_plan",
-        segment_kind="combat",
+        segment_ui_mode="combat",
     )
     pm = default_inform_popup_for_viewer(ctx)
     assert pm.text == "Custom copy."

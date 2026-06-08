@@ -10,7 +10,7 @@ from hexengine.authoring.patterns.combat import (
     SEG_ADVANCE_GATE,
     SEG_CLASSIFY,
     SEG_RETREAT_GATE,
-    CombatArcGateKinds,
+    CombatArcGateUiModes,
     build_combat_cleanup_arc,
 )
 
@@ -48,7 +48,7 @@ class _StubEffects:
 
 
 def test_combat_cleanup_pattern_builds_and_validates() -> None:
-    gates = CombatArcGateKinds(
+    gates = CombatArcGateUiModes(
         awaiting_retreat="awaiting_retreat",
         awaiting_retreat_or_disrupt="awaiting_retreat_or_disrupt",
         awaiting_advance="awaiting_advance",
@@ -57,7 +57,7 @@ def test_combat_cleanup_pattern_builds_and_validates() -> None:
 
 
 def test_combat_cleanup_pattern_segment_owners() -> None:
-    gates = CombatArcGateKinds(
+    gates = CombatArcGateUiModes(
         awaiting_retreat="r",
         awaiting_retreat_or_disrupt="rod",
         awaiting_advance="a",
@@ -81,5 +81,5 @@ def test_hexdemo_combat_arc_matches_pattern() -> None:
 
 def test_hexdemo_gate_kinds_on_segments() -> None:
     a = combat_arc.build_combat_arc()
-    by_kind = {seg.kind: seg.id for seg in a.segments if seg.kind}
+    by_kind = {seg.ui_mode: seg.id for seg in a.segments if seg.ui_mode}
     assert by_kind[combat_transitions.GATE_AWAITING_RETREAT] == SEG_RETREAT_GATE

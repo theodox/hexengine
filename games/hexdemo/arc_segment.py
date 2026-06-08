@@ -61,13 +61,13 @@ def segment_denies_action(
     )
 
 
-def segment_kind(state: GameState, viewer_faction: str | None) -> str:
-    """Active declared segment ``kind`` for ``viewer_faction``, or ``""``."""
+def segment_ui_mode(state: GameState, viewer_faction: str | None) -> str:
+    """Active declared segment ``ui_mode`` for ``viewer_faction``, or ``""``."""
 
     seg = project_segment_for_faction(state, viewer_faction)
     if not seg:
         return ""
-    return str(seg.get("kind", "")).strip()
+    return str(seg.get("ui_mode", "")).strip()
 
 
 def segment_allows(
@@ -90,5 +90,5 @@ __all__ = [
     "project_segment_for_faction",
     "segment_allows",
     "segment_denies_action",
-    "segment_kind",
+    "segment_ui_mode",
 ]

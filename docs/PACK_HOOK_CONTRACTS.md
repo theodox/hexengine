@@ -84,7 +84,7 @@ Transient turn banner rows. Omitted from wire when `None`. Client shows **one** 
 **Server composition:** unless `UIHook.INTERACTION_MESSAGES` returns a full list, the server merges:
 
 1. **Phase row** — `PHASE_BANNER_TEXT_FOR_VIEWER` → `text`; optional `PHASE_BANNER_HTML_FOR_VIEWER` → `html`
-2. **Combat rows** — `UIHook.COMBAT_INTERACTION_MESSAGES` → `list[InteractionMessage]` (hexdemo: [`hooks/ui.py`](../games/hexdemo/hooks/ui.py)). Context includes `shell_ui` from `game_data.toml`. When the hook returns `ENGINE_DEFAULT`, the engine builds rows from `current_segment.kind` plus `COMBAT_INSTRUCTION_FOR_VIEWER` and `ADVANCE_GATE_BANNERS_FOR_VIEWER` ([`ui_combat_messages.py`](../src/hexengine/hooks/ui_combat_messages.py)). The engine does not read title bucket `combat_gate` for banners.
+2. **Combat rows** — `UIHook.COMBAT_INTERACTION_MESSAGES` → `list[InteractionMessage]` (hexdemo: [`hooks/ui.py`](../games/hexdemo/hooks/ui.py)). Context includes `shell_ui` from `game_data.toml`. When the hook returns `ENGINE_DEFAULT`, the engine builds rows from `current_segment.ui_mode` plus `COMBAT_INSTRUCTION_FOR_VIEWER` and `ADVANCE_GATE_BANNERS_FOR_VIEWER` ([`ui_combat_messages.py`](../src/hexengine/hooks/ui_combat_messages.py)). The engine does not read title bucket `combat_gate` for banners.
 
 `game_server` does not parse `last_combat` / `combat_gate` directly for banners (engine boundary 2). **`combat_event`** messages for retreat UI still use `last_combat` in [`_broadcast_combat_events`](../src/hexengine/server/game_server.py) — separate from INFORM.
 
@@ -120,7 +120,7 @@ Commit UI on host `#user-controls`. Full panel and action schemas: [`TURN_ACTION
 | `actions` | `list` | yes | Action rows (schema below) |
 | `inputs` | `list` | no | `{id, kind, label, name, default?, options?}` — merged into action `payload` on click |
 
-**Dispatch:** `TURN_ACTION_DOCK_FOR_VIEWER(ctx)` → `list[TurnDockPanel]` or `ENGINE_DEFAULT` → [`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py). Hexdemo: [`games/hexdemo/hooks/turn_action_dock.py`](../games/hexdemo/hooks/turn_action_dock.py). Engine catalog gate skins require `ctx.current_segment` (bind `UIHook.ENRICH_CURRENT_SEGMENT` for combat gate modes).
+**Dispatch:** `TURN_ACTION_DOCK_FOR_VIEWER(ctx)` → `list[TurnDockPanel]` or `ENGINE_DEFAULT` → [`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py) (End Phase only). Hexdemo: [`games/hexdemo/hooks/turn_action_dock.py`](../games/hexdemo/hooks/turn_action_dock.py) — adds combat gate rows via [`combat_gate_panel_actions`](../src/hexengine/authoring/patterns/combat.py). Gate `presentation_id` / `interaction_mode` require `UIHook.ENRICH_CURRENT_SEGMENT` + segment registry.
 
 When `title_state_extension_key` is set, **`TURN_ACTION_DOCK_FOR_VIEWER` is required**; the server never emits **`StateUpdate.primary_actions`** ([`ClientInteractionPanelsMixin`](../src/hexengine/game/arcs/client_interaction_panels.py)).
 
@@ -143,7 +143,7 @@ Used in dock `actions[]` and in `map_selection_preview.panel_actions`.
 
 ### `StateUpdate.primary_actions` (removed from wire)
 
-Gate rows (disrupt, advance, end phase) are composed inside the turn action dock via `TURN_ACTION_DOCK_FOR_VIEWER`, driven by `StateUpdate.current_segment.allowed_actions`.
+Commit rows live on `interaction_panels[].actions[]` via `TURN_ACTION_DOCK_FOR_VIEWER`. End Phase enablement follows `current_segment.allowed_actions`. Combat cleanup gate buttons (Disrupt / Advance / Skip) are title-owned: [`combat_gate_panel_actions`](../src/hexengine/authoring/patterns/combat.py) in the dock hook, not the engine catalog default.
 
 ### `StateUpdate.map_overlays`
 
@@ -265,7 +265,7 @@ When the combat overlay finishes (classify `done` or last cleanup step), the eng
 
 **Movement author layout:** policy in pack-root [`movement_rules.py`](../games/hexdemo/movement_rules.py) implementing [`MovementRulesBinding`](../src/hexengine/hooks/movement_rules.py); [`hooks/movement.py`](../games/hexdemo/hooks/movement.py) binds slots. Stepwise payload and arc cursor sync stay in `authority_movement` / movement arc runner.
 
-**Combat author layout:** one [`CombatRulesBinding`](../src/hexengine/hooks/combat_rules.py) class (hexdemo: [`combat_rules.py`](../games/hexdemo/combat_rules.py)); [`combat_rules_binding_to_arc_spec`](../src/hexengine/authoring/patterns/combat.py) produces `ArcHook.COMBAT_ARC`. Bind `ArcHook.COMBAT_RULES_BINDING` for startup structural validation. Scaffold: [`games/template/combat_arc.py`](../games/template/combat_arc.py).
+**Combat author layout:** one [`CombatRulesBinding`](../src/hexengine/hooks/combat_rules.py) class (hexdemo: [`combat_rules.py`](../games/hexdemo/combat_rules.py)); [`combat_rules_binding_to_arc_spec`](../src/hexengine/authoring/patterns/combat.py) produces `ArcHook.COMBAT_ARC`. Bind `ArcHook.COMBAT_RULES_BINDING` for startup structural validation. Dock gate rows: [`combat_gate_panel_actions`](../src/hexengine/authoring/patterns/combat.py) from `TURN_ACTION_DOCK_FOR_VIEWER`. Scaffold: [`games/template/combat_arc.py`](../games/template/combat_arc.py).
 
 **Reference pack:** [`games/hexdemo/hooks/`](../games/hexdemo/hooks/) (`attack.py`, `movement.py`, `arcs.py`, `turn_action_dock.py`, `ui.py`); policy [`combat_rules.py`](../games/hexdemo/combat_rules.py), [`combat_outcome.py`](../games/hexdemo/combat_outcome.py), [`combat_actions.py`](../games/hexdemo/combat_actions.py), [`combat_transitions.py`](../games/hexdemo/combat_transitions.py), [`movement_rules.py`](../games/hexdemo/movement_rules.py), [`title_state.py`](../games/hexdemo/title_state.py). Inventory: [`SKINNING_CLIENT_INVENTORY.md`](SKINNING_CLIENT_INVENTORY.md). Boundary matrix: [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md).
 
@@ -298,7 +298,7 @@ Tiered approach for title HTML without arbitrary inline JS. Expanded narrative a
 
 ---
 
-## Target model (not fully implemented)
+## Target model (partially implemented)
 
 Authors should be able to answer, without reading engine internals:
 
@@ -307,7 +307,9 @@ Authors should be able to answer, without reading engine internals:
 3. **What fails if I get it wrong?** — prefer **fail at pack load / server start / typecheck**, not mid-match or silent skip.
 4. **Which UX mode is active?** — one **segment presentation registry** row per `kind` (primitive, `presentation_id`, optional `interaction_mode`, inform profile) — see [`TITLE_AUTHORING.md` § Segment presentation registry](TITLE_AUTHORING.md#segment-presentation-registry).
 
-Planned mechanisms (apply across **both** systems over time):
+**Shipped toward this model:** presentation DTOs + `ui_wire` adapters (P2); `current_segment` enrich (P3); inform profile from segment (P4); segment registry validation (P5); `[client_contract]` in `game_data.toml` for client select modes and panel-action routes; combat gate dock rows in `combat_gate_panel_actions` (title helper, not engine wire).
+
+**Still planned** (apply across **both** hook systems over time):
 
 ### 1. Explicit contracts
 

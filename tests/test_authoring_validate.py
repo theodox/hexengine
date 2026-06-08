@@ -15,7 +15,7 @@ from hexengine.hooks.title import TitleHooks
 
 
 def test_validate_arc_contract_catches_missing_routine_spec() -> None:
-    slot = ScheduleSlot("union_move", "union", "Move", 4, kind="move")
+    slot = ScheduleSlot("union_move", "union", "Move", 4, ui_mode="move")
     reg = TurnArcRegistry(schedule=ArcSchedule((slot,)), routine_specs={})
     bundle = TitleHooks(arcs=ArcsHooks(turn_arc_registry=lambda: reg))
     errors = validate_arc_contract(bundle)

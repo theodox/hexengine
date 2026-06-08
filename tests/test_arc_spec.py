@@ -35,7 +35,7 @@ def _combat_like_arc() -> Arc:
             Segment(
                 id="awaiting_retreat",
                 owner=OwnerRef("retreating"),
-                kind="retreat_gate",
+                ui_mode="retreat_gate",
                 transitions=(
                     Transition(
                         trigger=Event("RetreatUnit"),
@@ -59,7 +59,7 @@ def _combat_like_arc() -> Arc:
             Segment(
                 id="awaiting_advance",
                 owner=CURRENT,
-                kind="advance_gate",
+                ui_mode="advance_gate",
                 transitions=(
                     Transition(trigger=Event("CombatAdvance"), target=DONE),
                     Transition(trigger=Event("DeclineAdvance"), target=DONE),

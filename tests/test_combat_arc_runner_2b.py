@@ -254,7 +254,7 @@ def test_dock_offers_skip_at_awaiting_advance() -> None:
         "schema": 1,
         "arc_id": "combat",
         "segment_id": combat_arc.SEG_ADVANCE_GATE,
-        "kind": combat_transitions.GATE_AWAITING_ADVANCE,
+        "ui_mode": combat_transitions.GATE_AWAITING_ADVANCE,
         "owner": "union",
         "allowed_actions": [
             "CombatAdvance",

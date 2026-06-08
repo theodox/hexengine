@@ -101,7 +101,7 @@ Reserved top-level keys: prefix `hexengine_` (e.g. `hexengine_movement_arc`) —
 | Hook | Bundle | Purpose |
 |------|--------|---------|
 | *(removed)* `blocks_routine_phase_advance` | was `UIHook` | **Superseded** — active segment `allowed_actions` |
-| `combat_interaction_messages(ctx) -> list[dict] \| ENGINE_DEFAULT` | `UIHook` | Per-viewer INFORM rows from `last_combat` / segment kind |
+| `combat_interaction_messages(ctx) -> list[InteractionMessage] \| ENGINE_DEFAULT` | `UIHook` | Per-viewer INFORM rows from segment kind + partial combat hooks |
 
 - Phase advance blocking and End Phase dock enablement: `current_segment` + `segment_blocks_routine_phase_advance`.
 - Auto-advance after move/attack: title attack/movement hooks call `arc_segment.phase_advance_blocked` (hexdemo).
@@ -110,7 +110,7 @@ Reserved top-level keys: prefix `hexengine_` (e.g. `hexengine_movement_arc`) —
 ### B.2 Document gate strings as title-owned
 
 - In [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md): `combat_gate` values are **pack conventions**, not engine enums.
-- Engine catalog defaults may reference hexdemo gates only behind `ENGINE_DEFAULT` + extension key set.
+- Engine catalog default dock adds End Phase only; combat gate dock rows are title helpers (`combat_gate_panel_actions`), not engine segment wire.
 
 **Exit criteria:** Banner path has no direct reads of `last_combat` / `combat_gate` except via hook dispatch (`COMBAT_INTERACTION_MESSAGES` / catalog default). `combat_event` broadcast may still read `last_combat`.
 

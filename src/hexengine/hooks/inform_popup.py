@@ -31,7 +31,7 @@ class InformPopupContext:
     reason: str = ""
     unit_id: str | None = None
     inform_profile: str | None = None
-    segment_kind: str | None = None
+    segment_ui_mode: str | None = None
 
 
 def inform_profile_for_context(ctx: InformPopupContext) -> str:
@@ -64,8 +64,8 @@ def default_inform_popup_for_viewer(ctx: InformPopupContext) -> InformPopup:
     keys = []
     if profile:
         keys.append(f"{profile}_{reason}".replace(".", "_").strip("_"))
-    if ctx.segment_kind:
-        keys.append(f"{ctx.segment_kind}_{reason}".replace(".", "_").strip("_"))
+    if ctx.segment_ui_mode:
+        keys.append(f"{ctx.segment_ui_mode}_{reason}".replace(".", "_").strip("_"))
     text = ""
     for key in keys:
         raw = su.get(key)

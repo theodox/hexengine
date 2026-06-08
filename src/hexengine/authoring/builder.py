@@ -108,13 +108,13 @@ class SegmentBuilder:
         arc_builder: ArcBuilder,
         segment_id: str,
         owner: Owner,
-        kind: str,
+        ui_mode: str,
         explicit_allowed_actions: frozenset[str] | None = None,
     ):
         self._arc = arc_builder
         self._id = str(segment_id)
         self._owner = owner
-        self._kind = str(kind)
+        self._ui_mode = str(ui_mode)
         self._explicit_allowed_actions = explicit_allowed_actions
         self._transitions: list[Transition] = []
 
@@ -133,7 +133,7 @@ class SegmentBuilder:
                     id=self._id,
                     owner=self._owner,
                     transitions=tuple(self._transitions),
-                    kind=self._kind,
+                    ui_mode=self._ui_mode,
                     explicit_allowed_actions=self._explicit_allowed_actions,
                 )
             )
@@ -238,10 +238,10 @@ class ArcBuilder:
         segment_id: str,
         *,
         owner: Owner,
-        kind: str = "",
+        ui_mode: str = "",
         allowed_actions: frozenset[str] | None = None,
     ) -> SegmentBuilder:
-        return SegmentBuilder(self, segment_id, owner, kind, allowed_actions)
+        return SegmentBuilder(self, segment_id, owner, ui_mode, allowed_actions)
 
     def _add_segment(self, seg: Segment) -> None:
         self._segments.append(seg)

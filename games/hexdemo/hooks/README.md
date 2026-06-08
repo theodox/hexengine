@@ -65,9 +65,9 @@ Longer term, the engine may offer **composable rule pieces** (ZOC, terrain, mora
 | `ui.py` | Phase/combat banners, inspect, inform popups, combat event summary | `@bind_title_hook(UIHook.…)`; copy from `presentation/` |
 | `../presentation/inform.py` | INFORM map callouts keyed by `inform_profile` + `reason` | Used by `ui.inform_popup_for_viewer` |
 | `../presentation/interaction_messages.py` | Combat/advance banner copy for `interaction_messages` | Used by `ui.combat_interaction_messages` |
-| `turn_action_dock.py` | Commit dock — returns `TurnDockPanel` from `hexengine.authoring.present`; copy via [`segment_ui.py`](../segment_ui.py) + [`presentation/`](../presentation/) | `@bind_title_hook(UIHook.TURN_ACTION_DOCK_FOR_VIEWER)` |
+| `turn_action_dock.py` | Commit dock — `combat_gate_panel_actions` + End Phase; returns `TurnDockPanel` from `hexengine.authoring.present`; copy via [`segment_ui.py`](../segment_ui.py) + [`presentation/`](../presentation/) | `@bind_title_hook(UIHook.TURN_ACTION_DOCK_FOR_VIEWER)` |
 | `segment_presentation.py` | `presentation_id` / `interaction_mode` on `current_segment` wire | `@bind_title_hook(UIHook.ENRICH_CURRENT_SEGMENT)` |
-| `segment_ui_registry.py` | Exposes `PRESENTATION_BY_SEGMENT_KIND` for P5 load-time validation | `@bind_title_hook(UIHook.SEGMENT_PRESENTATION_REGISTRY)` |
+| `segment_ui_registry.py` | Exposes `PRESENTATION_BY_UI_MODE` for P5 load-time validation | `@bind_title_hook(UIHook.SEGMENT_PRESENTATION_REGISTRY)` |
 | `arcs.py` | Turn arc registry + combat arc declarations | `@bind_title_hook(ArcHook.…)` |
 | `markers.py` | Place-marker map-selection preview | `@bind_title_hook(UIHook.PLACE_MARKER_PREVIEW)` |
 | `../ui_markup.py` | HTML templates + flag URLs (tier 2–3; `hexengine.ui.display`) | Imported by `ui.py`, `turn_action_dock.py` |

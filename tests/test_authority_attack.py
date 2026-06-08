@@ -9,7 +9,7 @@ from typing import Any
 
 from hexengine.arcs import ArcCursor, ArcSpec, SetArcCursor
 from hexengine.authoring.patterns.combat import (
-    CombatArcGateKinds,
+    CombatArcGateUiModes,
     build_combat_cleanup_arc,
 )
 from hexengine.hexes.types import Hex
@@ -167,7 +167,7 @@ _AUTHORITY_ATTACK_TEST_EFFECTS = _AuthorityAttackTestEffects()
 _AUTHORITY_ATTACK_TEST_ARC = ArcSpec(
     arc=build_combat_cleanup_arc(
         _AUTHORITY_ATTACK_TEST_EFFECTS,
-        CombatArcGateKinds(
+        CombatArcGateUiModes(
             awaiting_retreat="awaiting_retreat",
             awaiting_retreat_or_disrupt="awaiting_retreat_or_disrupt",
             awaiting_advance="awaiting_advance",

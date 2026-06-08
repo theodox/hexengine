@@ -45,7 +45,7 @@ def _retreating_is_blue(key: str, state: GameState) -> str | None:
 
 def _combat_arc() -> Arc:
     with arc("combat") as a:
-        with a.segment("attack", owner=CURRENT, kind="routine") as s:
+        with a.segment("attack", owner=CURRENT, ui_mode="routine") as s:
             s.on(
                 "Attack",
                 interrupt="retreat_gate",
@@ -53,11 +53,11 @@ def _combat_arc() -> Arc:
                 effect=_set_flag("attacked"),
             )
         with a.segment(
-            "retreat_gate", owner=OwnerRef("retreating"), kind="retreat_gate"
+            "retreat_gate", owner=OwnerRef("retreating"), ui_mode="retreat_gate"
         ) as s:
             s.on("RetreatUnit", resume=True, effect=_set_flag("retreated"))
             s.on("DisruptInsteadOfRetreat", resume=True)
-        with a.segment("advance_gate", owner=CURRENT, kind="advance_gate") as s:
+        with a.segment("advance_gate", owner=CURRENT, ui_mode="advance_gate") as s:
             s.on("CombatAdvance", done=True, effect=_set_flag("advanced"))
             s.on("DeclineAdvance", done=True)
     return a.build()

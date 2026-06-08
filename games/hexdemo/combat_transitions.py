@@ -25,7 +25,7 @@ Transitions:
 
 from __future__ import annotations
 
-from hexengine.authoring.patterns.combat import CombatArcGateKinds
+from hexengine.authoring.patterns.combat import CombatArcGateUiModes
 from hexengine.state import GameState
 from hexengine.state.action_manager import StateAction
 from hexengine.state.actions import PatchTitleBucket
@@ -37,7 +37,7 @@ GATE_AWAITING_RETREAT = "awaiting_retreat"
 GATE_AWAITING_RETREAT_OR_DISRUPT = "awaiting_retreat_or_disrupt"
 GATE_AWAITING_ADVANCE = "awaiting_advance"
 
-COMBAT_ARC_GATE_KINDS = CombatArcGateKinds(
+COMBAT_ARC_GATE_UI_MODES = CombatArcGateUiModes(
     awaiting_retreat=GATE_AWAITING_RETREAT,
     awaiting_retreat_or_disrupt=GATE_AWAITING_RETREAT_OR_DISRUPT,
     awaiting_advance=GATE_AWAITING_ADVANCE,
@@ -92,16 +92,16 @@ def attack_planning_blocked_reason(state: GameState, player_faction: str) -> str
         return None
     if segment_allows_action(seg, "Attack"):
         return None
-    kind = str(seg.get("kind", "")).strip()
-    if kind == GATE_AWAITING_ADVANCE:
+    ui_mode = str(seg.get("ui_mode", "")).strip()
+    if ui_mode == GATE_AWAITING_ADVANCE:
         return "Resolve combat advance before planning an attack"
-    if kind in (GATE_AWAITING_RETREAT, GATE_AWAITING_RETREAT_OR_DISRUPT):
+    if ui_mode in (GATE_AWAITING_RETREAT, GATE_AWAITING_RETREAT_OR_DISRUPT):
         return "Resolve retreat before planning an attack"
     return "Combat obligations must be resolved before planning an attack"
 
 
 __all__ = [
-    "COMBAT_ARC_GATE_KINDS",
+    "COMBAT_ARC_GATE_UI_MODES",
     "GATE_AWAITING_ADVANCE",
     "GATE_AWAITING_RETREAT",
     "GATE_AWAITING_RETREAT_OR_DISRUPT",

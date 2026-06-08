@@ -194,7 +194,7 @@ Coaching copy for attack and retreat drafting lives on the **dock headline**, no
 |--|--|
 | **When** | Every per-recipient `StateUpdate` |
 | **Binding** | `@bind_title_hook(UIHook.TURN_ACTION_DOCK_FOR_VIEWER)` in the title hooks package |
-| **Returns** | `list[dict]` — panel wire rows (schema below), or `ENGINE_DEFAULT` |
+| **Returns** | `list[TurnDockPanel]` from `hexengine.authoring.present`, or `ENGINE_DEFAULT` (engine serializes to wire; schema below) |
 
 ### `TurnActionDockContext`
 
@@ -212,6 +212,7 @@ Frozen dataclass in [`ui_turn_action_dock.py`](../src/hexengine/hooks/ui_turn_ac
 | `phase_actions_remaining` | `int` | Actions left in current phase slot |
 | `viewer_is_turn_owner` | `bool` | `viewer_faction == current_faction` |
 | `client_contract_features` | `frozenset[str]` | e.g. `map_selection_previews`, `attack_planning_ui` |
+| `current_segment` | `dict \| None` | Per-viewer segment projection (`allowed_actions`, `presentation_id`, …) |
 
 The hook **does not** receive client-local draft state ([draft locus](#draft-locus-invariant)). Confirm/Cancel rows are merged on the client from the last `map_selection_preview` (see [Client merge](#client-behavior)).
 
@@ -307,9 +308,10 @@ Unregistered rows: `execute_action_request(action_type, payload ∪ inputs)`.
 
 When the hook returns `ENGINE_DEFAULT`, the server uses [`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py):
 
-1. Combat gate rows (optional) from `ctx.current_segment.allowed_actions` via [`combat_gate_panel_actions`](../src/hexengine/authoring/patterns/combat.py) in the title dock hook; engine catalog default adds End Phase only.
-2. **`end_phase`** (`NextPhase`) when `NextPhase` is in the segment's allowed set (or when no segment descriptor is present).
-3. One panel: `id: turn_actions`, `host: user-controls`, `presentation_id` from enriched `current_segment` when present; otherwise `routine` (turn owner) or `hidden`. Titles with `title_state_extension_key` must bind `ENRICH_CURRENT_SEGMENT`.
+1. **`end_phase`** (`NextPhase`) when `NextPhase` is in the segment's allowed set (or when no segment descriptor is present); otherwise shown disabled.
+2. One panel: `id: turn_actions`, `host: user-controls`, `presentation_id` from enriched `current_segment` when present; otherwise `routine` (turn owner) or `hidden`. Titles with `title_state_extension_key` must bind `ENRICH_CURRENT_SEGMENT`.
+
+The catalog default does **not** inject combat cleanup gate rows (Disrupt / Advance / Skip). Titles using [`build_combat_cleanup_arc`](../src/hexengine/authoring/patterns/combat.py) call [`combat_gate_panel_actions`](../src/hexengine/authoring/patterns/combat.py) from their dock hook (hexdemo: [`turn_action_dock.py`](../games/hexdemo/hooks/turn_action_dock.py)).
 
 Titles that bind **`TURN_ACTION_DOCK_FOR_VIEWER`** replace this composition.
 

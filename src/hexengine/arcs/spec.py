@@ -164,7 +164,7 @@ class Segment:
     id: str
     owner: Owner
     transitions: tuple[Transition, ...]
-    kind: str = ""
+    ui_mode: str = ""
     explicit_allowed_actions: frozenset[str] | None = None
     """When set, overrides Event-derived allowed_actions (routine phase segments)."""
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 from hexengine.arcs import ArcContext
 from hexengine.authoring.patterns.combat import (
     COMBAT_ARC_ID,
-    CombatArcGateKinds,
+    CombatArcGateUiModes,
     combat_rules_binding_to_arc_spec,
 )
 from hexengine.hooks.attack import (
@@ -76,7 +76,7 @@ class TemplateCombatRules:
         return []
 
 
-_TEMPLATE_GATES = CombatArcGateKinds(
+_TEMPLATE_GATES = CombatArcGateUiModes(
     awaiting_retreat="awaiting_retreat",
     awaiting_retreat_or_disrupt="awaiting_retreat_or_disrupt",
     awaiting_advance="awaiting_advance",

@@ -14,7 +14,7 @@ def simple_phase(
     arc_id: str,
     *,
     allowed_actions: frozenset[str],
-    kind: str = "routine",
+    ui_mode: str = "routine",
 ) -> Arc:
     """Build a single-segment routine arc for one schedule slot."""
 
@@ -22,7 +22,7 @@ def simple_phase(
         with a.segment(
             ROUTINE_SEGMENT,
             owner=CURRENT,
-            kind=str(kind),
+            ui_mode=str(ui_mode),
             allowed_actions=allowed_actions,
         ):
             pass

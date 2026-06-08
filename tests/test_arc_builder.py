@@ -45,7 +45,7 @@ def build_combat_arc() -> Arc:
     """Attack, then a retreat interrupt owned by the defender, then an advance gate."""
 
     with arc("combat") as a:  # entry defaults to the first segment ("attack")
-        with a.segment("attack", owner=CURRENT, kind="routine") as s:
+        with a.segment("attack", owner=CURRENT, ui_mode="routine") as s:
             s.on(
                 "Attack",
                 interrupt="retreat_gate",
@@ -53,11 +53,11 @@ def build_combat_arc() -> Arc:
                 effect=_apply_attack,
             )
         with a.segment(
-            "retreat_gate", owner=OwnerRef("retreating"), kind="retreat_gate"
+            "retreat_gate", owner=OwnerRef("retreating"), ui_mode="retreat_gate"
         ) as s:
             s.on("RetreatUnit", resume=True, effect=_do_retreat)
             s.on("DisruptInsteadOfRetreat", resume=True)
-        with a.segment("advance_gate", owner=CURRENT, kind="advance_gate") as s:
+        with a.segment("advance_gate", owner=CURRENT, ui_mode="advance_gate") as s:
             s.on("CombatAdvance", done=True)
             s.on("DeclineAdvance", done=True)
     return a.build()
@@ -107,7 +107,7 @@ def test_builder_emits_canonical_spec_data() -> None:
             Segment(
                 id="attack",
                 owner=CURRENT,
-                kind="routine",
+                ui_mode="routine",
                 transitions=(
                     Transition(
                         trigger=Event("Attack"),
@@ -119,7 +119,7 @@ def test_builder_emits_canonical_spec_data() -> None:
             Segment(
                 id="retreat_gate",
                 owner=OwnerRef("retreating"),
-                kind="retreat_gate",
+                ui_mode="retreat_gate",
                 transitions=(
                     Transition(
                         trigger=Event("RetreatUnit"),
@@ -135,7 +135,7 @@ def test_builder_emits_canonical_spec_data() -> None:
             Segment(
                 id="advance_gate",
                 owner=CURRENT,
-                kind="advance_gate",
+                ui_mode="advance_gate",
                 transitions=(
                     Transition(trigger=Event("CombatAdvance"), target=FlowEnd.DONE),
                     Transition(trigger=Event("DeclineAdvance"), target=FlowEnd.DONE),

@@ -45,11 +45,12 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `hooks/` | Title policy adapters — see [`hooks/README.md`](hooks/README.md) (`TitleHooks`, title-load, turn schedule) |
 | `hooks/title_load.py` | Splash/setup/server-log (`[hooks.title_load]` in manifest) |
 | `presentation/` | Viewer copy (`dock.py`, `inform.py`, `interaction_messages.py`) |
-| `segment_ui.py` | Segment `kind` → presentation registry (`PRESENTATION_BY_SEGMENT_KIND`) |
+| `segment_ui.py` | Segment `ui_mode` → presentation registry (`PRESENTATION_BY_UI_MODE`) |
 | `arc_segment.py` | Project `current_segment` per viewer; `phase_advance_blocked` for auto-advance |
 | `combat_rules.py` | `HexdemoCombatRules` / `BINDING` — CRT, validate, arc guards/effects, `attack_arc_effect` |
 | `combat_outcome.py` | Post-attack `CombatOutcome` bucket builder |
 | `combat_arc.py` | `combat_rules_binding_to_arc_spec` + owner resolver → `ArcHook.COMBAT_ARC` |
+| `hooks/turn_action_dock.py` | Commit dock — `combat_gate_panel_actions` + End Phase + segment presentation |
 | `combat_transitions.py` | Gate kind strings, phase-scoped bucket clear, attack-planning block reason |
 | `combat_actions.py` | Pack-local cleanup state actions (disrupt, advance, retreat step) |
 | `movement_rules.py` | Movement policy (`MovementRulesBinding`); `hooks/movement.py` adapts |

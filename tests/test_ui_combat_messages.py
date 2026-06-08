@@ -52,7 +52,7 @@ def test_default_combat_interaction_messages_advance_row_uses_segment() -> None:
         "schema": 1,
         "arc_id": "combat",
         "segment_id": "advance_gate",
-        "kind": combat_transitions.GATE_AWAITING_ADVANCE,
+        "ui_mode": combat_transitions.GATE_AWAITING_ADVANCE,
         "owner": "union",
         "allowed_actions": ["CombatAdvance", "CombatDeclineAdvance"],
         "action_locus": {},

@@ -11,7 +11,7 @@
 `ENGINE_BOUNDARY_2` pushed combat *mutations* and *wire payloads* fully into the title, but left three engine-side readers of the same hexdemo gate strings (`combat_gate`, `retreat_obligations`, `advance`):
 
 1. **Authoritative legality** — RPC prechecks in `authority_combat_cleanup` (`combat_gate == "awaiting_advance"`, …).
-2. **Affordances** — turn action dock skin (`presentation_id` from title `ENRICH_CURRENT_SEGMENT` + segment registry; engine catalog does not infer gate skins without `current_segment`).
+2. **Affordances** — turn action dock skin (`presentation_id` from title `ENRICH_CURRENT_SEGMENT` + segment registry); combat cleanup gate **buttons** are title helpers ([`combat_gate_panel_actions`](../src/hexengine/authoring/patterns/combat.py)), not engine segment wire.
 3. **Phase-advance blocking** — `default_blocks_routine_phase_advance`.
 
 These exist because the arc's transition logic (δ) is **not declared in one place** — each reader re-derives it from gate strings. The fix is structural: declare the state machine once; have legality, affordances, and blocking all read the *current segment* of that declared machine.
@@ -138,7 +138,7 @@ This revises a `RULE_COMPOSITION.md` non-goal ("hooks and **arcs** stay [as fixe
 - Engine gate-string literals in `authority_combat_cleanup` prechecks (boundary item #1/#2) — gone.
 - `ClearUnitRetreatObligation`'s hardcoded `combat_gate` removal — becomes a declared transition effect.
 - The client `effective_turn_dock_presentation_id` draft override — becomes an entry-guarded client-local sub-arc.
-- `default_primary_actions_for_viewer` / pre-segment gate action string-matching in the engine dock catalog — removed; skin and rows derive from `current_segment` (titles bind `ENRICH_CURRENT_SEGMENT` for gate modes).
+- `default_primary_actions_for_viewer` / pre-segment gate action string-matching in the engine dock catalog — removed; legality and End Phase derive from `current_segment`; combat gate dock rows are title-owned via `combat_gate_panel_actions` (titles bind `ENRICH_CURRENT_SEGMENT` for gate presentation modes).
 
 ---
 
@@ -336,7 +336,7 @@ methods delegating to `combat_actions.*`; post-attack bucket handoff is
   (drives `submit_event`, maps acceptance → `ActionResult` + broadcast).
   `game_server` routes `CombatDisruptInsteadOfRetreat`, `CombatAdvance`, and the new
   `CombatDeclineAdvance` through the runner first. A "Skip" row at `awaiting_advance` was
-  added to `default_primary_actions_for_viewer`. Tests: `tests/test_combat_arc_runner_2b.py`.
+  added to `default_primary_actions_for_viewer` (later removed; Phase 5 → `combat_gate_panel_actions` in title dock). Tests: `tests/test_combat_arc_runner_2b.py`.
 
   **Deviation from strict cutover (intentional, until 2c):** because retreat fulfillment
   still runs on the legacy `MoveUnit` path (2c) and does **not** move the cursor, the
@@ -382,8 +382,8 @@ methods delegating to `combat_actions.*`; post-attack bucket handoff is
    auto-skip. New work this adds: a `CombatDeclineAdvance` dispatch branch routed through
    `submit_event` (2b), a `clear_advance_gate` title effect (clears `advance` +
    `combat_gate`, reusing the existing remove-keys patch), and a "Skip" action row at the
-   advance gate (added to `default_primary_actions_for_viewer` alongside "Advance"; fully
-   migrated to the segment-driven dock in Phase 5).
+   advance gate (added to `default_primary_actions_for_viewer` alongside "Advance"; Phase 5
+   → `combat_gate_panel_actions` in the title dock hook, not engine segment wire).
 3. **`goto`-cycling (Approach A).** Resolved above; no `interrupt`/`resume` for combat.
 4. **Stacking-limit stays a server pre-guard (for now).** The stacked-retreat
    stacking-limit check (`validate_retreat_fulfillment_stack` → specific `ValueError`)

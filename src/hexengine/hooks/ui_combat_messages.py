@@ -9,8 +9,8 @@ from typing import Any
 from ..state import GameState
 from ..ui.display import InteractionMessage, interaction_message
 
-_SEGMENT_KIND_RETREAT = frozenset({"awaiting_retreat", "awaiting_retreat_or_disrupt"})
-_SEGMENT_KIND_ADVANCE = frozenset({"awaiting_advance"})
+_UI_MODE_RETREAT = frozenset({"awaiting_retreat", "awaiting_retreat_or_disrupt"})
+_UI_MODE_ADVANCE = frozenset({"awaiting_advance"})
 from ..state.title_extension import title_bucket
 
 
@@ -48,7 +48,7 @@ def default_combat_interaction_messages(
     """
     Engine default combat/retreat/advance rows for ``interaction_messages``.
 
-    Advance and retreat prompts follow ``current_segment.kind`` on the arc cursor.
+    Advance and retreat prompts follow ``current_segment.ui_mode`` on the arc cursor.
     """
 
     ek = str(ctx.extension_key or "").strip()
@@ -59,7 +59,7 @@ def default_combat_interaction_messages(
         return []
 
     segment = ctx.current_segment if isinstance(ctx.current_segment, Mapping) else None
-    segment_kind = str(segment.get("kind", "")).strip() if segment else ""
+    segment_ui_mode = str(segment.get("ui_mode", "")).strip() if segment else ""
 
     out: list[InteractionMessage] = []
     viewer = str(ctx.viewer_faction).strip() if ctx.viewer_faction else ""
@@ -75,7 +75,7 @@ def default_combat_interaction_messages(
         inst, msg = combat_instruction(outcome, retreat_owner)
         if (
             inst in ("retreat_required", "wait")
-            and segment_kind not in _SEGMENT_KIND_RETREAT
+            and segment_ui_mode not in _UI_MODE_RETREAT
         ):
             inst, msg = "resolved", "Combat resolved."
         kind = (
@@ -101,7 +101,7 @@ def default_combat_interaction_messages(
             )
         )
 
-    if segment_kind in _SEGMENT_KIND_ADVANCE:
+    if segment_ui_mode in _UI_MODE_ADVANCE:
         adv = hx.get("advance")
         adv_faction = (
             str(adv.get("faction", "")).strip() if isinstance(adv, dict) else ""

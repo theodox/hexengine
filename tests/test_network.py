@@ -12,7 +12,7 @@ import unittest
 from hexengine.arcs import ArcSpec
 from hexengine.authoring.patterns.combat import (
     OWNER_RETREATING,
-    CombatArcGateKinds,
+    CombatArcGateUiModes,
     build_combat_cleanup_arc,
 )
 from hexengine.authoring.patterns.schedule import build_turn_registry, interleaved_slots
@@ -201,7 +201,7 @@ _NETWORK_TEST_EFFECTS = _NetworkTestCombatEffects()
 _TEST_COMBAT_ARC_SPEC = ArcSpec(
     arc=build_combat_cleanup_arc(
         _NETWORK_TEST_EFFECTS,
-        CombatArcGateKinds(
+        CombatArcGateUiModes(
             awaiting_retreat="awaiting_retreat",
             awaiting_retreat_or_disrupt="awaiting_retreat_or_disrupt",
             awaiting_advance="awaiting_advance",

@@ -6,7 +6,7 @@ import asyncio
 from dataclasses import dataclass
 from unittest.mock import patch
 
-from games.hexdemo import combat_arc
+from games.hexdemo import combat_arc, combat_rules
 from games.hexdemo.hooks import build_hooks
 
 from hexengine.arcs import ArcCursor, SetArcCursor, read_arc_cursor
@@ -106,7 +106,12 @@ def test_attack_without_cleanup_gate_restores_routine_cursor() -> None:
             rng_entry={"op": "test", "outcome": "none"},
         )
 
-    with patch("games.hexdemo.combat_rules.resolve_attack", _none_resolve):
+    # Arc attack uses BINDING.resolve_attack (classmethod), not the module alias.
+    with patch.object(
+        combat_rules.HexdemoCombatRules,
+        "resolve_attack",
+        staticmethod(_none_resolve),
+    ):
         ok = asyncio.run(
             execute_authority_attack_request(
                 host,

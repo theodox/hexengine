@@ -8,7 +8,7 @@ from games.template.combat_arc import BINDING, TemplateCombatRules
 from hexengine.authoring.patterns.combat import (
     SEG_ATTACK,
     SEG_CLASSIFY,
-    CombatArcGateKinds,
+    CombatArcGateUiModes,
     combat_rules_binding_missing_methods,
     combat_rules_binding_satisfies,
     combat_rules_binding_to_arc_spec,
@@ -22,7 +22,7 @@ def test_template_binding_satisfies_protocol() -> None:
 
 
 def test_combat_rules_binding_to_arc_spec_builds_valid_arc() -> None:
-    gates = CombatArcGateKinds(
+    gates = CombatArcGateUiModes(
         awaiting_retreat="awaiting_retreat",
         awaiting_retreat_or_disrupt="awaiting_retreat_or_disrupt",
         awaiting_advance="awaiting_advance",
@@ -56,5 +56,5 @@ def test_combat_rules_binding_to_arc_spec_rejects_incomplete() -> None:
     with pytest.raises(TypeError, match="missing methods"):
         combat_rules_binding_to_arc_spec(
             Incomplete(),
-            CombatArcGateKinds("r", "rod", "a"),
+            CombatArcGateUiModes("r", "rod", "a"),
         )

@@ -35,18 +35,18 @@ def interleaved_slots(
     rows: list[ScheduleSlot] = []
     if faction_first:
         for faction in factions:
-            for phase_name, max_actions, kind in phases:
+            for phase_name, max_actions, ui_mode in phases:
                 rows.append(
                     ScheduleSlot(
                         routine_arc_id(faction, phase_name),
                         faction,
                         phase_name,
                         int(max_actions),
-                        kind=str(kind),
+                        ui_mode=str(ui_mode),
                     )
                 )
     else:
-        for phase_name, max_actions, kind in phases:
+        for phase_name, max_actions, ui_mode in phases:
             for faction in factions:
                 rows.append(
                     ScheduleSlot(
@@ -54,7 +54,7 @@ def interleaved_slots(
                         faction,
                         phase_name,
                         int(max_actions),
-                        kind=str(kind),
+                        ui_mode=str(ui_mode),
                     )
                 )
     return tuple(rows)
@@ -73,7 +73,7 @@ def build_turn_registry(
         arc = simple_phase(
             slot.routine_arc_id,
             allowed_actions=allowed_actions_for_phase(slot.phase),
-            kind=slot.kind,
+            ui_mode=slot.ui_mode,
         )
         routine_specs[slot.routine_arc_id] = ArcSpec(arc=arc, owner_resolver=None)
     return TurnArcRegistry(schedule=schedule, routine_specs=routine_specs)

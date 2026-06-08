@@ -121,7 +121,7 @@ One **registry row per segment UX mode**, aligned with the `kind` string on arc 
 
 | Registry field | Author meaning | Engine / client use (internal) |
 |----------------|----------------|--------------------------------|
-| **`kind`** | Stable id in the declared arc (e.g. `awaiting_retreat`, `routine_combat`) | `current_segment.kind` |
+| **`ui_mode`** | Stable UI/policy bucket in the declared arc (e.g. `awaiting_retreat`, `combat`) | `current_segment.ui_mode` |
 | **`presentation_id`** | Skin key for CSS and templates (e.g. `retreat_gate`, `attack_ready`) | panel `css_class` modifiers and wire `presentation_id` |
 | **`primitive`** | INFORM, SELECT, DECIDE, or SEQUENCE | Which wire lane(s) are active |
 | **`interaction_mode`** | Optional [`InteractionKind`](../src/hexengine/gamedef/interactions.py) (`attack_plan`, `retreat_path`, `place_marker`, or none) | Map-selection preview + client draft skin |
@@ -148,7 +148,7 @@ Arc declarations use the same `kind` strings. Dock and inform hooks **look up** 
 |-------|------|----------|
 | Short labels | `game_data.toml` → `shell_ui` | `presentation_id` + action id |
 | Dock headline / hint HTML | `ui_markup.py` + `resources/templates/` | `presentation_id` |
-| Banners | `presentation/interaction_messages.py` + thin `UIHook` adapters | `segment.kind` (combat/advance gates) and combat outcome |
+| Banners | `presentation/interaction_messages.py` + thin `UIHook` adapters | `segment.ui_mode` (combat/advance gates) and combat outcome |
 | Map popups | `presentation/inform.py` via `hooks/ui.inform_popup_for_viewer` | `inform_profile` + `reason` (from `current_segment` when client omits `inform_kind`) |
 | CSS | pack `resources/ui.css` | `.…-turn-dock--{presentation_id}` |
 
@@ -160,7 +160,7 @@ Arc declarations use the same `kind` strings. Dock and inform hooks **look up** 
 
 **P4 (done):** INFORM map callouts resolve `inform_profile` from `current_segment` when the client omits `inform_kind` (`hexengine.arcs.inform_wire`). Title copy lives in `presentation/inform.py` keyed by profile + reason; engine `default_inform_popup_for_viewer` uses the same shell key pattern.
 
-**P5 (done):** At server startup, `validate_title_contract` checks every explicit segment `kind` in declared arcs is registered in `PRESENTATION_BY_SEGMENT_KIND` (bind `UIHook.SEGMENT_PRESENTATION_REGISTRY`). Required when `title_state_extension_key` is set.
+**P5 (done):** At server startup, `validate_title_contract` checks every explicit segment `ui_mode` in declared arcs is registered in `PRESENTATION_BY_UI_MODE` (bind `UIHook.SEGMENT_PRESENTATION_REGISTRY`). Required when `title_state_extension_key` is set.
 
 **Draft locus:** Map SELECT drafts are client-local until commit; preview consults, commit authorizes. See [`TURN_ACTION_DOCK_CONTRACT.md` § Draft locus](TURN_ACTION_DOCK_CONTRACT.md#draft-locus-invariant).
 
@@ -194,7 +194,8 @@ Authoritative match state uses **`GameState.title_state`** (title bucket) and **
 | **Outcome builder** | [`combat_outcome.py`](../games/hexdemo/combat_outcome.py) | `build_combat_outcome_after_applied` → bucket patch for classify |
 | **Arc spec** | [`combat_arc.py`](../games/hexdemo/combat_arc.py) | `combat_rules_binding_to_arc_spec`; owner resolver; `ArcHook.COMBAT_ARC` |
 | **Cleanup mutations** | [`combat_actions.py`](../games/hexdemo/combat_actions.py) | Retreat step, disrupt, advance resolve (called from binding) |
-| **Gate kinds / phase clear** | [`combat_transitions.py`](../games/hexdemo/combat_transitions.py) | `COMBAT_ARC_GATE_KINDS`, `clear_combat_state_actions`, attack-planning block copy |
+| **Gate ui_modes / phase clear** | [`combat_transitions.py`](../games/hexdemo/combat_transitions.py) | `COMBAT_ARC_GATE_UI_MODES`, `clear_combat_state_actions`, attack-planning block copy |
+| **Combat gate dock rows** | [`authoring/patterns/combat.py`](../src/hexengine/authoring/patterns/combat.py) | `combat_gate_panel_actions` — Disrupt / Advance / Skip `PanelAction` rows from `allowed_actions` + `shell_ui` |
 | **Title bucket / retreat reads** | [`title_state.py`](../games/hexdemo/title_state.py) | `bucket()`, retreat obligations, advance offer |
 | **Movement policy** | [`movement_rules.py`](../games/hexdemo/movement_rules.py) | Budget, ZoC, step cost, retreat constraints |
 | **Hook adapters** | [`hooks/attack.py`](../games/hexdemo/hooks/attack.py), [`hooks/movement.py`](../games/hexdemo/hooks/movement.py) | `@bind_title_hook` only |
@@ -225,7 +226,7 @@ Hook inventory (signatures, when invoked): [`PACK_HOOK_CONTRACTS.md` § Hook inv
 
 ## API: player UX (hooks; wire is reference)
 
-Hooks are the **author surface**. Return plain dicts today; prefer typed contexts and pack helpers over copying wire schemas from this guide.
+Hooks are the **author surface**. Return presentation DTOs from `hexengine.authoring.present` (turn dock, inform, previews, banners, overlays, segment enrich); the engine serializes via `hexengine.hooks.internal.ui_wire`. Prefer typed contexts and pack helpers over copying wire schemas from this guide.
 
 | Concern | Author API | Wire (engine only) |
 |---------|------------|-------------------|
@@ -258,7 +259,7 @@ Full field tables: [`PACK_HOOK_CONTRACTS.md` § UI affordances](PACK_HOOK_CONTRA
 |------|---------|
 | **`TURN_ACTION_DOCK_FOR_VIEWER`** | [`TurnActionDockContext`](../src/hexengine/hooks/ui_turn_action_dock.py) — includes `current_segment`, `shell_ui` |
 
-**Required** when `GameData.title_state_extension_key` is set (`validate_title_contract`). Commit buttons are composed from segment `allowed_actions` (gate rows) plus title presentation; wire panel id is conventionally `turn_actions`.
+**Required** when `GameData.title_state_extension_key` is set (`validate_title_contract`). Compose End Phase from `current_segment` (`segment_allows_action` / `_end_phase_row`); add combat cleanup gate rows with [`combat_gate_panel_actions`](../src/hexengine/authoring/patterns/combat.py) when using `build_combat_cleanup_arc`. Wire panel id is conventionally `turn_actions`.
 
 Panel / action wire schemas (reference): [`TURN_ACTION_DOCK_CONTRACT.md` § Panel wire schema](TURN_ACTION_DOCK_CONTRACT.md#panel-wire-schema-schema-1).
 
@@ -354,8 +355,8 @@ Preview hooks receive `shell_ui` on context objects; dock hook receives it on `T
 2. Declare `ArcHook.TURN_ARC_REGISTRY` with combat schedule slots (`allowed_actions` includes `Attack`).
 3. Implement one `CombatRulesBinding` in `combat_arc.py`; build `ArcSpec` with [`combat_rules_binding_to_arc_spec`](../src/hexengine/authoring/patterns/combat.py) and bind `ArcHook.COMBAT_ARC` (optional `ArcHook.COMBAT_RULES_BINDING` for contract validation).
 4. Thin `hooks/attack.py` adapters to binding methods; add `movement_rules.py` if retreat/move policy is non-default.
-5. Register segment kinds in `segment_ui.py` (routine `combat`, each combat gate kind); bind `UIHook.SEGMENT_PRESENTATION_REGISTRY` and `TURN_ACTION_DOCK_FOR_VIEWER`.
-6. Add presentation rows under `presentation/` for each `presentation_id`; run `validate_title_contract` and combat integration tests.
+5. Register segment kinds in `segment_ui.py` (routine `combat`, each combat gate kind); bind `UIHook.SEGMENT_PRESENTATION_REGISTRY`, `ENRICH_CURRENT_SEGMENT`, and `TURN_ACTION_DOCK_FOR_VIEWER`.
+6. In the dock hook, call `combat_gate_panel_actions(seg, ctx.shell_ui)` plus `_end_phase_row`; add presentation rows under `presentation/` for each `presentation_id`; run `validate_title_contract` and combat integration tests.
 
 ### New INFORM copy
 
@@ -384,8 +385,8 @@ Preview hooks receive `shell_ui` on context objects; dock hook receives it on `T
 
 | Status | Topics |
 |--------|--------|
-| **Stable (v1)** | Three lanes, dock + `panel_actions` merge, registry kinds `attack_plan` / `retreat_path` / `place_marker`, drag previews, `ENGINE_DEFAULT`, HTML ladder tiers 1–3, `current_segment`-driven legality |
-| **Evolving** | Client-held draft; SEQUENCE skin from `current_segment.interaction_mode`; segment registry + `authoring.present` DTOs + `presentation/inform.py` (hexdemo reference) |
+| **Stable (v1)** | Three lanes, dock + `panel_actions` merge, registry kinds `attack_plan` / `retreat_path` / `place_marker`, drag previews, `ENGINE_DEFAULT`, HTML ladder tiers 1–3, `current_segment`-driven legality, `authoring.present` DTOs + `ui_wire` serialization, `combat_gate_panel_actions` for cleanup gate dock rows |
+| **Evolving** | Client-held draft; SEQUENCE skin from `current_segment.interaction_mode`; segment registry + `presentation/inform.py` (hexdemo reference); manifest `[client_contract]` client routes |
 | **Planned** | Action label catalog in `shell_ui`; gesture policy from segment; stricter manifest validation; [`RULE_COMPOSITION.md`](RULE_COMPOSITION.md) |
 
 ---

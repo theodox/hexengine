@@ -67,7 +67,7 @@ Place marker (click-confirm): SELECT → preview → merge `panel_actions` → C
 
 | Area | Location |
 |------|----------|
-| Turn action dock | `UIHook.TURN_ACTION_DOCK_FOR_VIEWER`, [`ui_turn_action_dock.py`](../src/hexengine/hooks/ui_turn_action_dock.py), [`client_interaction_panels.py`](../src/hexengine/game/arcs/client_interaction_panels.py) |
+| Turn action dock | `UIHook.TURN_ACTION_DOCK_FOR_VIEWER`, [`ui_turn_action_dock.py`](../src/hexengine/hooks/ui_turn_action_dock.py) (catalog: End Phase only), [`combat_gate_panel_actions`](../src/hexengine/authoring/patterns/combat.py) (title gate rows), [`client_interaction_panels.py`](../src/hexengine/game/arcs/client_interaction_panels.py) |
 | Client SEQUENCE skin | [`client_interaction_panels.py`](../src/hexengine/game/arcs/client_interaction_panels.py) (`effective_turn_dock_presentation_id`, headline overrides) |
 | Panel action registry | [`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py) |
 | Map-selection (server) | [`map_selection_registry.py`](../src/hexengine/hooks/map_selection_registry.py), [`map_selection.py`](../src/hexengine/server/map_selection.py) |

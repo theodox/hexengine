@@ -55,7 +55,7 @@ def test_hexdemo_enrich_projects_attack_plan_from_registry() -> None:
     st = GameState.create_empty()
     segment = {
         "schema": 1,
-        "kind": "combat",
+        "ui_mode": "combat",
         "allowed_actions": ["Attack", "NextPhase"],
         "action_locus": {"Attack": "client_draft", "NextPhase": "server"},
     }

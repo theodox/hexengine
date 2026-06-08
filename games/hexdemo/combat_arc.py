@@ -51,7 +51,7 @@ def build_hexdemo_combat_arc_spec():
     if _COMBAT_ARC_SPEC is None:
         _COMBAT_ARC_SPEC = combat_rules_binding_to_arc_spec(
             BINDING,
-            combat_transitions.COMBAT_ARC_GATE_KINDS,
+            combat_transitions.COMBAT_ARC_GATE_UI_MODES,
             arc_id=COMBAT_ARC_ID,
             owner_resolver=resolve_owner_ref,
             attack_effect=BINDING.attack_arc_effect,

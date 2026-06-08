@@ -54,13 +54,13 @@ def test_disrupt_only_offered_in_the_disrupt_gate() -> None:
 
 
 def test_gate_segments_map_one_to_one_with_blocking_gates() -> None:
-    """Each blocking gate kind has exactly one segment carrying that value as `kind`."""
+    """Each blocking gate ui_mode has exactly one segment carrying that value."""
 
     a = combat_arc.build_combat_arc()
     by_kind = {
-        s.kind: s.id
+        s.ui_mode: s.id
         for s in a.segments
-        if s.kind in combat_transitions.GATES_BLOCKING_ROUTINE
+        if s.ui_mode in combat_transitions.GATES_BLOCKING_ROUTINE
     }
     assert set(by_kind) == set(combat_transitions.GATES_BLOCKING_ROUTINE)
     assert (

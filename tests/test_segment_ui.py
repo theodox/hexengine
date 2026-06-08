@@ -17,7 +17,7 @@ from hexdemo.combat_transitions import (
 )
 from hexdemo.presentation.dock import dock_headline
 from hexdemo.segment_ui import (
-    PRESENTATION_BY_SEGMENT_KIND,
+    PRESENTATION_BY_UI_MODE,
     Primitive,
     resolve_presentation_id,
     segment_presentation,
@@ -25,10 +25,10 @@ from hexdemo.segment_ui import (
 
 
 def test_registry_covers_combat_gate_kinds() -> None:
-    assert GATE_AWAITING_RETREAT in PRESENTATION_BY_SEGMENT_KIND
-    assert GATE_AWAITING_RETREAT_OR_DISRUPT in PRESENTATION_BY_SEGMENT_KIND
-    assert GATE_AWAITING_ADVANCE in PRESENTATION_BY_SEGMENT_KIND
-    row = segment_presentation({"kind": GATE_AWAITING_RETREAT, "schema": 1})
+    assert GATE_AWAITING_RETREAT in PRESENTATION_BY_UI_MODE
+    assert GATE_AWAITING_RETREAT_OR_DISRUPT in PRESENTATION_BY_UI_MODE
+    assert GATE_AWAITING_ADVANCE in PRESENTATION_BY_UI_MODE
+    row = segment_presentation({"ui_mode": GATE_AWAITING_RETREAT, "schema": 1})
     assert row is not None
     assert row.presentation_id == "retreat_gate"
     assert row.interaction_mode == "retreat_path"
@@ -37,7 +37,7 @@ def test_registry_covers_combat_gate_kinds() -> None:
 
 def test_resolve_presentation_id_combat_phase_slot() -> None:
     pid = resolve_presentation_id(
-        {"kind": "combat", "allowed_actions": ["Attack", "NextPhase"]},
+        {"ui_mode": "combat", "allowed_actions": ["Attack", "NextPhase"]},
         viewer_may_act=True,
         current_phase="Combat",
     )

@@ -2,7 +2,7 @@
 Post-attack combat cleanup arc pattern (classify → retreat → resolve loop → advance).
 
 Title packs inject guards and effects via ``CombatArcEffectsBinding`` and supply
-segment ``kind`` strings for gate-bearing segments (parity with the title FSM table).
+segment ``ui_mode`` strings for gate-bearing segments (parity with the title FSM table).
 """
 
 from __future__ import annotations
@@ -34,8 +34,8 @@ Effect = Callable[[ArcContext], list[StateAction]]
 
 
 @dataclass(frozen=True, slots=True)
-class CombatArcGateKinds:
-    """Segment ``kind`` strings for gate-bearing combat arc segments."""
+class CombatArcGateUiModes:
+    """Segment ``ui_mode`` strings for gate-bearing combat arc segments."""
 
     awaiting_retreat: str
     awaiting_retreat_or_disrupt: str
@@ -68,11 +68,11 @@ class CombatArcEffectsBinding(Protocol):
 
 def build_combat_cleanup_arc(
     effects: CombatArcEffectsBinding,
-    gates: CombatArcGateKinds,
+    gates: CombatArcGateUiModes,
     *,
     arc_id: str = COMBAT_ARC_ID,
     attack_effect: Effect | None = None,
-    attack_kind: str = "combat",
+    attack_ui_mode: str = "combat",
 ) -> Arc:
     """
     Build the combat arc (optional ``attack`` segment + cleanup subgraph).
@@ -90,7 +90,7 @@ def build_combat_cleanup_arc(
             with a.segment(
                 SEG_ATTACK,
                 owner=CURRENT,
-                kind=str(attack_kind),
+                ui_mode=str(attack_ui_mode),
                 allowed_actions=frozenset({"Attack"}),
             ) as s:
                 s.on("Attack", effect=attack_effect, goto=SEG_CLASSIFY)
@@ -110,7 +110,7 @@ def build_combat_cleanup_arc(
         with a.segment(
             SEG_RETREAT_GATE,
             owner=OwnerRef(OWNER_RETREATING),
-            kind=gates.awaiting_retreat,
+            ui_mode=gates.awaiting_retreat,
         ) as s:
             s.on(
                 "MoveUnit",
@@ -122,7 +122,7 @@ def build_combat_cleanup_arc(
         with a.segment(
             SEG_RETREAT_OR_DISRUPT_GATE,
             owner=OwnerRef(OWNER_RETREATING),
-            kind=gates.awaiting_retreat_or_disrupt,
+            ui_mode=gates.awaiting_retreat_or_disrupt,
         ) as s:
             s.on(
                 "MoveUnit",
@@ -150,7 +150,7 @@ def build_combat_cleanup_arc(
         with a.segment(
             SEG_ADVANCE_GATE,
             owner=CURRENT,
-            kind=gates.awaiting_advance,
+            ui_mode=gates.awaiting_advance,
         ) as s:
             s.on("CombatAdvance", effect=effects.resolve_advance, done=True)
             s.on(
@@ -322,13 +322,13 @@ class _CombatRulesEffectsAdapter:
 
 def combat_rules_binding_to_arc_spec(
     binding: CombatRulesBinding,
-    gates: CombatArcGateKinds,
+    gates: CombatArcGateUiModes,
     *,
     arc_id: str = COMBAT_ARC_ID,
     owner_resolver: OwnerRefResolver | None = None,
     advance_move_detector: Callable[..., bool] | None = None,
     attack_effect: Effect | None = None,
-    attack_kind: str = "combat",
+    attack_ui_mode: str = "combat",
 ) -> ArcSpec:
     """
     Build ``ArcSpec`` from one author binding (cleanup subgraph + optional attack segment).
@@ -345,7 +345,7 @@ def combat_rules_binding_to_arc_spec(
             gates,
             arc_id=arc_id,
             attack_effect=attack_effect,
-            attack_kind=attack_kind,
+            attack_ui_mode=attack_ui_mode,
         ),
         owner_resolver=owner_resolver,
         advance_move_detector=advance_move_detector
@@ -356,7 +356,7 @@ def combat_rules_binding_to_arc_spec(
 __all__ = [
     "COMBAT_ARC_ID",
     "CombatArcEffectsBinding",
-    "CombatArcGateKinds",
+    "CombatArcGateUiModes",
     "OWNER_RETREATING",
     "SEG_ADVANCE_GATE",
     "SEG_ATTACK",

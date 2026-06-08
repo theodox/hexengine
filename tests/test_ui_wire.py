@@ -202,7 +202,7 @@ def test_hexdemo_turn_action_dock_returns_dtos() -> None:
         client_contract_features=frozenset(),
         current_segment={
             "schema": 1,
-            "kind": "combat",
+            "ui_mode": "combat",
             "presentation_id": "attack_ready",
             "allowed_actions": ["Attack", "NextPhase"],
         },

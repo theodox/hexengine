@@ -323,7 +323,7 @@ def panel_action(
 
 
 def panel_actions_from_dicts(rows: list[dict[str, Any]]) -> tuple[PanelAction, ...]:
-    """Wrap engine-built action dicts (e.g. segment gate rows) as ``PanelAction``."""
+    """Wrap legacy action dict rows as ``PanelAction`` (tests and migration only)."""
     out: list[PanelAction] = []
     for raw in rows:
         if not isinstance(raw, dict):

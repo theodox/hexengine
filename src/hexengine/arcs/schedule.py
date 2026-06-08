@@ -20,7 +20,7 @@ class ScheduleSlot:
     faction: str
     phase: str
     max_actions: int
-    kind: str = "routine"
+    ui_mode: str = "routine"
 
 
 @dataclass(frozen=True, slots=True)

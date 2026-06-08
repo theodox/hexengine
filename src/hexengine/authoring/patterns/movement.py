@@ -29,7 +29,7 @@ def build_movement_arc(effects: MovementArcEffectsBinding) -> Arc:
         with a.segment(
             SEG_CONTINUE,
             owner=OwnerRef(OWNER_MOVING),
-            kind=MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
+            ui_mode=MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
         ) as s:
             s.on(
                 "MoveUnit",
@@ -52,7 +52,7 @@ def build_movement_arc(effects: MovementArcEffectsBinding) -> Arc:
         with a.segment(
             SEG_INTERRUPT,
             owner=CURRENT,
-            kind=MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
+            ui_mode=MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
         ) as s:
             s.on(
                 "PassMovementInterrupt",

@@ -353,7 +353,7 @@ def test_segment_gate_actions_disrupt_row() -> None:
         "schema": 1,
         "arc_id": "combat",
         "segment_id": "retreat_or_disrupt_gate",
-        "kind": "awaiting_retreat_or_disrupt",
+        "ui_mode": "awaiting_retreat_or_disrupt",
         "owner": "confederate",
         "allowed_actions": ["MoveUnit", "CombatDisruptInsteadOfRetreat"],
         "action_locus": {},

@@ -1741,7 +1741,7 @@ class GameServer:
         shell = dict(self.game_data.shell_ui) if self.game_data.shell_ui else {}
         inform_kind = ""
         inform_profile: str | None = None
-        segment_kind: str | None = None
+        segment_ui_mode: str | None = None
         unit_id: str | None = None
         if target_kind == "inform":
             client_inform_kind = ""
@@ -1760,7 +1760,7 @@ class GameServer:
             )
             inform_kind = lane.inform_kind
             inform_profile = lane.inform_profile
-            segment_kind = lane.segment_kind
+            segment_ui_mode = lane.segment_ui_mode
 
         ip_ctx = InformPopupContext(
             state=state,
@@ -1773,7 +1773,7 @@ class GameServer:
             reason=target_id if target_kind == "inform" else "",
             unit_id=unit_id,
             inform_profile=inform_profile,
-            segment_kind=segment_kind,
+            segment_ui_mode=segment_ui_mode,
         )
         pm = self.hooks.ui.inform_popup_for(ip_ctx)
         if pm is ENGINE_DEFAULT or pm is None:

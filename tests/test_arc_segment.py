@@ -62,7 +62,7 @@ def test_project_segment_for_faction_retreat_gate_kind() -> None:
     st = _retreat_gate_state()
     seg = arc_segment.project_segment_for_faction(st, "confederate")
     assert seg is not None
-    assert seg.get("kind") == "awaiting_retreat"
+    assert seg.get("ui_mode") == "awaiting_retreat"
     assert seg.get("presentation_id") == "retreat_gate"
 
 

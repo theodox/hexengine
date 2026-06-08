@@ -1,5 +1,5 @@
 """
-Load-time validation: declared arc segment ``kind`` values ⊆ title presentation registry (P5).
+Load-time validation: declared arc segment ``ui_mode`` values ⊆ title presentation registry (P5).
 """
 
 from __future__ import annotations
@@ -13,33 +13,33 @@ from ..hooks.core import ENGINE_DEFAULT
 from ..hooks.title import TitleHooks
 
 
-def _kind_from_segment(segment: Segment) -> str | None:
-    """Return a segment ``kind`` when it is explicitly set (not internal auto segments)."""
+def _ui_mode_from_segment(segment: Segment) -> str | None:
+    """Return a segment ``ui_mode`` when it is explicitly set (not internal auto segments)."""
 
-    kind = str(segment.kind or "").strip()
-    return kind or None
+    ui_mode = str(segment.ui_mode or "").strip()
+    return ui_mode or None
 
 
-def kinds_from_arc(arc: Arc) -> set[str]:
-    """Collect explicit ``kind`` strings from one declared arc."""
+def ui_modes_from_arc(arc: Arc) -> set[str]:
+    """Collect explicit ``ui_mode`` strings from one declared arc."""
 
     out: set[str] = set()
     for segment in arc.segments:
-        kind = _kind_from_segment(segment)
-        if kind:
-            out.add(kind)
+        ui_mode = _ui_mode_from_segment(segment)
+        if ui_mode:
+            out.add(ui_mode)
     return out
 
 
-def collect_declared_segment_kinds(bundle: TitleHooks) -> set[str]:
+def collect_declared_ui_modes(bundle: TitleHooks) -> set[str]:
     """
-    Union of segment ``kind`` values from the turn routine registry and overlay arcs.
+    Union of segment ``ui_mode`` values from the turn routine registry and overlay arcs.
 
-    Segments with an empty ``kind`` (e.g. combat ``classify`` / ``resolve``) are omitted;
+    Segments with an empty ``ui_mode`` (e.g. combat ``classify`` / ``resolve``) are omitted;
     they do not drive per-viewer presentation on the wire.
     """
 
-    kinds: set[str] = set()
+    ui_modes: set[str] = set()
     reg_raw = bundle.arcs.turn_arc_registry_spec()
     if reg_raw is not ENGINE_DEFAULT:
         from ..arcs.registry import TurnArcRegistry
@@ -47,7 +47,7 @@ def collect_declared_segment_kinds(bundle: TitleHooks) -> set[str]:
         if isinstance(reg_raw, TurnArcRegistry):
             for spec in reg_raw.routine_specs.values():
                 if isinstance(spec, ArcSpec):
-                    kinds |= kinds_from_arc(spec.arc)
+                    ui_modes |= ui_modes_from_arc(spec.arc)
 
     for _label, spec_raw in (
         ("combat_arc", bundle.arcs.combat_arc_spec()),
@@ -55,29 +55,29 @@ def collect_declared_segment_kinds(bundle: TitleHooks) -> set[str]:
     ):
         if spec_raw is ENGINE_DEFAULT or not isinstance(spec_raw, ArcSpec):
             continue
-        kinds |= kinds_from_arc(spec_raw.arc)
-    return kinds
+        ui_modes |= ui_modes_from_arc(spec_raw.arc)
+    return ui_modes
 
 
-def _registry_kind_keys(registry: object) -> tuple[set[str], list[str]]:
-    """Normalize hook return value to kind keys; validate row.kind matches dict key."""
+def _registry_ui_mode_keys(registry: object) -> tuple[set[str], list[str]]:
+    """Normalize hook return value to ui_mode keys; validate row.ui_mode matches dict key."""
 
     errors: list[str] = []
     if isinstance(registry, Mapping):
         keys: set[str] = set()
         for key, row in registry.items():
-            kind_key = str(key).strip()
-            if not kind_key:
-                errors.append("segment_presentation_registry: empty kind key")
+            mode_key = str(key).strip()
+            if not mode_key:
+                errors.append("segment_presentation_registry: empty ui_mode key")
                 continue
-            keys.add(kind_key)
-            row_kind = getattr(row, "kind", None)
-            if row_kind is None and isinstance(row, dict):
-                row_kind = row.get("kind")
-            if row_kind is not None and str(row_kind).strip() != kind_key:
+            keys.add(mode_key)
+            row_mode = getattr(row, "ui_mode", None)
+            if row_mode is None and isinstance(row, dict):
+                row_mode = row.get("ui_mode")
+            if row_mode is not None and str(row_mode).strip() != mode_key:
                 errors.append(
                     "segment_presentation_registry: "
-                    f"key {kind_key!r} row.kind is {row_kind!r}"
+                    f"key {mode_key!r} row.ui_mode is {row_mode!r}"
                 )
         return keys, errors
     if isinstance(registry, set | frozenset):
@@ -91,7 +91,7 @@ def _registry_kind_keys(registry: object) -> tuple[set[str], list[str]]:
 
 def validate_segment_presentation(bundle: TitleHooks) -> list[str]:
     """
-    Ensure every declared segment ``kind`` has a presentation registry row.
+    Ensure every declared segment ``ui_mode`` has a presentation registry row.
 
     No-op when the title does not bind ``UIHook.SEGMENT_PRESENTATION_REGISTRY``.
     """
@@ -105,14 +105,14 @@ def validate_segment_presentation(bundle: TitleHooks) -> list[str]:
     if registry is ENGINE_DEFAULT:
         return errors
 
-    keys, reg_errors = _registry_kind_keys(registry)
+    keys, reg_errors = _registry_ui_mode_keys(registry)
     errors.extend(reg_errors)
 
-    declared = collect_declared_segment_kinds(bundle)
+    declared = collect_declared_ui_modes(bundle)
     missing = sorted(declared - keys)
     if missing:
         errors.append(
-            "segment_presentation_registry missing kinds used in declared arcs: "
+            "segment_presentation_registry missing ui_modes used in declared arcs: "
             + ", ".join(missing)
         )
 
@@ -128,8 +128,8 @@ def validate_segment_presentation_for_definition(game_definition: Any) -> list[s
 
 
 __all__ = [
-    "collect_declared_segment_kinds",
-    "kinds_from_arc",
+    "collect_declared_ui_modes",
+    "ui_modes_from_arc",
     "validate_segment_presentation",
     "validate_segment_presentation_for_definition",
 ]

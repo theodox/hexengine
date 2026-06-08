@@ -1,7 +1,7 @@
 """
-Hexdemo segment presentation registry (flow kind → skin / primitives).
+Hexdemo segment presentation registry (ui_mode → skin / primitives).
 
-Maps declared arc segment ``kind`` strings to author-facing presentation metadata.
+Maps declared arc segment ``ui_mode`` strings to author-facing presentation metadata.
 Dock and inform hooks resolve copy and CSS through ``presentation_id``; legality stays
 on ``current_segment.allowed_actions`` from the engine.
 """
@@ -31,9 +31,9 @@ class Primitive(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class SegmentPresentation:
-    """One UX mode: ties arc segment ``kind`` to presentation and interaction."""
+    """One UI mode: ties arc segment ``ui_mode`` to presentation and interaction."""
 
-    kind: str
+    ui_mode: str
     presentation_id: str
     primitive: Primitive
     interaction_mode: str | None = None
@@ -41,15 +41,15 @@ class SegmentPresentation:
     inform_profile: str | None = None
 
 
-# Segment ``kind`` values from routine schedule slots (``move`` / ``combat``) and combat arc gates.
-PRESENTATION_BY_SEGMENT_KIND: dict[str, SegmentPresentation] = {
+# ``ui_mode`` values from routine schedule slots (``move`` / ``combat``) and combat arc gates.
+PRESENTATION_BY_UI_MODE: dict[str, SegmentPresentation] = {
     "move": SegmentPresentation(
-        kind="move",
+        ui_mode="move",
         presentation_id="routine",
         primitive=Primitive.DECIDE,
     ),
     "combat": SegmentPresentation(
-        kind="combat",
+        ui_mode="combat",
         presentation_id="attack_ready",
         primitive=Primitive.SEQUENCE,
         interaction_mode="attack_plan",
@@ -57,7 +57,7 @@ PRESENTATION_BY_SEGMENT_KIND: dict[str, SegmentPresentation] = {
         inform_profile="attack_plan",
     ),
     GATE_AWAITING_RETREAT: SegmentPresentation(
-        kind=GATE_AWAITING_RETREAT,
+        ui_mode=GATE_AWAITING_RETREAT,
         presentation_id="retreat_gate",
         primitive=Primitive.SELECT,
         interaction_mode="retreat_path",
@@ -65,7 +65,7 @@ PRESENTATION_BY_SEGMENT_KIND: dict[str, SegmentPresentation] = {
         inform_profile="retreat_gate",
     ),
     GATE_AWAITING_RETREAT_OR_DISRUPT: SegmentPresentation(
-        kind=GATE_AWAITING_RETREAT_OR_DISRUPT,
+        ui_mode=GATE_AWAITING_RETREAT_OR_DISRUPT,
         presentation_id="retreat_gate",
         primitive=Primitive.SELECT,
         interaction_mode="retreat_path",
@@ -73,7 +73,7 @@ PRESENTATION_BY_SEGMENT_KIND: dict[str, SegmentPresentation] = {
         inform_profile="retreat_gate",
     ),
     GATE_AWAITING_ADVANCE: SegmentPresentation(
-        kind=GATE_AWAITING_ADVANCE,
+        ui_mode=GATE_AWAITING_ADVANCE,
         presentation_id="advance_gate",
         primitive=Primitive.DECIDE,
         inform_profile="advance_gate",
@@ -84,14 +84,14 @@ PRESENTATION_BY_SEGMENT_KIND: dict[str, SegmentPresentation] = {
 def segment_presentation(
     segment: Mapping[str, Any] | None,
 ) -> SegmentPresentation | None:
-    """Lookup registry row for the active segment ``kind``, if registered."""
+    """Lookup registry row for the active segment ``ui_mode``, if registered."""
 
     if not segment:
         return None
-    kind = str(segment.get("kind", "")).strip()
-    if not kind:
+    ui_mode = str(segment.get("ui_mode", "")).strip()
+    if not ui_mode:
         return None
-    return PRESENTATION_BY_SEGMENT_KIND.get(kind)
+    return PRESENTATION_BY_UI_MODE.get(ui_mode)
 
 
 def resolve_presentation_id(
@@ -109,12 +109,12 @@ def resolve_presentation_id(
         return row.presentation_id
     if not segment:
         return "hidden" if not viewer_may_act else "routine"
-    kind = str(segment.get("kind", "")).strip() or "(unknown)"
-    raise ValueError(f"No segment presentation registered for kind {kind!r}")
+    ui_mode = str(segment.get("ui_mode", "")).strip() or "(unknown)"
+    raise ValueError(f"No segment presentation registered for ui_mode {ui_mode!r}")
 
 
 __all__ = [
-    "PRESENTATION_BY_SEGMENT_KIND",
+    "PRESENTATION_BY_UI_MODE",
     "Primitive",
     "SegmentPresentation",
     "resolve_presentation_id",

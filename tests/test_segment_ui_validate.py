@@ -15,7 +15,7 @@ for p in (GAMES, SRC):
         sys.path.insert(0, p)
 
 from hexengine.authoring.segment_ui_validate import (
-    collect_declared_segment_kinds,
+    collect_declared_ui_modes,
     validate_segment_presentation,
 )
 from hexengine.hooks.arcs import ArcsHooks
@@ -33,24 +33,24 @@ def test_collect_declared_kinds_includes_routine_and_combat_gates() -> None:
     )
     from games.hexdemo.hooks import build_hooks
 
-    kinds = collect_declared_segment_kinds(build_hooks())
-    assert "move" in kinds
-    assert "combat" in kinds
-    assert GATE_AWAITING_RETREAT in kinds
-    assert GATE_AWAITING_RETREAT_OR_DISRUPT in kinds
-    assert GATE_AWAITING_ADVANCE in kinds
-    assert "classify" not in kinds
-    assert "resolve" not in kinds
+    ui_modes = collect_declared_ui_modes(build_hooks())
+    assert "move" in ui_modes
+    assert "combat" in ui_modes
+    assert GATE_AWAITING_RETREAT in ui_modes
+    assert GATE_AWAITING_RETREAT_OR_DISRUPT in ui_modes
+    assert GATE_AWAITING_ADVANCE in ui_modes
+    assert "classify" not in ui_modes
+    assert "resolve" not in ui_modes
 
 
 def test_validate_segment_presentation_catches_missing_kind() -> None:
     from dataclasses import replace
 
     from games.hexdemo.hooks import build_hooks
-    from games.hexdemo.segment_ui import PRESENTATION_BY_SEGMENT_KIND
+    from games.hexdemo.segment_ui import PRESENTATION_BY_UI_MODE
 
     incomplete = {
-        k: v for k, v in PRESENTATION_BY_SEGMENT_KIND.items() if k != "combat"
+        k: v for k, v in PRESENTATION_BY_UI_MODE.items() if k != "combat"
     }
     bundle = replace(
         build_hooks(),

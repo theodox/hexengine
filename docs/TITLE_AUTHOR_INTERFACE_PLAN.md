@@ -27,7 +27,7 @@ Attack RPC → SetArcCursor(attack) → submit_event("Attack")
 | Post-attack bucket | `combat_outcome.py` | `AttackHook.combat_outcome_after_applied` → `CombatOutcome` |
 | Cleanup guards/effects | `combat_rules.HexdemoCombatRules` (`BINDING`) | `ArcHook.COMBAT_ARC` via `combat_rules_binding_to_arc_spec` |
 | Low-level cleanup mutations | `combat_actions.py` | Called from binding effect methods |
-| Gate kind strings / phase clear | `combat_transitions.py` | `COMBAT_ARC_GATE_KINDS`, `clear_combat_state_actions` |
+| Gate ui_mode strings / phase clear | `combat_transitions.py` | `COMBAT_ARC_GATE_UI_MODES`, `clear_combat_state_actions` |
 | “May I attack?” (rules) | `combat_rules.validate_attack` | Engine segment gate runs first |
 | Movement / retreat | `movement_rules.py` | `MovementHook.*` adapters |
 | Buttons / copy | `segment_ui.py`, `presentation/` | `UIHook` dock + inform |
@@ -286,4 +286,4 @@ Full combat integration suite + replay/undo tests if present.
 | Retreat/advance/disrupt mutations | `combat_actions.py` | Invoked from binding methods |
 | Gate constants / phase clear | `combat_transitions.py` | No post-attack handoff helpers |
 | Segment deny in validate | — | Engine `segment_denies_action_for_faction` before validate |
-| UI / dock | `presentation/`, `hooks/turn_action_dock.py` | `current_segment` drives End Phase + gate rows |
+| UI / dock | `presentation/`, `hooks/turn_action_dock.py`, `combat_gate_panel_actions` | `current_segment` drives End Phase; cleanup gate buttons from title helper |

@@ -28,7 +28,7 @@ def test_segment_registry_maps_retreat_gate_kind() -> None:
 
     segment = {
         "schema": 1,
-        "kind": combat_transitions.GATE_AWAITING_RETREAT_OR_DISRUPT,
+        "ui_mode": combat_transitions.GATE_AWAITING_RETREAT_OR_DISRUPT,
         "allowed_actions": ["CombatDisruptInsteadOfRetreat"],
     }
     assert (

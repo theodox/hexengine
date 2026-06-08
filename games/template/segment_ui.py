@@ -2,7 +2,7 @@
 Template segment presentation registry (extend when adding combat gates).
 
 Bind ``UIHook.SEGMENT_PRESENTATION_REGISTRY`` to return the keys of
-``PRESENTATION_BY_SEGMENT_KIND`` when ``title_state_extension_key`` is set.
+``PRESENTATION_BY_UI_MODE`` when ``title_state_extension_key`` is set.
 """
 
 from __future__ import annotations
@@ -20,16 +20,16 @@ class Primitive(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class SegmentPresentation:
-    kind: str
+    ui_mode: str
     presentation_id: str
     primitive: Primitive
     interaction_mode: str | None = None
     inform_profile: str | None = None
 
 
-PRESENTATION_BY_SEGMENT_KIND: dict[str, SegmentPresentation] = {
+PRESENTATION_BY_UI_MODE: dict[str, SegmentPresentation] = {
     "move": SegmentPresentation(
-        kind="move",
+        ui_mode="move",
         presentation_id="routine",
         primitive=Primitive.DECIDE,
     ),
@@ -39,13 +39,13 @@ PRESENTATION_BY_SEGMENT_KIND: dict[str, SegmentPresentation] = {
 }
 
 
-def segment_presentation_kinds() -> frozenset[str]:
-    return frozenset(PRESENTATION_BY_SEGMENT_KIND.keys())
+def segment_presentation_ui_modes() -> frozenset[str]:
+    return frozenset(PRESENTATION_BY_UI_MODE.keys())
 
 
 __all__ = [
-    "PRESENTATION_BY_SEGMENT_KIND",
+    "PRESENTATION_BY_UI_MODE",
     "Primitive",
     "SegmentPresentation",
-    "segment_presentation_kinds",
+    "segment_presentation_ui_modes",
 ]

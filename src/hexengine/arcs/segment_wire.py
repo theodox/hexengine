@@ -1,9 +1,10 @@
 """
 Wire projection for the active arc segment (composable arcs, Phase 5).
 
-Publishes a per-recipient ``current_segment`` descriptor on ``StateUpdate`` so affordances,
+Publishes a per-recipient ``current_segment`` descriptor on ``StateUpdate`` so legality,
 End-Phase blocking, and client draft entry derive from the declared segment rather than
-title gate strings.
+title gate strings. Projects ``ui_mode`` (title UI/policy bucket) alongside ``segment_id`` (graph node).
+Dock button presentation is title-owned — see ``combat_gate_panel_actions``.
 """
 
 from __future__ import annotations
@@ -104,7 +105,7 @@ def project_current_segment(
         "schema": SEGMENT_WIRE_SCHEMA,
         "arc_id": str(cursor.arc_id),
         "segment_id": str(cursor.segment_id),
-        "kind": str(segment.kind or "routine"),
+        "ui_mode": str(segment.ui_mode or "routine"),
         "owner": owner_s or None,
         "allowed_actions": allowed,
         "action_locus": {at: _action_locus(at) for at in allowed},

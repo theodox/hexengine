@@ -72,7 +72,7 @@ def test_allowed_actions_match_gate_table() -> None:
 
 def test_gate_segments_map_one_to_one_with_blocking_gates() -> None:
     a = build_movement_arc(_StubEffects())
-    by_kind = {s.kind: s.id for s in a.segments if s.kind}
+    by_kind = {s.ui_mode: s.id for s in a.segments if s.ui_mode}
     assert set(by_kind) == {
         MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
         MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
