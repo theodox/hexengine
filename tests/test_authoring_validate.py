@@ -64,7 +64,7 @@ def test_validate_title_contract_fails_on_broken_combat_arc() -> None:
     bundle = TitleHooks(arcs=ArcsHooks(combat_arc=lambda: broken))
 
     class _GD:
-        game_data = type("GD", (), {"title_state_extension_key": ""})()
+        game_data = type("GD", (), {"session_state_key": ""})()
 
         hooks = bundle
 

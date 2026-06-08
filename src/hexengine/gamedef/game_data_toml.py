@@ -111,7 +111,7 @@ def game_data_from_mapping(data: Mapping[str, Any]) -> GameData:
         mx = n if n > 0 else None
 
     mv_key = _optional_str(data.get("movement_budget_attribute_key"))
-    title_key = _optional_str(data.get("title_state_extension_key"))
+    title_key = _optional_str(data.get("session_state_key"))
     title_file = _optional_str(data.get("title_css_file"))
     title_css = _optional_str(data.get("title_css"))
 
@@ -126,7 +126,7 @@ def game_data_from_mapping(data: Mapping[str, Any]) -> GameData:
         gamedata_schema=1,
         max_active_units_per_hex=mx,
         movement_budget_attribute_key=mv_key,
-        title_state_extension_key=title_key,
+        session_state_key=title_key,
         faction_display_names=fd,
         faction_css_classes=fc,
         title_css_file=title_file,

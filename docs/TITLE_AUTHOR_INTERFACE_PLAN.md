@@ -54,7 +54,7 @@ Authors work in **three layers** only (aligned with [`TITLE_AUTHORING.md` § Flo
 ┌─────────────────────────────────────────────────────────┐
 │  RULES (pack root)                                       │
 │  Pure policy: GameState (+ typed contexts) → outcomes   │
-│  e.g. title_state.py, combat_rules.py, movement_rules.py │
+│  e.g. session_state.py, combat_rules.py, movement_rules.py │
 └──────────────────────────┬──────────────────────────────┘
                            │ called from
 ┌──────────────────────────▼──────────────────────────────┐
@@ -97,7 +97,7 @@ Authors work in **three layers** only (aligned with [`TITLE_AUTHORING.md` § Flo
 
 2. **`CombatOutcome` title DTO.** Authors return a stable pack-level outcome type (outcome enum, retreat metadata, optional table/CRT fields, bucket patch hints). The engine adapter converts to `AttackResolution` + `StateAction`s during migration, then owns conversion entirely.
 
-3. **Bucket access only via `title_state` helpers.** Documented author API uses typed accessors (`retreat_obligations(state)`, `set_last_combat(...)`, etc.). Raw bucket key strings are not part of the author guide.
+3. **Bucket access only via `session_state` helpers.** Documented author API uses typed accessors (`retreat_obligations(state)`, `set_last_combat(...)`, etc.). Raw bucket key strings are not part of the author guide.
 
 4. **Cleanup only on the arc.** `AttackHook` slots `combat_disrupt_instead_of_retreat`, `combat_resolve_advance`, `on_retreat_obligation_cleared`, `is_combat_advance_move` are deprecated and removed from author docs; arc binding is authoritative.
 
@@ -134,7 +134,7 @@ Authors work in **three layers** only (aligned with [`TITLE_AUTHORING.md` § Flo
 
 #### Sub-steps (completed)
 
-1. `execute_authority_attack_request` calls `segment_denies_action_for_faction` before `validate_attack` when `title_state_extension_key` is set; message `ATTACK_BLOCKED_BY_ACTIVE_SEGMENT_MSG`.
+1. `execute_authority_attack_request` calls `segment_denies_action_for_faction` before `validate_attack` when `session_state_key` is set; message `ATTACK_BLOCKED_BY_ACTIVE_SEGMENT_MSG`.
 2. Removed segment deny from hexdemo `validate_attack`; `arc_segment.segment_denies_action` delegates to `segment_wire`.
 3. Documented in [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md) and [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md).
 
@@ -164,7 +164,7 @@ Authors work in **three layers** only (aligned with [`TITLE_AUTHORING.md` § Flo
 |--------|-------|
 | `resolve_attack` → `AttackResolution` | `resolve_attack` → `CombatOutcome` (includes effects + bucket patch) |
 | `after_attack_applied` → `PatchTitleBucket` list | *(removed — engine applies from outcome)* |
-| Arc guards read bucket | Unchanged; bucket shape stable via `title_state` helpers |
+| Arc guards read bucket | Unchanged; bucket shape stable via `session_state` helpers |
 
 #### Tests
 
@@ -236,7 +236,7 @@ Full combat integration suite + replay/undo tests if present.
 - A new title author can implement combat by filling **one binding class** and a **segment registry** without reading `authority_attack.py` or bucket handoff timing.
 - `AttackHook` author surface is **validate, resolve, combat_outcome_after_applied, preview, auto-advance** only; cleanup slots removed from engine and hexdemo.
 - Hexdemo matches the three-layer layout; `hooks/attack.py` and `hooks/arcs.py` are thin.
-- Author docs steer away from raw `combat_gate` and bucket key strings; `title_state` helpers are the API.
+- Author docs steer away from raw `combat_gate` and bucket key strings; `session_state` helpers are the API.
 - Combat/movement integration tests green (690+ as of last full run).
 
 ---

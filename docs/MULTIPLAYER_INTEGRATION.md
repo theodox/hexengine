@@ -79,7 +79,7 @@ Sends actions to the server over WebSocket; state is replicated from `StateUpdat
 
 ## Title contracts (avoiding client-side fallbacks)
 
-The browser client should not infer title rules by inspecting `GameState.title_state` or other raw match buckets (that creates accidental coupling to one pack’s layout). Instead, titles should expose policies on the **server** (`TitleHooks` and declared arcs), and the server should replicate any UI-relevant results explicitly on `StateUpdate`.
+The browser client should not infer title rules by inspecting `GameState.session_state` or other raw match buckets (that creates accidental coupling to one pack’s layout). Instead, titles should expose policies on the **server** (`TitleHooks` and declared arcs), and the server should replicate any UI-relevant results explicitly on `StateUpdate`.
 
 **Recommended checklist for title authors:**
 

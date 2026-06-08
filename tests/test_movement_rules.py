@@ -28,7 +28,7 @@ def _state_with_unit() -> GameState:
             )
         },
     )
-    return GameState.create_empty().with_board(board).with_title_bucket_key("hexdemo")
+    return GameState.create_empty().with_board(board).with_session_state_key("hexdemo")
 
 
 def test_movement_budget_reads_unit_attribute() -> None:

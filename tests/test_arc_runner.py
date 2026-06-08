@@ -17,7 +17,7 @@ from hexengine.authoring import arc, case
 from hexengine.state import GameState
 from hexengine.state.action_manager import ActionManager
 from hexengine.hooks.bucket import ApplyBucketPatch, BucketPatch
-from hexengine.state.title_extension import title_bucket
+from hexengine.state.engine_session_state import engine_read_session_state
 
 EK = "combat_test"
 
@@ -27,14 +27,14 @@ EK = "combat_test"
 
 def _set_flag(flag: str):
     def effect(ctx):
-        return [ApplyBucketPatch(ctx.extension_key, BucketPatch(values={flag: True}))]
+        return [ApplyBucketPatch(ctx.session_state_key, BucketPatch(values={flag: True}))]
 
     return effect
 
 
 def _flag_is_set(flag: str):
     def guard(ctx) -> bool:
-        return bool(title_bucket(ctx.state, ctx.extension_key).get(flag))
+        return bool(engine_read_session_state(ctx.state, ctx.session_state_key).get(flag))
 
     return guard
 
@@ -64,8 +64,8 @@ def _combat_arc() -> Arc:
 
 
 def _manager() -> ActionManager:
-    state = GameState.create_empty(initial_faction="Red").with_title_state(
-        {}, title_bucket_key=EK
+    state = GameState.create_empty(initial_faction="Red").with_session_state(
+        {}, session_state_key=EK
     )
     return ActionManager(state)
 
@@ -94,7 +94,7 @@ def test_full_combat_walk() -> None:
     assert r1.ok
     cur = read_arc_cursor(mgr.current_state)
     assert (cur.segment_id, cur.is_suspended) == ("retreat_gate", True)
-    assert title_bucket(mgr.current_state, EK)["attacked"] is True
+    assert engine_read_session_state(mgr.current_state, EK)["attacked"] is True
 
     # Blue retreats -> resume back to the attacker's advance gate.
     r2 = submit_event(
@@ -103,7 +103,7 @@ def test_full_combat_walk() -> None:
     assert r2.ok
     cur = read_arc_cursor(mgr.current_state)
     assert (cur.segment_id, cur.is_suspended) == ("advance_gate", False)
-    assert title_bucket(mgr.current_state, EK)["retreated"] is True
+    assert engine_read_session_state(mgr.current_state, EK)["retreated"] is True
 
     # Red advances -> arc complete, cursor cleared.
     r3 = submit_event(
@@ -111,7 +111,7 @@ def test_full_combat_walk() -> None:
     )
     assert r3.ok
     assert read_arc_cursor(mgr.current_state) is None
-    assert title_bucket(mgr.current_state, EK)["advanced"] is True
+    assert engine_read_session_state(mgr.current_state, EK)["advanced"] is True
 
 
 # ---- legality gating --------------------------------------------------------
@@ -232,13 +232,13 @@ def test_event_is_undoable() -> None:
     submit_event(
         a, mgr, action_type="Attack", actor="Red", resolver=_retreating_is_blue
     )
-    assert title_bucket(mgr.current_state, EK).get("attacked") is True
+    assert engine_read_session_state(mgr.current_state, EK).get("attacked") is True
 
     # Attack produced two actions: the effect patch and the cursor move. Undo both.
     mgr.undo()
     mgr.undo()
     assert read_arc_cursor(mgr.current_state) == read_arc_cursor(before)
-    assert title_bucket(mgr.current_state, EK).get("attacked") is None
+    assert engine_read_session_state(mgr.current_state, EK).get("attacked") is None
     assert read_arc_cursor(mgr.current_state).segment_id == "attack"
 
 

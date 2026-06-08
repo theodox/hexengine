@@ -81,7 +81,7 @@ def test_validate_title_contract_requires_segment_registry_with_extension_key() 
     class PackPartial:
         @property
         def game_data(self) -> GameData:
-            return GameData.empty().replacing(title_state_extension_key="pack")
+            return GameData.empty().replacing(session_state_key="pack")
 
         hooks = TitleHooks(
             ui=UIHooks(turn_action_dock_for_viewer=empty_turn_action_dock_for_viewer),
@@ -104,7 +104,7 @@ def test_validate_title_contract_requires_enrich_current_segment() -> None:
     class PackWithoutEnrich:
         @property
         def game_data(self) -> GameData:
-            return GameData.empty().replacing(title_state_extension_key="pack")
+            return GameData.empty().replacing(session_state_key="pack")
 
         hooks = TitleHooks(
             ui=UIHooks(

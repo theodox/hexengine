@@ -55,11 +55,11 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `combat_actions.py` | Pack-local cleanup state actions (disrupt, advance, retreat step) |
 | `movement_rules.py` | Movement policy (`MovementRulesBinding`); `hooks/movement.py` adapts |
 | `combat_planning.py` | Attack plan preview (shared by `hooks/attack` and tests) |
-| `title_state.py` | Match bucket accessor and retreat-obligation reads |
+| `session_state.py` | Match bucket accessor and retreat-obligation reads |
 | `turn_arc_schedule.py` | Turn arc registry builder (move/combat schedule slots) |
 | `focus.py` | Suggested unit focus after state sync |
 | `shell_ui.py` | Shell UI string keys for dock and previews |
-| `constants.py` | `PACK_STATE_EXTENSION_KEY`, `HEXDEMO_FACTIONS` |
+| `constants.py` | `PACK_SESSION_STATE_KEY`, `HEXDEMO_FACTIONS` |
 | `resources/splash.html` | HTML fragment for the client loading overlay |
 | `resources/flags/` | Example faction flag SVGs (turn banner + unit art) |
 | `resources/templates/` | HTML shells for phase banner, inspect popup, panels |

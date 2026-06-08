@@ -126,7 +126,7 @@ class WriteHexengineMovementArc(StateAction):
         self._prev_value: Any = None
 
     def apply(self, state: GameState) -> GameState:
-        from .title_extension import with_engine_bucket
+        from .engine_session_state import with_engine_bucket
 
         self._had_key = HEXENGINE_MOVEMENT_ARC_KEY in state.engine_state
         self._prev_value = state.engine_state.get(HEXENGINE_MOVEMENT_ARC_KEY)
@@ -137,7 +137,7 @@ class WriteHexengineMovementArc(StateAction):
         return with_engine_bucket(state, HEXENGINE_MOVEMENT_ARC_KEY, dict(self.payload))
 
     def revert(self, state: GameState) -> GameState:
-        from .title_extension import with_engine_bucket
+        from .engine_session_state import with_engine_bucket
 
         if self._had_key:
             return with_engine_bucket(
@@ -165,7 +165,7 @@ class ResolvePassMovementInterrupt(StateAction):
         self._saved_turn: TurnState | None = None
 
     def apply(self, state: GameState) -> GameState:
-        from .title_extension import engine_bucket, with_engine_bucket
+        from .engine_session_state import engine_bucket, with_engine_bucket
 
         raw = engine_bucket(state, HEXENGINE_MOVEMENT_ARC_KEY)
         if not raw:
@@ -528,53 +528,53 @@ class RemoveMarker:
 class ApplyBucketPatch(StateAction):
     """Apply a ``BucketPatch`` to a pack session-state bucket (undo restores prior snapshot)."""
 
-    def __init__(self, extension_key: str, patch: BucketPatch) -> None:
-        from .title_extension import BucketPatch
+    def __init__(self, session_state_key: str, patch: BucketPatch) -> None:
+        from .engine_session_state import BucketPatch
 
-        self.extension_key = str(extension_key).strip()
-        if not self.extension_key:
-            raise ValueError("extension_key must be non-empty")
+        self.session_state_key = str(session_state_key).strip()
+        if not self.session_state_key:
+            raise ValueError("session_state_key must be non-empty")
         if not isinstance(patch, BucketPatch):
             raise TypeError("patch must be a BucketPatch")
         self.patch = patch
         self._saved_bucket: dict[str, Any] | None = None
 
     def apply(self, state: GameState) -> GameState:
-        from .title_extension import title_bucket, with_title_bucket
+        from .engine_session_state import engine_read_session_state, engine_write_session_state
 
-        prior = title_bucket(state, self.extension_key)
+        prior = engine_read_session_state(state, self.session_state_key)
         self._saved_bucket = dict(prior)
         new_hx = {**prior, **dict(self.patch.values)}
         for k in self.patch.remove_keys:
             new_hx.pop(k, None)
-        return with_title_bucket(state, self.extension_key, new_hx)
+        return engine_write_session_state(state, self.session_state_key, new_hx)
 
     def revert(self, state: GameState) -> GameState:
         if self._saved_bucket is None:
             return state
-        from .title_extension import with_title_bucket
+        from .engine_session_state import engine_write_session_state
 
-        return with_title_bucket(state, self.extension_key, self._saved_bucket)
+        return engine_write_session_state(state, self.session_state_key, self._saved_bucket)
 
     def should_revert_prior(self) -> bool:
         return False
 
     def __repr__(self) -> str:
-        return f"<ApplyBucketPatch {self.extension_key!r}>"
+        return f"<ApplyBucketPatch {self.session_state_key!r}>"
 
 
 class ClearUnitRetreatObligation(StateAction):
     """Clear one unit's entry from title retreat_obligations after a fulfillment move."""
 
-    def __init__(self, unit_id: str, extension_key: str) -> None:
+    def __init__(self, unit_id: str, session_state_key: str) -> None:
         self.unit_id = unit_id
-        self.extension_key = extension_key
+        self.session_state_key = session_state_key
         self._inner: ApplyBucketPatch | None = None
 
     def apply(self, state: GameState) -> GameState:
-        from .title_extension import title_bucket
+        from .engine_session_state import engine_read_session_state
 
-        hx = title_bucket(state, self.extension_key)
+        hx = engine_read_session_state(state, self.session_state_key)
         if not hx:
             self._inner = None
             return state
@@ -583,10 +583,10 @@ class ClearUnitRetreatObligation(StateAction):
             self._inner = None
             return state
         ro.pop(self.unit_id, None)
-        from .title_extension import BucketPatch
+        from .engine_session_state import BucketPatch
 
         self._inner = ApplyBucketPatch(
-            self.extension_key,
+            self.session_state_key,
             BucketPatch(values={"retreat_obligations": ro}),
         )
         return self._inner.apply(state)
@@ -602,7 +602,7 @@ class ClearUnitRetreatObligation(StateAction):
     def __repr__(self) -> str:
         return (
             f"<ClearUnitRetreatObligation {self.unit_id!r} "
-            f"extension_key={self.extension_key!r}>"
+            f"session_state_key={self.session_state_key!r}>"
         )
 
 

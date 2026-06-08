@@ -81,8 +81,8 @@ def _state_with_obligation(faction: str) -> GameState:
     )
     state = GameState.create_empty()
     state = state.with_board(state.board.with_unit(unit))
-    return state.with_title_state(
-        {"retreat_obligations": {"u1": 1}}, title_bucket_key="hexdemo"
+    return state.with_session_state(
+        {"retreat_obligations": {"u1": 1}}, session_state_key="hexdemo"
     )
 
 
@@ -97,5 +97,5 @@ def test_owner_resolver_unknown_key_is_none() -> None:
 
 
 def test_owner_resolver_none_when_no_obligation() -> None:
-    state = GameState.create_empty().with_title_state({}, title_bucket_key="hexdemo")
+    state = GameState.create_empty().with_session_state({}, session_state_key="hexdemo")
     assert combat_arc.resolve_owner_ref("retreating", state) is None

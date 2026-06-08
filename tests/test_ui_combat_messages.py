@@ -40,9 +40,9 @@ def test_retreat_owner_faction_defender() -> None:
 
 
 def test_default_combat_interaction_messages_advance_row_uses_segment() -> None:
-    st = GameState.create_empty().with_title_state(
+    st = GameState.create_empty().with_session_state(
         {"advance": {"faction": "union"}},
-        title_bucket_key="hexdemo",
+        session_state_key="hexdemo",
     )
     st = with_arc_cursor(
         st,
@@ -60,7 +60,7 @@ def test_default_combat_interaction_messages_advance_row_uses_segment() -> None:
     ctx = CombatInteractionMessagesContext(
         state=st,
         viewer_faction="union",
-        extension_key="hexdemo",
+        session_state_key="hexdemo",
         current_segment=segment,
     )
     rows = default_combat_interaction_messages(

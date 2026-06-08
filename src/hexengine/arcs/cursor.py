@@ -20,7 +20,7 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 from ..state.action_manager import StateAction
-from ..state.title_extension import engine_bucket, with_engine_bucket
+from ..state.engine_session_state import engine_bucket, with_engine_bucket
 
 if TYPE_CHECKING:
     from ..state.game_state import GameState

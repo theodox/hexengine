@@ -62,7 +62,7 @@ def test_catalog_default_includes_end_phase_for_turn_owner() -> None:
     ctx = TurnActionDockContext(
         state=st,
         viewer_faction="union",
-        extension_key="hexdemo",
+        session_state_key="hexdemo",
         shell_ui={"advance_turn_button_label": "End Phase"},
         schedule_index=0,
         current_faction="union",
@@ -116,8 +116,8 @@ def test_hexdemo_combat_phase_enables_end_phase_without_gate() -> None:
     st = GameState(
         board=st.board,
         turn=turn,
-        title_state={},
-        title_bucket_key="hexdemo",
+        session_state={},
+        session_state_key="hexdemo",
         rng_log=(),
     )
     from games.hexdemo.game_config import (
@@ -134,7 +134,7 @@ def test_hexdemo_combat_phase_enables_end_phase_without_gate() -> None:
     ctx = TurnActionDockContext(
         state=server.game_state,
         viewer_faction="union",
-        extension_key="hexdemo",
+        session_state_key="hexdemo",
         shell_ui={},
         schedule_index=1,
         current_faction="union",
@@ -186,11 +186,11 @@ def test_hexdemo_retreat_gate_shows_for_non_turn_owner() -> None:
     st = GameState(
         board=board,
         turn=turn,
-        title_state={
+        session_state={
             "disrupt_instead_offered": True,
             "retreat_obligations": {"u_def": 1},
         },
-        title_bucket_key="hexdemo",
+        session_state_key="hexdemo",
         rng_log=(),
     )
     am = ActionManager(st)
@@ -213,7 +213,7 @@ def test_hexdemo_retreat_gate_shows_for_non_turn_owner() -> None:
     ctx = TurnActionDockContext(
         state=st,
         viewer_faction="confederate",
-        extension_key="hexdemo",
+        session_state_key="hexdemo",
         shell_ui={},
         schedule_index=0,
         current_faction="union",
@@ -265,10 +265,10 @@ def test_hexdemo_retreat_obligation_shows_dock_for_non_turn_owner() -> None:
     st = GameState(
         board=board,
         turn=turn,
-        title_state={
+        session_state={
             "retreat_obligations": {"u_def": 1},
         },
-        title_bucket_key="hexdemo",
+        session_state_key="hexdemo",
         rng_log=(),
     )
     am = ActionManager(st)
@@ -287,7 +287,7 @@ def test_hexdemo_retreat_obligation_shows_dock_for_non_turn_owner() -> None:
     ctx = TurnActionDockContext(
         state=st,
         viewer_faction="confederate",
-        extension_key="hexdemo",
+        session_state_key="hexdemo",
         shell_ui={},
         schedule_index=0,
         current_faction="union",
@@ -338,10 +338,10 @@ def test_hexdemo_advance_gate_disables_end_phase() -> None:
     st = GameState(
         board=board,
         turn=turn,
-        title_state={
+        session_state={
             "advance": {"faction": "union"},
         },
-        title_bucket_key="hexdemo",
+        session_state_key="hexdemo",
         rng_log=(),
     )
     am = ActionManager(st)
@@ -360,7 +360,7 @@ def test_hexdemo_advance_gate_disables_end_phase() -> None:
     ctx = TurnActionDockContext(
         state=st,
         viewer_faction="union",
-        extension_key="hexdemo",
+        session_state_key="hexdemo",
         shell_ui={},
         schedule_index=0,
         current_faction="union",

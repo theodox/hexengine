@@ -36,7 +36,7 @@ def test_hexdemo_manifest_declares_title_load_hooks() -> None:
     assert splash is not None
     assert "Hexdemo" in splash
     assert rec.game_data.max_active_units_per_hex == 3
-    assert rec.game_data.title_state_extension_key == "hexdemo"
+    assert rec.game_data.session_state_key == "hexdemo"
 
 
 def test_try_pack_title_load_server_no_hook_is_safe() -> None:
@@ -153,8 +153,8 @@ def test_hexdemo_focus_unit_after_sync() -> None:
     st = GameState(
         board=board,
         turn=turn,
-        title_state={"retreat_obligations": {"only": 1}},
-        title_bucket_key="hexdemo",
+        session_state={"retreat_obligations": {"only": 1}},
+        session_state_key="hexdemo",
         rng_log=(),
     )
     assert focus_unit_id_after_state_sync(st, "union") == "only"

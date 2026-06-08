@@ -22,8 +22,8 @@ from hexengine.hooks.ui_combat_messages import default_combat_interaction_messag
 from hexengine.hooks.wiring import bind_title_hook
 from hexengine.state import GameState
 
-from .. import title_state
-from ..constants import PACK_STATE_EXTENSION_KEY
+from .. import session_state
+from ..constants import PACK_SESSION_STATE_KEY
 from ..presentation.inform import inform_popup_for_profile
 from ..presentation.interaction_messages import (
     advance_gate_banners_for_viewer as advance_gate_banner_copy,
@@ -39,7 +39,7 @@ from ..ui_markup import (
 
 
 def _combat_event_summary_from_state(state: GameState) -> CombatEventSummary | None:
-    last = title_state.last_combat(state)
+    last = session_state.last_combat(state)
     if last is None:
         return None
 
@@ -58,7 +58,7 @@ def _combat_event_summary_from_state(state: GameState) -> CombatEventSummary | N
 
     hex_remaining: int | None = None
     if ru is not None:
-        raw_rem = title_state.retreat_obligations(state).get(ru)
+        raw_rem = session_state.retreat_obligations(state).get(ru)
         if isinstance(raw_rem, int | float | str):
             try:
                 hex_remaining = int(raw_rem)

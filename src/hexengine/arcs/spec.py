@@ -137,7 +137,7 @@ class ArcContext:
     """
 
     state: GameState
-    extension_key: str | None
+    session_state_key: str | None
     owner_faction: str | None
     params: dict[str, Any]
 

@@ -19,7 +19,7 @@ from hexengine.state.actions import (
     MoveUnit,
     PatchUnitAttributes,
 )
-from . import arc_segment, title_state
+from . import arc_segment, session_state
 
 
 def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:
@@ -33,9 +33,9 @@ def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:
 
 
 def _advance_for_faction(
-    state: GameState, player_faction: str, extension_key: str
+    state: GameState, player_faction: str, session_state_key: str
 ) -> dict[str, Any] | None:
-    adv = title_state.advance_offer(state)
+    adv = session_state.advance_offer(state)
     if adv is None:
         return None
     if str(adv.get("faction", "")).strip() != str(player_faction).strip():
@@ -56,7 +56,7 @@ def retreat_stack_unit_ids(
     for u in state.board.active_units_at_hex(from_hex):
         if u.faction != faction:
             continue
-        if title_state.retreat_hexes_remaining(state, u.unit_id) is None:
+        if session_state.retreat_hexes_remaining(state, u.unit_id) is None:
             continue
         to_move.append(u.unit_id)
     if uid_for_move not in to_move:
@@ -66,7 +66,7 @@ def retreat_stack_unit_ids(
 
 def apply_retreat_fulfillment_step(
     state: GameState,
-    extension_key: str,
+    session_state_key: str,
     player_faction: str,
     params: dict[str, Any],
 ) -> list[StateAction]:
@@ -95,7 +95,7 @@ def apply_retreat_fulfillment_step(
             )
         actions.append(MoveUnit(move_uid, from_hex=from_hex, to_hex=to_hex))
     for moved_uid in to_move:
-        actions.append(ClearUnitRetreatObligation(moved_uid, extension_key))
+        actions.append(ClearUnitRetreatObligation(moved_uid, session_state_key))
     return actions
 
 
@@ -120,7 +120,7 @@ def _defender_occupies_combat_hex(
 
 
 def maybe_open_advance_after_retreat(
-    state: GameState, extension_key: str
+    state: GameState, session_state_key: str
 ) -> list[StateAction]:
     """Open optional advance into the vacated defender hex when hexdemo rules match.
 
@@ -128,15 +128,15 @@ def maybe_open_advance_after_retreat(
     (``defender_destroyed`` or step-loss removal) and the combat hex is vacant.
     """
 
-    hx = title_state.bucket(state)
+    hx = session_state.bucket(state)
     if not hx:
         return []
-    if title_state.advance_offer(state) is not None:
+    if session_state.advance_offer(state) is not None:
         return []
-    ro = title_state.retreat_obligations(state)
+    ro = session_state.retreat_obligations(state)
     if _retreat_obligations_have_pending(ro):
         return []
-    last = title_state.last_combat(state)
+    last = session_state.last_combat(state)
     if last is None:
         return []
 
@@ -207,7 +207,7 @@ def maybe_open_advance_after_retreat(
 
     return [
         ApplyBucketPatch(
-            extension_key,
+            session_state_key,
             BucketPatch(
                 values={
                     "advance": {
@@ -232,11 +232,11 @@ def maybe_open_advance_after_retreat(
 
 
 def is_combat_advance_move(
-    state: GameState, params: dict[str, Any], player_faction: str, extension_key: str
+    state: GameState, params: dict[str, Any], player_faction: str, session_state_key: str
 ) -> bool:
     """True when this ``MoveUnit`` wire matches the pending advance into the vacated hex."""
 
-    adv = _advance_for_faction(state, player_faction, extension_key)
+    adv = _advance_for_faction(state, player_faction, session_state_key)
     if adv is None:
         return False
     to_hex_raw = adv.get("to_hex")
@@ -266,11 +266,11 @@ def is_combat_advance_move(
 
 
 def disrupt_instead_of_retreat(
-    state: GameState, extension_key: str, player_faction: str
+    state: GameState, session_state_key: str, player_faction: str
 ) -> list[StateAction]:
     """Disrupt retreating units and clear obligations for ``player_faction``."""
 
-    if not title_state.bucket(state):
+    if not session_state.bucket(state):
         raise ValueError("No title combat extension")
     if not arc_segment.segment_allows(
         state, player_faction, "CombatDisruptInsteadOfRetreat"
@@ -278,7 +278,7 @@ def disrupt_instead_of_retreat(
         raise ValueError(
             "Disrupt-instead is only allowed during the retreat-or-disrupt gate"
         )
-    ro = dict(title_state.retreat_obligations(state))
+    ro = dict(session_state.retreat_obligations(state))
 
     actions: list[StateAction] = []
     cleared_any = False
@@ -305,37 +305,37 @@ def disrupt_instead_of_retreat(
         remove = ("disrupt_instead_offered",)
     actions.append(
         ApplyBucketPatch(
-            extension_key,
+            session_state_key,
             BucketPatch(values={"retreat_obligations": ro}, remove_keys=remove),
         )
     )
     return actions
 
 
-def clear_advance_gate(state: GameState, extension_key: str) -> list[StateAction]:
+def clear_advance_gate(state: GameState, session_state_key: str) -> list[StateAction]:
     """Skip a pending advance: drop the advance payload (no unit moves)."""
 
     faction = str(state.turn.current_faction).strip()
     if not arc_segment.segment_allows(state, faction, "CombatDeclineAdvance"):
         return []
-    if title_state.advance_offer(state) is None:
+    if session_state.advance_offer(state) is None:
         return []
     return [
         ApplyBucketPatch(
-            extension_key,
+            session_state_key,
             BucketPatch(values={}, remove_keys=("advance",)),
         )
     ]
 
 
 def resolve_combat_advance(
-    state: GameState, extension_key: str, player_faction: str
+    state: GameState, session_state_key: str, player_faction: str
 ) -> list[StateAction]:
     """Move advancing stack into vacated hex and clear the advance offer."""
 
-    if not title_state.bucket(state):
+    if not session_state.bucket(state):
         raise ValueError("No title combat extension")
-    adv = _advance_for_faction(state, player_faction, extension_key)
+    adv = _advance_for_faction(state, player_faction, session_state_key)
     if adv is None:
         raise ValueError("No advance pending")
     to_hex_raw = adv.get("to_hex")
@@ -360,7 +360,7 @@ def resolve_combat_advance(
         actions.append(MoveUnit(uid, from_hex=u.position, to_hex=to_hex))
     actions.append(
         ApplyBucketPatch(
-            extension_key,
+            session_state_key,
             BucketPatch(values={}, remove_keys=("advance",)),
         )
     )

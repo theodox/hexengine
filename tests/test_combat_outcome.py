@@ -45,7 +45,7 @@ def _follow_ctx(
         turn_number=1,
         phase_actions_remaining=1,
     )
-    st = GameState(board=board, turn=turn, title_state={}, title_bucket_key="hexdemo")
+    st = GameState(board=board, turn=turn, session_state={}, session_state_key="hexdemo")
     att_h = st.board.units["u_att"].position
     def_h = st.board.units["u_def"].position
     attack_context = AttackContext(
@@ -71,14 +71,14 @@ def _follow_ctx(
             retreat_unit_id=retreat_unit_id,
             effects=effects,
         ),
-        extension_key="hexdemo",
+        session_state_key="hexdemo",
         player_faction="union",
     )
 
 
 def _patch_from_outcome(ctx: AfterAttackAppliedContext):
     built = combat_outcome.build_combat_outcome_after_applied(ctx)
-    actions = built.follow_up_state_actions(ctx.extension_key)
+    actions = built.follow_up_state_actions(ctx.session_state_key)
     assert len(actions) == 1
     return actions[0]
 
@@ -87,7 +87,7 @@ def test_combat_outcome_retreat_follow_up() -> None:
     ctx = _follow_ctx()
     outcome = _patch_from_outcome(ctx)
     assert isinstance(outcome, ApplyBucketPatch)
-    assert outcome.extension_key == "hexdemo"
+    assert outcome.session_state_key == "hexdemo"
     assert "last_combat" in outcome.patch.values
     assert "retreat_obligations" in outcome.patch.values
 

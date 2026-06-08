@@ -364,8 +364,8 @@ def test_retreat_path_confirm_move_unit_with_path_wire() -> None:
     st = GameState(
         board=board,
         turn=turn,
-        title_state=ext.get("hexdemo", {}),
-        title_bucket_key="hexdemo",
+        session_state=ext.get("hexdemo", {}),
+        session_state_key="hexdemo",
         rng_log=(),
     )
     server = _hexdemo_server()

@@ -79,7 +79,7 @@ def _title_requires_turn_action_dock(game_definition: Any) -> bool:
     gd = getattr(game_definition, "game_data", None)
     if gd is None:
         return False
-    key = getattr(gd, "title_state_extension_key", None)
+    key = getattr(gd, "session_state_key", None)
     return bool(str(key or "").strip())
 
 
@@ -91,7 +91,7 @@ def validate_title_contract(game_definition: Any) -> None:
     `validate_attack` and `resolve_attack` callables. Implementations may return
     `ENGINE_DEFAULT` from those callables to decline attacks at action time.
 
-    When `GameData.title_state_extension_key` is set (title combat extension bucket),
+    When `GameData.session_state_key` is set (title combat extension bucket),
     `TitleHooks.ui.turn_action_dock_for_viewer` and
     `TitleHooks.ui.segment_presentation_registry` must be bound. Commit UI is delivered
     only via ``interaction_panels`` (turn action dock).
@@ -105,7 +105,7 @@ def validate_title_contract(game_definition: Any) -> None:
         if bundle.ui.turn_action_dock_for_viewer is None:
             raise HookContractError(
                 message=(
-                    "title_state_extension_key is set but "
+                    "session_state_key is set but "
                     "TitleHooks.ui.turn_action_dock_for_viewer is not bound. "
                     "Wire UIHook.TURN_ACTION_DOCK_FOR_VIEWER in the title hooks package."
                 ),
@@ -117,7 +117,7 @@ def validate_title_contract(game_definition: Any) -> None:
         if not isinstance(reg_raw, TurnArcRegistry):
             raise HookContractError(
                 message=(
-                    "title_state_extension_key requires ArcHook.TURN_ARC_REGISTRY "
+                    "session_state_key requires ArcHook.TURN_ARC_REGISTRY "
                     "returning a TurnArcRegistry."
                 ),
                 details={"requires_turn_arc_registry": True},
@@ -125,7 +125,7 @@ def validate_title_contract(game_definition: Any) -> None:
         if bundle.ui.segment_presentation_registry is None:
             raise HookContractError(
                 message=(
-                    "title_state_extension_key is set but "
+                    "session_state_key is set but "
                     "TitleHooks.ui.segment_presentation_registry is not bound. "
                     "Wire UIHook.SEGMENT_PRESENTATION_REGISTRY (hexdemo: segment_ui.py)."
                 ),
@@ -134,7 +134,7 @@ def validate_title_contract(game_definition: Any) -> None:
         if bundle.ui.enrich_current_segment is None:
             raise HookContractError(
                 message=(
-                    "title_state_extension_key is set but "
+                    "session_state_key is set but "
                     "TitleHooks.ui.enrich_current_segment is not bound. "
                     "Wire UIHook.ENRICH_CURRENT_SEGMENT (hexdemo: segment_presentation.py)."
                 ),
@@ -146,7 +146,7 @@ def validate_title_contract(game_definition: Any) -> None:
         if not isinstance(combat_raw, ArcSpec):
             raise HookContractError(
                 message=(
-                    "title_state_extension_key requires ArcHook.COMBAT_ARC "
+                    "session_state_key requires ArcHook.COMBAT_ARC "
                     "returning an ArcSpec."
                 ),
                 details={"requires_combat_arc": True},

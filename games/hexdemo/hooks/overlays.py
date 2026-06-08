@@ -10,7 +10,7 @@ from hexengine.hooks.wiring import bind_title_hook
 from hexengine.state import GameState
 from hexengine.ui.display import MapOverlay
 
-from .. import title_state
+from .. import session_state
 
 _COMBAT_GLYPH = "🟎"
 _COMBAT_GLYPH_CLASS = "hexdemo-combat-glyph-overlay"
@@ -48,10 +48,10 @@ def map_overlays(
     """
     After combat, show a marker on defender hex(es) (even if defenders were destroyed).
     """
-    if not title_state.bucket(state):
+    if not session_state.bucket(state):
         return ENGINE_DEFAULT
-    atk_n = len(title_state.attacks_this_phase(state))
-    lc = title_state.last_combat(state)
+    atk_n = len(session_state.attacks_this_phase(state))
+    lc = session_state.last_combat(state)
     if lc is None:
         return ENGINE_DEFAULT
 

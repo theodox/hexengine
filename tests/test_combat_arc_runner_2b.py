@@ -23,7 +23,7 @@ from hexengine.hooks.title import TitleHooks
 from hexengine.server.arcs import begin_combat_arc, drive_combat_arc_event
 from hexengine.state import ActionManager, GameState
 from hexengine.state.game_state import UnitState
-from hexengine.state.title_extension import title_bucket
+from hexengine.state.engine_session_state import engine_read_session_state
 
 HOOKS = build_hooks()
 
@@ -65,7 +65,7 @@ def _state(
         bucket["retreat_obligations"] = obligations
     if advance is not None:
         bucket["advance"] = advance
-    return st.with_title_state(bucket, title_bucket_key="hexdemo")
+    return st.with_session_state(bucket, session_state_key="hexdemo")
 
 
 def _player(faction: str) -> SimpleNamespace:
@@ -139,7 +139,7 @@ def test_disrupt_through_runner_clears_obligation_and_cursor() -> None:
     assert handled is True
     assert host.broadcasts == 1
     final = host.action_manager.current_state
-    hx = title_bucket(final, "hexdemo")
+    hx = engine_read_session_state(final, "hexdemo")
     assert not hx.get("retreat_obligations")
     assert not hx.get("disrupt_instead_offered")
     assert final.board.units["u1"].attributes.get("disrupted") is True
@@ -167,7 +167,7 @@ def test_disrupt_by_wrong_faction_rejected() -> None:
     assert host.broadcasts == 0
     # Runner made no state change on rejection.
     assert read_arc_cursor(host.action_manager.current_state) == cursor_before
-    hx = title_bucket(host.action_manager.current_state, "hexdemo")
+    hx = engine_read_session_state(host.action_manager.current_state, "hexdemo")
     assert hx.get("retreat_obligations") == {"u1": 1}
 
 
@@ -192,7 +192,7 @@ def test_decline_advance_through_runner_clears_gate_and_cursor() -> None:
     assert handled is True
     assert host.broadcasts == 1
     final = host.action_manager.current_state
-    hx = title_bucket(final, "hexdemo")
+    hx = engine_read_session_state(final, "hexdemo")
     assert "advance" not in hx
     cur = read_arc_cursor(final)
     assert cur is None or cur.arc_id != "combat"

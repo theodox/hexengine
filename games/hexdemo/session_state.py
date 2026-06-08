@@ -1,7 +1,7 @@
 """
-Hexdemo match-scoped title state in ``GameState.title_state``.
+Hexdemo match-scoped session state in ``GameState.session_state``.
 
-One pack id per session (`PACK_STATE_EXTENSION_KEY`). All reads of the hexdemo
+One pack id per session (`PACK_SESSION_STATE_KEY`). All reads of the hexdemo
 bucket should go through ``bucket()`` so extension layout stays in one place.
 """
 
@@ -13,17 +13,17 @@ from hexengine.state import GameState
 from hexengine.state.pack_extension_retreat import (
     retreat_hexes_remaining as _pack_retreat_steps,
 )
-from hexengine.state.title_extension import title_bucket as _title_bucket
+from hexengine.state.engine_session_state import engine_read_session_state as _engine_read_session_state
 
-from .constants import PACK_STATE_EXTENSION_KEY
+from .constants import PACK_SESSION_STATE_KEY
 
 
 def bucket(state: GameState) -> dict[str, Any]:
-    """Copy of the hexdemo title bucket, or ``{}`` if absent."""
+    """Copy of the hexdemo session-state bucket, or ``{}`` if absent."""
 
-    if state.title_bucket_key == PACK_STATE_EXTENSION_KEY:
-        return dict(state.title_state)
-    return _title_bucket(state, PACK_STATE_EXTENSION_KEY)
+    if state.session_state_key == PACK_SESSION_STATE_KEY:
+        return dict(state.session_state)
+    return _engine_read_session_state(state, PACK_SESSION_STATE_KEY)
 
 
 def attacks_this_phase(state: GameState) -> list[str]:
@@ -36,7 +36,7 @@ def attacks_this_phase(state: GameState) -> list[str]:
 
 
 def last_combat(state: GameState) -> dict[str, Any] | None:
-    """Latest combat result payload from the title bucket, if present."""
+    """Latest combat result payload from the session-state bucket, if present."""
 
     raw = bucket(state).get("last_combat")
     return dict(raw) if isinstance(raw, dict) else None
@@ -65,7 +65,7 @@ def disrupt_instead_offered(state: GameState) -> bool:
 def retreat_hexes_remaining(state: GameState, unit_id: str) -> int | None:
     """Steps remaining for ``unit_id`` under the hexdemo extension bucket."""
 
-    return _pack_retreat_steps(state, unit_id, extension_key=PACK_STATE_EXTENSION_KEY)
+    return _pack_retreat_steps(state, unit_id, session_state_key=PACK_SESSION_STATE_KEY)
 
 
 def any_retreat_obligation_pending(state: GameState) -> bool:

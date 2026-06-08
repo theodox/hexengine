@@ -47,16 +47,16 @@ def move_unit_is_combat_advance_fulfillment(
     params: dict[str, Any],
     *,
     player_faction: str,
-    extension_key: str | None,
+    session_state_key: str | None,
 ) -> bool:
     """True when this `MoveUnit` wire is the title-declared advance into the vacated hex."""
 
-    if not extension_key:
+    if not session_state_key:
         return False
     ctx = CombatAdvanceMoveContext(
         state=state,
         params=dict(params),
-        extension_key=extension_key,
+        session_state_key=session_state_key,
         player_faction=str(player_faction),
     )
     from .authority_arc_runtime import combat_arc_spec

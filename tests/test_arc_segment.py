@@ -45,10 +45,10 @@ def _retreat_gate_state() -> GameState:
     st = GameState(
         board=board,
         turn=turn,
-        title_state={
+        session_state={
             "retreat_obligations": {"u_def": 1},
         },
-        title_bucket_key="hexdemo",
+        session_state_key="hexdemo",
         rng_log=(),
     )
     am = ActionManager(st)

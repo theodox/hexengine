@@ -41,7 +41,7 @@ from hexengine.state import GameState
 from hexengine.state.actions import MoveUnit
 from hexengine.state.game_state import BoardState, TurnState, UnitState
 from hexengine.state.snapshot import game_state_to_wire_dict
-from hexengine.state.title_extension import title_bucket
+from hexengine.state.engine_session_state import engine_read_session_state
 
 
 def _hex_wire(h: Hex) -> dict[str, int]:
@@ -82,10 +82,10 @@ _TEST_TURN_ARC_REGISTRY = build_turn_registry(
 
 
 def _retreat_obligations(state: GameState) -> dict[str, int]:
-    ek = state.title_bucket_key
+    ek = state.session_state_key
     if not ek:
         return {}
-    ro = title_bucket(state, ek).get("retreat_obligations")
+    ro = engine_read_session_state(state, ek).get("retreat_obligations")
     if not isinstance(ro, dict):
         return {}
     out: dict[str, int] = {}
@@ -135,10 +135,10 @@ class _NetworkTestCombatEffects:
             ctx.state, player_faction, dict(ctx.params)
         )
         resolution, outcome_from_resolve = resolve_authority_attack(host, attack_ctx)
-        extension_key = str(
-            ctx.extension_key or ctx.state.title_bucket_key or ""
+        session_state_key = str(
+            ctx.session_state_key or ctx.state.session_state_key or ""
         ).strip()
-        if not extension_key:
+        if not session_state_key:
             raise ValueError(
                 "This game title does not define a state extension key for combat"
             )
@@ -146,7 +146,7 @@ class _NetworkTestCombatEffects:
             host,
             attack_context=attack_ctx,
             resolution=resolution,
-            extension_key=extension_key,
+            session_state_key=session_state_key,
             outcome_from_resolve=outcome_from_resolve,
         )
 
@@ -172,7 +172,7 @@ class _NetworkTestCombatEffects:
         from hexengine.state.actions import ClearUnitRetreatObligation, MoveUnit
 
         uid = ctx.params.get("unit_id")
-        if not isinstance(uid, str) or not ctx.extension_key:
+        if not isinstance(uid, str) or not ctx.session_state_key:
             return []
         fh, th = ctx.params.get("from_hex"), ctx.params.get("to_hex")
         if not isinstance(fh, dict) or not isinstance(th, dict):
@@ -180,7 +180,7 @@ class _NetworkTestCombatEffects:
         from_hex = Hex(int(fh["i"]), int(fh["j"]), int(fh["k"]))
         to_hex = Hex(int(th["i"]), int(th["j"]), int(th["k"]))
         actions: list = [MoveUnit(uid, from_hex=from_hex, to_hex=to_hex)]
-        actions.append(ClearUnitRetreatObligation(uid, ctx.extension_key))
+        actions.append(ClearUnitRetreatObligation(uid, ctx.session_state_key))
         return actions
 
     def disrupt_instead(self, _ctx):
@@ -603,13 +603,13 @@ class TestGameServer(unittest.TestCase):
                 schedule_index=1,
             )
             state = GameState(
-                board=board, turn=turn, title_state={}, title_bucket_key="t", rng_log=()
+                board=board, turn=turn, session_state={}, session_state_key="t", rng_log=()
             )
 
             class _GD(InterleavedTwoFactionGameDefinition):
                 @property
                 def game_data(self) -> GameData:
-                    return super().game_data.replacing(title_state_extension_key="t")
+                    return super().game_data.replacing(session_state_key="t")
 
                 @property
                 def hooks(self) -> TitleHooks:
@@ -694,13 +694,13 @@ class TestGameServer(unittest.TestCase):
                 schedule_index=1,
             )
             state = GameState(
-                board=board, turn=turn, title_state={}, title_bucket_key="t", rng_log=()
+                board=board, turn=turn, session_state={}, session_state_key="t", rng_log=()
             )
 
             class _GD(InterleavedTwoFactionGameDefinition):
                 @property
                 def game_data(self) -> GameData:
-                    return super().game_data.replacing(title_state_extension_key="t")
+                    return super().game_data.replacing(session_state_key="t")
 
                 @property
                 def hooks(self) -> TitleHooks:
@@ -754,9 +754,9 @@ class TestGameServer(unittest.TestCase):
             )
             await server.handle_message("p1", req.to_message())
             self.assertFalse(errors)
-            from hexengine.state.title_extension import title_bucket
+            from hexengine.state.engine_session_state import engine_read_session_state
 
-            hx = title_bucket(server.action_manager.current_state, "t")
+            hx = engine_read_session_state(server.action_manager.current_state, "t")
             self.assertEqual(hx.get("last_combat", {}).get("retreat_unit_id"), "a2")
             ro = hx.get("retreat_obligations", {})
             # Group retreat applies to the stack at a2's hex (h0), so both Blue units retreat.
@@ -789,15 +789,15 @@ class TestGameServer(unittest.TestCase):
             state = GameState(
                 board=board,
                 turn=turn,
-                title_state={"retreat_obligations": {"u": 1}},
-                title_bucket_key="t",
+                session_state={"retreat_obligations": {"u": 1}},
+                session_state_key="t",
                 rng_log=(),
             )
 
             class _GD(InterleavedTwoFactionGameDefinition):
                 @property
                 def game_data(self) -> GameData:
-                    return super().game_data.replacing(title_state_extension_key="t")
+                    return super().game_data.replacing(session_state_key="t")
 
                 @property
                 def hooks(self) -> TitleHooks:
@@ -870,15 +870,15 @@ class TestGameServer(unittest.TestCase):
             state = GameState(
                 board=board,
                 turn=turn,
-                title_state={"retreat_obligations": {"u": 2}},
-                title_bucket_key="t",
+                session_state={"retreat_obligations": {"u": 2}},
+                session_state_key="t",
                 rng_log=(),
             )
 
             class _GD(InterleavedTwoFactionGameDefinition):
                 @property
                 def game_data(self) -> GameData:
-                    return super().game_data.replacing(title_state_extension_key="t")
+                    return super().game_data.replacing(session_state_key="t")
 
                 @property
                 def hooks(self) -> TitleHooks:
@@ -1077,10 +1077,10 @@ class TestGameServer(unittest.TestCase):
 
         asyncio.run(run())
 
-    def test_turn_rules_wire_builtin_omits_title_state_extension_key(self) -> None:
+    def test_turn_rules_wire_builtin_omits_session_state_key(self) -> None:
         server = GameServer(self.initial_state, game_definition=_test_game_definition())
         tr = server._turn_rules_wire()
-        self.assertNotIn("title_state_extension_key", tr)
+        self.assertNotIn("session_state_key", tr)
 
     def test_turn_rules_wire_builtin_includes_faction_ui_labels(self) -> None:
         server = GameServer(self.initial_state, game_definition=_test_game_definition())
@@ -1112,7 +1112,7 @@ class TestGameServer(unittest.TestCase):
         self.assertIn("Red", err.get("missing_faction_ids", []))
         self.assertIn("Blue", err.get("missing_faction_ids", []))
 
-    def test_turn_rules_wire_hexdemo_includes_title_state_extension_key(self) -> None:
+    def test_turn_rules_wire_hexdemo_includes_session_state_key(self) -> None:
         from games.hexdemo.game_config import (
             HexdemoGameDefinition,
             default_match_config,
@@ -1123,7 +1123,7 @@ class TestGameServer(unittest.TestCase):
         gd = HexdemoGameDefinition(base)
         server = GameServer(self.initial_state, game_definition=gd)
         tr = server._turn_rules_wire()
-        self.assertEqual(tr.get("title_state_extension_key"), "hexdemo")
+        self.assertEqual(tr.get("session_state_key"), "hexdemo")
         self.assertEqual(tr.get("max_active_units_per_hex"), 3)
         su = tr.get("shell_ui")
         self.assertIsInstance(su, dict)
@@ -1134,21 +1134,21 @@ class TestGameServer(unittest.TestCase):
         self.assertEqual(kinds.get("phase"), "interaction-msg--phase")
 
     def test_after_next_phase_builtin_skips_title_combat_extension_clear(self) -> None:
-        """Built-in `GameDefinition` has no `title_state_extension_key`; do not mutate."""
+        """Built-in `GameDefinition` has no `session_state_key`; do not mutate."""
         server = GameServer(self.initial_state, game_definition=_test_game_definition())
         hx0 = {
             "attacks_this_phase": ["x"],
             "last_combat": {"outcome": "none"},
         }
         server.action_manager._current_state = (
-            server.action_manager.current_state.with_title_state(
-                hx0, title_bucket_key="hexdemo"
+            server.action_manager.current_state.with_session_state(
+                hx0, session_state_key="hexdemo"
             )
         )
         server._after_next_phase_applied()
-        from hexengine.state.title_extension import title_bucket
+        from hexengine.state.engine_session_state import engine_read_session_state
 
-        hx = title_bucket(server.action_manager.current_state, "hexdemo")
+        hx = engine_read_session_state(server.action_manager.current_state, "hexdemo")
         self.assertIsInstance(hx, dict)
         self.assertIn("attacks_this_phase", hx)
 

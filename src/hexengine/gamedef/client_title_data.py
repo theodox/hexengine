@@ -133,7 +133,7 @@ class ClientTitleData:
 
     max_active_units_per_hex: int | None
     movement_budget_attribute_key: str | None
-    title_state_extension_key: str | None
+    session_state_key: str | None
     hex_highlights: ClientHexHighlightUi
     faction_ui: ClientFactionUi | None
     faction_display_contract_error: str | None
@@ -153,7 +153,7 @@ class ClientTitleData:
         return ClientTitleData(
             max_active_units_per_hex=None,
             movement_budget_attribute_key=None,
-            title_state_extension_key=None,
+            session_state_key=None,
             hex_highlights=ClientHexHighlightUi(),
             faction_ui=None,
             faction_display_contract_error=None,
@@ -178,7 +178,7 @@ class ClientTitleData:
             max_stack = n
 
         mv_key = _strip_str(wire.get("movement_budget_attribute"))
-        title_key = _strip_str(wire.get("title_state_extension_key"))
+        title_key = _strip_str(wire.get("session_state_key"))
 
         ui_raw = wire.get("ui")
         hex_highlights = ClientHexHighlightUi.from_ui_dict(ui_raw)
@@ -234,7 +234,7 @@ class ClientTitleData:
         return ClientTitleData(
             max_active_units_per_hex=max_stack,
             movement_budget_attribute_key=mv_key,
-            title_state_extension_key=title_key,
+            session_state_key=title_key,
             hex_highlights=hex_highlights,
             faction_ui=faction_ui,
             faction_display_contract_error=fd_err,

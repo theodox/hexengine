@@ -61,7 +61,7 @@ from .snapshot import (
     game_state_from_wire_dict,
     game_state_to_wire_dict,
 )
-from .title_extension import BucketPatch
+from .engine_session_state import BucketPatch
 
 __all__ = [
     "SNAPSHOT_FORMAT_VERSION",

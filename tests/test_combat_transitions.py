@@ -12,13 +12,13 @@ from hexengine.state import GameState
 
 
 def test_phase_advance_blocked_on_combat_retreat_segment() -> None:
-    st = GameState.create_empty().with_title_bucket_key("hexdemo")
+    st = GameState.create_empty().with_session_state_key("hexdemo")
     st = with_arc_cursor(st, ArcCursor(arc_id="combat", segment_id="retreat_gate"))
     assert phase_advance_blocked(st) is True
 
 
 def test_phase_advance_allowed_on_routine_move_segment() -> None:
-    st = GameState.create_empty().with_title_bucket_key("hexdemo")
+    st = GameState.create_empty().with_session_state_key("hexdemo")
     st = with_arc_cursor(st, ArcCursor(arc_id="union_move", segment_id="routine"))
     assert phase_advance_blocked(st) is False
 
@@ -50,7 +50,7 @@ def test_attack_planning_blocked_on_advance_segment() -> None:
             current_phase="Combat",
             phase_actions_remaining=1,
         )
-    ).with_title_bucket_key("hexdemo")
+    ).with_session_state_key("hexdemo")
     st = with_arc_cursor(st, ArcCursor(arc_id="combat", segment_id="advance_gate"))
     reason = combat_transitions.attack_planning_blocked_reason(st, "union")
     assert reason is not None

@@ -45,7 +45,7 @@ def _state_on_combat_segment(
         bucket["retreat_obligations"] = obligations
     if advance is not None:
         bucket["advance"] = advance
-    st = st.with_title_state(bucket, title_bucket_key="hexdemo")
+    st = st.with_session_state(bucket, session_state_key="hexdemo")
     am = ActionManager(st)
     am.execute(SetArcCursor(ArcCursor(arc_id="combat", segment_id=gate_segment)))
     return am.current_state
@@ -143,7 +143,7 @@ def test_dock_end_phase_follows_segment() -> None:
     ctx = TurnActionDockContext(
         state=st,
         viewer_faction="union",
-        extension_key="hexdemo",
+        session_state_key="hexdemo",
         shell_ui={},
         schedule_index=0,
         current_faction="union",

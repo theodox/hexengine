@@ -21,7 +21,7 @@ def test_game_data_from_mapping_roundtrip_fields() -> None:
             "gamedata_schema": 1,
             "max_active_units_per_hex": 2,
             "movement_budget_attribute_key": "speed",
-            "title_state_extension_key": "pack",
+            "session_state_key": "pack",
             "title_css_file": "x.css",
             "faction_display_names": {"a": "A"},
             "faction_css_classes": {"a": "cls-a"},
@@ -34,7 +34,7 @@ def test_game_data_from_mapping_roundtrip_fields() -> None:
     )
     assert gd.max_active_units_per_hex == 2
     assert gd.movement_budget_attribute_key == "speed"
-    assert gd.title_state_extension_key == "pack"
+    assert gd.session_state_key == "pack"
     assert gd.title_css_file == "x.css"
     assert gd.faction_display_names == {"a": "A"}
     assert gd.faction_css_classes == {"a": "cls-a"}
@@ -54,7 +54,7 @@ def test_merged_manifest_overrides_file(tmp_path: Path) -> None:
         textwrap.dedent(
             """
             max_active_units_per_hex = 1
-            title_state_extension_key = "from_file"
+            session_state_key = "from_file"
 
             [faction_display_names]
             u = "U"
@@ -72,7 +72,7 @@ def test_merged_manifest_overrides_file(tmp_path: Path) -> None:
     merged = merged_gamedata_dict_from_manifest(root, manifest)
     gd = game_data_from_mapping(merged)
     assert gd.max_active_units_per_hex == 5
-    assert gd.title_state_extension_key == "from_file"
+    assert gd.session_state_key == "from_file"
     assert gd.faction_display_names == {"u": "Override"}
 
 
@@ -89,7 +89,7 @@ def test_load_game_data_for_pack_root_hexdemo() -> None:
     pack = repo / "games" / "hexdemo"
     gd = load_game_data_for_pack_root(pack)
     assert gd.max_active_units_per_hex == 3
-    assert gd.title_state_extension_key == "hexdemo"
+    assert gd.session_state_key == "hexdemo"
     assert "union" in gd.faction_display_names
     assert gd.hex_highlight_ui.get("move_hex_class") == "hexdemo-move-hex"
     assert gd.shell_ui.get("advance_turn_button_label") == "End Phase"

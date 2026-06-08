@@ -30,7 +30,7 @@ from hexengine.state import GameState
 from hexengine.state.action_manager import StateAction
 from hexengine.hooks.bucket import ApplyBucketPatch, BucketPatch
 
-from . import title_state
+from . import session_state
 
 # Segment ``kind`` values on gate-bearing combat arc segments.
 GATE_AWAITING_RETREAT = "awaiting_retreat"
@@ -64,10 +64,10 @@ PHASE_SCOPED_COMBAT_KEYS: tuple[str, ...] = (
 def clear_combat_state_actions(state: GameState) -> list[StateAction]:
     """Actions to drop phase-scoped combat keys from the hexdemo bucket on phase advance."""
 
-    ek = state.title_bucket_key
+    ek = state.session_state_key
     if not ek:
         return []
-    if not title_state.bucket(state):
+    if not session_state.bucket(state):
         return []
     return [
         ApplyBucketPatch(

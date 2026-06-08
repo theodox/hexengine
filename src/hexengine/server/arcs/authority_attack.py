@@ -86,7 +86,7 @@ class AuthorityAttackHost(Protocol):
 
     async def _send_error(self, player_id: str, message: str) -> None: ...
 
-    def _title_extension_key(self) -> str | None: ...
+    def _engine_session_state_key(self) -> str | None: ...
 
     async def _broadcast_combat_events(self, state: GameState) -> None: ...
 
@@ -123,14 +123,14 @@ async def _execute_arc_attack(
 
     try:
         build_attack_context_from_wire(current_state, player_faction, params)
-        if host._title_extension_key():
+        if host._engine_session_state_key():
             from ...arcs.segment_wire import segment_denies_action_for_faction
 
             if segment_denies_action_for_faction(
                 host, current_state, player_faction, "Attack"
             ):
                 raise ValueError(ATTACK_BLOCKED_BY_ACTIVE_SEGMENT_MSG)
-        if not host._title_extension_key():
+        if not host._engine_session_state_key():
             raise ValueError(
                 "This game title does not define a state extension key for combat"
             )

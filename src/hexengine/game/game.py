@@ -661,15 +661,15 @@ class Game(
     def _on_markers(self, wire: list[dict[str, Any]]) -> None:
         self.marker_mgr.sync_markers(wire)
 
-    def _title_state_extension_key(self) -> str | None:
+    def _session_state_key(self) -> str | None:
         """Pack bucket in GameState.extension for combat/retreat (server turn_rules)."""
         td = self._client_title_data()
-        if td.title_state_extension_key:
-            return td.title_state_extension_key
+        if td.session_state_key:
+            return td.session_state_key
         gd = getattr(self, "_title_game_definition", None)
         if gd is not None:
             try:
-                gk = gd.game_data.title_state_extension_key
+                gk = gd.game_data.session_state_key
             except AttributeError:
                 gk = None
             if isinstance(gk, str) and gk.strip():

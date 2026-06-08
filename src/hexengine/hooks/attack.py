@@ -158,7 +158,7 @@ class AfterAttackAppliedContext:
     state: GameState
     attack_context: AttackContext
     resolution: AttackResolution
-    extension_key: str
+    session_state_key: str
     player_faction: str
 
 
@@ -168,7 +168,7 @@ class CombatAdvanceMoveContext:
 
     state: GameState
     params: dict[str, Any]
-    extension_key: str
+    session_state_key: str
     player_faction: str
 
 

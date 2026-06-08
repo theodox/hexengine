@@ -4,7 +4,7 @@
 gamedata_schema = 1
 max_active_units_per_hex = 3
 movement_budget_attribute_key = "movement"
-title_state_extension_key = "hexdemo"
+session_state_key = "hexdemo"
 title_css_file = "ui.css"
 
 [faction_display_names]

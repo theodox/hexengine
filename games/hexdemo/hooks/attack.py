@@ -12,7 +12,7 @@ from hexengine.hooks.attack import (
 )
 from hexengine.hooks.wiring import bind_title_hook
 
-from .. import combat_rules, title_state
+from .. import combat_rules, session_state
 from ..arc_segment import phase_advance_blocked
 
 # Re-export for tests that patch RNG on the rules module path.
@@ -50,7 +50,7 @@ def auto_advance_phase_after_attack(state) -> bool:
     if not active_ids:
         return True
     attacked: set[str] = set()
-    for uid in title_state.attacks_this_phase(state):
+    for uid in session_state.attacks_this_phase(state):
         u = state.board.units.get(uid)
         if u is not None and u.active and u.faction == faction:
             attacked.add(uid)

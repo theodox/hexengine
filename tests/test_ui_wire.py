@@ -192,7 +192,7 @@ def test_hexdemo_turn_action_dock_returns_dtos() -> None:
     ctx = TurnActionDockContext(
         state=GameState.create_empty(),
         viewer_faction="union",
-        extension_key="hexdemo",
+        session_state_key="hexdemo",
         shell_ui={},
         schedule_index=0,
         current_faction="union",

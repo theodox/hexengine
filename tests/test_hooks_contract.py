@@ -119,7 +119,7 @@ def test_validate_title_contract_requires_turn_action_dock_when_extension_key() 
     class PackWithExtension:
         @property
         def game_data(self) -> GameData:
-            return GameData.empty().replacing(title_state_extension_key="pack")
+            return GameData.empty().replacing(session_state_key="pack")
 
         hooks = TitleHooks()
 
@@ -148,7 +148,7 @@ def test_validate_title_contract_requires_combat_arc_with_extension_key() -> Non
     class PackWithoutCombatArc:
         @property
         def game_data(self) -> GameData:
-            return GameData.empty().replacing(title_state_extension_key="pack")
+            return GameData.empty().replacing(session_state_key="pack")
 
         hooks = TitleHooks(
             ui=UIHooks(
@@ -191,7 +191,7 @@ def test_validate_title_contract_checks_combat_rules_binding_methods() -> None:
     class PackWithIncompleteBinding:
         @property
         def game_data(self) -> GameData:
-            return GameData.empty().replacing(title_state_extension_key="pack")
+            return GameData.empty().replacing(session_state_key="pack")
 
         def turn_order(self):
             return [{"faction": "blue", "phase": "Combat", "max_actions": 1}]
@@ -226,7 +226,7 @@ def test_validate_title_contract_requires_turn_arc_registry_with_extension_key()
     class PackWithDockOnly:
         @property
         def game_data(self) -> GameData:
-            return GameData.empty().replacing(title_state_extension_key="pack")
+            return GameData.empty().replacing(session_state_key="pack")
 
         hooks = TitleHooks(
             ui=UIHooks(turn_action_dock_for_viewer=empty_turn_action_dock_for_viewer),

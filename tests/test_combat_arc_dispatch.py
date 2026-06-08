@@ -57,9 +57,9 @@ def _retreat_state() -> GameState:
     st = GameState.create_empty()
     st = st.with_board(st.board.with_unit(unit))
     st = st.with_turn(replace(st.turn, current_faction="union"))
-    return st.with_title_state(
+    return st.with_session_state(
         {"retreat_obligations": {"u1": 1}},
-        title_bucket_key="hexdemo",
+        session_state_key="hexdemo",
     )
 
 
@@ -151,10 +151,10 @@ def test_finish_dispatch_sends_error_on_reject() -> None:
 
 def test_try_rpc_handles_disrupt_on_active_gate() -> None:
     host = _Host(_retreat_state())
-    hx = dict(host.action_manager.current_state.title_state)
+    hx = dict(host.action_manager.current_state.session_state)
     hx["disrupt_instead_offered"] = True
     host.action_manager.replace_state(
-        host.action_manager.current_state.with_title_state(hx)
+        host.action_manager.current_state.with_session_state(hx)
     )
     begin_combat_arc(host)
     assert (
@@ -168,13 +168,13 @@ def test_try_rpc_handles_disrupt_on_active_gate() -> None:
     )
     assert outcome == CombatArcDispatch.HANDLED
     assert host.broadcasts == 1
-    assert not title_bucket_obligations(host)
+    assert not engine_read_session_state_obligations(host)
 
 
-def title_bucket_obligations(host: _Host) -> bool:
-    from hexengine.state.title_extension import title_bucket
+def engine_read_session_state_obligations(host: _Host) -> bool:
+    from hexengine.state.engine_session_state import engine_read_session_state
 
-    ro = title_bucket(host.action_manager.current_state, "hexdemo").get(
+    ro = engine_read_session_state(host.action_manager.current_state, "hexdemo").get(
         "retreat_obligations"
     )
     return bool(ro)

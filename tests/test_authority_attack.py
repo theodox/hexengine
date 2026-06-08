@@ -32,7 +32,7 @@ from hexengine.server.arcs.authority_attack import (
 from hexengine.state import GameState
 from hexengine.state.action_manager import ActionManager
 from hexengine.state.game_state import BoardState, TurnState, UnitState
-from hexengine.state.title_extension import title_bucket
+from hexengine.state.engine_session_state import engine_read_session_state
 
 EXPECTED_ORDER = (
     AuthorityAttackPipelineStep.NORMALIZE_WIRE_AND_PARTIES,
@@ -73,7 +73,7 @@ class _AttackHost:
             return
         raise AssertionError(f"{player_id}: {message}")
 
-    def _title_extension_key(self) -> str | None:
+    def _engine_session_state_key(self) -> str | None:
         return "testpack"
 
     def lookup_arc_spec(self, arc_id: str):
@@ -121,14 +121,14 @@ class _AuthorityAttackTestEffects:
         resolution, outcome_from_resolve = resolve_authority_attack(
             commit_host, attack_ctx
         )
-        extension_key = str(
-            ctx.extension_key or ctx.state.title_bucket_key or ""
+        session_state_key = str(
+            ctx.session_state_key or ctx.state.session_state_key or ""
         ).strip()
         return collect_authority_attack_actions(
             commit_host,
             attack_context=attack_ctx,
             resolution=resolution,
-            extension_key=extension_key,
+            session_state_key=session_state_key,
             outcome_from_resolve=outcome_from_resolve,
         )
 
@@ -211,7 +211,7 @@ def _two_unit_combat_state() -> GameState:
         phase_actions_remaining=1,
     )
     return GameState(
-        board=board, turn=turn, title_state={}, title_bucket_key="testpack"
+        board=board, turn=turn, session_state={}, session_state_key="testpack"
     )
 
 
@@ -262,7 +262,7 @@ def test_combat_outcome_after_applied_follow_ups_run_before_broadcast() -> None:
     assert ok is True
     assert marker["patch_applied"] is True
     assert host.broadcasted is True
-    hx = title_bucket(mgr.current_state, "testpack")
+    hx = engine_read_session_state(mgr.current_state, "testpack")
     assert isinstance(hx, dict)
     assert hx.get("after_attack_hook") is True
 
@@ -303,8 +303,8 @@ def test_attack_rejected_on_retreat_gate_before_title_validate() -> None:
     st = GameState(
         board=board,
         turn=turn,
-        title_state={"retreat_obligations": {"u_def": 1}},
-        title_bucket_key="hexdemo",
+        session_state={"retreat_obligations": {"u_def": 1}},
+        session_state_key="hexdemo",
         rng_log=(),
     )
     mgr = ActionManager(st)

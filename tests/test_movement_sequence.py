@@ -25,7 +25,7 @@ from hexengine.state.movement_arc import (
     MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
     MOVEMENT_INTERRUPT_PHASE,
 )
-from hexengine.state.title_extension import engine_bucket
+from hexengine.state.engine_session_state import engine_bucket
 
 
 def _loc(h: Hex) -> LocationState:

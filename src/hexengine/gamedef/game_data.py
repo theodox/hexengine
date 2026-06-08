@@ -18,7 +18,7 @@ class GameData:
     gamedata_schema: int = 1
     max_active_units_per_hex: int | None = None
     movement_budget_attribute_key: str | None = None
-    title_state_extension_key: str | None = None
+    session_state_key: str | None = None
     faction_display_names: dict[str, str] = field(default_factory=dict)
     faction_css_classes: dict[str, str] = field(default_factory=dict)
     title_css_file: str | None = None

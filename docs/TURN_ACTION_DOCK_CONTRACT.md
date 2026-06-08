@@ -1,6 +1,6 @@
 # Turn action dock — contract
 
-Titles with `title_state_extension_key` **must** bind **`TURN_ACTION_DOCK_FOR_VIEWER`** (contract validation). The server emits commit UI on **`StateUpdate.interaction_panels` only** — no `primary_actions` fallback. The client merges preview **`panel_actions`** into panel `turn_actions`.
+Titles with `session_state_key` **must** bind **`TURN_ACTION_DOCK_FOR_VIEWER`** (contract validation). The server emits commit UI on **`StateUpdate.interaction_panels` only** — no `primary_actions` fallback. The client merges preview **`panel_actions`** into panel `turn_actions`.
 
 **Authors:** [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) (hub) · **Related:** [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md), [`SKINNING_AFFORDANCES_PLAN.md`](SKINNING_AFFORDANCES_PLAN.md), [`map_selection_preview`](#relationship-to-map_selection_preview).
 
@@ -30,7 +30,7 @@ The **turn action dock** is the title-owned description of that commit UI. The e
 
 ## Draft locus (invariant)
 
-Map SELECT drafts are **client-local until commit**. The server never persists in-progress draft in `GameState` or `title_state` by default.
+Map SELECT drafts are **client-local until commit**. The server never persists in-progress draft in `GameState` or `session_state` by default.
 
 | Layer | Owns | Does not own |
 |-------|------|--------------|
@@ -46,7 +46,7 @@ Map SELECT drafts are **client-local until commit**. The server never persists i
 - **Ratify buttons** come from preview `panel_actions` merged on the client, or from local panel routes ([`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py)) that still end in `action_request` with re-validation.
 - **Draft-step presentation ids** (e.g. `attack_draft`) are **client-only** skins while a local SELECT is active; the server wire stays at the idle `presentation_id` (`attack_ready`, `retreat_gate`, …).
 
-Titles that need pre-commit server-visible state must opt in explicitly (e.g. `title_state` keys) and document that escape hatch; it is not the default SELECT model.
+Titles that need pre-commit server-visible state must opt in explicitly (e.g. `session_state` keys) and document that escape hatch; it is not the default SELECT model.
 
 See also: [`COMPOSABLE_ARCS_PLAN.md` § Drafts are nested client-local sub-arcs](COMPOSABLE_ARCS_PLAN.md#drafts-are-nested-client-local-sub-arcs-not-guards).
 
@@ -92,7 +92,7 @@ Blocking scripted events (season cards, scenario intros, “click Continue”) u
 | Copy + image | Dock `headline` + `html` from `resources/templates/` (HTML ladder); optional `interaction_messages` for a banner line |
 | Acknowledge / choice | DECIDE: one or more dock action rows (e.g. `AcknowledgeEvent`, branch A / B) |
 | Skin key | `presentation_id` (e.g. `event_prompt`) — opaque to engine; pack CSS may center or modal-style the panel |
-| Queue / script id | Title bucket (`title_state`); not client-readable for legality |
+| Queue / script id | Title bucket (`session_state`); not client-readable for legality |
 
 Do **not** use `ui_popup` for blocking prompts — that lane is hex-anchored, ephemeral INFORM. Do **not** put `onclick` in prompt HTML; every commit is a dock action row.
 
@@ -204,7 +204,7 @@ Frozen dataclass in [`ui_turn_action_dock.py`](../src/hexengine/hooks/ui_turn_ac
 |-------|------|-------|
 | `state` | `GameState` | Authoritative match state |
 | `viewer_faction` | `str \| None` | Recipient faction |
-| `extension_key` | `str \| None` | From `GameData.title_state_extension_key` |
+| `extension_key` | `str \| None` | From `GameData.session_state_key` |
 | `shell_ui` | `Mapping[str, Any]` | Declarative labels from `GameData` |
 | `schedule_index` | `int` | Current rota index |
 | `current_faction` | `str` | Turn owner |
@@ -309,7 +309,7 @@ Unregistered rows: `execute_action_request(action_type, payload ∪ inputs)`.
 When the hook returns `ENGINE_DEFAULT`, the server uses [`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py):
 
 1. **`end_phase`** (`NextPhase`) when `NextPhase` is in the segment's allowed set (or when no segment descriptor is present); otherwise shown disabled.
-2. One panel: `id: turn_actions`, `host: user-controls`, `presentation_id` from enriched `current_segment` when present; otherwise `routine` (turn owner) or `hidden`. Titles with `title_state_extension_key` must bind `ENRICH_CURRENT_SEGMENT`.
+2. One panel: `id: turn_actions`, `host: user-controls`, `presentation_id` from enriched `current_segment` when present; otherwise `routine` (turn owner) or `hidden`. Titles with `session_state_key` must bind `ENRICH_CURRENT_SEGMENT`.
 
 The catalog default does **not** inject combat cleanup gate rows (Disrupt / Advance / Skip). Titles using [`build_combat_cleanup_arc`](../src/hexengine/authoring/patterns/combat.py) call [`combat_gate_panel_actions`](../src/hexengine/authoring/patterns/combat.py) from their dock hook (hexdemo: [`turn_action_dock.py`](../games/hexdemo/hooks/turn_action_dock.py)).
 

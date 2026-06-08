@@ -22,7 +22,7 @@ from ..state.movement_arc import (
     MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
     MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
 )
-from ..state.title_extension import engine_bucket
+from ..state.engine_session_state import engine_bucket
 from .spec import ArcContext
 
 MOVEMENT_ARC_ID = "movement"

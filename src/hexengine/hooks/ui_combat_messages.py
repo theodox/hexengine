@@ -11,7 +11,7 @@ from ..ui.display import InteractionMessage, interaction_message
 
 _UI_MODE_RETREAT = frozenset({"awaiting_retreat", "awaiting_retreat_or_disrupt"})
 _UI_MODE_ADVANCE = frozenset({"awaiting_advance"})
-from ..state.title_extension import title_bucket
+from ..state.engine_session_state import engine_read_session_state
 
 
 def retreat_owner_faction(
@@ -34,7 +34,7 @@ class CombatInteractionMessagesContext:
 
     state: GameState
     viewer_faction: str | None
-    extension_key: str | None
+    session_state_key: str | None
     current_segment: Mapping[str, Any] | None = None
     shell_ui: Mapping[str, Any] = field(default_factory=dict)
 
@@ -51,10 +51,10 @@ def default_combat_interaction_messages(
     Advance and retreat prompts follow ``current_segment.ui_mode`` on the arc cursor.
     """
 
-    ek = str(ctx.extension_key or "").strip()
+    ek = str(ctx.session_state_key or "").strip()
     if not ek:
         return []
-    hx = title_bucket(ctx.state, ek)
+    hx = engine_read_session_state(ctx.state, ek)
     if not hx:
         return []
 

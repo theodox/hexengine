@@ -21,7 +21,7 @@ from hexengine.state.logic import (
     retreat_impassable_enemy_zoc_hexes,
 )
 
-from . import title_state
+from . import session_state
 
 
 def movement_step_cost_for_unit(
@@ -60,15 +60,15 @@ def zoc_hexes_for_unit(state: GameState, unit_id: str) -> frozenset[Hex]:
 
 
 def retreat_obligation_hexes_remaining(state: GameState, unit_id: str) -> int | None:
-    return title_state.retreat_hexes_remaining(state, unit_id)
+    return session_state.retreat_hexes_remaining(state, unit_id)
 
 
 def any_retreat_obligation_pending(state: GameState) -> bool:
-    return title_state.any_retreat_obligation_pending(state)
+    return session_state.any_retreat_obligation_pending(state)
 
 
 def faction_has_pending_retreat_obligation(state: GameState, faction: str) -> bool:
-    return title_state.faction_has_pending_retreat(state, faction)
+    return session_state.faction_has_pending_retreat(state, faction)
 
 
 def retreat_blocked_hexes(state: GameState, unit_id: str) -> frozenset[Hex]:

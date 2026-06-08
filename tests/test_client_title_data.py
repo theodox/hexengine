@@ -17,12 +17,12 @@ class ClientTitleDataTests(unittest.TestCase):
             {
                 "max_active_units_per_hex": 3,
                 "movement_budget_attribute": " movement ",
-                "title_state_extension_key": "hexdemo",
+                "session_state_key": "hexdemo",
             }
         )
         self.assertEqual(td.max_active_units_per_hex, 3)
         self.assertEqual(td.movement_budget_attribute_key, "movement")
-        self.assertEqual(td.title_state_extension_key, "hexdemo")
+        self.assertEqual(td.session_state_key, "hexdemo")
 
     def test_max_stack_invalid_omitted(self) -> None:
         for bad in (0, -1, "x", None):

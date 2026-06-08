@@ -13,16 +13,16 @@ pytest_plugins = ("tests.test_combat_hexdemo",)
 from hexengine.arcs import ArcCursor, with_arc_cursor
 from hexengine.server.game_server import GameServer
 from hexengine.server.protocol import ActionRequest, JoinGameRequest, PlayerInfo
-from hexengine.state.title_extension import title_bucket
+from hexengine.state.engine_session_state import engine_read_session_state
 
 
 def test_auto_advance_blocked_while_awaiting_advance_gate() -> None:
-    st = _hexdemo_combat_state().with_title_state(
+    st = _hexdemo_combat_state().with_session_state(
         {
             "advance": {"faction": "union"},
             "attacks_this_phase": ["u_att"],
         },
-        title_bucket_key="hexdemo",
+        session_state_key="hexdemo",
     )
     st = with_arc_cursor(st, ArcCursor(arc_id="combat", segment_id="advance_gate"))
     assert attack_hooks.auto_advance_phase_after_attack(st) is False
@@ -76,7 +76,7 @@ def test_attack_eliminating_defender_offers_advance_not_auto_phase(
     st = server.action_manager.current_state
     assert st.turn.current_phase == "Combat"
     assert st.turn.current_faction == "union"
-    hx = title_bucket(st, "hexdemo")
+    hx = engine_read_session_state(st, "hexdemo")
     adv = hx.get("advance")
     assert isinstance(adv, dict)
     assert adv.get("faction") == "union"

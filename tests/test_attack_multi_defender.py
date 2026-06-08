@@ -14,7 +14,7 @@ def test_attack_can_destroy_multiple_defenders_on_one_hex() -> None:
     st = AddUnit("d1", "inf", "confederate", h_def).apply(st)
     st = AddUnit("d2", "inf", "confederate", h_def).apply(st)
 
-    st = st.with_title_state({}, title_bucket_key="hexdemo")
+    st = st.with_session_state({}, session_state_key="hexdemo")
 
     atk = Attack(
         "combined",
@@ -41,7 +41,7 @@ def test_infantry_step_loss_reduces_combat_and_morale_once() -> None:
         h,
         attributes={"combat": 6, "morale": 5, "movement": 6},
     ).apply(st)
-    st = st.with_title_state({}, title_bucket_key="hexdemo")
+    st = st.with_session_state({}, session_state_key="hexdemo")
     st2 = ApplyCombatEffects(
         {"schema": 1, "step_losses": [{"unit_id": "u1", "count": 1}]},
     ).apply(st)
@@ -67,7 +67,7 @@ def test_infantry_step_loss_uses_explicit_steps_table_when_present() -> None:
             "steps": [{"combat": 6, "morale": 5}, {"combat": 2, "morale": 1}],
         },
     ).apply(st)
-    st = st.with_title_state({}, title_bucket_key="hexdemo")
+    st = st.with_session_state({}, session_state_key="hexdemo")
     st2 = ApplyCombatEffects(
         {"schema": 1, "step_losses": [{"unit_id": "u1", "count": 1}]},
     ).apply(st)
@@ -88,7 +88,7 @@ def test_infantry_second_step_loss_removes_unit() -> None:
         h,
         attributes={"combat": 5, "morale": 4, "steps_lost": 1},
     ).apply(st)
-    st = st.with_title_state({}, title_bucket_key="hexdemo")
+    st = st.with_session_state({}, session_state_key="hexdemo")
     st2 = ApplyCombatEffects(
         {"schema": 1, "step_losses": [{"unit_id": "u1", "count": 1}]},
     ).apply(st)
@@ -116,7 +116,7 @@ def test_step_loss_sets_graphics_from_steps_table() -> None:
             ],
         },
     ).apply(st)
-    st = st.with_title_state({}, title_bucket_key="hexdemo")
+    st = st.with_session_state({}, session_state_key="hexdemo")
     st2 = ApplyCombatEffects(
         {"schema": 1, "step_losses": [{"unit_id": "u1", "count": 1}]},
     ).apply(st)
@@ -133,7 +133,7 @@ def test_artillery_step_loss_does_not_auto_reduce_combat() -> None:
         h,
         attributes={"combat": 3, "morale": 6, "movement": 6},
     ).apply(st)
-    st = st.with_title_state({}, title_bucket_key="hexdemo")
+    st = st.with_session_state({}, session_state_key="hexdemo")
     st2 = ApplyCombatEffects(
         {"schema": 1, "step_losses": [{"unit_id": "a1", "count": 1}]},
     ).apply(st)

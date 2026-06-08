@@ -2,7 +2,7 @@
 Template segment presentation registry (extend when adding combat gates).
 
 Bind ``UIHook.SEGMENT_PRESENTATION_REGISTRY`` to return the keys of
-``PRESENTATION_BY_UI_MODE`` when ``title_state_extension_key`` is set.
+``PRESENTATION_BY_UI_MODE`` when ``session_state_key`` is set.
 """
 
 from __future__ import annotations

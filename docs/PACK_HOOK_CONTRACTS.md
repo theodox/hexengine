@@ -32,7 +32,7 @@ Gameplay hooks are **typed in Python** (`MovementHook`, `AttackHook`, `UIHook`, 
 | `shell_ui`, templates, `presentation_id` skin keys | `BrowserWebSocketClient` field parsing for legality |
 | Preview hook: draft in → legality + `commit_payload` out | Client computing legal hex sets locally |
 | **Segment presentation registry** (one row per UX mode) | `UIHook.SEGMENT_PRESENTATION_REGISTRY` |
-| **Segment wire enrichment** | `UIHook.ENRICH_CURRENT_SEGMENT` (required when `title_state_extension_key` is set) |
+| **Segment wire enrichment** | `UIHook.ENRICH_CURRENT_SEGMENT` (required when `session_state_key` is set) |
 
 **Hook return shapes:** turn dock and INFORM map popups **must** return **`TurnDockPanel` / `InformPopup`** from `hexengine.authoring.present`. The engine serializes via `hexengine.hooks.internal.ui_wire` only. **`bind_title_hook` accepts hook enums only.** Prefer:
 
@@ -42,11 +42,11 @@ Gameplay hooks are **typed in Python** (`MovementHook`, `AttackHook`, `UIHook`, 
 
 **Wire tables below** document what the client receives after projection. Use them when debugging network traffic or extending the engine renderer — not when writing a new title pack. Author workflow: [`TITLE_AUTHORING.md` § Flow vs presentation](TITLE_AUTHORING.md#flow-vs-presentation-authoring-model) and [§ Segment presentation registry](TITLE_AUTHORING.md#segment-presentation-registry).
 
-**P3:** `current_segment` includes `presentation_id` and `interaction_mode` when the title binds `UIHook.ENRICH_CURRENT_SEGMENT` (hexdemo: `hooks/segment_presentation.py`). Required for packs with `title_state_extension_key`.
+**P3:** `current_segment` includes `presentation_id` and `interaction_mode` when the title binds `UIHook.ENRICH_CURRENT_SEGMENT` (hexdemo: `hooks/segment_presentation.py`). Required for packs with `session_state_key`.
 
 **P4:** INFORM ``inspect`` resolves ``inform_profile`` from ``current_segment`` when the client omits ``inform_kind`` (`hexengine.arcs.inform_wire`). Title popups key off profile + reason (hexdemo: `presentation/inform.py`).
 
-**P5:** ``validate_arc_contract`` / ``validate_title_contract`` ensure declared arc segment ``kind`` values ⊆ ``segment_presentation_registry`` (`hexengine.authoring.segment_ui_validate`). Titles with ``title_state_extension_key`` must bind ``UIHook.SEGMENT_PRESENTATION_REGISTRY``.
+**P5:** ``validate_arc_contract`` / ``validate_title_contract`` ensure declared arc segment ``kind`` values ⊆ ``segment_presentation_registry`` (`hexengine.authoring.segment_ui_validate`). Titles with ``session_state_key`` must bind ``UIHook.SEGMENT_PRESENTATION_REGISTRY``.
 
 ## UI affordances — wire schemas and hooks (v1)
 
@@ -122,7 +122,7 @@ Commit UI on host `#user-controls`. Full panel and action schemas: [`TURN_ACTION
 
 **Dispatch:** `TURN_ACTION_DOCK_FOR_VIEWER(ctx)` → `list[TurnDockPanel]` or `ENGINE_DEFAULT` → [`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py) (End Phase only). Hexdemo: [`games/hexdemo/hooks/turn_action_dock.py`](../games/hexdemo/hooks/turn_action_dock.py) — adds combat gate rows via [`combat_gate_panel_actions`](../src/hexengine/authoring/patterns/combat.py). Gate `presentation_id` / `interaction_mode` require `UIHook.ENRICH_CURRENT_SEGMENT` + segment registry.
 
-When `title_state_extension_key` is set, **`TURN_ACTION_DOCK_FOR_VIEWER` is required**; the server never emits **`StateUpdate.primary_actions`** ([`ClientInteractionPanelsMixin`](../src/hexengine/game/arcs/client_interaction_panels.py)).
+When `session_state_key` is set, **`TURN_ACTION_DOCK_FOR_VIEWER` is required**; the server never emits **`StateUpdate.primary_actions`** ([`ClientInteractionPanelsMixin`](../src/hexengine/game/arcs/client_interaction_panels.py)).
 
 ### Action row schema (shared)
 
@@ -241,13 +241,13 @@ Bind with `@bind_title_hook(UIHook.…)` in the title hooks package. Values matc
 
 Context dataclasses: [`CombatInteractionContext`](../src/hexengine/hooks/ui.py), [`AdvanceGateInteractionContext`](../src/hexengine/hooks/ui.py), [`CombatInteractionMessagesContext`](../src/hexengine/hooks/ui_combat_messages.py), [`PhaseBannerContext`](../src/hexengine/hooks/ui.py), [`TurnActionDockContext`](../src/hexengine/hooks/ui_turn_action_dock.py).
 
-**Phase advance blocking:** `NextPhase` legality and End Phase dock enablement derive from `current_segment.allowed_actions` ([`segment_blocks_routine_phase_advance`](../src/hexengine/arcs/segment_wire.py)). Titles with `title_state_extension_key` must bind `ArcHook.TURN_ARC_REGISTRY`.
+**Phase advance blocking:** `NextPhase` legality and End Phase dock enablement derive from `current_segment.allowed_actions` ([`segment_blocks_routine_phase_advance`](../src/hexengine/arcs/segment_wire.py)). Titles with `session_state_key` must bind `ArcHook.TURN_ARC_REGISTRY`.
 
 ### Attack hook inventory (combat policy)
 
 Bind with `@bind_title_hook(AttackHook.…)`. Values match [`AttackHook`](../src/hexengine/hooks/attack.py). **There are no attack cleanup hook slots** — retreat, disrupt, and advance run through the declared combat arc (`ArcHook.COMBAT_ARC`).
 
-For packs with `title_state_extension_key`, the engine rejects `Attack` when `current_segment` omits it for the actor **before** `validate_attack` runs (`ATTACK_BLOCKED_BY_ACTIVE_SEGMENT_MSG` in `authority_attack.py`). Title validate is rules-only (phase, LOS, CRT inputs, etc.).
+For packs with `session_state_key`, the engine rejects `Attack` when `current_segment` omits it for the actor **before** `validate_attack` runs (`ATTACK_BLOCKED_BY_ACTIVE_SEGMENT_MSG` in `authority_attack.py`). Title validate is rules-only (phase, LOS, CRT inputs, etc.).
 
 | Hook | When invoked | Signature / context | Return | `ENGINE_DEFAULT` behavior |
 |------|--------------|---------------------|--------|---------------------------|
@@ -261,13 +261,13 @@ When the combat overlay finishes (classify `done` or last cleanup step), the eng
 
 **Removed (do not document or bind):** `AFTER_ATTACK_APPLIED`, `ON_RETREAT_OBLIGATION_CLEARED`, `COMBAT_DISRUPT_INSTEAD_OF_RETREAT`, `COMBAT_RESOLVE_ADVANCE`, `IS_COMBAT_ADVANCE_MOVE`. Cleanup uses arc effects; advance `MoveUnit` uses [`ArcSpec.advance_move_detector`](../src/hexengine/arcs/runner.py) on `COMBAT_ARC`.
 
-**Bucket patches:** return [`CombatOutcome`](../src/hexengine/hooks/combat_outcome.py) from `combat_outcome_after_applied` (or embed in `resolve_attack`); engine applies `PatchTitleBucket` via [`combat_outcome_apply`](../src/hexengine/server/arcs/combat_outcome_apply.py). Read bucket via [`title_bucket`](../src/hexengine/state/title_extension.py) / pack `title_state` module.
+**Bucket patches:** return [`CombatOutcome`](../src/hexengine/hooks/combat_outcome.py) from `combat_outcome_after_applied` (or embed in `resolve_attack`); engine applies `PatchTitleBucket` via [`combat_outcome_apply`](../src/hexengine/server/arcs/combat_outcome_apply.py). Read bucket via [`engine_read_session_state`](../src/hexengine/state/engine_session_state.py) / pack `session_state` module.
 
 **Movement author layout:** policy in pack-root [`movement_rules.py`](../games/hexdemo/movement_rules.py) implementing [`MovementRulesBinding`](../src/hexengine/hooks/movement_rules.py); [`hooks/movement.py`](../games/hexdemo/hooks/movement.py) binds slots. Stepwise payload and arc cursor sync stay in `authority_movement` / movement arc runner.
 
 **Combat author layout:** one [`CombatRulesBinding`](../src/hexengine/hooks/combat_rules.py) class (hexdemo: [`combat_rules.py`](../games/hexdemo/combat_rules.py)); [`combat_rules_binding_to_arc_spec`](../src/hexengine/authoring/patterns/combat.py) produces `ArcHook.COMBAT_ARC`. Bind `ArcHook.COMBAT_RULES_BINDING` for startup structural validation. Dock gate rows: [`combat_gate_panel_actions`](../src/hexengine/authoring/patterns/combat.py) from `TURN_ACTION_DOCK_FOR_VIEWER`. Scaffold: [`games/template/combat_arc.py`](../games/template/combat_arc.py).
 
-**Reference pack:** [`games/hexdemo/hooks/`](../games/hexdemo/hooks/) (`attack.py`, `movement.py`, `arcs.py`, `turn_action_dock.py`, `ui.py`); policy [`combat_rules.py`](../games/hexdemo/combat_rules.py), [`combat_outcome.py`](../games/hexdemo/combat_outcome.py), [`combat_actions.py`](../games/hexdemo/combat_actions.py), [`combat_transitions.py`](../games/hexdemo/combat_transitions.py), [`movement_rules.py`](../games/hexdemo/movement_rules.py), [`title_state.py`](../games/hexdemo/title_state.py). Inventory: [`SKINNING_CLIENT_INVENTORY.md`](SKINNING_CLIENT_INVENTORY.md). Boundary matrix: [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md).
+**Reference pack:** [`games/hexdemo/hooks/`](../games/hexdemo/hooks/) (`attack.py`, `movement.py`, `arcs.py`, `turn_action_dock.py`, `ui.py`); policy [`combat_rules.py`](../games/hexdemo/combat_rules.py), [`combat_outcome.py`](../games/hexdemo/combat_outcome.py), [`combat_actions.py`](../games/hexdemo/combat_actions.py), [`combat_transitions.py`](../games/hexdemo/combat_transitions.py), [`movement_rules.py`](../games/hexdemo/movement_rules.py), [`session_state.py`](../games/hexdemo/session_state.py). Inventory: [`SKINNING_CLIENT_INVENTORY.md`](SKINNING_CLIENT_INVENTORY.md). Boundary matrix: [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md).
 
 ### Client contract features (not wire rows)
 

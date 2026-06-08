@@ -24,7 +24,7 @@ class TurnActionDockContext:
 
     state: GameState
     viewer_faction: str | None
-    extension_key: str | None
+    session_state_key: str | None
     shell_ui: Mapping[str, Any]
     schedule_index: int
     current_faction: str

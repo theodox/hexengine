@@ -51,14 +51,14 @@ def test_combat_interaction_messages_hook_uses_ctx_shell_ui() -> None:
     st = GameState(
         board=st.board,
         turn=st.turn,
-        title_state={
+        session_state={
             "last_combat": {
                 "outcome": "none",
                 "attacker_id": "a",
                 "defender_id": "d",
             }
         },
-        title_bucket_key="hexdemo",
+        session_state_key="hexdemo",
         rng_log=(),
     )
     from hexengine.hooks.ui_combat_messages import CombatInteractionMessagesContext
@@ -67,7 +67,7 @@ def test_combat_interaction_messages_hook_uses_ctx_shell_ui() -> None:
         CombatInteractionMessagesContext(
             state=st,
             viewer_faction="union",
-            extension_key="hexdemo",
+            session_state_key="hexdemo",
             shell_ui={"combat_outcome_none": "Quiet round."},
         )
     )

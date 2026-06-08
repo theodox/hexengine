@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from hexengine.state import GameState
 
-from . import title_state
+from . import session_state
 
 
 def focus_unit_id_after_state_sync(
@@ -22,7 +22,7 @@ def focus_unit_id_after_state_sync(
         for uid, u in state.board.units.items()
         if u.active
         and u.faction == fac
-        and title_state.retreat_hexes_remaining(state, uid) is not None
+        and session_state.retreat_hexes_remaining(state, uid) is not None
     )
     if len(obligated) != 1:
         return None

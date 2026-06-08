@@ -48,7 +48,7 @@ def follow_up_state_actions_after_attack(
     """
 
     if outcome_from_resolve is not None:
-        return outcome_from_resolve.follow_up_state_actions(ctx.extension_key)
+        return outcome_from_resolve.follow_up_state_actions(ctx.session_state_key)
 
     raw_outcome = hooks.attack.build_combat_outcome_after_applied(ctx)
     if raw_outcome is ENGINE_DEFAULT:
@@ -58,7 +58,7 @@ def follow_up_state_actions_after_attack(
             "hooks.attack.combat_outcome_after_applied must return "
             "CombatOutcome or hooks.ENGINE_DEFAULT"
         )
-    return raw_outcome.follow_up_state_actions(ctx.extension_key)
+    return raw_outcome.follow_up_state_actions(ctx.session_state_key)
 
 
 __all__ = [

@@ -33,7 +33,7 @@ from hexengine.server.arcs.authority_attack_commit import (
 from hexengine.state import UnitState
 from hexengine.state.action_manager import StateAction
 from hexengine.state.map_feature_queries import edges_block_los_predicate
-from . import combat_actions, combat_outcome, title_state
+from . import combat_actions, combat_outcome, session_state
 
 # When the board has no explicit or unset-default terrain for a hex, CRT math still
 # needs a stable type (matches legacy tests and minimal `BoardState` fixtures).
@@ -163,7 +163,7 @@ def validate_attack(ctx: AttackContext) -> None:
         else:
             raise ValueError(f"Unit type {ut!r} cannot participate in combined attacks")
 
-    prev = title_state.attacks_this_phase(ctx.state)
+    prev = session_state.attacks_this_phase(ctx.state)
     for aid in ctx.attacker_ids:
         if aid in prev:
             raise ValueError("That unit has already attacked this combat phase")
@@ -541,75 +541,75 @@ class HexdemoCombatRules:
     combat_outcome_after_applied = staticmethod(combat_outcome_after_applied)
 
     def detect_combat_advance_move(self, ctx: CombatAdvanceMoveContext) -> bool:
-        if not ctx.extension_key:
+        if not ctx.session_state_key:
             return False
         return combat_actions.is_combat_advance_move(
-            ctx.state, ctx.params, ctx.player_faction, ctx.extension_key
+            ctx.state, ctx.params, ctx.player_faction, ctx.session_state_key
         )
 
     def has_pending_retreat(self, ctx: ArcContext) -> bool:
-        return title_state.any_retreat_obligation_pending(ctx.state)
+        return session_state.any_retreat_obligation_pending(ctx.state)
 
     def disrupt_offered(self, ctx: ArcContext) -> bool:
-        if not ctx.extension_key:
+        if not ctx.session_state_key:
             return False
-        if not title_state.disrupt_instead_offered(ctx.state):
+        if not session_state.disrupt_instead_offered(ctx.state):
             return False
-        return title_state.any_retreat_obligation_pending(ctx.state)
+        return session_state.any_retreat_obligation_pending(ctx.state)
 
     def advance_available(self, ctx: ArcContext) -> bool:
-        if not ctx.extension_key:
+        if not ctx.session_state_key:
             return False
         return bool(
             combat_actions.maybe_open_advance_after_retreat(
-                ctx.state, ctx.extension_key
+                ctx.state, ctx.session_state_key
             )
         )
 
     def is_retreat_fulfillment(self, ctx: ArcContext) -> bool:
         uid = ctx.params.get("unit_id")
-        if not isinstance(uid, str) or not ctx.extension_key:
+        if not isinstance(uid, str) or not ctx.session_state_key:
             return False
-        ro = title_state.retreat_obligations(ctx.state)
+        ro = session_state.retreat_obligations(ctx.state)
         try:
             return int(ro.get(uid, 0)) > 0
         except (TypeError, ValueError):
             return False
 
     def is_combat_advance_move(self, ctx: ArcContext) -> bool:
-        if not ctx.extension_key or not ctx.owner_faction:
+        if not ctx.session_state_key or not ctx.owner_faction:
             return False
         return combat_actions.is_combat_advance_move(
-            ctx.state, ctx.params, ctx.owner_faction, ctx.extension_key
+            ctx.state, ctx.params, ctx.owner_faction, ctx.session_state_key
         )
 
     def apply_retreat_step(self, ctx: ArcContext) -> list[StateAction]:
-        if not ctx.extension_key or not ctx.owner_faction:
+        if not ctx.session_state_key or not ctx.owner_faction:
             return []
         return combat_actions.apply_retreat_fulfillment_step(
             ctx.state,
-            ctx.extension_key,
+            ctx.session_state_key,
             ctx.owner_faction,
             ctx.params,
         )
 
     def disrupt_instead(self, ctx: ArcContext) -> list[StateAction]:
         return combat_actions.disrupt_instead_of_retreat(
-            ctx.state, ctx.extension_key or "", ctx.owner_faction or ""
+            ctx.state, ctx.session_state_key or "", ctx.owner_faction or ""
         )
 
     def open_advance(self, ctx: ArcContext) -> list[StateAction]:
         return combat_actions.maybe_open_advance_after_retreat(
-            ctx.state, ctx.extension_key or ""
+            ctx.state, ctx.session_state_key or ""
         )
 
     def resolve_advance(self, ctx: ArcContext) -> list[StateAction]:
         return combat_actions.resolve_combat_advance(
-            ctx.state, ctx.extension_key or "", ctx.owner_faction or ""
+            ctx.state, ctx.session_state_key or "", ctx.owner_faction or ""
         )
 
     def clear_advance_gate(self, ctx: ArcContext) -> list[StateAction]:
-        return combat_actions.clear_advance_gate(ctx.state, ctx.extension_key or "")
+        return combat_actions.clear_advance_gate(ctx.state, ctx.session_state_key or "")
 
     def attack_arc_effect(self, ctx: ArcContext) -> list[StateAction]:
         player_faction = str(ctx.owner_faction or "").strip()
@@ -620,10 +620,10 @@ class HexdemoCombatRules:
             ctx.state, player_faction, dict(ctx.params)
         )
         resolution, outcome_from_resolve = resolve_authority_attack(host, attack_ctx)
-        extension_key = str(
-            ctx.extension_key or ctx.state.title_bucket_key or ""
+        session_state_key = str(
+            ctx.session_state_key or ctx.state.session_state_key or ""
         ).strip()
-        if not extension_key:
+        if not session_state_key:
             raise ValueError(
                 "This game title does not define a state extension key for combat"
             )
@@ -631,7 +631,7 @@ class HexdemoCombatRules:
             host,
             attack_context=attack_ctx,
             resolution=resolution,
-            extension_key=extension_key,
+            session_state_key=session_state_key,
             outcome_from_resolve=outcome_from_resolve,
         )
 

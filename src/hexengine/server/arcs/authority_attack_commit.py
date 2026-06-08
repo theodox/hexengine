@@ -105,7 +105,7 @@ def collect_authority_attack_actions(
     *,
     attack_context: AttackContext,
     resolution: AttackResolution,
-    extension_key: str,
+    session_state_key: str,
     outcome_from_resolve: CombatOutcome | None = None,
 ) -> list[StateAction]:
     """State actions for ``Attack``, effects, and post-attack bucket handoff."""
@@ -143,7 +143,7 @@ def collect_authority_attack_actions(
         state=st_after,
         attack_context=attack_context,
         resolution=resolution,
-        extension_key=extension_key,
+        session_state_key=session_state_key,
         player_faction=attack_context.player_faction,
     )
     actions.extend(

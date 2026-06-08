@@ -17,7 +17,7 @@ from hexengine.server.arcs.authority_arc_runtime import begin_routine_slot
 from hexengine.server.arcs.authority_attack import execute_authority_attack_request
 from hexengine.state import ActionManager, GameState
 from hexengine.state.game_state import BoardState, TurnState, UnitState
-from hexengine.state.title_extension import title_bucket
+from hexengine.state.engine_session_state import engine_read_session_state
 
 
 @dataclass
@@ -31,7 +31,7 @@ class _Host:
         if self.errors is not None:
             self.errors.append(message)
 
-    def _title_extension_key(self) -> str | None:
+    def _engine_session_state_key(self) -> str | None:
         return "hexdemo"
 
     async def _broadcast_combat_events(self, _state: GameState) -> None:
@@ -77,7 +77,7 @@ def _combat_state() -> GameState:
         turn_number=1,
         phase_actions_remaining=2,
     )
-    return GameState(board=board, turn=turn, title_state={}, title_bucket_key="hexdemo")
+    return GameState(board=board, turn=turn, session_state={}, session_state_key="hexdemo")
 
 
 def test_attack_without_cleanup_gate_restores_routine_cursor() -> None:
@@ -93,8 +93,8 @@ def test_attack_without_cleanup_gate_restores_routine_cursor() -> None:
             phase_actions_remaining=2,
             schedule_index=1,
         ),
-        title_state={},
-        title_bucket_key="hexdemo",
+        session_state={},
+        session_state_key="hexdemo",
     )
     mgr = ActionManager(st0)
     host = _Host(hooks=build_hooks(), action_manager=mgr)
@@ -153,7 +153,7 @@ def test_attack_via_combat_arc_lands_on_cleanup_gate() -> None:
         )
     )
     assert ok is True
-    hx = title_bucket(mgr.current_state, "hexdemo")
+    hx = engine_read_session_state(mgr.current_state, "hexdemo")
     assert isinstance(hx, dict)
     assert "u_att" in (hx.get("attacks_this_phase") or [])
     cur = read_arc_cursor(mgr.current_state)
@@ -167,8 +167,8 @@ def test_attack_via_combat_arc_lands_on_cleanup_gate() -> None:
 
 def test_attack_rejected_on_retreat_gate_via_arc_path() -> None:
     st0 = _combat_state()
-    st0 = st0.with_title_state(
-        {"retreat_obligations": {"u_def": 1}}, title_bucket_key="hexdemo"
+    st0 = st0.with_session_state(
+        {"retreat_obligations": {"u_def": 1}}, session_state_key="hexdemo"
     )
     mgr = ActionManager(st0)
     mgr.execute(

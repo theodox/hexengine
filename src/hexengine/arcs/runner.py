@@ -154,7 +154,7 @@ def _apply_transition(
     if transition.effect is not None:
         ctx = ArcContext(
             state=state,
-            extension_key=state.title_bucket_key,
+            session_state_key=state.session_state_key,
             owner_faction=owner_faction,
             params=params,
         )
@@ -178,7 +178,7 @@ def _auto_advance(
             return state
         ctx = ArcContext(
             state=state,
-            extension_key=state.title_bucket_key,
+            session_state_key=state.session_state_key,
             owner_faction=None,
             params={},
         )
@@ -255,7 +255,7 @@ def submit_event(
 
     ctx = ArcContext(
         state=state,
-        extension_key=state.title_bucket_key,
+        session_state_key=state.session_state_key,
         owner_faction=owner_faction,
         params=event_params,
     )

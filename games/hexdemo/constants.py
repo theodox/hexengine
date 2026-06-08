@@ -6,5 +6,5 @@ from __future__ import annotations
 # Order: player 1 (Union) first in the rota, then Confederates.
 HEXDEMO_FACTIONS: tuple[str, ...] = ("union", "confederate")
 
-# Pack id for ``GameState.title_state`` / ``GameState.title_bucket_key``.
-PACK_STATE_EXTENSION_KEY = "hexdemo"
+# Pack id for ``GameState.session_state`` / ``GameState.session_state_key``.
+PACK_SESSION_STATE_KEY = "hexdemo"

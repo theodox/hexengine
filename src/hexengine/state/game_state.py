@@ -296,17 +296,17 @@ class GameState:
     This is the single source of truth for the game. It's fully serializable
     and contains no display or UI concerns.
 
-    Title-owned match data lives in ``title_state`` (one bucket per match;
-    ``title_bucket_key`` names the pack id). Engine ephemeral data (movement arc,
-    etc.) lives in ``engine_state`` (see ``hexengine.state.title_extension``).
+    Pack session data lives in ``session_state`` (one bucket per match;
+    ``session_state_key`` names the pack id). Engine ephemeral data (movement arc,
+    etc.) lives in ``engine_state`` (see ``hexengine.state.engine_session_state``).
     ``rng_log`` is an append-only record of server-authoritative random draws.
     """
 
     board: BoardState
     turn: TurnState
-    title_state: dict[str, Any] = field(default_factory=dict)
+    session_state: dict[str, Any] = field(default_factory=dict)
     engine_state: dict[str, Any] = field(default_factory=dict)
-    title_bucket_key: str | None = None
+    session_state_key: str | None = None
     rng_log: tuple[dict[str, Any], ...] = ()
 
     def with_board(self, new_board: BoardState) -> GameState:
@@ -317,17 +317,17 @@ class GameState:
         """Return a new GameState with updated turn."""
         return replace(self, turn=new_turn)
 
-    def with_title_state(
+    def with_session_state(
         self,
-        title_state: dict[str, Any],
+        session_state: dict[str, Any],
         *,
-        title_bucket_key: str | None = None,
+        session_state_key: str | None = None,
     ) -> GameState:
-        """Replace the title-owned bucket (and optionally the pack id key)."""
+        """Replace the pack session-state bucket (and optionally the pack id key)."""
 
-        kw: dict[str, Any] = {"title_state": dict(title_state)}
-        if title_bucket_key is not None:
-            kw["title_bucket_key"] = str(title_bucket_key).strip() or None
+        kw: dict[str, Any] = {"session_state": dict(session_state)}
+        if session_state_key is not None:
+            kw["session_state_key"] = str(session_state_key).strip() or None
         return replace(self, **kw)
 
     def with_engine_state(self, engine_state: dict[str, Any]) -> GameState:
@@ -335,11 +335,11 @@ class GameState:
 
         return replace(self, engine_state=dict(engine_state))
 
-    def with_title_bucket_key(self, title_bucket_key: str | None) -> GameState:
-        """Set the pack id for ``title_state`` (``GameData.title_state_extension_key``)."""
+    def with_session_state_key(self, session_state_key: str | None) -> GameState:
+        """Set the pack id for ``session_state`` (``GameData.session_state_key``)."""
 
-        k = str(title_bucket_key or "").strip() or None
-        return replace(self, title_bucket_key=k)
+        k = str(session_state_key or "").strip() or None
+        return replace(self, session_state_key=k)
 
     def with_rng_log(self, rng_log: tuple[dict[str, Any], ...]) -> GameState:
         """Replace RNG log (immutable tuple)."""

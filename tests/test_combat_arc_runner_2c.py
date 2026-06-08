@@ -19,7 +19,7 @@ from hexengine.hexes.types import Hex
 from hexengine.server.arcs import begin_combat_arc, drive_combat_arc_event
 from hexengine.state import ActionManager, GameState
 from hexengine.state.game_state import UnitState
-from hexengine.state.title_extension import title_bucket
+from hexengine.state.engine_session_state import engine_read_session_state
 
 HOOKS = build_hooks()
 
@@ -59,7 +59,7 @@ def _state_with_stack(
     bucket: dict = {"retreat_obligations": obligations}
     if gate == combat_transitions.GATE_AWAITING_RETREAT_OR_DISRUPT:
         bucket["disrupt_instead_offered"] = True
-    return st.with_title_state(bucket, title_bucket_key="hexdemo")
+    return st.with_session_state(bucket, session_state_key="hexdemo")
 
 
 def test_apply_retreat_step_moves_primary_and_clears_obligation() -> None:
@@ -82,7 +82,7 @@ def test_apply_retreat_step_moves_primary_and_clears_obligation() -> None:
         mgr.execute(a)
     final = mgr.current_state
     assert final.board.units["u1"].position == h1
-    hx = title_bucket(final, "hexdemo")
+    hx = engine_read_session_state(final, "hexdemo")
     assert "u1" not in (hx.get("retreat_obligations") or {})
 
 
@@ -106,7 +106,7 @@ def test_apply_retreat_step_moves_stacked_units() -> None:
     final = mgr.current_state
     assert final.board.units["u1"].position == h1
     assert final.board.units["u2"].position == h1
-    hx = title_bucket(final, "hexdemo")
+    hx = engine_read_session_state(final, "hexdemo")
     assert not hx.get("retreat_obligations")
 
 
@@ -166,7 +166,7 @@ def test_partial_retreat_loops_cursor_to_retreat_gate() -> None:
     final = host.action_manager.current_state
     assert final.board.units["u1"].position == h1
     assert final.board.units["u2"].position == h2
-    hx = title_bucket(final, "hexdemo")
+    hx = engine_read_session_state(final, "hexdemo")
     assert hx.get("retreat_obligations") == {"u2": 1}
     cur = read_arc_cursor(final)
     assert cur is not None
@@ -216,7 +216,7 @@ def test_apply_retreat_step_skips_primary_already_at_destination() -> None:
     final = mgr.current_state
     assert final.board.units["u1"].position == h1
     assert final.board.units["u2"].position == h1
-    assert not title_bucket(final, "hexdemo").get("retreat_obligations")
+    assert not engine_read_session_state(final, "hexdemo").get("retreat_obligations")
 
 
 def test_retreat_or_disrupt_gate_accepts_moveunit() -> None:

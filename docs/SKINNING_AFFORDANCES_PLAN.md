@@ -201,7 +201,7 @@ Full table: [`PACK_HOOK_CONTRACTS.md` § UI hook inventory](PACK_HOOK_CONTRACTS.
 
 ## Do not
 
-- Client reads `GameState.title_state` (or other raw buckets) for buttons or affordances
+- Client reads `GameState.session_state` (or other raw buckets) for buttons or affordances
 - Inline `onclick` in title HTML
 - Separate commit DOM outside the dock panel
 - Client-computed legal hex sets for drag (use preview RPCs)

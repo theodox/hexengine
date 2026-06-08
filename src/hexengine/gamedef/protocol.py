@@ -33,8 +33,8 @@ class GameDefinition(Protocol):
     minimal attack stubs that return `ENGINE_DEFAULT` unless a title overrides
     `hooks`.
 
-    Optional: `game_data.title_state_extension_key` names the pack id for
-    `GameState.title_state` / `GameState.title_bucket_key` (title-owned match data).
+    Optional: `game_data.session_state_key` names the pack id for
+    `GameState.session_state` / `GameState.session_state_key` (title-owned match data).
     When set, the server publishes it in `StateUpdate.turn_rules` and runs phase/combat
     housekeeping against that key. Built-in schedules omit it.
 

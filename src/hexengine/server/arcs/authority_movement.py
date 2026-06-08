@@ -57,7 +57,7 @@ def dedupe_faction_ids(items: tuple[str, ...]) -> tuple[str, ...]:
 def read_movement_arc(state: GameState) -> dict[str, Any] | None:
     """Return movement **arc** payload in `extension`, if any."""
 
-    from ...state.title_extension import engine_bucket
+    from ...state.engine_session_state import engine_bucket
 
     raw = engine_bucket(state, HEXENGINE_MOVEMENT_ARC_KEY)
     return raw if raw else None

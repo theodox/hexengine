@@ -24,7 +24,7 @@ from hexengine.server.preview import hexes_to_wire
 from hexengine.state import GameState
 from hexengine.state.map_feature_queries import edges_block_los_predicate
 
-from . import title_state
+from . import session_state
 from .combat_transitions import attack_planning_blocked_reason
 
 _ATTACK_KIND = "combined"
@@ -102,7 +102,7 @@ def _enemy_on_hex(state: GameState, h: Hex, attacker_faction: str) -> bool:
 
 
 def _already_attacked_this_phase(state: GameState, unit_id: str) -> bool:
-    return unit_id in title_state.attacks_this_phase(state)
+    return unit_id in session_state.attacks_this_phase(state)
 
 
 def _parse_target_hex(draft: dict[str, Any]) -> Hex | None:

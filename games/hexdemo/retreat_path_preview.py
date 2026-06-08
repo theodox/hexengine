@@ -20,7 +20,7 @@ from hexengine.retreat_path import (
 from hexengine.state import GameState
 from hexengine.ui.display import MapSelectionPreview, PanelAction
 
-from . import title_state
+from . import session_state
 from .hooks import movement as movement_hooks
 
 
@@ -104,7 +104,7 @@ def retreat_path_preview(ctx: RetreatPathPreviewContext) -> MapSelectionPreview:
             panel_actions=_panel_actions(su, confirm_enabled=False),
         )
 
-    rem = title_state.retreat_hexes_remaining(st, uid)
+    rem = session_state.retreat_hexes_remaining(st, uid)
     if rem is None:
         return map_selection_preview(
             kind="retreat_path",

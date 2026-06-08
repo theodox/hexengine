@@ -43,7 +43,7 @@ class _AdvanceMovementArcAfterStep(StateAction):
 
     def apply(self, state: GameState) -> GameState:
         from ...state.movement_arc import HEXENGINE_MOVEMENT_ARC_KEY
-        from ...state.title_extension import with_engine_bucket
+        from ...state.engine_session_state import with_engine_bucket
 
         self._prev_ext = dict(state.engine_state)
         self._prev_turn = state.turn

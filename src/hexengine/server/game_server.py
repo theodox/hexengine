@@ -202,9 +202,9 @@ class GameServer:
             pack_root: Pack directory (``games/<id>/``); inferred when omitted.
         """
         init_state = initial_state or GameState.create_empty()
-        raw_tek = getattr(game_definition.game_data, "title_state_extension_key", None)
+        raw_tek = getattr(game_definition.game_data, "session_state_key", None)
         if isinstance(raw_tek, str) and raw_tek.strip():
-            init_state = init_state.with_title_bucket_key(raw_tek.strip())
+            init_state = init_state.with_session_state_key(raw_tek.strip())
         self.action_manager = ActionManager(init_state)
         self.map_display = map_display
         self.global_styles = global_styles
@@ -456,21 +456,21 @@ class GameServer:
             out[str(uid)] = int(n)
         return out or None
 
-    def _title_extension_key(self) -> str | None:
-        raw = self.game_data.title_state_extension_key
+    def _engine_session_state_key(self) -> str | None:
+        raw = self.game_data.session_state_key
         if isinstance(raw, str) and raw.strip():
             return raw.strip()
         return None
 
-    def _title_bucket(self, state: GameState | None = None) -> dict[str, Any]:
+    def _engine_read_session_state(self, state: GameState | None = None) -> dict[str, Any]:
         """Title-owned extension bucket for this match (empty when no key configured)."""
-        from ..state.title_extension import title_bucket
+        from ..state.engine_session_state import engine_read_session_state
 
-        ek = self._title_extension_key()
+        ek = self._engine_session_state_key()
         if not ek:
             return {}
         st = state if state is not None else self.action_manager.current_state
-        return title_bucket(st, ek)
+        return engine_read_session_state(st, ek)
 
     def _turn_rules_wire(self) -> dict[str, Any]:
         """Full turn rota + budget + fingerprint for thin clients (no game pack on disk)."""
@@ -627,9 +627,9 @@ class GameServer:
                 for k, v in kind_styles.items()
                 if str(k).strip() and isinstance(v, str) and str(v).strip()
             }
-        tek = self._title_extension_key()
+        tek = self._engine_session_state_key()
         if tek:
-            out["title_state_extension_key"] = tek
+            out["session_state_key"] = tek
         attr_key = gd.movement_budget_attribute_key
         if isinstance(attr_key, str) and attr_key.strip():
             out["movement_budget_attribute"] = attr_key.strip()
@@ -1111,11 +1111,11 @@ class GameServer:
             default_combat_interaction_messages,
         )
 
-        ek = self._title_extension_key()
+        ek = self._engine_session_state_key()
         msg_ctx = CombatInteractionMessagesContext(
             state=st,
             viewer_faction=viewer_faction,
-            extension_key=ek,
+            session_state_key=ek,
             current_segment=self.project_current_segment(
                 st, viewer_faction=viewer_faction
             ),
@@ -1211,7 +1211,7 @@ class GameServer:
         return TurnActionDockContext(
             state=st,
             viewer_faction=viewer_faction,
-            extension_key=self._title_extension_key(),
+            session_state_key=self._engine_session_state_key(),
             shell_ui=dict(self.game_data.shell_ui),
             schedule_index=int(turn.schedule_index),
             current_faction=current_faction,
@@ -1337,7 +1337,7 @@ class GameServer:
                 current_state,
                 request.params,
                 player_faction=str(player.faction),
-                extension_key=self._title_extension_key(),
+                session_state_key=self._engine_session_state_key(),
             )
 
         if request.action_type == "CombatDisruptInsteadOfRetreat":

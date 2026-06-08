@@ -1,4 +1,4 @@
-"""Title-owned and engine-owned ``GameState`` buckets (one pack id per match)."""
+"""Engine read/write for pack session state and engine ephemeral buckets."""
 
 from __future__ import annotations
 
@@ -19,10 +19,10 @@ class BucketPatch:
     values: dict[str, Any] = field(default_factory=dict)
     remove_keys: tuple[str, ...] = ()
 
-    def to_action(self, extension_key: str) -> "ApplyBucketPatch":
+    def to_action(self, session_state_key: str) -> "ApplyBucketPatch":
         from .actions import ApplyBucketPatch
 
-        return ApplyBucketPatch(extension_key, self)
+        return ApplyBucketPatch(session_state_key, self)
 
 
 def is_engine_extension_key(key: str) -> bool:
@@ -31,28 +31,30 @@ def is_engine_extension_key(key: str) -> bool:
     return str(key or "").strip().startswith(ENGINE_EXTENSION_KEY_PREFIX)
 
 
-def title_bucket(state: GameState, extension_key: str | None) -> dict[str, Any]:
-    """Read the title bucket dict when ``extension_key`` matches ``title_bucket_key``."""
+def engine_read_session_state(
+    state: GameState, session_state_key: str | None
+) -> dict[str, Any]:
+    """Read session-state dict when ``session_state_key`` matches ``GameState.session_state_key``."""
 
-    ek = str(extension_key or "").strip()
-    if not ek or state.title_bucket_key != ek:
+    ek = str(session_state_key or "").strip()
+    if not ek or state.session_state_key != ek:
         return {}
-    return dict(state.title_state)
+    return dict(state.session_state)
 
 
-def with_title_bucket(
-    state: GameState, extension_key: str, bucket: Mapping[str, Any]
+def engine_write_session_state(
+    state: GameState, session_state_key: str, bucket: Mapping[str, Any]
 ) -> GameState:
-    """Return state with the title bucket replaced (shallow copy of ``bucket``)."""
+    """Return state with session-state dict replaced (shallow copy of ``bucket``)."""
 
-    ek = str(extension_key).strip()
+    ek = str(session_state_key).strip()
     if not ek:
-        raise ValueError("extension_key must be non-empty")
-    if state.title_bucket_key not in (None, ek):
+        raise ValueError("session_state_key must be non-empty")
+    if state.session_state_key not in (None, ek):
         raise ValueError(
-            f"title_bucket_key {state.title_bucket_key!r} does not match {ek!r}"
+            f"session_state_key {state.session_state_key!r} does not match {ek!r}"
         )
-    return state.with_title_state(dict(bucket), title_bucket_key=ek)
+    return state.with_session_state(dict(bucket), session_state_key=ek)
 
 
 def engine_bucket(state: GameState, engine_key: str) -> dict[str, Any]:
@@ -86,8 +88,8 @@ __all__ = [
     "BucketPatch",
     "ENGINE_EXTENSION_KEY_PREFIX",
     "engine_bucket",
+    "engine_read_session_state",
+    "engine_write_session_state",
     "is_engine_extension_key",
-    "title_bucket",
     "with_engine_bucket",
-    "with_title_bucket",
 ]

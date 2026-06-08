@@ -2,7 +2,7 @@
 Template combat scaffold (copy when enabling combat + extension key).
 
 Wire ``ArcHook.COMBAT_ARC`` in ``hooks/arcs.py`` after you set
-``title_state_extension_key``, add combat schedule slots, attack hooks, segment registry
+``session_state_key``, add combat schedule slots, attack hooks, segment registry
 rows, and ``attack_effect`` on the arc spec. Until then this module is reference-only.
 """
 

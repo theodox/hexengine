@@ -15,17 +15,17 @@ from hexengine.server.arcs import drive_combat_arc_event
 from hexengine.state import ActionManager, GameState
 from hexengine.state.actions import ClearUnitRetreatObligation
 from hexengine.state.game_state import UnitState
-from hexengine.state.title_extension import title_bucket
+from hexengine.state.engine_session_state import engine_read_session_state
 
 
 def test_clear_unit_retreat_obligation_does_not_touch_segment_state() -> None:
-    st = GameState.create_empty().with_title_state(
+    st = GameState.create_empty().with_session_state(
         {"retreat_obligations": {"u1": 1}},
-        title_bucket_key="hexdemo",
+        session_state_key="hexdemo",
     )
     mgr = ActionManager(st)
     mgr.execute(ClearUnitRetreatObligation("u1", "hexdemo"))
-    hx = title_bucket(mgr.current_state, "hexdemo")
+    hx = engine_read_session_state(mgr.current_state, "hexdemo")
     assert not hx.get("retreat_obligations")
     assert "combat_gate" not in hx
 
@@ -38,9 +38,9 @@ def test_apply_retreat_fulfillment_clears_obligations_when_done() -> None:
             UnitState(unit_id="u1", unit_type="inf", faction="union", position=h0)
         )
     )
-    st = st.with_title_state(
+    st = st.with_session_state(
         {"retreat_obligations": {"u1": 1}},
-        title_bucket_key="hexdemo",
+        session_state_key="hexdemo",
     )
     params = {
         "unit_id": "u1",
@@ -52,7 +52,7 @@ def test_apply_retreat_fulfillment_clears_obligations_when_done() -> None:
         st, "hexdemo", "union", params
     ):
         mgr.execute(a)
-    hx = title_bucket(mgr.current_state, "hexdemo")
+    hx = engine_read_session_state(mgr.current_state, "hexdemo")
     assert not hx.get("retreat_obligations")
 
 
@@ -78,7 +78,7 @@ def test_advance_moveunit_through_runner() -> None:
         )
     )
     st = st.with_turn(replace(st.turn, current_faction="union"))
-    st = st.with_title_state(
+    st = st.with_session_state(
         {
             "advance": {
                 "faction": "union",
@@ -88,7 +88,7 @@ def test_advance_moveunit_through_runner() -> None:
                 "to_hex": {"i": h1.i, "j": h1.j, "k": h1.k},
             },
         },
-        title_bucket_key="hexdemo",
+        session_state_key="hexdemo",
     )
     host = _Host(st)
     host.action_manager.execute(
@@ -113,5 +113,5 @@ def test_advance_moveunit_through_runner() -> None:
     assert final.board.units["u_att"].position == h1
     cur = read_arc_cursor(final)
     assert cur is None or cur.arc_id != "combat"
-    hx = title_bucket(final, "hexdemo")
+    hx = engine_read_session_state(final, "hexdemo")
     assert "advance" not in hx

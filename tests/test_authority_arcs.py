@@ -20,8 +20,8 @@ _HEXDEMO_HOOKS = build_hooks()
 
 def _minimal_state(
     *,
-    title_state: dict | None = None,
-    title_bucket_key: str = "title",
+    session_state: dict | None = None,
+    session_state_key: str = "title",
 ) -> GameState:
     return GameState(
         turn=TurnState(
@@ -30,8 +30,8 @@ def _minimal_state(
             phase_actions_remaining=1,
         ),
         board=BoardState(),
-        title_state=dict(title_state or {}),
-        title_bucket_key=title_bucket_key,
+        session_state=dict(session_state or {}),
+        session_state_key=session_state_key,
     )
 
 
@@ -53,7 +53,7 @@ def test_path_tuple_from_movement_arc() -> None:
 
 def test_move_unit_is_combat_advance_fulfillment_false_without_extension() -> None:
     st = _minimal_state(
-        title_state={
+        session_state={
             "advance": {
                 "faction": "union",
                 "to_hex": {"i": 1, "j": 0, "k": -1},
@@ -70,20 +70,20 @@ def test_move_unit_is_combat_advance_fulfillment_false_without_extension() -> No
         st,
         params,
         player_faction="union",
-        extension_key=None,
+        session_state_key=None,
     )
 
 
 def test_move_unit_is_combat_advance_fulfillment_true_when_matched() -> None:
     st = _minimal_state(
-        title_state={
+        session_state={
             "advance": {
                 "faction": "union",
                 "to_hex": {"i": 1, "j": 0, "k": -1},
                 "unit_ids": ["u1"],
             },
         },
-        title_bucket_key="hexdemo",
+        session_state_key="hexdemo",
     )
     params = {
         "unit_id": "u1",
@@ -94,5 +94,5 @@ def test_move_unit_is_combat_advance_fulfillment_true_when_matched() -> None:
         st,
         params,
         player_faction="union",
-        extension_key="hexdemo",
+        session_state_key="hexdemo",
     )

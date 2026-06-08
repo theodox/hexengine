@@ -96,7 +96,7 @@ Typical authoring:
 - **Enter** via automatic transition when title script fires (phase entry, bucket flag, arc effect).
 - **`owner`** — faction that must acknowledge, or per-viewer policy composed in the dock hook.
 - **`allowed_actions`** — only acknowledge / branch RPCs (e.g. `AcknowledgeEvent`).
-- **Exit** on DECIDE commit: clear prompt state in `title_state`, resume the suspended segment or advance the cursor.
+- **Exit** on DECIDE commit: clear prompt state in `session_state`, resume the suspended segment or advance the cursor.
 - **Not a draft** — no client-local SELECT sub-arc; validity is server-side on commit.
 
 In title docs, prefer **prompt segment** for narrative or scripted interrupts. Reserve **gate** for segments whose segment kind or `dock_arc` is combat-shaped (`retreat_gate`, `advance_gate`) unless you explicitly mean this segment shape.
@@ -361,7 +361,7 @@ methods delegating to `combat_actions.*`; post-attack bucket handoff is
   Legacy `handle_combat_*` RPC handlers and `finalize_retreat_fulfillment_stack` are
   removed. When a title binds `ArcHook.COMBAT_ARC`, `try_combat_arc_rpc` /
   `try_combat_arc_move_unit` are authoritative (errors on stale cursor or rejected
-  segment). Titles with `title_state_extension_key` must declare `COMBAT_ARC`; otherwise
+  segment). Titles with `session_state_key` must declare `COMBAT_ARC`; otherwise
   combat cleanup RPCs receive `COMBAT_ARC_REQUIRED_MSG`.
   Routed advance-fulfillment `MoveUnit` through `drive_combat_arc_event`. Tests:
   `tests/test_combat_arc_runner_2d.py`.
