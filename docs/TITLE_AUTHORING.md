@@ -1,6 +1,6 @@
 # Title authoring guide
 
-**Combat / movement author interface (done):** [`TITLE_AUTHOR_INTERFACE_PLAN.md`](TITLE_AUTHOR_INTERFACE_PLAN.md) — Phases A–F implemented; hexdemo uses one `CombatRulesBinding` + `movement_rules.py`; see [§ Combat and movement (hexdemo)](#combat-and-movement-hexdemo).
+**Combat / movement author interface (done):** hexdemo uses one `CombatRulesBinding` + `movement_rules.py`; see [§ Combat and movement (hexdemo)](#combat-and-movement-hexdemo). Phase history: [`archive/TITLE_AUTHOR_INTERFACE_PLAN.md`](archive/TITLE_AUTHOR_INTERFACE_PLAN.md).
 
 **Start here** if you are building or extending a game pack (title) on hexengine. This page gives **high-level summaries** and **API entry points**; deep wire schemas and client behavior live in linked contract docs.
 
@@ -305,7 +305,7 @@ Feature: `server_drag_previews`. Server: [`compute_unit_drag_preview`](../src/he
 
 ### SEQUENCE — multi-step UX
 
-**Player prompts** (scripted events, season cards, acknowledge-then-continue) are prompt sequences: INFORM on the dock (`headline` / `html`) then DECIDE; blocking is a **prompt segment** in the turn arc. See [`TURN_ACTION_DOCK_CONTRACT.md` § Player prompts](TURN_ACTION_DOCK_CONTRACT.md#player-prompts) and [`COMPOSABLE_ARCS_PLAN.md` § Prompt segments](COMPOSABLE_ARCS_PLAN.md#prompt-segments).
+**Player prompts** (scripted events, season cards, acknowledge-then-continue) are prompt sequences: INFORM on the dock (`headline` / `html`) then DECIDE; blocking is a **prompt segment** in the turn arc. See [`TURN_ACTION_DOCK_CONTRACT.md` § Player prompts](TURN_ACTION_DOCK_CONTRACT.md#player-prompts) and [`archive/COMPOSABLE_ARCS_PLAN.md` § Prompt segments](archive/COMPOSABLE_ARCS_PLAN.md#prompt-segments).
 
 | Source | Responsibility |
 |--------|----------------|
@@ -417,7 +417,9 @@ When you change player UX or hook contracts:
 | Doc | Audience |
 |-----|----------|
 | [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) | Title authors (this page) |
-| [`TITLE_AUTHOR_INTERFACE_PLAN.md`](TITLE_AUTHOR_INTERFACE_PLAN.md) | Combat/movement author interface (implemented; phase history) |
+| [`archive/TITLE_AUTHOR_INTERFACE_PLAN.md`](archive/TITLE_AUTHOR_INTERFACE_PLAN.md) | Combat/movement interface (archived phase history) |
+| [`archive/COMPOSABLE_ARCS_PLAN.md`](archive/COMPOSABLE_ARCS_PLAN.md) | Composable arcs (archived phase history) |
+| [`archive/ENGINE_BOUNDARY_2_PLAN.md`](archive/ENGINE_BOUNDARY_2_PLAN.md) | Engine boundary 2 (archived phase history) |
 | [`TURN_ACTION_DOCK_CONTRACT.md`](TURN_ACTION_DOCK_CONTRACT.md) | Wire + primitives (API detail) |
 | [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md) | Wire schemas + hook roadmap |
 | [`SKINNING_AFFORDANCES_PLAN.md`](SKINNING_AFFORDANCES_PLAN.md) | Implementation status / roadmap |

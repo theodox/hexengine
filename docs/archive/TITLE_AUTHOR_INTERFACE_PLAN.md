@@ -1,12 +1,12 @@
 # Title author interface — implementation plan
 
-**Status:** **implemented** (Phases A–F complete; hexdemo is the reference layout).
+**Status:** **archived** (Phases A–F complete; hexdemo is the reference layout). Living guide: [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md).
 
 **One-line goal:** Give title authors **one coherent programming interface** for match flow — rules in pack-root modules, a single combat binding into declared arcs, presentation in a segment registry — so authors do not need to learn engine pipelines, bucket handoff protocols, or duplicate hook surfaces.
 
-**Author hub:** [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md). **Hexdemo map:** [`games/hexdemo/hooks/README.md`](../games/hexdemo/hooks/README.md).
+**Author hub:** [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md). **Hexdemo map:** [`games/hexdemo/hooks/README.md`](../../games/hexdemo/hooks/README.md).
 
-**Related:** [`COMPOSABLE_ARCS_PLAN.md`](COMPOSABLE_ARCS_PLAN.md) (arc runtime), [`RULE_COMPOSITION.md`](RULE_COMPOSITION.md) (future reusable rule pieces).
+**Related:** [`COMPOSABLE_ARCS_PLAN.md`](COMPOSABLE_ARCS_PLAN.md) (arc runtime), [`RULE_COMPOSITION.md`](../RULE_COMPOSITION.md) (future reusable rule pieces).
 
 ---
 
@@ -42,7 +42,7 @@ Attack RPC → SetArcCursor(attack) → submit_event("Attack")
 
 ## Why (original problem)
 
-Composable arcs finished **combat cleanup** as a declared FSM (`submit_event` on retreat, advance, disrupt). Before Phases C–D, authors had to learn two systems for one feature (resolve hooks + separate handoff + duplicate cleanup slots). That split is **closed** in hexdemo; new packs should copy [`games/template/`](../games/template/) + hexdemo, not pre-2025 hook shapes.
+Composable arcs finished **combat cleanup** as a declared FSM (`submit_event` on retreat, advance, disrupt). Before Phases C–D, authors had to learn two systems for one feature (resolve hooks + separate handoff + duplicate cleanup slots). That split is **closed** in hexdemo; new packs should copy [`games/template/`](../../games/template/) + hexdemo, not pre-2025 hook shapes.
 
 ---
 
@@ -115,9 +115,9 @@ Authors work in **three layers** only (aligned with [`TITLE_AUTHORING.md` § Flo
 
 #### Sub-steps (completed)
 
-1. **Marked deprecated** on `AttackHook`: `COMBAT_DISRUPT_INSTEAD_OF_RETREAT`, `COMBAT_RESOLVE_ADVANCE`, `ON_RETREAT_OBLIGATION_CLEARED`, `IS_COMBAT_ADVANCE_MOVE`; documented in [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md).
+1. **Marked deprecated** on `AttackHook`: `COMBAT_DISRUPT_INSTEAD_OF_RETREAT`, `COMBAT_RESOLVE_ADVANCE`, `ON_RETREAT_OBLIGATION_CLEARED`, `IS_COMBAT_ADVANCE_MOVE`; documented in [`PACK_HOOK_CONTRACTS.md`](../PACK_HOOK_CONTRACTS.md).
 2. **Removed dead server paths:** `GameServer._on_retreat_obligation_cleared` / `_maybe_open_combat_advance_after_retreat`; tests use `begin_combat_arc`.
-3. **Docs:** [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md), [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md), [`games/hexdemo/hooks/README.md`](../games/hexdemo/hooks/README.md).
+3. **Docs:** [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md), [`PACK_HOOK_CONTRACTS.md`](../PACK_HOOK_CONTRACTS.md), [`games/hexdemo/hooks/README.md`](../../games/hexdemo/hooks/README.md).
 4. **Hexdemo:** Unbound cleanup slots from `hooks/attack.py`; `combat_arc.py` owns cleanup + `ArcSpec.advance_move_detector` for advance `MoveUnit` pre-routing.
 
 #### Tests that must stay green
@@ -136,7 +136,7 @@ Authors work in **three layers** only (aligned with [`TITLE_AUTHORING.md` § Flo
 
 1. `execute_authority_attack_request` calls `segment_denies_action_for_faction` before `validate_attack` when `session_state_key` is set; message `ATTACK_BLOCKED_BY_ACTIVE_SEGMENT_MSG`.
 2. Removed segment deny from hexdemo `validate_attack`; `arc_segment.segment_denies_action` delegates to `segment_wire`.
-3. Documented in [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md) and [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md).
+3. Documented in [`PACK_HOOK_CONTRACTS.md`](../PACK_HOOK_CONTRACTS.md) and [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md).
 
 #### Tests
 
@@ -245,7 +245,7 @@ Full combat integration suite + replay/undo tests if present.
 
 - Mid-session pack switching.
 - Full [`RULE_COMPOSITION.md`](RULE_COMPOSITION.md) declarative rule DSL (this plan uses Python bindings; composition library may plug in later).
-- Client-side authority or draft FSM changes (presentation registry work continues in [`SKINNING_AFFORDANCES_PLAN.md`](SKINNING_AFFORDANCES_PLAN.md)).
+- Client-side authority or draft FSM changes (presentation registry work continues in [`SKINNING_AFFORDANCES_PLAN.md`](../SKINNING_AFFORDANCES_PLAN.md)).
 - Rewriting CRT / hexdemo rules content (only how they are wired).
 
 ---
@@ -267,11 +267,11 @@ Full combat integration suite + replay/undo tests if present.
 
 | Document | Updates |
 |----------|---------|
-| [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) | Author checklist, combat API table, link to this plan |
-| [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md) | Deprecate cleanup attack hooks; document `CombatOutcome` when added |
+| [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md) | Author checklist, combat API table, link to this plan |
+| [`PACK_HOOK_CONTRACTS.md`](../PACK_HOOK_CONTRACTS.md) | Deprecate cleanup attack hooks; document `CombatOutcome` when added |
 | [`COMPOSABLE_ARCS_PLAN.md`](COMPOSABLE_ARCS_PLAN.md) | Note attack migration track (Phase D of this plan) |
-| [`games/hexdemo/hooks/README.md`](../games/hexdemo/hooks/README.md) | Single combat binding diagram |
-| [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md) | Attack resolution row → arc transition when Phase D lands |
+| [`games/hexdemo/hooks/README.md`](../../games/hexdemo/hooks/README.md) | Single combat binding diagram |
+| [`engine_game_boundary_matrix.md`](../engine_game_boundary_matrix.md) | Attack resolution row → arc transition when Phase D lands |
 
 ---
 

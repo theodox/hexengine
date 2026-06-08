@@ -48,7 +48,7 @@ Map SELECT drafts are **client-local until commit**. The server never persists i
 
 Titles that need pre-commit server-visible state must opt in explicitly (e.g. `session_state` keys) and document that escape hatch; it is not the default SELECT model.
 
-See also: [`COMPOSABLE_ARCS_PLAN.md` § Drafts are nested client-local sub-arcs](COMPOSABLE_ARCS_PLAN.md#drafts-are-nested-client-local-sub-arcs-not-guards).
+See also: [`archive/COMPOSABLE_ARCS_PLAN.md` § Drafts are nested client-local sub-arcs](archive/COMPOSABLE_ARCS_PLAN.md#drafts-are-nested-client-local-sub-arcs-not-guards).
 
 ---
 
@@ -96,7 +96,7 @@ Blocking scripted events (season cards, scenario intros, “click Continue”) u
 
 Do **not** use `ui_popup` for blocking prompts — that lane is hex-anchored, ephemeral INFORM. Do **not** put `onclick` in prompt HTML; every commit is a dock action row.
 
-Longer flows add SELECT between INFORM and DECIDE (attack plan, retreat path). Authority-side blocking is a **prompt segment** in the turn arc — see [`COMPOSABLE_ARCS_PLAN.md` § Prompt segments](COMPOSABLE_ARCS_PLAN.md#prompt-segments).
+Longer flows add SELECT between INFORM and DECIDE (attack plan, retreat path). Authority-side blocking is a **prompt segment** in the turn arc — see [`archive/COMPOSABLE_ARCS_PLAN.md` § Prompt segments](archive/COMPOSABLE_ARCS_PLAN.md#prompt-segments).
 
 ### SELECT — draft shapes (same wire, title policy)
 

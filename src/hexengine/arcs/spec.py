@@ -7,7 +7,7 @@ transitions (the edges), owners (who may act), and triggers (what fires an edge)
 
 Effects and guards are plain Python callables; the spec itself is code, not JSON. Only
 the runtime arc cursor (defined separately) is serialized into engine state. See
-docs/COMPOSABLE_ARCS_PLAN.md for the model: the segment triple (owner / allowed_actions
+docs/archive/COMPOSABLE_ARCS_PLAN.md for the model: the segment triple (owner / allowed_actions
 / resolution locus), the two structural operators (sequence, interrupt), and the
 transition trigger/guard rules.
 

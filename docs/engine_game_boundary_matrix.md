@@ -1,6 +1,6 @@
 # Engine / game boundary matrix
 
-Inventory for checklist items 1–9 in [`.cursor/plans/test_game_boundary_plan.md`](../.cursor/plans/test_game_boundary_plan.md), plus **engine boundary 2** rows (match state split, combat policy). Implementation track: [`ENGINE_BOUNDARY_2_PLAN.md`](ENGINE_BOUNDARY_2_PLAN.md) (phases A–F). Rows were checked against the codebase (paths relative to repo root).
+Inventory for checklist items 1–9 in [`.cursor/plans/test_game_boundary_plan.md`](../.cursor/plans/test_game_boundary_plan.md), plus **engine boundary 2** rows (match state split, combat policy). Implementation track (archived): [`archive/ENGINE_BOUNDARY_2_PLAN.md`](archive/ENGINE_BOUNDARY_2_PLAN.md). Rows were checked against the codebase (paths relative to repo root).
 
 **Columns (short):**
 

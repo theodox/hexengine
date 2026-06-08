@@ -1,6 +1,6 @@
 # Composable turn arcs — implementation plan
 
-**Status:** design / planning. Successor track to [`ENGINE_BOUNDARY_2_PLAN.md`](ENGINE_BOUNDARY_2_PLAN.md); sibling (different axis) to [`RULE_COMPOSITION.md`](RULE_COMPOSITION.md).
+**Status:** **archived** (Phases 0–7 complete). Living guide: [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md). Successor track to [`ENGINE_BOUNDARY_2_PLAN.md`](ENGINE_BOUNDARY_2_PLAN.md); sibling (different axis) to [`RULE_COMPOSITION.md`](../RULE_COMPOSITION.md).
 
 **One-line goal:** Reify the *implicit* arc state machines into a single **declared** model — a turn is a composition of **arcs**, an arc is a state machine over **segments** — so the engine drives arcs generically and never reads title-shaped gate strings.
 
@@ -11,12 +11,12 @@
 `ENGINE_BOUNDARY_2` pushed combat *mutations* and *wire payloads* fully into the title, but left three engine-side readers of the same hexdemo gate strings (`combat_gate`, `retreat_obligations`, `advance`):
 
 1. **Authoritative legality** — RPC prechecks in `authority_combat_cleanup` (`combat_gate == "awaiting_advance"`, …).
-2. **Affordances** — turn action dock skin (`presentation_id` from title `ENRICH_CURRENT_SEGMENT` + segment registry); combat cleanup gate **buttons** are title helpers ([`combat_gate_panel_actions`](../src/hexengine/authoring/patterns/combat.py)), not engine segment wire.
+2. **Affordances** — turn action dock skin (`presentation_id` from title `ENRICH_CURRENT_SEGMENT` + segment registry); combat cleanup gate **buttons** are title helpers ([`combat_gate_panel_actions`](../../src/hexengine/authoring/patterns/combat.py)), not engine segment wire.
 3. **Phase-advance blocking** — `default_blocks_routine_phase_advance`.
 
 These exist because the arc's transition logic (δ) is **not declared in one place** — each reader re-derives it from gate strings. The fix is structural: declare the state machine once; have legality, affordances, and blocking all read the *current segment* of that declared machine.
 
-See [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md) for the per-dimension boundary this plan finishes.
+See [`engine_game_boundary_matrix.md`](../engine_game_boundary_matrix.md) for the per-dimension boundary this plan finishes.
 
 ---
 
@@ -54,7 +54,7 @@ Both existing server gates and existing client drafts are instances of this one 
 
 ### Drafts are nested client-local sub-arcs, not guards
 
-**Adopted invariant:** [`TURN_ACTION_DOCK_CONTRACT.md` § Draft locus](TURN_ACTION_DOCK_CONTRACT.md#draft-locus-invariant) — drafts are client-local until commit; preview consults per snapshot; commit authorizes.
+**Adopted invariant:** [`TURN_ACTION_DOCK_CONTRACT.md` § Draft locus](../TURN_ACTION_DOCK_CONTRACT.md#draft-locus-invariant) — drafts are client-local until commit; preview consults per snapshot; commit authorizes.
 
 A **draft** (assembling a multi-step input — pick target → pick attackers → confirm — before one commit RPC) is a **nested client-local sub-arc**, not a guard on the parent transition. The roles differ by layer:
 
@@ -87,7 +87,7 @@ This keeps replay/undo deterministic for the same reason as the representation d
 
 ### Prompt segments
 
-A **prompt segment** is a server-authoritative arc segment that narrows `allowed_actions` until the player resolves a **player prompt** (see [`TURN_ACTION_DOCK_CONTRACT.md` § Player prompts](TURN_ACTION_DOCK_CONTRACT.md#player-prompts)). Routine turn actions (move, end phase, etc.) stay illegal until the prompt is cleared.
+A **prompt segment** is a server-authoritative arc segment that narrows `allowed_actions` until the player resolves a **player prompt** (see [`TURN_ACTION_DOCK_CONTRACT.md` § Player prompts](../TURN_ACTION_DOCK_CONTRACT.md#player-prompts)). Routine turn actions (move, end phase, etc.) stay illegal until the prompt is cleared.
 
 Same shape as combat **gate** segments (`retreat_gate`, `advance_gate`) but the name is UX-neutral: season events, scenario beats, and combat obligations all use **interrupt** plus narrowed `allowed_actions`, not a separate mechanism.
 
@@ -118,7 +118,7 @@ Decision: the **persisted representation is declarative data** (a snapshot-able 
 
 ## Authoring: composable from engine-provided pieces (no runtime fallback)
 
-This adopts the [`RULE_COMPOSITION.md`](RULE_COMPOSITION.md) philosophy on the *flow* axis:
+This adopts the [`RULE_COMPOSITION.md`](../RULE_COMPOSITION.md) philosophy on the *flow* axis:
 
 - The engine ships **importable, tested arc/segment builders** (e.g. a `mandatory_retreat_then_optional_advance` combat arc, a `simple_phase` arc, an `igo_ugo` turn). Authors **import and compose** them in ordinary Python — no DSL, no interpreter.
 - These pieces are **authoring scaffold, not a runtime fallback**. The engine core executes whatever arcs the title composed; it has no opinion to silently fall back to. (This is the resolution of `ENGINE_BOUNDARY_2_PLAN` open decision #4 — "engine defaults exist only as scaffold.")
@@ -529,9 +529,9 @@ and validate), not `hexengine.arcs.patterns`.
 - Removed engine gate-string catalog paths (`default_blocks_routine_phase_advance`, `PRIMARY_ACTIONS_FOR_VIEWER`, `BLOCKS_ROUTINE_PHASE_ADVANCE`).
 - Docs updated: `PACK_HOOK_CONTRACTS.md`, `TURN_ACTION_DOCK_CONTRACT.md`, `TITLE_AUTHORING.md`, `engine_game_boundary_matrix.md`, `ENGINE_BOUNDARY_2_PLAN.md` (supersession note), `SERVER_ARCHITECTURE.md`, `hexdemo/hooks/README.md`.
 - Title `combat_gate` bucket field retired (not written); engine and pack read `current_segment`.
-- Client draft CSS uses `effective_turn_dock_presentation_id` (client-local sub-arcs); server hook uses idle `presentation_id` from enriched `current_segment`. Draft locus: [`TURN_ACTION_DOCK_CONTRACT.md` § Draft locus](TURN_ACTION_DOCK_CONTRACT.md#draft-locus-invariant).
+- Client draft CSS uses `effective_turn_dock_presentation_id` (client-local sub-arcs); server hook uses idle `presentation_id` from enriched `current_segment`. Draft locus: [`TURN_ACTION_DOCK_CONTRACT.md` § Draft locus](../TURN_ACTION_DOCK_CONTRACT.md#draft-locus-invariant).
 
-**Author-facing UX (done):** segment `ui_mode` plus a title **presentation registry** (`presentation_id`, primitive, `interaction_mode`) so hooks and templates stay insulated from wire — see [`TITLE_AUTHORING.md` § Flow vs presentation](TITLE_AUTHORING.md#flow-vs-presentation-authoring-model) and [`PACK_HOOK_CONTRACTS.md` § Authoring vs wire](PACK_HOOK_CONTRACTS.md#authoring-vs-wire).
+**Author-facing UX (done):** segment `ui_mode` plus a title **presentation registry** (`presentation_id`, primitive, `interaction_mode`) so hooks and templates stay insulated from wire — see [`TITLE_AUTHORING.md` § Flow vs presentation](../TITLE_AUTHORING.md#flow-vs-presentation-authoring-model) and [`PACK_HOOK_CONTRACTS.md` § Authoring vs wire](../PACK_HOOK_CONTRACTS.md#authoring-vs-wire).
 
 **Author programming interface (sibling track):** [`TITLE_AUTHOR_INTERFACE_PLAN.md`](TITLE_AUTHOR_INTERFACE_PLAN.md) — collapse attack hook pipeline + combat arc binding into one title-facing API (`CombatOutcome`, single `CombatRulesBinding`); Phase D routes `Attack` through `submit_event`.
 

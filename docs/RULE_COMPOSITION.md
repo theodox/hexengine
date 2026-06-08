@@ -18,7 +18,7 @@ Today hexdemo encodes much of this imperatively in `hooks/movement.py` and stubs
 
 Hooks remain the **integration layer** (when the server asks); composed **rules** are the **policy layer** hooks call into. See [`games/hexdemo/hooks/README.md`](../games/hexdemo/hooks/README.md) (rules vs hooks).
 
-**Composable arcs (shipped):** turn/combat/movement flow is declared as arc graphs in `hexengine.authoring` and driven by the generic runner; hooks supply title-bound effects. See [`COMPOSABLE_ARCS_PLAN.md`](COMPOSABLE_ARCS_PLAN.md).
+**Composable arcs (shipped):** turn/combat/movement flow is declared as arc graphs in `hexengine.authoring` and driven by the generic runner; hooks supply title-bound effects. See [`archive/COMPOSABLE_ARCS_PLAN.md`](archive/COMPOSABLE_ARCS_PLAN.md).
 
 ## Preferred model: import and compose (not a DSL)
 

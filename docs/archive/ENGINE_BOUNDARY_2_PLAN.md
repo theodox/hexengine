@@ -1,14 +1,15 @@
 # Engine boundary 2 — implementation plan
 
-> **Historical — boundary-2 branch.** Current author interface: [`TITLE_AUTHOR_INTERFACE_PLAN.md`](TITLE_AUTHOR_INTERFACE_PLAN.md)
-> (implemented) and [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md). Arc runtime: [`COMPOSABLE_ARCS_PLAN.md`](COMPOSABLE_ARCS_PLAN.md).
+> **Archived — phases A–F shipped.** Author hub: [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md).
+> Sibling archives: [`TITLE_AUTHOR_INTERFACE_PLAN.md`](TITLE_AUTHOR_INTERFACE_PLAN.md),
+> [`COMPOSABLE_ARCS_PLAN.md`](COMPOSABLE_ARCS_PLAN.md). Index: [`README.md`](README.md).
 > Removed APIs referenced below (`BLOCKS_ROUTINE_PHASE_ADVANCE`, `follow_up_after_attack`,
 > `AttackHook.AFTER_ATTACK_APPLIED`, attack cleanup hook slots,
 > `blocks_routine_phase_advance`, `dock_arc_hint`, `GATE_RETREAT` / `GATE_ADVANCE` aliases,
 > `DOCK_ARC_*` UI tokens) are **not** part of the current hexdemo pack. Legality and End Phase
 > blocking use `current_segment.allowed_actions` via
-> [`segment_blocks_routine_phase_advance`](../src/hexengine/arcs/segment_wire.py); hexdemo
-> delegates through [`arc_segment.py`](../games/hexdemo/arc_segment.py).
+> [`segment_blocks_routine_phase_advance`](../../src/hexengine/arcs/segment_wire.py); hexdemo
+> delegates through [`arc_segment.py`](../../games/hexdemo/arc_segment.py).
 
 Branch: `engine_boundary_2` (from skinning squash on `main`).
 
@@ -23,10 +24,10 @@ Branch: `engine_boundary_2` (from skinning squash on `main`).
 
 | Doc | Role |
 |-----|------|
-| [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) | Author hub |
+| [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md) | Author hub |
 | [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md) | Per-dimension ownership (update as phases land) |
-| [`TURN_ACTION_DOCK_CONTRACT.md`](TURN_ACTION_DOCK_CONTRACT.md) | Player primitives |
-| [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md) | Wire + hooks |
+| [`TURN_ACTION_DOCK_CONTRACT.md`](../TURN_ACTION_DOCK_CONTRACT.md) | Player primitives |
+| [`PACK_HOOK_CONTRACTS.md`](../PACK_HOOK_CONTRACTS.md) | Wire + hooks |
 
 ---
 
@@ -94,7 +95,7 @@ Reserved top-level keys: prefix `hexengine_` (e.g. `hexengine_movement_arc`) —
 
 **Status (shipped):** `UIHook.COMBAT_INTERACTION_MESSAGES`, `ui_combat_messages.py`, hexdemo `combat_transitions` / `presentation/interaction_messages.py` (via `hooks/ui.py`), `NextPhase` guard.
 
-**Superseded:** `UIHook.BLOCKS_ROUTINE_PHASE_ADVANCE` and `blocks_routine_phase_advance` — replaced by declared arc segments and [`segment_blocks_routine_phase_advance`](../src/hexengine/arcs/segment_wire.py). Hexdemo auto-advance uses [`arc_segment.phase_advance_blocked`](../games/hexdemo/arc_segment.py).
+**Superseded:** `UIHook.BLOCKS_ROUTINE_PHASE_ADVANCE` and `blocks_routine_phase_advance` — replaced by declared arc segments and [`segment_blocks_routine_phase_advance`](../../src/hexengine/arcs/segment_wire.py). Hexdemo auto-advance uses [`arc_segment.phase_advance_blocked`](../../games/hexdemo/arc_segment.py).
 
 ### B.1 Hook: combat / phase blocking (unified policy)
 
@@ -109,7 +110,7 @@ Reserved top-level keys: prefix `hexengine_` (e.g. `hexengine_movement_arc`) —
 
 ### B.2 Document gate strings as title-owned
 
-- In [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md): `combat_gate` values are **pack conventions**, not engine enums.
+- In [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md): `combat_gate` values are **pack conventions**, not engine enums.
 - Engine catalog default dock adds End Phase only; combat gate dock rows are title helpers (`combat_gate_panel_actions`), not engine segment wire.
 
 **Exit criteria:** Banner path has no direct reads of `last_combat` / `combat_gate` except via hook dispatch (`COMBAT_INTERACTION_MESSAGES` / catalog default). `combat_event` broadcast may still read `last_combat`.
@@ -157,7 +158,7 @@ Context: `GameState`, `AttackResolution`, `session_state_key`, attacker/defender
 
 **Objective:** One readable FSM doc in code for authors; engine stays ignorant.
 
-**Status:** `combat_transitions.py` FSM table, gate constants, `attack_planning_blocked_reason`, `follow_up_after_attack`; `combat_policy.py` removed; presentation skin via [`segment_ui.py`](../games/hexdemo/segment_ui.py) + [`hooks/turn_action_dock.py`](../games/hexdemo/hooks/turn_action_dock.py). Removed: `blocks_routine_phase_advance`, `dock_arc_hint`, `DOCK_ARC_*`, `GATE_RETREAT` / `GATE_ADVANCE` aliases.
+**Status:** `combat_transitions.py` FSM table, gate constants, `attack_planning_blocked_reason`, `follow_up_after_attack`; `combat_policy.py` removed; presentation skin via [`segment_ui.py`](../../games/hexdemo/segment_ui.py) + [`hooks/turn_action_dock.py`](../../games/hexdemo/hooks/turn_action_dock.py). Removed: `blocks_routine_phase_advance`, `dock_arc_hint`, `DOCK_ARC_*`, `GATE_RETREAT` / `GATE_ADVANCE` aliases.
 
 ### D.1 `games/hexdemo/combat_transitions.py` ✅
 
@@ -168,9 +169,9 @@ Context: `GameState`, `AttackResolution`, `session_state_key`, attacker/defender
 | `attack_planning_blocked_reason` | Attack plan preview + validation messaging |
 | `follow_up_after_attack` | `AttackHook.AFTER_ATTACK_APPLIED` bucket patches |
 | `clear_combat_state_actions` | Phase-scoped key clear on `NextPhase` |
-Phase advance blocking: [`arc_segment.phase_advance_blocked`](../games/hexdemo/arc_segment.py), not exports from this module.
+Phase advance blocking: [`arc_segment.phase_advance_blocked`](../../games/hexdemo/arc_segment.py), not exports from this module.
 
-Dock skin: [`segment_ui.resolve_presentation_id`](../games/hexdemo/segment_ui.py) + `UIHook.ENRICH_CURRENT_SEGMENT`, not `dock_arc_hint`.
+Dock skin: [`segment_ui.resolve_presentation_id`](../../games/hexdemo/segment_ui.py) + `UIHook.ENRICH_CURRENT_SEGMENT`, not `dock_arc_hint`.
 
 Include a short state table in module docstring (routine ↔ retreat gate ↔ advance gate ↔ routine).
 
@@ -204,8 +205,8 @@ GameState
 | Item | Action |
 |------|--------|
 | [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md) | Rows #9–11 + boundary-2 quick reference |
-| [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) | Session state / `BucketPatch` / combat transitions section |
-| [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md) | `COMBAT_INTERACTION_MESSAGES`, segment presentation (P3–P5), attack follow-up hooks |
+| [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md) | Session state / `BucketPatch` / combat transitions section |
+| [`PACK_HOOK_CONTRACTS.md`](../PACK_HOOK_CONTRACTS.md) | `COMBAT_INTERACTION_MESSAGES`, segment presentation (P3–P5), attack follow-up hooks |
 | This plan | Phases A–F marked complete on `engine_boundary_2` |
 
 ---
