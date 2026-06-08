@@ -8,10 +8,8 @@ segment presentation registry (``segment_ui`` + ``presentation.dock``).
 
 from __future__ import annotations
 
-from hexengine.arcs.segment_wire import (
-    action_rows_from_segment,
-    segment_allows_action,
-)
+from hexengine.arcs.segment_wire import segment_allows_action
+from hexengine.authoring.patterns.combat import combat_gate_panel_actions
 from hexengine.authoring.present import turn_dock_panel
 from hexengine.hooks.ui import TurnActionDockContext, UIHook
 from hexengine.hooks.ui_turn_action_dock import _end_phase_row
@@ -37,7 +35,7 @@ def turn_action_dock_for_viewer(
     ctx: TurnActionDockContext,
 ) -> list[TurnDockPanel]:
     seg = ctx.current_segment if isinstance(ctx.current_segment, dict) else None
-    gate_actions = action_rows_from_segment(seg, ctx.shell_ui)
+    gate_actions = combat_gate_panel_actions(seg, ctx.shell_ui)
 
     action_rows: list[PanelAction] = list(gate_actions)
     presentation_id = ""

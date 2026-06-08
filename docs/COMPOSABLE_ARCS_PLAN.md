@@ -476,7 +476,7 @@ gating, and client draft entry from it instead of ``combat_gate`` string matchin
    ``action_locus`` (``server`` vs ``client_draft``) from the active cursor.
 2. **5b — StateUpdate field.** ``current_segment`` on ``StateUpdate`` (per viewer);
    ``TurnActionDockContext.current_segment`` for dock hooks.
-3. **5c — Segment-driven dock + End-Phase.** ``action_rows_from_segment`` builds combat
+3. **5c — Segment-driven dock + End-Phase.** ``combat_gate_panel_actions`` (title helper) builds combat
    button rows from ``allowed_actions`` + ``shell_ui`` labels. End-Phase enabled when
    ``NextPhase`` is in the segment set; ``segment_blocks_routine_phase_advance`` drives
    server ``NextPhase`` rejection before legacy hook fallback.

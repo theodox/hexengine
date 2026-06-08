@@ -17,7 +17,7 @@ from games.hexdemo import combat_arc, combat_transitions
 from games.hexdemo.hooks import build_hooks
 
 from hexengine.arcs import ArcCursor, SetArcCursor, read_arc_cursor
-from hexengine.arcs.segment_wire import action_rows_from_segment
+from hexengine.authoring.patterns.combat import combat_gate_panel_actions
 from hexengine.hexes.types import Hex
 from hexengine.hooks.title import TitleHooks
 from hexengine.server.arcs import begin_combat_arc, drive_combat_arc_event
@@ -263,7 +263,7 @@ def test_dock_offers_skip_at_awaiting_advance() -> None:
         ],
         "action_locus": {},
     }
-    rows = action_rows_from_segment(segment, {})
+    rows = combat_gate_panel_actions(segment, {})
     types = {r.action_type for r in rows}
     assert "CombatAdvance" in types
     assert "CombatDeclineAdvance" in types

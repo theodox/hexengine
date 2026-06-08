@@ -6,10 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from ..arcs.segment_wire import (
-    action_rows_from_segment,
-    segment_allows_action,
-)
+from ..arcs.segment_wire import segment_allows_action
 from ..authoring.present import panel_action, turn_dock_panel
 from ..state import GameState
 from ..ui.display import PanelAction, TurnDockPanel
@@ -63,10 +60,6 @@ def _end_phase_row(ctx: TurnActionDockContext, *, enabled: bool) -> PanelAction:
     )
 
 
-def _segment_gate_actions(ctx: TurnActionDockContext) -> tuple[PanelAction, ...]:
-    return action_rows_from_segment(ctx.current_segment, ctx.shell_ui)
-
-
 def _end_phase_enabled(ctx: TurnActionDockContext) -> bool:
     if ctx.current_segment is not None:
         return segment_allows_action(ctx.current_segment, "NextPhase")
@@ -98,21 +91,20 @@ def default_turn_action_dock_for_viewer(
     """
     Engine catalog default: one ``turn_actions`` panel on host ``user-controls``.
 
-    Gate rows derive from ``current_segment.allowed_actions`` when present; End Phase
-    is enabled when ``NextPhase`` is in the segment's allowed set. Skin uses
-    ``current_segment.presentation_id`` from ``ENRICH_CURRENT_SEGMENT``.
+    Adds End Phase when ``NextPhase`` is allowed on ``current_segment``. Combat gate
+    rows (Disrupt / Advance / Skip) are title helpers — see
+    ``authoring.patterns.combat.combat_gate_panel_actions``.
     """
 
-    gate_actions = _segment_gate_actions(ctx)
-    if not ctx.viewer_is_turn_owner and not gate_actions:
+    if not ctx.viewer_is_turn_owner:
         return []
 
-    actions: list[PanelAction] = list(gate_actions)
+    actions: list[PanelAction] = []
     presentation_id = _presentation_id_for_viewer(ctx)
 
     if _end_phase_enabled(ctx):
         actions.append(_end_phase_row(ctx, enabled=True))
-    elif ctx.viewer_is_turn_owner or gate_actions:
+    else:
         actions.append(_end_phase_row(ctx, enabled=False))
 
     if not actions and presentation_id == "routine":

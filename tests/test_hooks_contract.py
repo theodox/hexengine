@@ -347,7 +347,7 @@ def test_hexdemo_build_hooks_wires_all_marked() -> None:
 
 
 def test_segment_gate_actions_disrupt_row() -> None:
-    from hexengine.arcs.segment_wire import action_rows_from_segment
+    from hexengine.authoring.patterns.combat import combat_gate_panel_actions
 
     segment = {
         "schema": 1,
@@ -358,7 +358,7 @@ def test_segment_gate_actions_disrupt_row() -> None:
         "allowed_actions": ["MoveUnit", "CombatDisruptInsteadOfRetreat"],
         "action_locus": {},
     }
-    rows = action_rows_from_segment(segment, {})
+    rows = combat_gate_panel_actions(segment, {})
     types = {r.action_type for r in rows}
     assert "CombatDisruptInsteadOfRetreat" in types
 

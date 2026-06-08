@@ -14,6 +14,7 @@ from .combat import (
     CombatArcGateKinds,
     build_combat_cleanup_arc,
     build_mandatory_retreat_then_optional_advance_arc,
+    combat_gate_panel_actions,
 )
 from .movement import build_movement_arc
 from .phase import ROUTINE_SEGMENT, build_routine_phase_arc, simple_phase
@@ -32,6 +33,7 @@ __all__ = [
     "SEG_RETREAT_OR_DISRUPT_GATE",
     "build_combat_cleanup_arc",
     "build_mandatory_retreat_then_optional_advance_arc",
+    "combat_gate_panel_actions",
     "build_movement_arc",
     "build_routine_phase_arc",
     "build_turn_registry",

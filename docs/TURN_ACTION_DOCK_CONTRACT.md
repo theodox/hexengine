@@ -307,7 +307,7 @@ Unregistered rows: `execute_action_request(action_type, payload ∪ inputs)`.
 
 When the hook returns `ENGINE_DEFAULT`, the server uses [`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py):
 
-1. Gate rows from `ctx.current_segment.allowed_actions` via [`action_rows_from_segment`](../src/hexengine/arcs/segment_wire.py).
+1. Combat gate rows (optional) from `ctx.current_segment.allowed_actions` via [`combat_gate_panel_actions`](../src/hexengine/authoring/patterns/combat.py) in the title dock hook; engine catalog default adds End Phase only.
 2. **`end_phase`** (`NextPhase`) when `NextPhase` is in the segment's allowed set (or when no segment descriptor is present).
 3. One panel: `id: turn_actions`, `host: user-controls`, `presentation_id` from enriched `current_segment` when present; otherwise `routine` (turn owner) or `hidden`. Titles with `title_state_extension_key` must bind `ENRICH_CURRENT_SEGMENT`.
 

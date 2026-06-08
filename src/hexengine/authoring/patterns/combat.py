@@ -7,7 +7,7 @@ segment ``kind`` strings for gate-bearing segments (parity with the title FSM ta
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -15,6 +15,7 @@ from ...arcs.runner import ArcSpec, OwnerRefResolver
 from ...arcs.spec import CURRENT, NO_OWNER, Arc, ArcContext, OwnerRef
 from ...hooks.combat_rules import CombatArcRulesBinding, CombatRulesBinding
 from ...state.action_manager import StateAction
+from ...ui.display import PanelAction, panel_action
 from ..builder import arc, case
 
 COMBAT_ARC_ID = "combat"
@@ -166,6 +167,90 @@ def build_combat_cleanup_arc(
 # Plan alias: mandatory retreat obligations then optional advance window.
 build_mandatory_retreat_then_optional_advance_arc = build_combat_cleanup_arc
 
+
+def combat_gate_panel_actions(
+    segment: Mapping[str, Any] | None,
+    shell_ui: Mapping[str, Any],
+) -> tuple[PanelAction, ...]:
+    """
+    Optional dock rows for combat cleanup gate ``allowed_actions``.
+
+    Titles using ``build_combat_cleanup_arc`` call this from ``TURN_ACTION_DOCK_FOR_VIEWER``;
+    the engine catalog default dock does not inject these rows.
+    """
+
+    if not segment:
+        return ()
+
+    raw = segment.get("allowed_actions")
+    if not isinstance(raw, list):
+        return ()
+
+    su = shell_ui if isinstance(shell_ui, Mapping) else {}
+    out: list[PanelAction] = []
+
+    def _label(key: str, default: str) -> str:
+        raw_label = su.get(key)
+        if isinstance(raw_label, str) and raw_label.strip():
+            return raw_label.strip()
+        return default
+
+    for action_type in raw:
+        at = str(action_type).strip()
+        if not at or at == "NextPhase":
+            continue
+        if at == "CombatDisruptInsteadOfRetreat":
+            out.append(
+                panel_action(
+                    id="combat_disrupt_instead",
+                    action_type=at,
+                    label=_label(
+                        "disrupt_instead_label", "Disrupt instead of retreat"
+                    ),
+                    title=_label(
+                        "disrupt_instead_title",
+                        "Take disruption on your retreating stack and waive "
+                        "the mandatory retreat (when the title allows).",
+                    ),
+                    payload={},
+                    css_class="hexengine-primary-action--disrupt",
+                    enabled=True,
+                )
+            )
+        elif at == "CombatAdvance":
+            out.append(
+                panel_action(
+                    id="combat_advance",
+                    action_type=at,
+                    label=_label("combat_advance_label", "Advance"),
+                    title=_label(
+                        "combat_advance_title",
+                        "Advance after opponent retreats (when allowed).",
+                    ),
+                    payload={},
+                    css_class="hexengine-primary-action--advance",
+                    enabled=True,
+                )
+            )
+        elif at == "CombatDeclineAdvance":
+            out.append(
+                panel_action(
+                    id="combat_decline_advance",
+                    action_type=at,
+                    label=_label("combat_decline_advance_label", "Skip"),
+                    title=_label(
+                        "combat_decline_advance_title",
+                        "Skip the optional advance.",
+                    ),
+                    payload={},
+                    css_class="hexengine-primary-action--decline-advance",
+                    enabled=True,
+                )
+            )
+
+    return tuple(out)
+
+
 _COMBAT_RULES_BINDING_METHODS: tuple[str, ...] = (
     "validate_attack",
     "resolve_attack",
@@ -281,6 +366,7 @@ __all__ = [
     "SEG_RETREAT_OR_DISRUPT_GATE",
     "build_combat_cleanup_arc",
     "build_mandatory_retreat_then_optional_advance_arc",
+    "combat_gate_panel_actions",
     "combat_rules_binding_missing_methods",
     "combat_rules_binding_satisfies",
     "combat_rules_binding_to_arc_spec",

@@ -7,10 +7,10 @@ from games.hexdemo.hooks import build_hooks
 
 from hexengine.arcs import ArcCursor, SetArcCursor
 from hexengine.arcs.segment_wire import (
-    action_rows_from_segment,
     project_current_segment,
     segment_blocks_routine_phase_advance,
 )
+from hexengine.authoring.patterns.combat import combat_gate_panel_actions
 from hexengine.hexes.types import Hex
 from hexengine.hooks.ui import TurnActionDockContext
 from hexengine.server import GameServer
@@ -116,7 +116,7 @@ def test_advance_gate_blocks_next_phase() -> None:
     )
 
 
-def test_action_rows_from_advance_segment() -> None:
+def test_combat_gate_panel_actions_from_advance_segment() -> None:
     st = _state_on_combat_segment(
         combat_arc.SEG_ADVANCE_GATE,
         viewer_faction="union",
@@ -124,7 +124,7 @@ def test_action_rows_from_advance_segment() -> None:
     )
     host = _ProjectHost()
     seg = project_current_segment(host, st, viewer_faction="union")
-    rows = action_rows_from_segment(seg, {})
+    rows = combat_gate_panel_actions(seg, {})
     ids = {r.id for r in rows}
     assert "combat_advance" in ids
     assert "combat_decline_advance" in ids
