@@ -11,14 +11,15 @@ from typing import Any
 
 from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
-from hexengine.state import GameState
-from hexengine.state.action_manager import StateAction
 from hexengine.hooks.bucket import ApplyBucketPatch, BucketPatch, clear_session_bucket
 from hexengine.hooks.unit import ApplyUnitAttributesPatch, UnitAttributesPatch
+from hexengine.state import GameState
+from hexengine.state.action_manager import StateAction
 from hexengine.state.actions import (
     ClearUnitRetreatObligation,
     MoveUnit,
 )
+
 from ..arcs import segment as arc_segment
 from ..state import session_state
 
@@ -233,7 +234,10 @@ def maybe_open_advance_after_retreat(
 
 
 def is_combat_advance_move(
-    state: GameState, params: dict[str, Any], player_faction: str, session_state_key: str
+    state: GameState,
+    params: dict[str, Any],
+    player_faction: str,
+    session_state_key: str,
 ) -> bool:
     """True when this ``MoveUnit`` wire matches the pending advance into the vacated hex."""
 
@@ -326,7 +330,9 @@ def clear_advance_gate(state: GameState, session_state_key: str) -> list[StateAc
         return []
     if session_state.advance_offer(state) is None:
         return []
-    return clear_session_bucket(state, ("advance",), session_state_key=session_state_key)
+    return clear_session_bucket(
+        state, ("advance",), session_state_key=session_state_key
+    )
 
 
 def resolve_combat_advance(

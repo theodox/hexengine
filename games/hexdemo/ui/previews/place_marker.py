@@ -66,9 +66,7 @@ def _panel_actions(
         panel_action(
             id="place_marker_confirm",
             action_type="MoveMarker",
-            label=_shell_label(
-                shell_ui, "place_marker_confirm_label", "Confirm move"
-            ),
+            label=_shell_label(shell_ui, "place_marker_confirm_label", "Confirm move"),
             title=_shell_label(
                 shell_ui,
                 "place_marker_confirm_title",

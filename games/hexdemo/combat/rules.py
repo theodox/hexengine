@@ -33,8 +33,9 @@ from hexengine.server.arcs.authority_attack_commit import (
 from hexengine.state import UnitState
 from hexengine.state.action_manager import StateAction
 from hexengine.state.map_feature_queries import edges_block_los_predicate
-from . import actions, outcome
+
 from ..state import session_state
+from . import actions, outcome
 
 # When the board has no explicit or unset-default terrain for a hex, CRT math still
 # needs a stable type (matches legacy tests and minimal `BoardState` fixtures).
@@ -562,9 +563,7 @@ class HexdemoCombatRules:
         if not ctx.session_state_key:
             return False
         return bool(
-            actions.maybe_open_advance_after_retreat(
-                ctx.state, ctx.session_state_key
-            )
+            actions.maybe_open_advance_after_retreat(ctx.state, ctx.session_state_key)
         )
 
     def is_retreat_fulfillment(self, ctx: ArcContext) -> bool:

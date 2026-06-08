@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from . import retreat_preview, rules
-from .rules import BINDING, HexdemoMovementRules
 from .retreat_preview import retreat_path_preview
+from .rules import BINDING, HexdemoMovementRules
 
 __all__ = [
     "BINDING",

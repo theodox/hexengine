@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from hexengine.hexes.types import Hex
 from hexengine.hooks.attack import (
     AttackHook,
@@ -12,9 +10,9 @@ from hexengine.hooks.attack import (
 )
 from hexengine.hooks.wiring import bind_title_hook
 
+from ..arcs.segment import phase_advance_blocked
 from ..combat import rules as combat_rules
 from ..combat.planning import compute_attack_plan_preview
-from ..arcs.segment import phase_advance_blocked
 from ..state import session_state
 
 # Re-export for tests that patch RNG on the rules module path.

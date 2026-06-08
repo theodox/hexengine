@@ -20,8 +20,8 @@ from hexengine.retreat_path import (
 from hexengine.state import GameState
 from hexengine.ui.display import MapSelectionPreview, PanelAction
 
-from ..state import session_state
 from ..hooks import movement as movement_hooks
+from ..state import session_state
 
 
 def _shell_label(shell_ui: dict[str, Any], key: str, default: str) -> str:

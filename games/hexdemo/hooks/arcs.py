@@ -10,8 +10,8 @@ from hexengine.arcs.registry import TurnArcRegistry
 from hexengine.hooks.arcs import ArcHook
 from hexengine.hooks.wiring import bind_title_hook
 
-from ..combat.arc import BINDING, build_hexdemo_combat_arc_spec
 from ..arcs.turn_schedule import build_hexdemo_turn_arc_registry
+from ..combat.arc import BINDING, build_hexdemo_combat_arc_spec
 
 _COMBAT_ARC_SPEC = build_hexdemo_combat_arc_spec()
 _TURN_ARC_REGISTRY = build_hexdemo_turn_arc_registry()

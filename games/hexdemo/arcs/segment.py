@@ -20,7 +20,9 @@ _SEGMENT_HOST: SimpleNamespace | None = None
 def _segment_host() -> SimpleNamespace:
     global _SEGMENT_HOST
     if _SEGMENT_HOST is None:
-        from ..hooks import build_hooks  # breaks cycle: hooks → attack → arcs.segment → hooks
+        from ..hooks import (
+            build_hooks,  # breaks cycle: hooks → attack → arcs.segment → hooks
+        )
 
         hooks = build_hooks()
         host = SimpleNamespace(hooks=hooks, movement_arc_spec=lambda: None)

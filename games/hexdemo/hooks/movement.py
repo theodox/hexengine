@@ -20,7 +20,9 @@ MOVEMENT_HOOKS = {name: getattr(BINDING, name) for name in _MOVEMENT_SLOTS}
 
 
 def retreat_path_preview_for_viewer(ctx):
-    from ..movement.retreat_preview import retreat_path_preview  # breaks cycle: movement → retreat_preview → movement
+    from ..movement.retreat_preview import (
+        retreat_path_preview,  # breaks cycle: movement → retreat_preview → movement
+    )
 
     return retreat_path_preview(ctx)
 

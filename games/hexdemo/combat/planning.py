@@ -15,7 +15,6 @@ from hexengine.hexes.los import has_line_of_sight
 from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
 from hexengine.hooks.attack import AttackContext, AttackHooks
-from hexengine.ui.display import MapSelectionPreview, PanelAction
 from hexengine.server.arcs.authority_attack import (
     normalize_attack_party_ids,
     sorted_unique_hexes_from_unit_ids,
@@ -23,6 +22,7 @@ from hexengine.server.arcs.authority_attack import (
 from hexengine.server.preview import hexes_to_wire
 from hexengine.state import GameState
 from hexengine.state.map_feature_queries import edges_block_los_predicate
+from hexengine.ui.display import MapSelectionPreview, PanelAction
 
 from ..state import session_state
 from .transitions import attack_planning_blocked_reason

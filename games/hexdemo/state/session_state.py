@@ -10,10 +10,12 @@ from __future__ import annotations
 from typing import Any
 
 from hexengine.state import GameState
+from hexengine.state.engine_session_state import (
+    engine_read_session_state as _engine_read_session_state,
+)
 from hexengine.state.pack_extension_retreat import (
     retreat_hexes_remaining as _pack_retreat_steps,
 )
-from hexengine.state.engine_session_state import engine_read_session_state as _engine_read_session_state
 
 from ..constants import PACK_SESSION_STATE_KEY
 

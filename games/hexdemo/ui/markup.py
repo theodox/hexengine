@@ -9,14 +9,13 @@ from __future__ import annotations
 
 from html import escape
 from pathlib import Path
-from typing import Any
 
+from hexengine.authoring.present import InformPopup, inform_popup
 from hexengine.game_packs.resources import pack_asset_base_url
 from hexengine.hexes.types import HexColRow
 from hexengine.hooks.ui import PhaseBannerContext
 from hexengine.state import GameState
 from hexengine.state.game_state import UnitState
-from hexengine.authoring.present import InformPopup, inform_popup
 from hexengine.ui.display import (
     load_html_template,
     pack_asset_href,
