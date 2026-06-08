@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from hexengine.state import GameState
 
-from . import session_state
+from .state import session_state
 
 
 def focus_unit_id_after_state_sync(

@@ -17,7 +17,8 @@ from hexengine.authoring.patterns.combat import (
     combat_rules_binding_to_arc_spec,
 )
 from hexengine.state import GameState
-from . import combat_rules, combat_transitions, session_state
+from . import combat_rules, combat_transitions
+from .state import session_state
 
 BINDING = combat_rules.BINDING
 

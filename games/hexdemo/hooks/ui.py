@@ -22,7 +22,7 @@ from hexengine.hooks.ui_combat_messages import default_combat_interaction_messag
 from hexengine.hooks.wiring import bind_title_hook
 from hexengine.state import GameState
 
-from .. import session_state
+from ..state import session_state
 from ..constants import PACK_SESSION_STATE_KEY
 from ..presentation.inform import inform_popup_for_profile
 from ..presentation.interaction_messages import (

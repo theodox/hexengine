@@ -23,7 +23,7 @@ from hexengine.state.logic import (
     retreat_impassable_enemy_zoc_hexes,
 )
 
-from . import session_state
+from .state import session_state
 
 
 @dataclass(frozen=True, slots=True)

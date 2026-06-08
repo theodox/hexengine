@@ -15,7 +15,7 @@ from hexengine.state.pack_extension_retreat import (
 )
 from hexengine.state.engine_session_state import engine_read_session_state as _engine_read_session_state
 
-from .constants import PACK_SESSION_STATE_KEY
+from ..constants import PACK_SESSION_STATE_KEY
 
 
 def bucket(state: GameState) -> dict[str, Any]:

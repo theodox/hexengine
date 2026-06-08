@@ -12,7 +12,8 @@ from hexengine.hooks.attack import (
 )
 from hexengine.hooks.wiring import bind_title_hook
 
-from .. import combat_rules, session_state
+from .. import combat_rules
+from ..state import session_state
 from ..arc_segment import phase_advance_blocked
 from ..combat_planning import compute_attack_plan_preview
 

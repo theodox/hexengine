@@ -55,7 +55,7 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `combat_actions.py` | Pack-local cleanup state actions (disrupt, advance, retreat step) |
 | `movement_rules.py` | Movement policy (`MovementRulesBinding`); `hooks/movement.py` adapts |
 | `combat_planning.py` | Attack plan preview (shared by `hooks/attack` and tests) |
-| `session_state.py` | Session-state reads (`bucket()`, retreat obligations, advance offer) |
+| `state/session_state.py` | Session-state reads (`bucket()`, retreat obligations, advance offer) |
 | `turn_arc_schedule.py` | Turn arc registry builder (move/combat schedule slots) |
 | `focus.py` | Suggested unit focus after state sync |
 | `shell_ui.py` | Shell UI string keys for dock and previews |

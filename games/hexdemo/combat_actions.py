@@ -19,7 +19,8 @@ from hexengine.state.actions import (
     ClearUnitRetreatObligation,
     MoveUnit,
 )
-from . import arc_segment, session_state
+from . import arc_segment
+from .state import session_state
 
 
 def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:

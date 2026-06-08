@@ -33,7 +33,8 @@ from hexengine.server.arcs.authority_attack_commit import (
 from hexengine.state import UnitState
 from hexengine.state.action_manager import StateAction
 from hexengine.state.map_feature_queries import edges_block_los_predicate
-from . import combat_actions, combat_outcome, session_state
+from . import combat_actions, combat_outcome
+from .state import session_state
 
 # When the board has no explicit or unset-default terrain for a hex, CRT math still
 # needs a stable type (matches legacy tests and minimal `BoardState` fixtures).

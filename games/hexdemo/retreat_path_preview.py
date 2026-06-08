@@ -20,7 +20,7 @@ from hexengine.retreat_path import (
 from hexengine.state import GameState
 from hexengine.ui.display import MapSelectionPreview, PanelAction
 
-from . import session_state
+from .state import session_state
 from .hooks import movement as movement_hooks
 
 

@@ -10,7 +10,7 @@ from hexengine.hooks.wiring import bind_title_hook
 from hexengine.state import GameState
 from hexengine.ui.display import MapOverlay
 
-from .. import session_state
+from ..state import session_state
 
 _COMBAT_GLYPH = "🟎"
 _COMBAT_GLYPH_CLASS = "hexdemo-combat-glyph-overlay"
