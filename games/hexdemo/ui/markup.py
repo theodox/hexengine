@@ -1,5 +1,5 @@
 """
-Hexdemo HTML templates and small markup helpers (tier 2–3 skinning reference).
+Hexdemo HTML templates and small markup helpers.
 
 Templates live under ``resources/templates/``. Uses :mod:`hexengine.ui.display` for
 template load/render; game-specific copy stays here.
