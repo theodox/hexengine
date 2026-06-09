@@ -7,11 +7,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..state import GameState
+from ..state.engine_session_state import engine_read_session_state
 from ..ui.display import InteractionMessage, interaction_message
 
 _UI_MODE_RETREAT = frozenset({"awaiting_retreat", "awaiting_retreat_or_disrupt"})
 _UI_MODE_ADVANCE = frozenset({"awaiting_advance"})
-from ..state.engine_session_state import engine_read_session_state
 
 
 def retreat_owner_faction(
