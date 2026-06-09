@@ -22,6 +22,7 @@ from hexengine.hooks.wiring import assemble_title_hooks
 from . import (
     attack,
     markers,
+    movement,
     overlays,
     segment_presentation,
     segment_ui_registry,
@@ -29,11 +30,11 @@ from . import (
     ui,
 )
 from .arcs import ARCS_HOOKS
-from .movement import MOVEMENT_HOOKS
 
 
 def build_hooks() -> TitleHooks:
     return assemble_title_hooks(
+        movement,
         attack,
         ui,
         overlays,
@@ -42,7 +43,6 @@ def build_hooks() -> TitleHooks:
         segment_ui_registry,
         markers,
         arcs=ARCS_HOOKS,
-        movement=MOVEMENT_HOOKS,
     )
 
 

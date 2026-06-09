@@ -1,33 +1,79 @@
-"""Wire ``MovementHook`` slots to ``movement.rules.BINDING``."""
+"""Thin ``MovementHook`` adapters — movement policy lives in ``movement/rules.py``."""
 
 from __future__ import annotations
 
-from ..movement.rules import BINDING
+from hexengine.hooks.movement import MovementHook
+from hexengine.hooks.wiring import bind_title_hook
 
-_MOVEMENT_SLOTS = (
-    "movement_step_cost_for_unit",
-    "movement_budget_for_unit",
-    "zoc_hexes_for_unit",
-    "retreat_obligation_hexes_remaining",
-    "any_retreat_obligation_pending",
-    "faction_has_pending_retreat_obligation",
-    "retreat_blocked_hexes",
-    "validate_retreat_move",
-    "auto_advance_phase_after_move_spend",
-)
-
-MOVEMENT_HOOKS = {name: getattr(BINDING, name) for name in _MOVEMENT_SLOTS}
+from ..movement import rules as movement_rules
 
 
-def retreat_path_preview_for_viewer(ctx):
-    from ..movement.retreat_preview import (
-        retreat_path_preview,  # breaks cycle: movement → retreat_preview → movement
+@bind_title_hook(MovementHook.MOVEMENT_STEP_COST_FOR_UNIT)
+def movement_step_cost_for_unit(state, unit_id, from_hex, to_hex, base_cost):
+    return movement_rules.movement_step_cost_for_unit(
+        state, unit_id, from_hex, to_hex, base_cost
     )
 
-    return retreat_path_preview(ctx)
+
+@bind_title_hook(MovementHook.MOVEMENT_BUDGET_FOR_UNIT)
+def movement_budget_for_unit(state, unit_id):
+    return movement_rules.movement_budget_for_unit(state, unit_id)
 
 
-MOVEMENT_HOOKS["retreat_path_preview"] = retreat_path_preview_for_viewer
+@bind_title_hook(MovementHook.ZOC_HEXES_FOR_UNIT)
+def zoc_hexes_for_unit(state, unit_id):
+    return movement_rules.zoc_hexes_for_unit(state, unit_id)
 
 
-__all__ = ["MOVEMENT_HOOKS", "retreat_path_preview_for_viewer"]
+@bind_title_hook(MovementHook.RETREAT_OBLIGATION_HEXES_REMAINING)
+def retreat_obligation_hexes_remaining(state, unit_id):
+    return movement_rules.retreat_obligation_hexes_remaining(state, unit_id)
+
+
+@bind_title_hook(MovementHook.ANY_RETREAT_OBLIGATION_PENDING)
+def any_retreat_obligation_pending(state):
+    return movement_rules.any_retreat_obligation_pending(state)
+
+
+@bind_title_hook(MovementHook.FACTION_HAS_PENDING_RETREAT_OBLIGATION)
+def faction_has_pending_retreat_obligation(state, faction):
+    return movement_rules.faction_has_pending_retreat_obligation(state, faction)
+
+
+@bind_title_hook(MovementHook.RETREAT_BLOCKED_HEXES)
+def retreat_blocked_hexes(state, unit_id):
+    return movement_rules.retreat_blocked_hexes(state, unit_id)
+
+
+@bind_title_hook(MovementHook.VALIDATE_RETREAT_MOVE)
+def validate_retreat_move(ctx, hexes_remaining):
+    return movement_rules.validate_retreat_move(ctx, hexes_remaining)
+
+
+@bind_title_hook(MovementHook.AUTO_ADVANCE_PHASE_AFTER_MOVE_SPEND)
+def auto_advance_phase_after_move_spend(state):
+    return movement_rules.auto_advance_phase_after_move_spend(state)
+
+
+@bind_title_hook(MovementHook.RETREAT_PATH_PREVIEW)
+def retreat_path_preview(ctx):
+    from ..movement.retreat_preview import (
+        retreat_path_preview as compute_retreat_path_preview,
+        # breaks cycle: movement → retreat_preview → movement
+    )
+
+    return compute_retreat_path_preview(ctx)
+
+
+__all__ = [
+    "any_retreat_obligation_pending",
+    "auto_advance_phase_after_move_spend",
+    "faction_has_pending_retreat_obligation",
+    "movement_budget_for_unit",
+    "movement_step_cost_for_unit",
+    "retreat_blocked_hexes",
+    "retreat_obligation_hexes_remaining",
+    "retreat_path_preview",
+    "validate_retreat_move",
+    "zoc_hexes_for_unit",
+]
