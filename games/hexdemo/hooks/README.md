@@ -62,7 +62,7 @@ Longer term, the engine may offer **composable rule pieces** (ZOC, terrain, mora
 | `../combat/rules.py` | `HexdemoCombatRules` / `BINDING`: CRT, validate, arc guards/effects, `attack_arc_effect` | `ArcHook.COMBAT_RULES_BINDING` |
 | `../combat/outcome.py` | `build_combat_outcome_after_applied` → `CombatOutcome` | Called from binding / `attack.py` |
 | `../combat/arc.py` | `combat_rules_binding_to_arc_spec` + owner resolver | `ArcHook.COMBAT_ARC` via `hooks/arcs.py` |
-| `arcs.py` | `COMBAT_ARC`, `COMBAT_RULES_BINDING`, `TURN_ARC_REGISTRY` | `@bind_title_hook(ArcHook.…)` |
+| `arcs.py` | `COMBAT_ARC`, `COMBAT_RULES_BINDING`, `TURN_ARC_REGISTRY` | `ARCS_HOOKS` dict |
 | `ui.py` | Phase/combat banners, inspect, inform popups, combat event summary | `@bind_title_hook(UIHook.…)`; copy from `presentation/` |
 | `../presentation/inform.py` | INFORM map callouts keyed by `inform_profile` + `reason` | Used by `ui.inform_popup_for_viewer` |
 | `../presentation/interaction_messages.py` | Combat/advance banner copy for `interaction_messages` | Used by `ui.combat_interaction_messages` |
