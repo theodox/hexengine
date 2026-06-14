@@ -83,7 +83,7 @@ def project_current_segment(
 ) -> dict[str, Any] | None:
     """Per-recipient projection of the active declared segment (or None when no cursor)."""
 
-    from ..server.arcs.authority_arc_runtime import lookup_arc_spec
+    from .title.lookup import lookup_arc_spec
 
     cursor = read_arc_cursor(state)
     if cursor is None:
@@ -163,14 +163,13 @@ def segment_blocks_routine_phase_advance_for_hooks(
     *,
     viewer_faction: str | None = None,
 ) -> bool:
-    """Segment-only phase blocking for title hooks that lack a ``GameServer`` host."""
+    """Segment-only phase blocking for title hooks that lack a GameServer host."""
 
     from types import SimpleNamespace
 
-    from ..server.arcs.authority_arc_runtime import lookup_arc_spec
+    from .title.lookup import attach_arc_lookup
 
-    host = SimpleNamespace(hooks=hooks, movement_arc_spec=lambda: None)
-    host.lookup_arc_spec = lambda arc_id: lookup_arc_spec(host, arc_id)
+    host = attach_arc_lookup(SimpleNamespace(hooks=hooks, movement_arc_spec=lambda: None))
     return segment_blocks_routine_phase_advance(
         host, state, viewer_faction=viewer_faction
     )

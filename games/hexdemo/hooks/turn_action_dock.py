@@ -9,7 +9,7 @@ Combat gate rows from ``combat_gate_panel_actions``; End-Phase gating from
 
 from __future__ import annotations
 
-from hexengine.arcs.segment_wire import segment_allows_action
+from hexengine.arcs.title.segment import segment_allows_action
 from hexengine.authoring.patterns.combat import combat_gate_panel_actions
 from hexengine.authoring.present import turn_dock_panel
 from hexengine.hooks.ui import TurnActionDockContext, UIHook

@@ -5,13 +5,13 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
-from hexengine.arcs.segment_wire import (
+from hexengine.arcs.title.lookup import attach_arc_lookup
+from hexengine.arcs.title.segment import (
     project_current_segment,
     segment_allows_action,
     segment_blocks_routine_phase_advance,
     segment_denies_action_for_faction,
 )
-from hexengine.server.arcs.authority_arc_runtime import lookup_arc_spec
 from hexengine.state import GameState
 
 _SEGMENT_HOST: SimpleNamespace | None = None
@@ -26,7 +26,7 @@ def _segment_host() -> SimpleNamespace:
 
         hooks = build_hooks()
         host = SimpleNamespace(hooks=hooks, movement_arc_spec=lambda: None)
-        host.lookup_arc_spec = lambda arc_id: lookup_arc_spec(host, arc_id)
+        attach_arc_lookup(host)
         _SEGMENT_HOST = host
     return _SEGMENT_HOST
 
@@ -42,7 +42,7 @@ def project_segment_for_faction(
 
 
 def phase_advance_blocked(state: GameState) -> bool:
-    """True when the active segment forbids ``NextPhase`` for the current faction."""
+    """True when the active segment forbids NextPhase for the current faction."""
 
     return segment_blocks_routine_phase_advance(
         _segment_host(),
@@ -56,7 +56,7 @@ def segment_denies_action(
     viewer_faction: str | None,
     action_type: str,
 ) -> bool:
-    """True when a segment is active and omits ``action_type`` from allowed_actions."""
+    """True when a segment is active and omits action_type from allowed_actions."""
 
     return segment_denies_action_for_faction(
         _segment_host(), state, viewer_faction, action_type
@@ -64,7 +64,7 @@ def segment_denies_action(
 
 
 def segment_ui_mode(state: GameState, viewer_faction: str | None) -> str:
-    """Active declared segment ``ui_mode`` for ``viewer_faction``, or ``""``."""
+    """Active declared segment ui_mode for viewer_faction, or empty string."""
 
     seg = project_segment_for_faction(state, viewer_faction)
     if not seg:
@@ -77,7 +77,7 @@ def segment_allows(
     viewer_faction: str | None,
     action_type: str,
 ) -> bool:
-    """True when the projected segment lists ``action_type`` in ``allowed_actions``."""
+    """True when the projected segment lists action_type in allowed_actions."""
 
     seg = project_segment_for_faction(state, viewer_faction)
     if seg is None:

@@ -25,7 +25,7 @@ from hexengine.hooks.interaction import (
 )
 from hexengine.hooks.combat_outcome import CombatOutcome
 from hexengine.hooks.title import TitleHooks
-from hexengine.server.arcs.authority_attack_commit import (
+from hexengine.arcs.title.attack_commit import (
     build_attack_context_from_wire,
     collect_authority_attack_actions,
     resolve_authority_attack,

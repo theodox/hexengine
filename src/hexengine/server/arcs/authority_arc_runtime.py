@@ -23,14 +23,18 @@ from ...arcs import (
     submit_event,
 )
 from ...arcs.capabilities import arc_event_action_types
+from ...arcs.title.lookup import (
+    combat_arc_spec,
+    lookup_arc_spec,
+    movement_arc_spec_for_host,
+    turn_arc_registry_from_hooks,
+)
 from ...arcs.movement_arc_decl import (
     MOVEMENT_ARC_ID,
     SEG_CONTINUE,
     SEG_INTERRUPT,
     read_movement_payload,
 )
-from ...arcs.registry import TurnArcRegistry
-from ...hooks.core import ENGINE_DEFAULT, ENGINE_MOVEMENT_ARC_PRESET
 from ...hooks.title import TitleHooks
 from ...state import ActionManager, GameState
 from ...state.movement_arc import MOVEMENT_ARC_GATE_AWAITING_INTERRUPT
@@ -113,33 +117,6 @@ def title_declares_overlay_arc(hooks: TitleHooks) -> bool:
     return combat_arc_spec(hooks) is not None
 
 
-def turn_arc_registry_from_hooks(hooks: TitleHooks) -> TurnArcRegistry | None:
-    """The title's turn arc registry, or None when not declared."""
-
-    raw = hooks.arcs.turn_arc_registry_spec()
-    return raw if isinstance(raw, TurnArcRegistry) else None
-
-
-def lookup_arc_spec(host: ArcRuntimeHost, arc_id: str) -> ArcSpec | None:
-    """Resolve any declared arc by id (routine, combat, movement)."""
-
-    reg = turn_arc_registry_from_hooks(host.hooks)
-    if reg is not None:
-        spec = reg.routine_specs.get(str(arc_id))
-        if spec is not None:
-            return spec
-
-    combat = combat_arc_spec(host.hooks)
-    if combat is not None and combat.arc.id == arc_id:
-        return combat
-
-    movement = movement_arc_spec(host)
-    if movement is not None and movement.arc.id == arc_id:
-        return movement
-
-    return None
-
-
 def resolve_active_segment_owner(host: ArcRuntimeHost, state: GameState) -> str | None:
     """Resolved owner faction for the active arc segment, or routine current faction."""
 
@@ -182,13 +159,6 @@ def restore_routine_cursor(host: ArcRuntimeHost) -> None:
         return
     idx = int(host.action_manager.current_state.turn.schedule_index)
     begin_routine_slot(host, idx)
-
-
-def combat_arc_spec(hooks: TitleHooks) -> ArcSpec | None:
-    """The title's declared combat arc bundle, or None when it declares no arc."""
-
-    raw = hooks.arcs.combat_arc_spec()
-    return raw if isinstance(raw, ArcSpec) else None
 
 
 def begin_combat_arc(host: ArcRuntimeHost) -> None:
@@ -338,12 +308,7 @@ async def drive_overlay_arc_event(
 def movement_arc_spec(host: ArcRuntimeHost) -> ArcSpec | None:
     """The engine/title movement arc bundle, or None when unavailable."""
 
-    raw = host.hooks.arcs.movement_arc_spec()
-    if isinstance(raw, ArcSpec):
-        return raw
-    if raw is ENGINE_DEFAULT or raw is ENGINE_MOVEMENT_ARC_PRESET:
-        return host.movement_arc_spec()
-    return None
+    return movement_arc_spec_for_host(host)
 
 
 def sync_movement_cursor_from_payload(host: ArcRuntimeHost) -> None:

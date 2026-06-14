@@ -11,15 +11,15 @@ from collections.abc import Mapping
 from typing import Any
 
 from hexengine.authoring.present import map_selection_preview, panel_action
+from hexengine.arcs.title.attack_wire import (
+    normalize_attack_party_ids,
+    sorted_unique_hexes_from_unit_ids,
+)
 from hexengine.hexes.los import has_line_of_sight
 from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
 from hexengine.hooks.interaction import AttackContext, InteractionHooks
-from hexengine.server.arcs.authority_attack import (
-    normalize_attack_party_ids,
-    sorted_unique_hexes_from_unit_ids,
-)
-from hexengine.server.preview import hexes_to_wire
+from hexengine.retreat_path import hexes_to_wire
 from hexengine.state import GameState
 from hexengine.state.map_feature_queries import edges_block_los_predicate
 from hexengine.ui.display import MapSelectionPreview, PanelAction

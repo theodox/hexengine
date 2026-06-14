@@ -25,7 +25,7 @@ Transitions:
 
 from __future__ import annotations
 
-from hexengine.arcs.segment_wire import segment_allows_action
+from hexengine.arcs.title.segment import segment_allows_action
 from hexengine.authoring.patterns.combat import CombatArcGateUiModes
 from hexengine.hooks.bucket import clear_session_bucket
 from hexengine.state import GameState

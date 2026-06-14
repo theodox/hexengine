@@ -21,6 +21,32 @@ A **title pack** is a self-contained game: scenario TOML, `resources/`, Python u
 
 ---
 
+## Vocabulary: pack, title, client, server
+
+Docs and code use four layers; they are not interchangeable.
+
+| Term | Means | Typical locations / APIs |
+|------|--------|---------------------------|
+| **Pack** | On-disk game unit: `games/<pack_id>/`, `hexengine_pack.toml`, `resources/`, scenario TOML | `hexengine.game_packs`, `pack.id`, `PACK_*` contract docs |
+| **Title** | Author’s match logic and presentation: rules, declared arcs, `TitleHooks`, `GameDefinition` — runs in the **server** process | `games/<pack_id>/hooks/`, `combat/rules.py`, `TitleHooks`, `validate_title_contract` |
+| **Title pack** | Both: the thing you ship (pack layout + title code). Preferred when talking to authors | “Build a title pack”, `games/hexdemo/` |
+| **Server** | Authoritative match: arc runner, RPC routing, `GameState`, wire assembly | `hexengine.server`, `GameServer` |
+| **Client** | Thin **browser** runtime: renders `StateUpdate`, holds map/dock drafts, sends `action_request` | `hexengine.game`, `client_*` modules, `client_contract` in `game_data.toml` |
+
+**Not the same:**
+
+- **Client ≠ title** — the browser does not run `combat/rules.py` or `TitleHooks`; it consumes wire and manifest data (`ClientTitleData`, `client_title_load`).
+- **Pack ≠ client** — pack Python executes on the server; the client reads `client_contract` and assets from the pack directory.
+- **Title ≠ server** — the title supplies policy and content; the engine owns mechanics titles must not reimplement (`hexengine.server.*` internals).
+
+When a module name says `client_title_*`, that is **title manifest on the client** (splash, contract features), not “the client instead of the server.”
+
+**Title arc imports:** pack Python should use `hexengine.arcs` for declarative types (Arc, ArcContext, ArcSpec, …) and `hexengine.arcs.title.*` for match-runtime helpers (lookup, attack commit, segment projection). Do not import `hexengine.server` for those. See `hexengine.arcs.title` package docstring.
+
+Normative ownership detail: [`ENGINE_TITLE_CHARTER.md`](ENGINE_TITLE_CHARTER.md).
+
+---
+
 ## Modification vs interaction
 
 Two **families** frame hook and RPC design: `ModificationHook` / `TitleHooks.modification` and `InteractionHook` / `TitleHooks.interaction`.

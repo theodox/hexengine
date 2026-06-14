@@ -16,6 +16,8 @@ This charter states **who owns what** between `hexengine` (authoritative server,
 - what titles must be able to read and reason about (arcs, segments, registries),
 - when incomplete packs should **fail fast** vs when omitted features are **valid**.
 
+**Vocabulary:** pack (filesystem/manifest), title (hooks and rules on the server), client (browser runtime), server (authority). See [`TITLE_AUTHORING.md` § Vocabulary](TITLE_AUTHORING.md#vocabulary-pack-title-client-server).
+
 ---
 
 ## Design principles
