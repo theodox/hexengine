@@ -1,6 +1,6 @@
 # Engine / title charter — implementation plan
 
-**Status:** draft — phases 0–2 done; phases 3–7 pending.
+**Status:** draft — phases 0–3 done; phases 4–7 pending.
 
 **One-line goal:** Align runtime and contracts with the charter so titles own flow, policy, and presentation; the engine owns authority, arc cursors, and generic affordances — without hexdemo-shaped silent defaults or parallel turn models.
 
@@ -140,17 +140,17 @@ Phase 5 can start after phase 1 for movement-default removal; full pattern reloc
 
 ---
 
-## Phase 3 — Generic arc RPC routing (E) (1–2 PRs)
+## Phase 3 — Generic arc RPC routing (E) (1–2 PRs) ✅
 
 **Objective:** Reduce dedicated `GameServer` branches for interaction-aftermath RPCs; route through **`submit_event`** when the active segment allows the action type.
 
 **Deliverables:**
 
-- [ ] Introduce `try_arc_rpc(host, player, action_type) -> DispatchOutcome` — unified path for any action type listed on active overlay segment (replaces per-type `try_combat_arc_rpc` sprawl).
-- [ ] Migrate `CombatAdvance`, `CombatDeclineAdvance`, `CombatDisruptInsteadOfRetreat` handlers in [`game_server.py`](../src/hexengine/server/game_server.py) to generic path.
-- [ ] Migrate combat-scoped `MoveUnit` (`try_combat_arc_move_unit`) to segment-gated modification path where possible.
-- [ ] Reject unknown RPCs with segment-deny message (charter B), not “title misconfigured.”
-- [ ] Document stable **wire verb** list in [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md); note verbs are core mechanisms, segment allowance is title policy.
+- [x] Introduce `try_arc_rpc(host, player, action_type) -> ArcDispatch` — unified path for overlay segment RPCs (aliases `try_combat_arc_rpc`).
+- [x] Migrate `CombatAdvance`, `CombatDeclineAdvance`, `CombatDisruptInsteadOfRetreat` handlers in [`game_server.py`](../src/hexengine/server/game_server.py) to generic path via `overlay_rpc_action_types`.
+- [x] Migrate combat-scoped `MoveUnit` to `try_arc_move_unit` with segment `allowed_actions` pre-check.
+- [x] Reject unknown RPCs with segment-deny message (charter B), not “title misconfigured.”
+- [x] Document stable **wire verb** list in [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md); note verbs are core mechanisms, segment allowance is title policy.
 
 **Exit criteria:**
 

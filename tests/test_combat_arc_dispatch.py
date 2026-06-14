@@ -16,6 +16,9 @@ from hexengine.server.arcs import (
     CombatArcDispatch,
     begin_combat_arc,
     finish_combat_arc_dispatch,
+    overlay_rpc_action_types,
+    try_arc_move_unit,
+    try_arc_rpc,
     try_combat_arc_move_unit,
     try_combat_arc_rpc,
 )
@@ -61,6 +64,22 @@ def _retreat_state() -> GameState:
         {"retreat_obligations": {"u1": 1}},
         session_state_key="hexdemo",
     )
+
+
+def test_try_arc_rpc_alias_delegates() -> None:
+    host = _Host(_retreat_state(), hooks=TitleHooks())
+    assert asyncio.run(
+        try_combat_arc_rpc(host, "p1", _player("union"), "CombatAdvance")
+    ) == asyncio.run(try_arc_rpc(host, "p1", _player("union"), "CombatAdvance"))
+
+
+def test_overlay_rpc_action_types_from_declared_arc() -> None:
+    from hexengine.server.arcs import overlay_rpc_action_types
+
+    types = overlay_rpc_action_types(HOOKS)
+    assert "CombatAdvance" in types
+    assert "MoveUnit" not in types
+    assert "Attack" not in types
 
 
 def test_try_rpc_not_declared_without_combat_arc() -> None:

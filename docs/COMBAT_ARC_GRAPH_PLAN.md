@@ -1,6 +1,6 @@
 # Pack-visible combat arc graph — plan
 
-**Status:** phases 1–2 done (hexdemo); phase 3 (TITLE_AUTHORING + template) done; phase 4 (tooling) pending.
+**Status:** phases 1–3 done (hexdemo + docs + template stub); phase 4 (tooling) pending.
 
 **One-line goal:** Put the combat FSM where title authors look first — a pack module that builds the real `Arc` spec — so match flow shape is readable without opening `src/hexengine/authoring/patterns/combat.py`.
 
@@ -14,13 +14,7 @@
 
 Hooks are now easy to read: one `@bind_title_hook` adapter per slot, policy in `rules.py`. Combat flow is not.
 
-Today hexdemo declares combat via a factory call in [`games/hexdemo/combat/arc.py`](../games/hexdemo/combat/arc.py):
-
-```python
-combat_rules_binding_to_arc_spec(BINDING, COMBAT_ARC_GATE_UI_MODES, ...)
-```
-
-The segment graph (classify → retreat gates → resolve loop → advance gate) lives in [`src/hexengine/authoring/patterns/combat.py`](../src/hexengine/authoring/patterns/combat.py) (`build_combat_cleanup_arc`). A first-time author following `TITLE_AUTHORING.md` expects flow to be **declarative and pack-local**; instead they must leave `games/` to learn the central shape of the game.
+Today hexdemo builds the graph in [`games/hexdemo/combat/graph.py`](../games/hexdemo/combat/graph.py) and wraps it in [`combat/arc.py`](../games/hexdemo/combat/arc.py). The engine still ships [`build_combat_cleanup_arc`](../src/hexengine/authoring/patterns/combat.py) for template convenience and parity tests.
 
 `combat/transitions.py` already documents gate *policy* well (state table in the module docstring). What is missing is a **visible graph construct** that corresponds 1:1 to `Arc.segments` and `Transition` edges.
 
@@ -47,7 +41,7 @@ The segment graph (classify → retreat gates → resolve loop → advance gate)
 
 ```text
 games/hexdemo/combat/
-  graph.py        ← NEW: builds Arc (the FSM) via authoring.builder
+  graph.py        ← builds Arc (the FSM) via authoring.builder (authoritative)
   arc.py          ← slim: ArcSpec wrapper (owner resolver, cache, SEG_* re-exports)
   rules.py        ← HexdemoCombatRules: guards, effects, attack_arc_effect
   transitions.py  ← gate ui_mode strings + phase-blocking policy table
@@ -134,25 +128,25 @@ Longer term, if drift hurts, extract shared graph body to engine and **generate 
 
 ## Phases
 
-### Phase 1 — Spike and API sketch (1 PR, no behavior change)
+### Phase 1 — Spike and API sketch (1 PR, no behavior change) ✅
 
 **Deliverables:**
 
-- [ ] Add `combat_arc_to_spec(arc, ...)` to engine; `combat_rules_binding_to_arc_spec` delegates to it (refactor only).
-- [ ] Export `combat_rules_effects_adapter` (rename from `_CombatRulesEffectsAdapter`).
-- [ ] Draft `games/hexdemo/combat/graph.py` behind a feature flag or parallel build function; assert `arc == build_combat_cleanup_arc(...)` in a new test.
-- [ ] Module docstring at top of `graph.py`: mermaid or ASCII diagram + “policy lives in rules.py”.
+- [x] Add `combat_arc_to_spec(arc, ...)` to engine; `combat_rules_binding_to_arc_spec` delegates to it (refactor only).
+- [x] Export `combat_rules_effects_adapter` (rename from `_CombatRulesEffectsAdapter`).
+- [x] Draft `games/hexdemo/combat/graph.py` behind a feature flag or parallel build function; assert `arc == build_combat_cleanup_arc(...)` in a new test.
+- [x] Module docstring at top of `graph.py`: mermaid or ASCII diagram + “policy lives in rules.py”.
 
 **Exit criteria:** parity test passes; no hook or runner behavior change.
 
-### Phase 2 — Hexdemo cutover (1 PR)
+### Phase 2 — Hexdemo cutover (1 PR) ✅
 
 **Deliverables:**
 
-- [ ] `build_hexdemo_combat_arc_spec` uses `graph.py` as the graph source.
-- [ ] Slim `arc.py`: owner resolver, spec cache, `SEG_*` re-exports (or re-export segment ids from `graph.py`).
-- [ ] Update [`games/hexdemo/hooks/README.md`](../games/hexdemo/hooks/README.md) and [`games/hexdemo/README.md`](../games/hexdemo/README.md) reading order.
-- [ ] Add `games/hexdemo/combat/README.md` (short): file map + link to `graph.py`.
+- [x] `build_hexdemo_combat_arc_spec` uses `graph.py` as the graph source.
+- [x] Slim `arc.py`: owner resolver, spec cache, `SEG_*` re-exports (or re-export segment ids from `graph.py`).
+- [x] Update [`games/hexdemo/hooks/README.md`](../games/hexdemo/hooks/README.md) and [`games/hexdemo/README.md`](../games/hexdemo/README.md) reading order.
+- [x] Add `games/hexdemo/combat/README.md` (short): file map + link to `graph.py`.
 
 **Exit criteria:** full test suite green; `test_hexdemo_combat_arc_matches_pattern` still passes (hexdemo graph ≡ engine pattern output).
 
@@ -200,7 +194,7 @@ No new tests that only assert comments or diagrams — structure must match `Arc
 - Table: segment id → owner → allowed actions → `ui_mode` → binding guard/effect names (not implementations).
 - Attack path one-liner: `Attack` event → `attack_arc_effect` → `classify`.
 
-**In `combat/README.md` (phase 2):**
+**In `combat/README.md` (phase 2, done):**
 
 - Flow vs presentation split (link to TITLE_AUTHORING).
 - Mermaid state diagram (same as plan discussion).
@@ -238,12 +232,12 @@ A prospective title author can:
 
 ---
 
-## Suggested first PR (Phase 1 + 2 combined if spike is trivial)
+## Suggested first PR (Phase 1 + 2 combined if spike is trivial) — done
+
+Shipped as combined phase 1–2 work:
 
 1. Add `combat_arc_to_spec` + export effects adapter.
 2. Add `games/hexdemo/combat/graph.py` with full builder block.
 3. Switch `build_hexdemo_combat_arc_spec` to use it.
 4. Update hexdemo README + hooks README.
 5. Run full pytest suite.
-
-Estimated touch: ~5 pack files, ~2 engine files, ~2 doc files, 0 wire protocol changes.

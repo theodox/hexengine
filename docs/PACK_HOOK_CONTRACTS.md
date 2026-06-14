@@ -126,6 +126,20 @@ Commit UI on host `#user-controls`. Full panel and action schemas: [`TURN_ACTION
 
 When `session_state_key` is set, **`TURN_ACTION_DOCK_FOR_VIEWER` is required**; the server never emits **`StateUpdate.primary_actions`** ([`ClientInteractionPanelsMixin`](../src/hexengine/game/arcs/client_interaction_panels.py)).
 
+### Core wire verbs (action_request)
+
+Stable **mechanism** names the engine understands. Titles gate when each is legal via arc segment `allowed_actions` and guards — not via engine hardcoded title ids.
+
+| Verb | Family | Routing |
+|------|--------|---------|
+| `MoveUnit` | Modification | Routine movement hooks; overlay path via `try_arc_move_unit` when interaction cursor active |
+| `NextPhase` | Schedule | Routine arc segment |
+| `Attack` | Interaction | Authority attack pipeline (`execute_authority_attack_request`) |
+| `CombatAdvance`, `CombatDeclineAdvance`, `CombatDisruptInsteadOfRetreat` | Interaction aftermath | `try_arc_rpc` when declared on overlay graph (`overlay_rpc_action_types`) |
+| Marker verbs (`MoveMarker`, …) | Board modification | Title hooks / server validators |
+
+When an overlay arc is active, illegal RPCs for the current segment are **rejected** (`COMBAT_REJECTED_MSG` / segment deny) — not “title misconfigured.” Undeclared overlay with aftermath-only verbs → `COMBAT_ARC_REQUIRED_MSG`.
+
 ### Action row schema (shared)
 
 Used in dock `actions[]` and in `map_selection_preview.panel_actions`.

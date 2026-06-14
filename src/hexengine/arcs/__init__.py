@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from .capabilities import (
     arc_commit_segment_for_action,
+    arc_event_action_types,
     arc_event_segments,
     arc_supports_action_type,
 )
@@ -90,6 +91,7 @@ __all__ = [
     "Trigger",
     "TurnArcRegistry",
     "arc_commit_segment_for_action",
+    "arc_event_action_types",
     "arc_event_segments",
     "arc_supports_action_type",
     "begin_arc",

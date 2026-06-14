@@ -22,6 +22,7 @@ from ...arcs import (
     resolve_owner,
     submit_event,
 )
+from ...arcs.capabilities import arc_event_action_types
 from ...arcs.movement_arc_decl import (
     MOVEMENT_ARC_ID,
     SEG_CONTINUE,
@@ -52,7 +53,7 @@ class ArcRuntimeHost(Protocol):
 
 
 class CombatArcDispatch(str, Enum):
-    """Result of offering an RPC to the declared combat arc."""
+    """Result of offering an RPC to the active overlay (interaction) arc."""
 
     NOT_DECLARED = "not_declared"
     HANDLED = "handled"
@@ -60,11 +61,49 @@ class CombatArcDispatch(str, Enum):
     REJECTED = "rejected"
 
 
+ArcDispatch = CombatArcDispatch
+
+
+# Stable interaction-aftermath wire verbs (core mechanisms; titles gate via segments).
+INTERACTION_AFTERMATH_WIRE_VERBS = frozenset(
+    {
+        "CombatAdvance",
+        "CombatDeclineAdvance",
+        "CombatDisruptInsteadOfRetreat",
+    }
+)
+
+
 COMBAT_NO_CURSOR_MSG = "No active combat segment for this action"
 COMBAT_REJECTED_MSG = "Action not allowed in the current combat segment"
 COMBAT_ARC_REQUIRED_MSG = (
     "This title must declare ArcHook.COMBAT_ARC for combat cleanup actions"
 )
+
+
+def overlay_rpc_action_types(hooks: TitleHooks) -> frozenset[str]:
+    """
+    RPC names routed through the overlay arc before normal dispatch.
+
+    When a title declares an interaction arc, every ``Event`` action type on that graph
+    except ``Attack`` (authority attack pipeline) and ``MoveUnit`` (dedicated overlay
+    move path) is eligible. When undeclared, only stable aftermath verbs are treated
+    as overlay-only for error messaging.
+    """
+
+    spec = combat_arc_spec(hooks)
+    if spec is None:
+        return INTERACTION_AFTERMATH_WIRE_VERBS
+    types = set(arc_event_action_types(spec.arc))
+    types.discard("Attack")
+    types.discard("MoveUnit")
+    return frozenset(types)
+
+
+def active_overlay_arc_cursor(state: GameState, hooks: TitleHooks) -> ArcCursor | None:
+    """Active cursor when it points at the title's declared overlay (interaction) arc."""
+
+    return active_combat_arc_cursor(state, hooks)
 
 
 def active_combat_arc_cursor(state: GameState, hooks: TitleHooks) -> ArcCursor | None:
@@ -81,6 +120,10 @@ def active_combat_arc_cursor(state: GameState, hooks: TitleHooks) -> ArcCursor |
 
 def title_declares_combat_arc(hooks: TitleHooks) -> bool:
     return combat_arc_spec(hooks) is not None
+
+
+def title_declares_overlay_arc(hooks: TitleHooks) -> bool:
+    return title_declares_combat_arc(hooks)
 
 
 def turn_arc_registry_from_hooks(hooks: TitleHooks) -> TurnArcRegistry | None:
@@ -172,6 +215,25 @@ def begin_combat_arc(host: ArcRuntimeHost) -> None:
         restore_routine_cursor(host)
 
 
+async def finish_arc_dispatch(
+    host: ArcRuntimeHost,
+    player_id: str,
+    outcome: ArcDispatch,
+    *,
+    no_cursor_msg: str = COMBAT_NO_CURSOR_MSG,
+    rejected_msg: str = COMBAT_REJECTED_MSG,
+) -> bool:
+    """Apply an overlay arc dispatch outcome (see ``finish_combat_arc_dispatch``)."""
+
+    return await finish_combat_arc_dispatch(
+        host,
+        player_id,
+        outcome,
+        no_cursor_msg=no_cursor_msg,
+        rejected_msg=rejected_msg,
+    )
+
+
 async def finish_combat_arc_dispatch(
     host: ArcRuntimeHost,
     player_id: str,
@@ -198,6 +260,29 @@ async def finish_combat_arc_dispatch(
     return True
 
 
+async def try_arc_rpc(
+    host: ArcRuntimeHost,
+    player_id: str,
+    player: PlayerInfo,
+    action_type: str,
+    params: dict[str, Any] | None = None,
+) -> ArcDispatch:
+    """
+    Offer an RPC to the active overlay arc when the title declares one.
+
+    Uses ``submit_event`` on the active segment; rejects when no overlay cursor is set
+    or the segment denies the action type.
+    """
+
+    if not title_declares_overlay_arc(host.hooks):
+        return ArcDispatch.NOT_DECLARED
+    if active_overlay_arc_cursor(host.action_manager.current_state, host.hooks) is None:
+        return ArcDispatch.NO_CURSOR
+    if await drive_overlay_arc_event(host, player_id, player, action_type, params):
+        return ArcDispatch.HANDLED
+    return ArcDispatch.REJECTED
+
+
 async def try_combat_arc_rpc(
     host: ArcRuntimeHost,
     player_id: str,
@@ -205,15 +290,57 @@ async def try_combat_arc_rpc(
     action_type: str,
     params: dict[str, Any] | None = None,
 ) -> CombatArcDispatch:
-    """Offer a dedicated combat RPC to the declared arc (no legacy fallback)."""
+    """Backward-compatible alias for ``try_arc_rpc``."""
 
-    if not title_declares_combat_arc(host.hooks):
-        return CombatArcDispatch.NOT_DECLARED
-    if active_combat_arc_cursor(host.action_manager.current_state, host.hooks) is None:
-        return CombatArcDispatch.NO_CURSOR
-    if await drive_combat_arc_event(host, player_id, player, action_type, params):
-        return CombatArcDispatch.HANDLED
-    return CombatArcDispatch.REJECTED
+    return await try_arc_rpc(host, player_id, player, action_type, params)
+
+
+async def try_arc_move_unit(
+    host: ArcRuntimeHost,
+    player_id: str,
+    player: PlayerInfo,
+    params: dict[str, Any],
+    *,
+    is_retreat_fulfillment: bool,
+    is_advance_fulfillment: bool,
+) -> ArcDispatch:
+    """
+    Offer ``MoveUnit`` to the overlay arc when the cursor is on an interaction segment.
+
+    Routine moves during a non-overlay cursor return ``NOT_DECLARED`` so normal movement
+    dispatch proceeds. Retreat/advance fulfillment without an overlay cursor returns
+    ``NO_CURSOR``.
+    """
+
+    if not title_declares_overlay_arc(host.hooks):
+        return ArcDispatch.NOT_DECLARED
+
+    flow = read_movement_payload(host.action_manager.current_state)
+    if isinstance(flow, dict) and flow.get("retreat_fulfillment"):
+        return ArcDispatch.NOT_DECLARED
+
+    wire_path = params.get("path")
+    if is_retreat_fulfillment and isinstance(wire_path, list) and len(wire_path) > 2:
+        return ArcDispatch.NOT_DECLARED
+
+    cur = active_overlay_arc_cursor(host.action_manager.current_state, host.hooks)
+    if cur is None:
+        if is_retreat_fulfillment or is_advance_fulfillment:
+            return ArcDispatch.NO_CURSOR
+        return ArcDispatch.NOT_DECLARED
+
+    spec = combat_arc_spec(host.hooks)
+    if spec is not None:
+        try:
+            segment = spec.arc.get(cur.segment_id)
+        except KeyError:
+            segment = None
+        if segment is not None and "MoveUnit" not in segment.allowed_actions:
+            return ArcDispatch.REJECTED
+
+    if await drive_overlay_arc_event(host, player_id, player, "MoveUnit", params):
+        return ArcDispatch.HANDLED
+    return ArcDispatch.REJECTED
 
 
 async def try_combat_arc_move_unit(
@@ -225,33 +352,28 @@ async def try_combat_arc_move_unit(
     is_retreat_fulfillment: bool,
     is_advance_fulfillment: bool,
 ) -> CombatArcDispatch:
-    """
-    Offer ``MoveUnit`` to the combat arc when appropriate.
+    """Backward-compatible alias for ``try_arc_move_unit``."""
 
-    Routine moves during a non-combat cursor return ``NOT_DECLARED`` so normal
-    movement dispatch can proceed. Retreat/advance fulfillment without a combat
-    cursor returns ``NO_CURSOR``.
-    """
+    return await try_arc_move_unit(
+        host,
+        player_id,
+        player,
+        params,
+        is_retreat_fulfillment=is_retreat_fulfillment,
+        is_advance_fulfillment=is_advance_fulfillment,
+    )
 
-    if not title_declares_combat_arc(host.hooks):
-        return CombatArcDispatch.NOT_DECLARED
 
-    flow = read_movement_payload(host.action_manager.current_state)
-    if isinstance(flow, dict) and flow.get("retreat_fulfillment"):
-        return CombatArcDispatch.NOT_DECLARED
+async def drive_overlay_arc_event(
+    host: ArcRuntimeHost,
+    player_id: str,
+    player: PlayerInfo,
+    action_type: str,
+    params: dict[str, Any] | None = None,
+) -> bool:
+    """Offer one RPC to the active overlay (interaction) arc."""
 
-    wire_path = params.get("path")
-    if is_retreat_fulfillment and isinstance(wire_path, list) and len(wire_path) > 2:
-        return CombatArcDispatch.NOT_DECLARED
-
-    cur = active_combat_arc_cursor(host.action_manager.current_state, host.hooks)
-    if cur is None:
-        if is_retreat_fulfillment or is_advance_fulfillment:
-            return CombatArcDispatch.NO_CURSOR
-        return CombatArcDispatch.NOT_DECLARED
-    if await drive_combat_arc_event(host, player_id, player, "MoveUnit", params):
-        return CombatArcDispatch.HANDLED
-    return CombatArcDispatch.REJECTED
+    return await drive_combat_arc_event(host, player_id, player, action_type, params)
 
 
 async def drive_combat_arc_event(
@@ -393,26 +515,35 @@ def schedule_next_phase_info(host: ArcRuntimeHost) -> dict[str, Any] | None:
 
 
 __all__ = [
+    "ArcDispatch",
     "ArcRuntimeHost",
     "COMBAT_ARC_REQUIRED_MSG",
     "COMBAT_NO_CURSOR_MSG",
     "COMBAT_REJECTED_MSG",
     "CombatArcDispatch",
+    "INTERACTION_AFTERMATH_WIRE_VERBS",
     "active_combat_arc_cursor",
+    "active_overlay_arc_cursor",
     "begin_combat_arc",
     "begin_movement_arc",
     "begin_routine_slot",
     "combat_arc_spec",
     "drive_combat_arc_event",
     "drive_movement_arc_event",
+    "drive_overlay_arc_event",
+    "finish_arc_dispatch",
     "finish_combat_arc_dispatch",
     "lookup_arc_spec",
     "movement_arc_spec",
+    "overlay_rpc_action_types",
     "resolve_active_segment_owner",
     "restore_routine_cursor",
     "schedule_next_phase_info",
     "sync_movement_cursor_from_payload",
     "title_declares_combat_arc",
+    "title_declares_overlay_arc",
+    "try_arc_move_unit",
+    "try_arc_rpc",
     "try_combat_arc_move_unit",
     "try_combat_arc_rpc",
     "turn_arc_registry_from_hooks",

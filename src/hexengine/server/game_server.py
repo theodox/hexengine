@@ -82,17 +82,18 @@ from .arcs import (
     begin_routine_slot,
     drive_movement_arc_event,
     execute_authority_attack_request,
-    finish_combat_arc_dispatch,
+    finish_arc_dispatch,
     handle_authority_move_unit_normal,
     handle_authority_retreat_path_move_unit,
     lookup_arc_spec,
     move_unit_is_combat_advance_fulfillment,
+    overlay_rpc_action_types,
     read_movement_arc,
     resolve_active_segment_owner,
     restore_routine_cursor,
     schedule_next_phase_info,
-    try_combat_arc_move_unit,
-    try_combat_arc_rpc,
+    try_arc_move_unit,
+    try_arc_rpc,
     turn_arc_registry_from_hooks,
     validate_retreat_fulfillment_stack,
 )
@@ -1340,27 +1341,15 @@ class GameServer:
                 session_state_key=self._engine_session_state_key(),
             )
 
-        if request.action_type == "CombatDisruptInsteadOfRetreat":
-            outcome = await try_combat_arc_rpc(
-                self, player_id, player, "CombatDisruptInsteadOfRetreat"
+        if request.action_type in overlay_rpc_action_types(self.hooks):
+            outcome = await try_arc_rpc(
+                self,
+                player_id,
+                player,
+                request.action_type,
+                dict(request.params or {}),
             )
-            if await finish_combat_arc_dispatch(self, player_id, outcome):
-                return
-            await self._send_error(player_id, COMBAT_ARC_REQUIRED_MSG)
-            return
-
-        if request.action_type == "CombatAdvance":
-            outcome = await try_combat_arc_rpc(self, player_id, player, "CombatAdvance")
-            if await finish_combat_arc_dispatch(self, player_id, outcome):
-                return
-            await self._send_error(player_id, COMBAT_ARC_REQUIRED_MSG)
-            return
-
-        if request.action_type == "CombatDeclineAdvance":
-            outcome = await try_combat_arc_rpc(
-                self, player_id, player, "CombatDeclineAdvance"
-            )
-            if await finish_combat_arc_dispatch(self, player_id, outcome):
+            if await finish_arc_dispatch(self, player_id, outcome):
                 return
             await self._send_error(player_id, COMBAT_ARC_REQUIRED_MSG)
             return
@@ -1443,7 +1432,7 @@ class GameServer:
                 return
 
         if request.action_type == "MoveUnit":
-            move_outcome = await try_combat_arc_move_unit(
+            move_outcome = await try_arc_move_unit(
                 self,
                 player_id,
                 player,
@@ -1451,7 +1440,7 @@ class GameServer:
                 is_retreat_fulfillment=is_retreat_fulfillment,
                 is_advance_fulfillment=is_advance_fulfillment,
             )
-            if await finish_combat_arc_dispatch(self, player_id, move_outcome):
+            if await finish_arc_dispatch(self, player_id, move_outcome):
                 return
             if is_retreat_fulfillment or is_advance_fulfillment:
                 await self._send_error(player_id, COMBAT_ARC_REQUIRED_MSG)

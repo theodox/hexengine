@@ -278,7 +278,7 @@ Server prepends `games/` when loading a scenario path; see hexdemo README for lo
 | **Hook adapters** | [`hooks/attack.py`](../games/hexdemo/hooks/attack.py), [`hooks/movement.py`](../games/hexdemo/hooks/movement.py) | `@bind_title_hook` only |
 | **Segment projection** | [`arcs/segment.py`](../games/hexdemo/arcs/segment.py) | `phase_advance_blocked`, planning block helpers |
 
-**Attack RPC flow:** engine sets combat arc `attack` segment → `submit_event` → binding applies resolution + `CombatOutcome` → `classify` auto-advances to cleanup gates or completes → **`restore_routine_cursor`** so routine combat segment (and End Phase) return. Legality and dock rows read **`current_segment`**, not bucket gate strings. Legacy **`combat_gate`** is not written; it is cleared on phase advance for old saves.
+**Attack RPC flow:** engine discovers the interaction commit segment from the declared graph (`arc_commit_segment_for_action`, typically `attack` in hexdemo) → cursor → `submit_event` → binding applies resolution + `CombatOutcome` → `classify` auto-advances to cleanup gates or completes → **`restore_routine_cursor`** so routine combat segment (and End Phase) return. Legality and dock rows read **`current_segment`**, not bucket gate strings. Legacy **`combat_gate`** is not written; it is cleared on phase advance for old saves.
 
 **Author `AttackHook` surface:** `validate_attack`, `resolve_attack`, `combat_outcome_after_applied`, `attack_plan_preview`, `auto_advance_phase_after_attack` only. No cleanup slots on `AttackHook` (removed).
 
