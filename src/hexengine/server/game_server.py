@@ -40,7 +40,7 @@ from ..hooks.core import ENGINE_DEFAULT, ENGINE_MOVEMENT_ARC_PRESET
 from ..hooks.inform_popup import InformPopupContext, default_inform_popup_for_viewer
 from ..hooks.internal import get_engine_catalog_hook, validate_title_contract
 from ..hooks.map_selection_registry import bound_map_selection_kinds
-from ..hooks.movement import MoveContext
+from ..hooks.modification import MoveContext
 from ..hooks.title import TitleHooks, read_title_hooks_from_definition
 from ..hooks.ui import (
     AdvanceGateInteractionContext,
@@ -651,17 +651,17 @@ class GameServer:
                     else None,
                     "retreat_obligations"
                     if getattr(
-                        self.hooks.movement, "retreat_obligation_hexes_remaining", None
+                        self.hooks.modification, "retreat_obligation_hexes_remaining", None
                     )
                     else None,
                     "zoc_hexes_for_unit"
-                    if getattr(self.hooks.movement, "zoc_hexes_for_unit", None)
+                    if getattr(self.hooks.modification, "zoc_hexes_for_unit", None)
                     is not None
                     else None,
                     "attack_planning_ui"
                     if (
-                        getattr(self.hooks.attack, "validate_attack", None) is not None
-                        and getattr(self.hooks.attack, "resolve_attack", None)
+                        getattr(self.hooks.interaction, "validate_attack", None) is not None
+                        and getattr(self.hooks.interaction, "resolve_attack", None)
                         is not None
                     )
                     else None,
@@ -933,7 +933,7 @@ class GameServer:
     ) -> int | None:
         if not unit_id:
             return None
-        out = self.hooks.movement.retreat_remaining(state, unit_id)
+        out = self.hooks.modification.retreat_remaining(state, unit_id)
         if out is ENGINE_DEFAULT:
             return None
         try:
@@ -943,7 +943,7 @@ class GameServer:
         return n if n is not None and n > 0 else None
 
     def _faction_has_pending_retreat(self, state: GameState, faction: str) -> bool:
-        out = self.hooks.movement.faction_retreat_pending(state, faction)
+        out = self.hooks.modification.faction_retreat_pending(state, faction)
         if out is ENGINE_DEFAULT:
             return False
         return bool(out)
@@ -1843,7 +1843,7 @@ class GameServer:
             zoc_hexes_for_unit=self._zoc_hexes_for_unit,
             max_active_units_per_hex=self._max_active_units_per_hex,
             movement_step_cost_fn=self._movement_step_cost_fn,
-            retreat_blocked_hexes=self.hooks.movement.retreat_blocked,
+            retreat_blocked_hexes=self.hooks.modification.retreat_blocked,
         )
         kind = preview.kind
         out_hexes = preview.hexes
@@ -2132,7 +2132,7 @@ class GameServer:
         self.markers = [m for m in self.markers if str(m.get("id")) != mid]
 
     def _movement_budget_for_unit(self, state: GameState, unit_id: str) -> float:
-        out = self.hooks.movement.budget(state, unit_id)
+        out = self.hooks.modification.budget(state, unit_id)
         if out is not ENGINE_DEFAULT:
             try:
                 return float(out)
@@ -2140,7 +2140,7 @@ class GameServer:
                 raise TypeError(
                     "Movement hook movement_budget_for_unit must return a number or hooks.ENGINE_DEFAULT"
                 ) from None
-        fn = get_engine_catalog_hook("movement.movement_budget_for_unit")
+        fn = get_engine_catalog_hook("modification.movement_budget_for_unit")
         if fn is None:
             raise RuntimeError(
                 "Engine hook catalog missing movement.movement_budget_for_unit"
@@ -2166,7 +2166,7 @@ class GameServer:
     def _zoc_hexes_for_unit(
         self, state: GameState, unit_id: str
     ) -> frozenset[Hex] | None:
-        raw = self.hooks.movement.zoc(state, unit_id)
+        raw = self.hooks.modification.zoc(state, unit_id)
         if raw is ENGINE_DEFAULT or raw is None:
             return None
         return raw if isinstance(raw, frozenset) else frozenset(raw)
@@ -2175,7 +2175,7 @@ class GameServer:
         self, unit_id: str
     ) -> Callable[[GameState, Hex, Hex, float], float] | None:
         """Per-step cost callback for reachability when the title implements movement_step_cost_for_unit."""
-        mh = self.hooks.movement
+        mh = self.hooks.modification
         if mh.movement_step_cost_for_unit is None:
             return None
 
@@ -2212,10 +2212,10 @@ class GameServer:
             f"{current_state.turn.current_phase}, "
             f"actions remaining: {current_state.turn.phase_actions_remaining}"
         )
-        policy = self.hooks.movement.auto_advance_after_move_spend(current_state)
+        policy = self.hooks.modification.auto_advance_after_move_spend(current_state)
         self._maybe_auto_advance_phase(
             policy,
-            catalog_path="movement.auto_advance_phase_after_move_spend",
+            catalog_path="modification.auto_advance_phase_after_move_spend",
             log_reason="after move spend",
         )
 
@@ -2267,7 +2267,7 @@ class GameServer:
                 player_faction=str(player.faction),
                 is_retreat_fulfillment=True,
             )
-            out = self.hooks.movement.validate_retreat(ctx, rem)
+            out = self.hooks.modification.validate_retreat(ctx, rem)
             if out is ENGINE_DEFAULT:
                 leg = distance(from_hex, to_hex)
                 if leg != rem:
@@ -2275,7 +2275,7 @@ class GameServer:
                         f"Retreat move must cover exactly {rem} hexes (cube distance); got {leg}"
                     )
             budget = float(rem)
-            blocked = self.hooks.movement.retreat_blocked(state, unit_id)
+            blocked = self.hooks.modification.retreat_blocked(state, unit_id)
             if blocked is ENGINE_DEFAULT or blocked is None:
                 blocked_hexes = None
             else:

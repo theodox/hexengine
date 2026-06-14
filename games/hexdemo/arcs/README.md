@@ -16,4 +16,4 @@
 | `../combat/graph.py` | What happens after `Attack`? |
 | `wiring.py` | How flow is exposed on `TitleHooks.arcs` |
 | `../combat/rules.py` | Guards, effects, CRT behind the combat graph |
-| `../hooks/movement.py`, `../hooks/attack.py` | Movement and attack policy hook slots |
+| `../hooks/modification.py`, `../hooks/interaction.py` | Movement and attack policy hook slots |

@@ -3,7 +3,7 @@ Author-facing combat rules binding protocol.
 
 One pack-root class (in ``combat_arc.py``) implements attack policy plus combat arc
 guards/effects. Use ``combat_rules_binding_to_arc_spec`` to produce ``ArcSpec``; keep
-``hooks/attack.py`` thin during migration.
+``hooks/interaction.py`` thin during migration.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from typing import Protocol
 
 from ..arcs.spec import ArcContext
 from ..state.action_manager import StateAction
-from .attack import (
+from .interaction import (
     AfterAttackAppliedContext,
     AttackContext,
     AttackResolution,

@@ -4,7 +4,7 @@
 > Sibling archives: [`TITLE_AUTHOR_INTERFACE_PLAN.md`](TITLE_AUTHOR_INTERFACE_PLAN.md),
 > [`COMPOSABLE_ARCS_PLAN.md`](COMPOSABLE_ARCS_PLAN.md). Index: [`README.md`](README.md).
 > Removed APIs referenced below (`BLOCKS_ROUTINE_PHASE_ADVANCE`, `follow_up_after_attack`,
-> `AttackHook.AFTER_ATTACK_APPLIED`, attack cleanup hook slots,
+> `InteractionHook.AFTER_ATTACK_APPLIED`, attack cleanup hook slots,
 > `blocks_routine_phase_advance`, `dock_arc_hint`, `GATE_RETREAT` / `GATE_ADVANCE` aliases,
 > `DOCK_ARC_*` UI tokens) are **not** part of the current hexdemo pack. Legality and End Phase
 > blocking use `current_segment.allowed_actions` via
@@ -18,7 +18,7 @@ Branch: `engine_boundary_2` (from skinning squash on `main`).
 **Already shipped on this branch**
 
 - Squash-merge skinning (INFORM / SELECT / DECIDE, mandatory turn action dock, `#user-controls`).
-- Commit `move phase end to game code`: `MovementHook.AUTO_ADVANCE_PHASE_AFTER_MOVE_SPEND`, `_maybe_auto_advance_phase`, hexdemo gate policy.
+- Commit `move phase end to game code`: `ModificationHook.AUTO_ADVANCE_PHASE_AFTER_MOVE_SPEND`, `_maybe_auto_advance_phase`, hexdemo gate policy.
 
 **Companion docs**
 
@@ -167,7 +167,7 @@ Context: `GameState`, `AttackResolution`, `session_state_key`, attacker/defender
 | Gate constants | `GATE_AWAITING_RETREAT`, `GATE_AWAITING_RETREAT_OR_DISRUPT`, `GATE_AWAITING_ADVANCE` (match segment `ui_mode`) |
 | `GATES_BLOCKING_ROUTINE` | Declaration parity / local guards |
 | `attack_planning_blocked_reason` | Attack plan preview + validation messaging |
-| `follow_up_after_attack` | `AttackHook.AFTER_ATTACK_APPLIED` bucket patches |
+| `follow_up_after_attack` | `InteractionHook.AFTER_ATTACK_APPLIED` bucket patches |
 | `clear_combat_state_actions` | Phase-scoped key clear on `NextPhase` |
 Phase advance blocking: [`arc_segment.phase_advance_blocked`](../../games/hexdemo/arc_segment.py), not exports from this module.
 
@@ -241,7 +241,7 @@ Each PR should keep pytest green (`test_combat_hexdemo`, `test_hooks_contract`, 
 
 | Question | Resolution |
 |----------|------------|
-| `blocks_routine_phase_advance` on `UIHook` vs `MovementHook`? | **Resolved — removed.** Use `current_segment` + `segment_blocks_routine_phase_advance`; hexdemo via `arc_segment`. |
+| `blocks_routine_phase_advance` on `UIHook` vs `ModificationHook`? | **Resolved — removed.** Use `current_segment` + `segment_blocks_routine_phase_advance`; hexdemo via `arc_segment`. |
 | Clear whole session state on `NextPhase` vs named keys only? | **Named keys** (`PHASE_SCOPED_COMBAT_KEYS` in `combat_transitions.py`). |
 | Require `after_attack_applied` when `session_state_key` set? | **No** — optional hook; hexdemo binds `follow_up_after_attack`. |
 

@@ -1,12 +1,12 @@
-"""Thin ``AttackHook`` adapters — combat policy lives in ``combat/rules.py``."""
+"""Thin ``InteractionHook`` adapters — policy lives in ``combat/rules.py``."""
 
 from __future__ import annotations
 
 from hexengine.hexes.types import Hex
-from hexengine.hooks.attack import (
-    AttackHook,
-    AttackHooks,
+from hexengine.hooks.interaction import (
     AttackPlanPreviewContext,
+    InteractionHook,
+    InteractionHooks,
 )
 from hexengine.hooks.wiring import bind_title_hook
 
@@ -15,26 +15,25 @@ from ..combat import rules as combat_rules
 from ..combat.planning import compute_attack_plan_preview
 from ..state import session_state
 
-# Re-export for tests that patch RNG on the rules module path.
 random = combat_rules.random
 
 
-@bind_title_hook(AttackHook.VALIDATE_ATTACK)
+@bind_title_hook(InteractionHook.VALIDATE_ATTACK)
 def validate_attack(ctx):
     return combat_rules.validate_attack(ctx)
 
 
-@bind_title_hook(AttackHook.RESOLVE_ATTACK)
+@bind_title_hook(InteractionHook.RESOLVE_ATTACK)
 def resolve_attack(ctx):
     return combat_rules.resolve_attack(ctx)
 
 
-@bind_title_hook(AttackHook.COMBAT_OUTCOME_AFTER_APPLIED)
+@bind_title_hook(InteractionHook.COMBAT_OUTCOME_AFTER_APPLIED)
 def combat_outcome_after_applied(ctx):
     return combat_rules.combat_outcome_after_applied(ctx)
 
 
-@bind_title_hook(AttackHook.AUTO_ADVANCE_PHASE_AFTER_ATTACK)
+@bind_title_hook(InteractionHook.AUTO_ADVANCE_PHASE_AFTER_ATTACK)
 def auto_advance_phase_after_attack(state) -> bool:
     if phase_advance_blocked(state):
         return False
@@ -57,7 +56,7 @@ def auto_advance_phase_after_attack(state) -> bool:
     return active_ids <= attacked
 
 
-@bind_title_hook(AttackHook.ATTACK_PLAN_PREVIEW)
+@bind_title_hook(InteractionHook.ATTACK_PLAN_PREVIEW)
 def attack_plan_preview(ctx: AttackPlanPreviewContext):
     st = ctx.state
     seen: set[tuple[int, int, int]] = set()
@@ -76,7 +75,7 @@ def attack_plan_preview(ctx: AttackPlanPreviewContext):
             seen.add(t)
             board_hexes.append(h)
 
-    pack_attack = AttackHooks(
+    pack_interaction = InteractionHooks(
         validate_attack=validate_attack,
         resolve_attack=resolve_attack,
         auto_advance_phase_after_attack=auto_advance_phase_after_attack,
@@ -88,5 +87,15 @@ def attack_plan_preview(ctx: AttackPlanPreviewContext):
         draft=ctx.draft,
         shell_ui=ctx.shell_ui,
         board_hexes=board_hexes,
-        attack_hooks=pack_attack,
+        attack_hooks=pack_interaction,
     )
+
+
+__all__ = [
+    "attack_plan_preview",
+    "auto_advance_phase_after_attack",
+    "combat_outcome_after_applied",
+    "random",
+    "resolve_attack",
+    "validate_attack",
+]

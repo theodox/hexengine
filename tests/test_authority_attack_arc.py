@@ -12,7 +12,7 @@ from games.hexdemo.hooks import build_hooks
 from hexengine.arcs import ArcCursor, SetArcCursor, read_arc_cursor
 from hexengine.arcs.segment_wire import project_current_segment, segment_allows_action
 from hexengine.hexes.types import Hex
-from hexengine.hooks.attack import AttackResolution
+from hexengine.hooks.interaction import AttackResolution
 from hexengine.server.arcs.authority_arc_runtime import begin_routine_slot
 from hexengine.server.arcs.authority_attack import execute_authority_attack_request
 from hexengine.state import ActionManager, GameState

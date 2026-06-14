@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import patch
 
-from games.hexdemo.hooks import attack as attack_hooks
+from games.hexdemo.hooks import interaction as attack_hooks
 from tests.test_combat_hexdemo import _hexdemo_combat_state
 
 pytest_plugins = ("tests.test_combat_hexdemo",)
@@ -56,7 +56,7 @@ def test_attack_eliminating_defender_offers_advance_not_auto_phase(
         )
         # Column 0|1, roll 3 => DC_EX => EXCHANGE when defender morale passes (roll 4).
         with patch(
-            "games.hexdemo.hooks.attack.random.randrange",
+            "games.hexdemo.hooks.interaction.random.randrange",
             side_effect=[3, 4],
         ):
             req = ActionRequest(

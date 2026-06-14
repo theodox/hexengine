@@ -1,35 +1,17 @@
 """
-Movement-related hooks (movement budget, ZOC, retreat policy).
+Modification hooks (``MoveUnit`` policy: budget, ZOC, retreat, stepwise).
 
 Role in turn resolution:
 
 - The authoritative server validates `MoveUnit` requests during a player's turn.
-- Movement hooks supply title policy for:
-  - movement budget, ZOC
-  - retreat obligations and retreat routing constraints
-  - retreat legality checks (e.g. distance rule)
-- whether to auto-advance the turn schedule after a normal move spends an action
-  (`auto_advance_phase_after_move_spend`; engine catalog default when the pool is empty)
-- The engine then applies the resulting move as a pure state action.
-- Optional **stepwise** moves implement a **movement arc** (see **Arc** / **Segment** in
-  `hexengine.state.movement_arc`): each hex step is a segment; titles may insert
-  interrupt segments via `MovementInterrupt` and `PassMovementInterrupt`. Stepwise
-  behavior is off unless a title implements the matching hooks below.
+- Modification hooks supply title policy for movement budget, ZOC, retreat obligations,
+  step cost, and optional stepwise movement arc behavior.
+- Optional **stepwise** moves use the engine **movement arc** (see
+  `hexengine.state.movement_arc`).
 
-Thin clients do not execute these hooks. Drag previews use `unit_preview_request` /
-`marker_preview_request` RPCs; the server runs these hooks when building legal hex sets
-(see `hexengine.server.preview`). Clients read `turn_rules.movement_budget` only to rebuild
-a thin `GameDefinition` for advance-turn UI, not to compute move highlights locally.
-
-**Author layout:** implement policy in pack-root ``movement_rules.py`` (see
-``MovementRulesBinding`` in `hexengine.hooks.movement_rules`). Keep ``hooks/movement.py``
-as thin ``bind_title_hook`` adapters; preview hooks may stay in hooks. Stepwise payload
-and movement arc cursor sync are engine-owned (``authority_movement``, movement arc
-runner).
-
-**Title wiring:** import `MovementHook` and `hexengine.hooks.wiring.bind_title_hook`.
-Use `@bind_title_hook(MovementHook.MOVEMENT_BUDGET_FOR_UNIT)` (and siblings) so hook
-slots are not stringly-typed at call sites. Legacy `\"movement.field\"` paths still work.
+**Title wiring:** `ModificationHook` + `hexengine.hooks.wiring.bind_title_hook`.
+Implement policy in pack ``movement_rules.py``; keep ``hooks/modification.py`` as thin
+adapters when using the charter layout.
 """
 
 from __future__ import annotations
@@ -59,12 +41,7 @@ class MoveContext:
 
 @dataclass(frozen=True, slots=True)
 class RetreatPathPreviewContext:
-    """
-    Inputs for ``map_selection_preview`` when ``kind`` is ``retreat_path``.
-
-    ``draft`` is a client-supplied snapshot for consultation only, not
-    authoritative state until commit.
-    """
+    """Inputs for ``map_selection_preview`` when ``kind`` is ``retreat_path``."""
 
     state: GameState
     player_faction: str
@@ -84,15 +61,8 @@ class MovementStepContext:
 
 
 @dataclass(frozen=True, slots=True)
-class MovementHooks:
-    """
-    Movement policy surface consulted by the authoritative server during turn resolution.
-
-    Any hook may be omitted. When omitted (or when it returns `ENGINE_DEFAULT`), the engine uses
-    its default behavior for that hook point.
-
-    Hooks should not mutate `state`. Return data to guide engine behavior or raise to reject.
-    """
+class ModificationHooks:
+    """Modification policy consulted by the authoritative server during turn resolution."""
 
     movement_budget_for_unit: Callable[[GameState, str], float | object] | None = None
     zoc_hexes_for_unit: (
@@ -206,8 +176,8 @@ class MovementHooks:
         return self.auto_advance_phase_after_move_spend(state)
 
 
-class MovementHook(StrEnum):
-    """Stable slot ids for `bind_title_hook` (values match `MovementHooks` field names)."""
+class ModificationHook(StrEnum):
+    """Stable slot ids for `bind_title_hook` (values match `ModificationHooks` fields)."""
 
     MOVEMENT_BUDGET_FOR_UNIT = "movement_budget_for_unit"
     ZOC_HEXES_FOR_UNIT = "zoc_hexes_for_unit"
@@ -225,14 +195,14 @@ class MovementHook(StrEnum):
     AUTO_ADVANCE_PHASE_AFTER_MOVE_SPEND = "auto_advance_phase_after_move_spend"
 
 
-MovementHook._hexengine_hook_bundle = "movement"
+ModificationHook._hexengine_hook_bundle = "modification"
 
 
 __all__ = [
     "ENGINE_DEFAULT",
+    "ModificationHook",
+    "ModificationHooks",
     "MoveContext",
-    "MovementHook",
-    "MovementHooks",
     "MovementStepContext",
     "RetreatPathPreviewContext",
     "RuleViolation",

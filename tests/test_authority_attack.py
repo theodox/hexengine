@@ -14,10 +14,10 @@ from hexengine.authoring.patterns.combat import (
 )
 from hexengine.hexes.types import Hex
 from hexengine.hooks.arcs import ArcsHooks
-from hexengine.hooks.attack import (
+from hexengine.hooks.interaction import (
     AfterAttackAppliedContext,
     AttackContext,
-    AttackHooks,
+    InteractionHooks,
     AttackResolution,
 )
 from hexengine.hooks.title import TitleHooks
@@ -177,11 +177,11 @@ _AUTHORITY_ATTACK_TEST_ARC = ArcSpec(
 )
 
 
-def _attack_test_hooks(attack: AttackHooks) -> TitleHooks:
-    _AUTHORITY_ATTACK_TEST_EFFECTS.hooks = TitleHooks(attack=attack)
+def _attack_test_hooks(attack: InteractionHooks) -> TitleHooks:
+    _AUTHORITY_ATTACK_TEST_EFFECTS.hooks = TitleHooks(interaction=attack)
     return TitleHooks(
         arcs=ArcsHooks(combat_arc=lambda: _AUTHORITY_ATTACK_TEST_ARC),
-        attack=attack,
+        interaction=attack,
     )
 
 
@@ -237,7 +237,7 @@ def test_combat_outcome_after_applied_follow_ups_run_before_broadcast() -> None:
 
     host = _AttackHost(
         hooks=_attack_test_hooks(
-            AttackHooks(
+            InteractionHooks(
                 validate_attack=validate,
                 resolve_attack=resolve,
                 combat_outcome_after_applied=outcome_after_applied,
@@ -321,8 +321,8 @@ def test_attack_rejected_on_retreat_gate_before_title_validate() -> None:
 
     hooks = dataclasses.replace(
         base_hooks,
-        attack=dataclasses.replace(
-            base_hooks.attack,
+        interaction=dataclasses.replace(
+            base_hooks.interaction,
             validate_attack=_tracking_validate,
             resolve_attack=lambda _ctx: AttackResolution(outcome="none"),
         ),

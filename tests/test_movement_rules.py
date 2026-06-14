@@ -6,7 +6,7 @@ from games.hexdemo.hooks import build_hooks
 from games.hexdemo.movement import rules as movement_rules
 
 from hexengine.hexes.types import Hex
-from hexengine.hooks.movement import MoveContext
+from hexengine.hooks.modification import MoveContext
 from hexengine.state import GameState
 from hexengine.state.game_state import BoardState, LocationState, UnitState
 
@@ -35,7 +35,7 @@ def test_movement_budget_reads_unit_attribute() -> None:
     st = _state_with_unit()
     assert movement_rules.movement_budget_for_unit(st, "u1") == 4.0
     hooks = build_hooks()
-    assert hooks.movement.movement_budget_for_unit(st, "u1") == 4.0
+    assert hooks.modification.movement_budget_for_unit(st, "u1") == 4.0
 
 
 def test_validate_retreat_move_requires_exact_distance() -> None:

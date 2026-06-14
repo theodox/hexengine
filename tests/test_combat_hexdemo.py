@@ -11,7 +11,7 @@ from games.hexdemo.game_config import default_match_config, game_definition_from
 from hexengine.gamedef.builtin import default_game_definition
 from hexengine.hexes.math import neighbors
 from hexengine.hexes.types import Hex
-from hexengine.hooks.attack import AfterAttackAppliedContext
+from hexengine.hooks.interaction import AfterAttackAppliedContext
 from hexengine.server.game_server import GameServer
 from hexengine.server.protocol import ActionRequest, CombatEventWire, PlayerInfo
 from hexengine.state import GameState
@@ -473,7 +473,7 @@ def test_hexdemo_validate_attack_adjacent_and_once_per_unit(
     hexdemo_server: GameServer,
 ) -> None:
     st = hexdemo_server.action_manager.current_state
-    from hexengine.hooks.attack import AttackContext
+    from hexengine.hooks.interaction import AttackContext
 
     att_h = st.board.units["u_att"].position
     def_h = st.board.units["u_def"].position
@@ -492,14 +492,14 @@ def test_hexdemo_validate_attack_adjacent_and_once_per_unit(
             "attack_kind": "combined",
         },
     )
-    assert hexdemo_server.hooks.attack.validate(ctx) is None
+    assert hexdemo_server.hooks.interaction.validate(ctx) is None
     far = Hex(4, -4, 0)
     du = st.board.units["u_def"].with_position(far)
     st_bad = st.with_board(st.board.with_unit(du))
     with pytest.raises(ValueError, match="adjacent"):
         att_h = st_bad.board.units["u_att"].position
         def_h = st_bad.board.units["u_def"].position
-        hexdemo_server.hooks.attack.validate(
+        hexdemo_server.hooks.interaction.validate(
             AttackContext(
                 state=st_bad,
                 attacker_ids=("u_att",),
@@ -531,7 +531,7 @@ def test_hexdemo_validate_attack_adjacent_and_once_per_unit(
     # Engine `Attack` no longer writes hexdemo bucket bookkeeping; titles own that in
     # combat outcome follow-ups. Apply hexdemo follow-ups so "already attacked"
     # validation sees `attacks_this_phase`.
-    from hexengine.hooks.attack import AttackResolution
+    from hexengine.hooks.interaction import AttackResolution
 
     att_h = st.board.units["u_att"].position
     def_h = st.board.units["u_def"].position
@@ -571,7 +571,7 @@ def test_hexdemo_validate_attack_adjacent_and_once_per_unit(
     with pytest.raises(ValueError, match="already attacked"):
         att_h = st2.board.units["u_att"].position
         def_h = st2.board.units["u_def"].position
-        hexdemo_server.hooks.attack.validate(
+        hexdemo_server.hooks.interaction.validate(
             AttackContext(
                 state=st2,
                 attacker_ids=("u_att",),
@@ -602,7 +602,7 @@ def test_attack_updates_extension_and_rng() -> None:
         rng_entry={"op": "adjacent_attack", "outcome": "none"},
     ).apply(st)
 
-    from hexengine.hooks.attack import AttackContext, AttackResolution
+    from hexengine.hooks.interaction import AttackContext, AttackResolution
 
     att_hex = st.board.units["u_att"].position
     follow_ctx = AfterAttackAppliedContext(
@@ -666,7 +666,7 @@ def test_combat_event_fanout_retreat_vs_wait(hexdemo_server: GameServer) -> None
     async def run() -> None:
         # CRT uses randrange; column 0|1 roll 3 => DC_EX, failed morale => defender RETREAT.
         with patch(
-            "games.hexdemo.hooks.attack.random.randrange",
+            "games.hexdemo.hooks.interaction.random.randrange",
             side_effect=[3, 1],
         ):
             req = ActionRequest(
@@ -724,7 +724,7 @@ def test_combat_disrupt_instead_of_retreat(hexdemo_server: GameServer) -> None:
 
     async def run() -> None:
         with patch(
-            "games.hexdemo.hooks.attack.random.randrange",
+            "games.hexdemo.hooks.interaction.random.randrange",
             side_effect=[3, 1],
         ):
             req = ActionRequest(
@@ -775,7 +775,7 @@ def test_ranged_artillery_attack_suppresses_attacker_retreat() -> None:
 
     async def run() -> None:
         # Column 0|1, roll 0 => AR (attacker retreat if morale passes); morale roll 1 passes.
-        with patch("games.hexdemo.hooks.attack.random.randrange", side_effect=[0, 1]):
+        with patch("games.hexdemo.hooks.interaction.random.randrange", side_effect=[0, 1]):
             req = ActionRequest(
                 action_type="Attack",
                 params={
@@ -926,7 +926,7 @@ def test_combat_advance_after_defender_retreat(hexdemo_server: GameServer) -> No
         )
 
         # Defender retreat: CRT roll 3 on column 0|1 => DC_EX, failed morale => defender RETREAT.
-        with patch("games.hexdemo.hooks.attack.random.randrange", side_effect=[3, 1]):
+        with patch("games.hexdemo.hooks.interaction.random.randrange", side_effect=[3, 1]):
             req = ActionRequest(
                 action_type="Attack",
                 params={
@@ -1007,7 +1007,7 @@ def test_combat_advance_via_move_unit_optional_path(hexdemo_server: GameServer) 
             "p_c", JoinGameRequest(player_name="C", faction="confederate").to_message()
         )
 
-        with patch("games.hexdemo.hooks.attack.random.randrange", side_effect=[3, 1]):
+        with patch("games.hexdemo.hooks.interaction.random.randrange", side_effect=[3, 1]):
             req = ActionRequest(
                 action_type="Attack",
                 params={
@@ -1137,7 +1137,7 @@ def test_retreat_move_no_spend_action(hexdemo_server: GameServer) -> None:
 
 def test_clear_hexdemo_combat_on_next_phase(hexdemo_server: GameServer) -> None:
     server = hexdemo_server
-    from hexengine.hooks.attack import (
+    from hexengine.hooks.interaction import (
         AfterAttackAppliedContext,
         AttackContext,
         AttackResolution,
@@ -1209,7 +1209,7 @@ def test_auto_advance_when_sole_attacker_has_attacked(
     async def run() -> None:
         # Roll 0 on column 0|1 => AR; failed morale with no "failed" CRT cell => no effect.
         with patch(
-            "games.hexdemo.hooks.attack.random.randrange",
+            "games.hexdemo.hooks.interaction.random.randrange",
             side_effect=[0, 1],
         ):
             req = ActionRequest(
@@ -1244,7 +1244,7 @@ def test_no_auto_advance_while_retreat_pending(hexdemo_server: GameServer) -> No
 
     async def run() -> None:
         with patch(
-            "games.hexdemo.hooks.attack.random.randrange",
+            "games.hexdemo.hooks.interaction.random.randrange",
             side_effect=[3, 1],
         ):
             req = ActionRequest(
@@ -1276,7 +1276,7 @@ def test_two_union_units_require_two_attacks_before_advance() -> None:
 
     async def attack(attacker: str) -> None:
         with patch(
-            "games.hexdemo.hooks.attack.random.randrange",
+            "games.hexdemo.hooks.interaction.random.randrange",
             side_effect=[0, 1],
         ):
             req = ActionRequest(

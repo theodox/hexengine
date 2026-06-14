@@ -21,12 +21,12 @@ from hexengine.gamedef.game_data import GameData
 from hexengine.hexes.math import neighbors
 from hexengine.hexes.types import Hex, HexColRow
 from hexengine.hooks.arcs import ArcsHooks
-from hexengine.hooks.attack import (
-    AttackHooks,
+from hexengine.hooks.interaction import (
+    InteractionHooks,
     AttackResolution,
-    attack_hooks_unsupported,
+    interaction_hooks_unsupported,
 )
-from hexengine.hooks.movement import MovementHooks
+from hexengine.hooks.modification import ModificationHooks
 from hexengine.hooks.title import TitleHooks
 from hexengine.hooks.ui import UIHooks
 from hexengine.hooks.ui_segment import SegmentPresentationPatch
@@ -543,8 +543,8 @@ class TestGameServer(unittest.TestCase):
                 @property
                 def hooks(self) -> TitleHooks:
                     return TitleHooks(
-                        movement=MovementHooks(),
-                        attack=attack_hooks_unsupported(),
+                        modification=ModificationHooks(),
+                        interaction=interaction_hooks_unsupported(),
                     )
 
             server = GameServer(state, game_definition=_GD())
@@ -620,7 +620,7 @@ class TestGameServer(unittest.TestCase):
                         TitleHooks(
                             ui=_TEST_TITLE_DOCK_UI,
                             arcs=_TEST_ARCS,
-                            attack=AttackHooks(
+                            interaction=InteractionHooks(
                                 validate_attack=_reject,
                                 resolve_attack=lambda _c: AttackResolution(
                                     outcome="miss"
@@ -706,7 +706,7 @@ class TestGameServer(unittest.TestCase):
                 def hooks(self) -> TitleHooks:
                     def resolve(_ctx):
                         # Force attacker retreat, but choose a2 as the retreat owner.
-                        from hexengine.hooks.attack import AttackResolution
+                        from hexengine.hooks.interaction import AttackResolution
 
                         return AttackResolution(
                             outcome="attacker_retreat",
@@ -721,7 +721,7 @@ class TestGameServer(unittest.TestCase):
                         TitleHooks(
                             ui=_TEST_TITLE_DOCK_UI,
                             arcs=_TEST_ARCS,
-                            attack=AttackHooks(
+                            interaction=InteractionHooks(
                                 validate_attack=lambda _c: None,
                                 resolve_attack=resolve,
                                 combat_outcome_after_applied=(
@@ -805,7 +805,7 @@ class TestGameServer(unittest.TestCase):
                         TitleHooks(
                             ui=_TEST_TITLE_DOCK_UI,
                             arcs=_TEST_ARCS,
-                            movement=MovementHooks(
+                            modification=ModificationHooks(
                                 retreat_obligation_hexes_remaining=lambda st, uid: (
                                     1 if uid == "u" else None
                                 ),
@@ -814,7 +814,7 @@ class TestGameServer(unittest.TestCase):
                                 ),
                                 retreat_blocked_hexes=lambda _st, _uid: frozenset({h1}),
                             ),
-                            attack=attack_hooks_unsupported(),
+                            interaction=interaction_hooks_unsupported(),
                         )
                     )
 
@@ -889,7 +889,7 @@ class TestGameServer(unittest.TestCase):
                         TitleHooks(
                             ui=_TEST_TITLE_DOCK_UI,
                             arcs=_TEST_ARCS,
-                            movement=MovementHooks(
+                            modification=ModificationHooks(
                                 retreat_obligation_hexes_remaining=lambda _st, uid: (
                                     2 if uid == "u" else None
                                 ),
@@ -898,7 +898,7 @@ class TestGameServer(unittest.TestCase):
                                 ),
                                 validate_retreat_move=allow_any_distance,
                             ),
-                            attack=attack_hooks_unsupported(),
+                            interaction=interaction_hooks_unsupported(),
                         )
                     )
 

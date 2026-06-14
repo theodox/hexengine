@@ -1,24 +1,15 @@
 """
-Attack/combat-related hooks.
+Interaction hooks (``Attack`` policy and related preview/outcome hooks).
 
 Role in turn resolution:
 
 - The authoritative server receives an `Attack` request from a client.
 - It builds an `AttackContext` from the current authoritative `GameState`.
-- The title's `AttackHooks` decides:
-  - whether the attack is legal (`validate_attack`)
-  - what the outcome is (`resolve_attack`)
-  - whether the phase should auto-advance after applying it (`auto_advance_phase_after_attack`)
-  - optional post-attack bucket outcome (`combat_outcome_after_applied`)
-- The engine then applies the outcome as a deterministic state action and broadcasts:
-  - per-recipient combat/retreat instructions
-  - updated `StateUpdate` snapshots
+- The title's `InteractionHooks` decides legality, resolution, auto-advance, and optional
+  post-attack bucket outcome.
+- The engine applies outcomes as deterministic state actions and broadcasts updates.
 
-Returning `ENGINE_DEFAULT` means "use the engine default for this hook point". For attacks, the
-engine treats `ENGINE_DEFAULT` from `validate_attack`/`resolve_attack` as "this title does not
-support resolving attacks".
-
-**Title wiring:** use `AttackHook` members with `hexengine.hooks.wiring.bind_title_hook`.
+**Title wiring:** `InteractionHook` + `hexengine.hooks.wiring.bind_title_hook`.
 """
 
 from __future__ import annotations
@@ -35,22 +26,7 @@ from .core import ENGINE_DEFAULT, RuleViolation
 
 @dataclass(frozen=True, slots=True)
 class AttackContext:
-    """Context passed to title combat hooks for a single requested attack.
-
-    `attacker_ids` and `defender_ids` are the full participating parties (often
-    length 1). Wire requests still send `attacker_id` / `defender_id` as anchors;
-    the server normalizes optional `attacker_ids` / `defender_ids` lists in
-    `params` into these tuples.
-
-    `attacker_hexes` / `defender_hexes` are the **distinct map hexes** occupied by
-    those parties (sorted `(i, j, k)`), so titles can reason about multi-hex attacks
-    without re-walking `state.board`.
-
-    `attacker_hex` / `defender_hex` are read-only views of the **anchor** (wire
-    primary) units' positions: `state.board.units[attacker_ids[0]].position` and the
-    same for defenders. If that unit is missing, the first entry of the corresponding
-    `*_hexes` tuple is used.
-    """
+    """Context passed to title interaction hooks for a single requested attack."""
 
     state: GameState
     attacker_ids: tuple[str, ...]
@@ -63,17 +39,14 @@ class AttackContext:
 
     @property
     def attacker_unit_id(self) -> str:
-        """Primary attacker (wire `attacker_id`); same as `attacker_ids[0]`."""
         return self.attacker_ids[0]
 
     @property
     def defender_unit_id(self) -> str:
-        """Primary defender (wire `defender_id`); same as `defender_ids[0]`."""
         return self.defender_ids[0]
 
     @property
     def attacker_hex(self) -> Hex:
-        """Anchor attacker hex (wire `attacker_id` unit)."""
         u = self.state.board.units.get(self.attacker_ids[0])
         if u is not None and u.active:
             return u.position
@@ -83,7 +56,6 @@ class AttackContext:
 
     @property
     def defender_hex(self) -> Hex:
-        """Anchor defender hex (wire `defender_id` unit)."""
         u = self.state.board.units.get(self.defender_ids[0])
         if u is not None and u.active:
             return u.position
@@ -102,12 +74,7 @@ class AttackContext:
 
 @dataclass(frozen=True, slots=True)
 class AttackPlanPreviewContext:
-    """
-    Inputs for ``map_selection_preview`` when ``kind`` is ``attack_plan``.
-
-    ``draft`` is a client-supplied snapshot for consultation only, not
-    authoritative state. Commit re-validates via ``validate_attack``.
-    """
+    """Inputs for ``map_selection_preview`` when ``kind`` is ``attack_plan``."""
 
     state: GameState
     player_faction: str
@@ -117,37 +84,14 @@ class AttackPlanPreviewContext:
 
 @dataclass(frozen=True, slots=True)
 class AttackResolution:
-    """
-    Deterministic resolution returned by a title for a single attack.
-
-    Snapshot-shaped payloads live on `rng_entry` and `effects`; the server
-    normalizes them together via `hexengine.snapshot.attack_resolution_snapshot_fields`
-    before building `Attack` and `ApplyCombatEffects`.
-
-    The server uses this to build an engine `Attack` state action plus optional follow-up
-    actions from `AttackHook.COMBAT_OUTCOME_AFTER_APPLIED`. The engine is responsible for applying
-    **engine-mechanical** effects (unit deletion, rng log entry, and any effect schema
-    the engine supports) while titles own the structure and storage of title-bucket combat
-    bookkeeping (gates, obligations, last_combat).
-    """
+    """Deterministic resolution returned by a title for a single attack."""
 
     outcome: str
-    #: When set, overrides `AttackContext.attacker_ids` for the engine `Attack` action.
-    #: When omitted, the server uses `AttackContext.attacker_ids`.
     attacker_ids: tuple[str, ...] | None = None
-    #: When set, overrides `AttackContext.defender_ids` for the engine `Attack` action.
-    #: When omitted, the server uses `AttackContext.defender_ids`.
     defender_ids: tuple[str, ...] | None = None
     retreat_distance: int | None = None
     retreat_unit_id: str | None = None
-    #: One `rng_log` row (mapping or dataclass normalizing to a dict). The engine
-    #: enforces JSON-safe snapshot shape; titles do not call snapshot helpers themselves.
     rng_entry: dict[str, Any] | None = None
-    #: Snapshot-shaped follow-up effects applied by the server after `Attack` (step
-    #: loss, disruption, optional-retreat gate tweaks, etc.). Schema is title-defined;
-    #: see `ApplyCombatEffects` in `hexengine.state.actions`. Nested
-    #: `@dataclass` values are normalized by the engine; titles do not call snapshot
-    #: helpers themselves.
     effects: dict[str, Any] | None = None
 
 
@@ -173,8 +117,8 @@ class CombatAdvanceMoveContext:
 
 
 @dataclass(frozen=True, slots=True)
-class AttackHooks:
-    """Combat policy surface consulted by the authoritative server during turn resolution."""
+class InteractionHooks:
+    """Interaction policy consulted by the authoritative server during turn resolution."""
 
     validate_attack: Callable[[AttackContext], None | object] | None = None
     resolve_attack: Callable[[AttackContext], AttackResolution | object] | None = None
@@ -209,8 +153,8 @@ class AttackHooks:
         return self.combat_outcome_after_applied(ctx)
 
 
-class AttackHook(StrEnum):
-    """Stable slot ids for `bind_title_hook` (values match `AttackHooks` field names)."""
+class InteractionHook(StrEnum):
+    """Stable slot ids for `bind_title_hook` (values match `InteractionHooks` fields)."""
 
     VALIDATE_ATTACK = "validate_attack"
     RESOLVE_ATTACK = "resolve_attack"
@@ -219,16 +163,11 @@ class AttackHook(StrEnum):
     COMBAT_OUTCOME_AFTER_APPLIED = "combat_outcome_after_applied"
 
 
-AttackHook._hexengine_hook_bundle = "attack"
+InteractionHook._hexengine_hook_bundle = "interaction"
 
 
-def attack_hooks_unsupported() -> AttackHooks:
-    """Attack hooks that always return `ENGINE_DEFAULT` at action time.
-
-    Satisfies `validate_title_contract` when the turn schedule includes combat
-    phases but a title overrides `TitleHooks` for other areas only. The server still
-    rejects `Attack` with the usual unsupported message if players send combat actions.
-    """
+def interaction_hooks_unsupported() -> InteractionHooks:
+    """Interaction hooks that always return `ENGINE_DEFAULT` at action time."""
 
     def _validate(_ctx: AttackContext) -> object:
         return ENGINE_DEFAULT
@@ -236,18 +175,18 @@ def attack_hooks_unsupported() -> AttackHooks:
     def _resolve(_ctx: AttackContext) -> object:
         return ENGINE_DEFAULT
 
-    return AttackHooks(validate_attack=_validate, resolve_attack=_resolve)
+    return InteractionHooks(validate_attack=_validate, resolve_attack=_resolve)
 
 
 __all__ = [
     "AfterAttackAppliedContext",
-    "CombatAdvanceMoveContext",
     "AttackContext",
-    "AttackHook",
-    "AttackHooks",
     "AttackPlanPreviewContext",
     "AttackResolution",
+    "CombatAdvanceMoveContext",
     "ENGINE_DEFAULT",
+    "InteractionHook",
+    "InteractionHooks",
     "RuleViolation",
-    "attack_hooks_unsupported",
+    "interaction_hooks_unsupported",
 ]

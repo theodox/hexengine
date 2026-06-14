@@ -16,7 +16,7 @@ from hexengine.authoring.patterns.combat import (
     CombatArcGateUiModes,
     combat_rules_binding_to_arc_spec,
 )
-from hexengine.hooks.attack import (
+from hexengine.hooks.interaction import (
     AfterAttackAppliedContext,
     AttackContext,
     AttackResolution,

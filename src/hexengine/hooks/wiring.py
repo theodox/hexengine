@@ -9,20 +9,20 @@ from types import ModuleType
 from typing import Any
 
 from .arcs import ArcHook, ArcsHooks
-from .attack import AttackHook, AttackHooks
 from .core import HookContractError
-from .movement import MovementHook, MovementHooks
+from .interaction import InteractionHook, InteractionHooks
+from .modification import ModificationHook, ModificationHooks
 from .title import TitleHooks
 from .ui import UIHook, UIHooks
 
 _BUNDLE_TYPES: dict[str, type[Any]] = {
-    "movement": MovementHooks,
-    "attack": AttackHooks,
+    "modification": ModificationHooks,
+    "interaction": InteractionHooks,
     "ui": UIHooks,
     "arcs": ArcsHooks,
 }
 
-TitleHookMarker = MovementHook | AttackHook | UIHook | ArcHook
+TitleHookMarker = ModificationHook | InteractionHook | UIHook | ArcHook
 
 
 def _bundle_field_from_marker(marker: TitleHookMarker) -> tuple[str, str]:
@@ -30,7 +30,7 @@ def _bundle_field_from_marker(marker: TitleHookMarker) -> tuple[str, str]:
         raise HookContractError(
             message=(
                 "bind_title_hook requires a hook enum member "
-                "(MovementHook, AttackHook, UIHook, or ArcHook)"
+                "(ModificationHook, InteractionHook, UIHook, or ArcHook)"
             ),
             details={"marker": repr(marker)},
         )
@@ -45,21 +45,7 @@ def _bundle_field_from_marker(marker: TitleHookMarker) -> tuple[str, str]:
 def bind_title_hook(
     marker: TitleHookMarker,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """Mark a callable as the implementation for `TitleHooks` at a hook slot.
-
-    Prefer passing a **StrEnum** member from the matching hooks module:
-
-    - `hexengine.hooks.movement.MovementHook` — values align with `MovementHooks` fields
-    - `hexengine.hooks.attack.AttackHook` — `AttackHooks` fields
-    - `hexengine.hooks.ui.UIHook` — `UIHooks` fields
-
-    Use `assemble_title_hooks` to collect decorated functions from one or more
-    modules into a frozen `TitleHooks` instance.
-
-    Raises:
-        ValueError: If `fn` is already bound to another path.
-        HookContractError: If the enum is misconfigured.
-    """
+    """Mark a callable as the implementation for `TitleHooks` at a hook slot."""
 
     bundle, field = _bundle_field_from_marker(marker)
     _validate_bundle_field(bundle, field)
@@ -117,42 +103,29 @@ def _scan_module(
 
 def assemble_title_hooks(
     *modules: ModuleType,
-    movement: dict[str, Callable[..., Any]] | None = None,
-    attack: dict[str, Callable[..., Any]] | None = None,
+    modification: dict[str, Callable[..., Any]] | None = None,
+    interaction: dict[str, Callable[..., Any]] | None = None,
     ui: dict[str, Callable[..., Any]] | None = None,
     arcs: dict[str, Callable[..., Any]] | None = None,
 ) -> TitleHooks:
-    """Build a `TitleHooks` bundle from decorated module callables.
-
-    Scans each module's public attributes for callables marked with
-    `__hexengine_title_field__` (via `bind_title_hook` with a hook enum, or
-    engine `@hook(title_field=…)` on catalog entries).
-
-    Optional `movement`, `attack`, and `ui` keyword arguments are merged on top
-    (same keys as `MovementHooks` / `AttackHooks` / `UIHooks`
-    fields), overwriting discovered callables — useful for small lambdas that are not
-    worth a separate module-level function.
-
-    Raises:
-        HookContractError: On invalid paths, unknown fields, or duplicate bindings.
-    """
+    """Build a `TitleHooks` bundle from decorated module callables."""
 
     sink: dict[str, dict[str, Callable[..., Any]]] = {
-        "movement": {},
-        "attack": {},
+        "modification": {},
+        "interaction": {},
         "ui": {},
         "arcs": {},
     }
     for mod in modules:
         _scan_module(mod, sink)
-    if movement:
-        for k in movement:
-            _validate_bundle_field("movement", k)
-        sink["movement"].update(movement)
-    if attack:
-        for k in attack:
-            _validate_bundle_field("attack", k)
-        sink["attack"].update(attack)
+    if modification:
+        for k in modification:
+            _validate_bundle_field("modification", k)
+        sink["modification"].update(modification)
+    if interaction:
+        for k in interaction:
+            _validate_bundle_field("interaction", k)
+        sink["interaction"].update(interaction)
     if ui:
         for k in ui:
             _validate_bundle_field("ui", k)
@@ -162,8 +135,8 @@ def assemble_title_hooks(
             _validate_bundle_field("arcs", k)
         sink["arcs"].update(arcs)
     return TitleHooks(
-        movement=MovementHooks(**sink["movement"]),
-        attack=AttackHooks(**sink["attack"]),
+        modification=ModificationHooks(**sink["modification"]),
+        interaction=InteractionHooks(**sink["interaction"]),
         ui=UIHooks(**sink["ui"]),
         arcs=ArcsHooks(**sink["arcs"]),
     )

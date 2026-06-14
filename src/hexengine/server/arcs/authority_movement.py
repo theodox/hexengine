@@ -14,7 +14,7 @@ from typing import Any, Protocol
 
 from ...hexes.types import Hex
 from ...hooks.core import ENGINE_DEFAULT
-from ...hooks.movement import MoveContext, MovementStepContext
+from ...hooks.modification import MoveContext, MovementStepContext
 from ...hooks.title import TitleHooks
 from ...retreat_path import parse_wire_path, validate_retreat_path
 from ...state import ActionManager, GameState
@@ -292,7 +292,7 @@ async def handle_authority_move_unit_normal(
         player_faction=str(player.faction),
         is_retreat_fulfillment=False,
     )
-    stepwise_raw = host.hooks.movement.stepwise_enabled(ctx)
+    stepwise_raw = host.hooks.modification.stepwise_enabled(ctx)
     if stepwise_raw is ENGINE_DEFAULT or not bool(stepwise_raw):
         return False
 
@@ -336,7 +336,7 @@ async def handle_authority_move_unit_normal(
         arrived_at_index=1,
         player_faction=str(player.faction),
     )
-    iq_raw = host.hooks.movement.interrupt_factions_after_step(step_ctx)
+    iq_raw = host.hooks.modification.interrupt_factions_after_step(step_ctx)
     if iq_raw is ENGINE_DEFAULT:
         interrupts = ()
     else:
@@ -407,7 +407,7 @@ async def handle_authority_retreat_path_move_unit(
         return False
 
     rem = int(retreat_remaining)
-    blocked_raw = host.hooks.movement.retreat_blocked(current_state, uid_for_move)
+    blocked_raw = host.hooks.modification.retreat_blocked(current_state, uid_for_move)
     if blocked_raw is ENGINE_DEFAULT or blocked_raw is None:
         blocked_hexes = None
     else:

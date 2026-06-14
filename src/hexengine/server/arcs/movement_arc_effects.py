@@ -14,7 +14,7 @@ from ...arcs import ArcContext
 from ...arcs.movement_arc_decl import path_tuple_from_payload, read_movement_payload
 from ...hexes.types import Hex
 from ...hooks.core import ENGINE_DEFAULT
-from ...hooks.movement import MovementStepContext
+from ...hooks.modification import MovementStepContext
 from ...state.action_manager import StateAction
 from ...state.actions import (
     MoveUnit,
@@ -67,7 +67,7 @@ class _AdvanceMovementArcAfterStep(StateAction):
             arrived_at_index=new_idx,
             player_faction=str(flow.get("moving_faction", "")),
         )
-        iq_raw = self._host.hooks.movement.interrupt_factions_after_step(step_ctx)
+        iq_raw = self._host.hooks.modification.interrupt_factions_after_step(step_ctx)
         if iq_raw is ENGINE_DEFAULT:
             interrupts: tuple[str, ...] = ()
         else:

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from hexengine.hooks.attack import AfterAttackAppliedContext
+from hexengine.hooks.interaction import AfterAttackAppliedContext
 from hexengine.hooks.bucket import BucketPatch
 from hexengine.hooks.combat_outcome import CombatOutcome
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from games.hexdemo.combat import outcome as combat_outcome
 
 from hexengine.hexes.types import Hex
-from hexengine.hooks.attack import (
+from hexengine.hooks.interaction import (
     AfterAttackAppliedContext,
     AttackContext,
     AttackResolution,

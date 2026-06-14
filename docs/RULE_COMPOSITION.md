@@ -10,7 +10,7 @@ Example (illustrative, not API):
 
 > In my game, **ZOC stops movement**, and a unit with **low morale cannot enter difficult terrain**.
 
-Today hexdemo encodes much of this imperatively in `hooks/movement.py` and stubs in `movement_rules.py`. Long term we want:
+Today hexdemo encodes much of this imperatively in `hooks/modification.py` and stubs in `movement_rules.py`. Long term we want:
 
 1. **Engine catalog** — tested, **pure functions** on `GameState` that authors **import** (ZOC, terrain class, morale gates, reachability helpers, …). Many already live under `hexengine.state.logic` in ad hoc form.
 2. **Title composition in Python** — authors assemble catalog pieces and custom code with normal Python (call, pipe, `and`, loops). **No separate rules DSL or runtime** is required for composition itself.

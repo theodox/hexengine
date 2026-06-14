@@ -8,7 +8,7 @@ from hexengine.gamedef.builtin import InterleavedTwoFactionGameDefinition
 from hexengine.hexes.types import Hex
 from hexengine.hooks.arcs import ArcsHooks
 from hexengine.hooks.core import ENGINE_MOVEMENT_ARC_PRESET
-from hexengine.hooks.movement import MoveContext, MovementHooks, MovementStepContext
+from hexengine.hooks.modification import MoveContext, ModificationHooks, MovementStepContext
 from hexengine.hooks.title import TitleHooks
 from hexengine.server import ActionRequest, GameServer
 from hexengine.server.protocol import JoinGameRequest
@@ -119,23 +119,23 @@ def _blue_after_first_step(_ctx: MovementStepContext) -> tuple[str, ...]:
 class StepwiseInterleaved(InterleavedTwoFactionGameDefinition):
     """`InterleavedTwoFactionGameDefinition` with custom movement hooks."""
 
-    def __init__(self, movement: MovementHooks) -> None:
+    def __init__(self, modification: ModificationHooks) -> None:
         super().__init__()
-        self._movement_hooks = movement
+        self._modification_hooks = modification
 
     @property
     def hooks(self) -> TitleHooks:
         b = super().hooks
         return TitleHooks(
-            movement=self._movement_hooks,
-            attack=b.attack,
+            modification=self._modification_hooks,
+            interaction=b.interaction,
             ui=b.ui,
             arcs=ArcsHooks(movement_arc=lambda: ENGINE_MOVEMENT_ARC_PRESET),
         )
 
 
 def test_server_stepwise_move_opens_interrupt_queue() -> None:
-    mh = MovementHooks(
+    mh = ModificationHooks(
         resolve_move_as_steps=_always_stepwise,
         movement_interrupt_factions_after_step=_blue_after_first_step,
     )

@@ -7,7 +7,7 @@ combat advance) are implemented in `hexengine.server.arcs.authority_combat_clean
 movement is `hexengine.server.arcs.authority_movement`; together with this file they form
 three server-side **arcs** (vocabulary in `hexengine.state.movement_arc`).
 
-Titles customize behavior via `TitleHooks.attack` (validate / resolve / auto-advance);
+Titles customize behavior via `TitleHooks.interaction` (validate / resolve / auto-advance);
 this file is the stable **orchestration** surface for authors reading the engine.
 
 Interaction commit segments are discovered from the declared arc graph: the first
@@ -214,7 +214,7 @@ async def execute_authority_attack_request(
     st_after = host.action_manager.current_state
     await host._broadcast_combat_events(st_after)
 
-    adv = host.hooks.attack.auto_advance(st_after)
+    adv = host.hooks.interaction.auto_advance(st_after)
     host._maybe_auto_advance_phase(
         adv,
         catalog_path=None,

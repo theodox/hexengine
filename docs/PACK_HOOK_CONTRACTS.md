@@ -10,10 +10,10 @@ Title-load is the first manifest-driven hook surface; gameplay hooks already use
 
 | System | How titles declare | Validation today | Typical failure mode |
 |--------|-------------------|------------------|----------------------|
-| **`TitleHooks`** (movement, attack, UI, …) | Python: `@bind_title_hook`, `assemble_title_hooks`, `GameDefinition.hooks` | Partial — `validate_title_contract` at `GameServer` startup (e.g. combat schedule requires attack hooks); `@hook` contract metadata in engine catalog | `HookContractError` when schedule and hooks disagree |
+| **`TitleHooks`** (modification, interaction, UI, …) | Python: `@bind_title_hook`, `assemble_title_hooks`, `GameDefinition.hooks` | Partial — `validate_title_contract` at `GameServer` startup (e.g. interaction arc requires interaction hooks); `@hook` contract metadata in engine catalog | `HookContractError` when schedule and hooks disagree |
 | **Manifest hooks** (`[hooks.title_load]`, future TOML tables) | `hexengine_pack.toml` names module + callables + resources | Minimal — enabling the block wires integration; missing callables/resources are skipped or logged | Connect/load continues; easy to ship an incomplete pack |
 
-Gameplay hooks are **typed in Python** (`MovementHook`, `AttackHook`, `UIHook`, …) and wired without stringly dispatch at call sites. Manifest hooks are still **string names + tolerant runtime** (see [`TITLE_LOAD_HOOKS.md`](TITLE_LOAD_HOOKS.md)).
+Gameplay hooks are **typed in Python** (`ModificationHook`, `InteractionHook`, `UIHook`, …) and wired without stringly dispatch at call sites. Manifest hooks are still **string names + tolerant runtime** (see [`TITLE_LOAD_HOOKS.md`](TITLE_LOAD_HOOKS.md)).
 
 **Skinning and affordances** (wire fields, UI hooks, dual **data-first / code-first** `GameData` authoring, **HTML snippet/template ladder**, current client inventory): see [`SKINNING_AFFORDANCES_PLAN.md`](SKINNING_AFFORDANCES_PLAN.md) and [`SKINNING_CLIENT_INVENTORY.md`](SKINNING_CLIENT_INVENTORY.md).
 
@@ -224,8 +224,8 @@ SELECT drafts (map/unit picks before commit) use one RPC pair. Drafts are **clie
 
 | `InteractionKind` | Title hook | Draft / notes |
 |-------------------|------------|---------------|
-| `attack_plan` | `AttackHook.ATTACK_PLAN_PREVIEW` → `hooks.attack.attack_plan_preview` | `target_hex`, `attacker_ids`; returns `panel_actions` (hexdemo) |
-| `retreat_path` | `MovementHook.RETREAT_PATH_PREVIEW` → `hooks.movement.retreat_path_preview` | `unit_id`, `path[]`; `legal_next_hexes`, stepwise `commit_payload` (hexdemo) |
+| `attack_plan` | `InteractionHook.ATTACK_PLAN_PREVIEW` → `hooks.interaction.attack_plan_preview` | `target_hex`, `attacker_ids`; returns `panel_actions` (hexdemo) |
+| `retreat_path` | `ModificationHook.RETREAT_PATH_PREVIEW` → `hooks.modification.retreat_path_preview` | `unit_id`, `path[]`; `legal_next_hexes`, stepwise `commit_payload` (hexdemo) |
 | `inspect_unit` | — | Inspect uses `INFORM_POPUP`, not map-selection preview |
 | `place_marker` | `UIHook.PLACE_MARKER_PREVIEW` → `hooks.ui.place_marker_preview` | `marker_id`, `to_hex`; legal destinations from title rule; `MoveMarker` commit (hexdemo). Shift+click marker to start; drag unchanged. |
 
@@ -261,7 +261,7 @@ Context dataclasses: [`CombatInteractionContext`](../src/hexengine/hooks/ui.py),
 
 ### Attack hook inventory (combat policy)
 
-Bind with `@bind_title_hook(AttackHook.…)`. Values match [`AttackHook`](../src/hexengine/hooks/attack.py). **There are no attack cleanup hook slots** — retreat, disrupt, and advance run through the declared combat arc (`ArcHook.COMBAT_ARC`).
+Bind with `@bind_title_hook(InteractionHook.…)`. Values match [`InteractionHook`](../src/hexengine/hooks/interaction.py). **There are no attack cleanup hook slots** — retreat, disrupt, and advance run through the declared combat arc (`ArcHook.COMBAT_ARC`).
 
 For packs with `session_state_key`, the engine rejects `Attack` when `current_segment` omits it for the actor **before** `validate_attack` runs (`ATTACK_BLOCKED_BY_ACTIVE_SEGMENT_MSG` in `authority_attack.py`). Title validate is rules-only (phase, LOS, CRT inputs, etc.).
 
@@ -279,7 +279,7 @@ When the combat overlay finishes (classify `done` or last cleanup step), the eng
 
 **Session-state patches:** build [`BucketPatch`](../src/hexengine/hooks/bucket.py) (author import from `hexengine.hooks.bucket`). Return it inside [`CombatOutcome`](../src/hexengine/hooks/combat_outcome.py) from `combat_outcome_after_applied` (or embed in `resolve_attack`); engine applies [`ApplyBucketPatch`](../src/hexengine/state/actions.py) via [`combat_outcome_apply`](../src/hexengine/server/arcs/combat_outcome_apply.py). Read session state via pack `session_state.bucket()` or engine `engine_read_session_state`.
 
-**Movement author layout:** policy in [`movement/rules.py`](../games/hexdemo/movement/rules.py) implementing [`MovementRulesBinding`](../src/hexengine/hooks/movement_rules.py); [`hooks/movement.py`](../games/hexdemo/hooks/movement.py) binds slots. Stepwise payload and arc cursor sync stay in `authority_movement` / movement arc runner.
+**Movement author layout:** policy in [`movement/rules.py`](../games/hexdemo/movement/rules.py) implementing [`MovementRulesBinding`](../src/hexengine/hooks/movement_rules.py); [`hooks/modification.py`](../games/hexdemo/hooks/modification.py) binds slots. Stepwise payload and arc cursor sync stay in `authority_movement` / movement arc runner.
 
 **Interaction arc author layout:**
 
@@ -386,8 +386,8 @@ Align naming and validation rules with `TitleHooks` contract sentinels (`REQUIRE
 
 | Area | Declaration | Entry / validation | Notes |
 |------|-------------|-------------------|--------|
-| Movement | `TitleHooks.movement` | Server movement arc; hook catalog | `MovementHook` enum + `bind_title_hook` |
-| Attack | `TitleHooks.attack` | [`authority_attack`](../src/hexengine/server/arcs/authority_attack.py); `validate_title_contract` when interaction arc is declared (`ArcHook.COMBAT_ARC` → `ArcSpec`) | Required `validate_attack` / `resolve_attack` when interaction arc is declared; optional `combat_outcome_after_applied`; cleanup via `ArcHook.COMBAT_ARC` — see [Attack hook inventory](#attack-hook-inventory-combat-policy) |
+| Modification | `TitleHooks.modification` | Server movement arc; hook catalog | `ModificationHook` + `bind_title_hook` |
+| Interaction | `TitleHooks.interaction` | [`authority_attack`](../src/hexengine/server/arcs/authority_attack.py); `validate_title_contract` when interaction arc is declared (`ArcHook.COMBAT_ARC` → `ArcSpec`) | Required `validate_attack` / `resolve_attack` when interaction arc is declared; optional `combat_outcome_after_applied`; cleanup via `ArcHook.COMBAT_ARC` — see [Attack hook inventory](#attack-hook-inventory-combat-policy) |
 | Arcs | `TitleHooks.arcs` | Arc runner, turn registry, overlay cursor | `TURN_ARC_REGISTRY`; `COMBAT_ARC` when interaction enabled; wire in [`arcs/wiring.py`](../games/hexdemo/arcs/wiring.py) (hexdemo) |
 | UI | `TitleHooks.ui` | Client/server UI hook points | Per-viewer wire: [`interaction_messages`](#stateupdateinteraction_messages), [`interaction_panels`](#stateupdateinteraction_panels-turn-action-dock), [`ui_popup`](#ui-popup-standalone-message); see [UI affordances](#ui-affordances--wire-schemas-and-hooks-v1) |
 | Title-load (client) | `[hooks.title_load]` | Client title-load arc; tolerant dispatch in `gameroot` | See [`TITLE_LOAD_HOOKS.md`](TITLE_LOAD_HOOKS.md) |

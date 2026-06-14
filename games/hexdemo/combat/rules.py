@@ -1,7 +1,7 @@
 """
 Hexdemo combat rules binding (attack CRT + arc cleanup policy).
 
-``hooks/attack.py`` and ``combat/arc.py`` delegate here. Low-level cleanup state
+``hooks/interaction.py`` and ``combat/arc.py`` delegate here. Low-level cleanup state
 actions remain in ``combat/actions.py``; bucket handoff in ``combat/outcome.py``.
 """
 
@@ -16,10 +16,10 @@ from hexengine.arcs import ArcContext
 from hexengine.hexes.los import has_line_of_sight
 from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
-from hexengine.hooks.attack import (
+from hexengine.hooks.interaction import (
     AfterAttackAppliedContext,
     AttackContext,
-    AttackHooks,
+    InteractionHooks,
     AttackResolution,
     CombatAdvanceMoveContext,
 )
@@ -526,7 +526,7 @@ def combat_outcome_after_applied(
 def _attack_commit_host(rules: HexdemoCombatRules):
     return SimpleNamespace(
         hooks=TitleHooks(
-            attack=AttackHooks(
+            interaction=InteractionHooks(
                 validate_attack=rules.validate_attack,
                 resolve_attack=rules.resolve_attack,
                 combat_outcome_after_applied=rules.combat_outcome_after_applied,

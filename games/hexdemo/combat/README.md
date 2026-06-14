@@ -19,7 +19,7 @@
 
 `Attack` RPC → interaction commit segment (hexdemo: `attack`, from declared graph) → `BINDING.attack_arc_effect` → `classify` → retreat / advance gates or done.
 
-Preview and CRT validation use `AttackHook` slots in [`../hooks/attack.py`](../hooks/attack.py); authoritative commit runs through the arc only.
+Preview and CRT validation use `InteractionHook` slots in [`../hooks/interaction.py`](../hooks/interaction.py); authoritative commit runs through the arc only.
 
 ## Customizing the graph
 

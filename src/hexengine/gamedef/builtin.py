@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..hooks import ENGINE_DEFAULT
-from ..hooks.attack import AttackHooks
+from ..hooks.interaction import InteractionHooks
 from ..hooks.title import TitleHooks
 from ..state import GameState
 from ..state.actions import NextPhase
@@ -179,7 +179,7 @@ class StaticScheduleGameDefinition:
         """
 
         return TitleHooks(
-            attack=AttackHooks(
+            interaction=InteractionHooks(
                 validate_attack=_builtin_static_attack_validate,
                 resolve_attack=_builtin_static_attack_resolve,
             ),

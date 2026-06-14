@@ -1,7 +1,7 @@
 """
 Registry of ``InteractionKind`` values to title preview hooks.
 
-Titles bind hooks on existing bundles (e.g. ``AttackHook.ATTACK_PLAN_PREVIEW``).
+Titles bind hooks on existing bundles (e.g. ``InteractionHook.ATTACK_PLAN_PREVIEW``).
 The server dispatches ``map_selection_preview_request`` by ``kind`` through this table.
 """
 
@@ -11,9 +11,9 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 from ..gamedef.interactions import InteractionKind
-from .attack import AttackPlanPreviewContext
+from .interaction import AttackPlanPreviewContext
 from .core import ENGINE_DEFAULT
-from .movement import RetreatPathPreviewContext
+from .modification import RetreatPathPreviewContext
 from .title import TitleHooks
 from ..ui.display import MapSelectionPreview
 from .ui import PlaceMarkerPreviewContext
@@ -23,11 +23,11 @@ BoundCheckFn = Callable[[TitleHooks], bool]
 
 
 def _ATTACK_PLAN_BOUND(h):
-    return h.attack.attack_plan_preview is not None
+    return h.interaction.attack_plan_preview is not None
 
 
 def _RETREAT_PATH_BOUND(h):
-    return h.movement.retreat_path_preview is not None
+    return h.modification.retreat_path_preview is not None
 
 
 def _PLACE_MARKER_BOUND(h):
@@ -44,7 +44,7 @@ def _attack_plan_preview(
     board_hexes: list[Any] | None = None,
     **_kwargs: Any,
 ) -> MapSelectionPreview | object:
-    fn = hooks.attack.attack_plan_preview
+    fn = hooks.interaction.attack_plan_preview
     if fn is None:
         return ENGINE_DEFAULT
     ctx = AttackPlanPreviewContext(
@@ -66,7 +66,7 @@ def _retreat_path_preview(
     board_hexes: list[Any] | None = None,
     **_kwargs: Any,
 ) -> MapSelectionPreview | object:
-    fn = hooks.movement.retreat_path_preview
+    fn = hooks.modification.retreat_path_preview
     if fn is None:
         return ENGINE_DEFAULT
     ctx = RetreatPathPreviewContext(

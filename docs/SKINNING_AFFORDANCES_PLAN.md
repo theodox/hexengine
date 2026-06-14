@@ -72,8 +72,8 @@ Place marker (click-confirm): SELECT → preview → merge `panel_actions` → C
 | Panel action registry | [`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py) |
 | Map-selection (server) | [`map_selection_registry.py`](../src/hexengine/hooks/map_selection_registry.py), [`map_selection.py`](../src/hexengine/server/map_selection.py) |
 | Map-selection (client) | [`client_map_selection_registry.py`](../src/hexengine/game/arcs/client_map_selection_registry.py), [`client_map_selection.py`](../src/hexengine/game/arcs/client_map_selection.py) |
-| Attack plan SELECT | `AttackHook.ATTACK_PLAN_PREVIEW`, [`client_combat.py`](../src/hexengine/game/arcs/client_combat.py) (LOS + target overlay) |
-| Retreat path SELECT | `MovementHook.RETREAT_PATH_PREVIEW`, [`client_retreat_path.py`](../src/hexengine/game/arcs/client_retreat_path.py), [`retreat_path.py`](../src/hexengine/retreat_path.py) |
+| Attack plan SELECT | `InteractionHook.ATTACK_PLAN_PREVIEW`, [`client_combat.py`](../src/hexengine/game/arcs/client_combat.py) (LOS + target overlay) |
+| Retreat path SELECT | `ModificationHook.RETREAT_PATH_PREVIEW`, [`client_retreat_path.py`](../src/hexengine/game/arcs/client_retreat_path.py), [`retreat_path.py`](../src/hexengine/retreat_path.py) |
 | Place marker SELECT | `UIHook.PLACE_MARKER_PREVIEW`, [`place_marker_preview.py`](../games/hexdemo/place_marker_preview.py), [`client_place_marker.py`](../src/hexengine/game/arcs/client_place_marker.py) |
 | Drag SELECT | [`server/preview.py`](../src/hexengine/server/preview.py) |
 | INFORM | Message hooks, templates, [`ui_markup.py`](../games/hexdemo/ui_markup.py), `/pack/<id>/` assets |
@@ -136,7 +136,7 @@ Shipped:
 | Work | Notes |
 |------|--------|
 | New `InteractionKind` rows | Placement, gate hex-pick when drag is insufficient |
-| `MovementHook` preview override | Custom reach sets without duplicating validation |
+| `ModificationHook` preview override | Custom reach sets without duplicating validation |
 | Registry-driven draft skins | Optional `draft_presentation_id` on segment registry; client reads from wire instead of hardcoded map |
 | Preview-driven dock policy | Optional preview fields (e.g. `disable_end_phase`) so server consult shapes client merge without storing draft |
 | Retreat path rules tweaks | Step count vs movement budget (title rules; see `retreat_path.py`) |
@@ -191,8 +191,8 @@ Tiers 1–5: CSS → templates → `ui_markup.py` → `hexengine.ui.display` →
 | `INTERACTION_MESSAGES`, `PHASE_BANNER_*`, `COMBAT_INSTRUCTION_*`, `ADVANCE_GATE_*` | INFORM |
 | `INFORM_POPUP`, `MAP_OVERLAYS` | INFORM |
 | **`TURN_ACTION_DOCK_FOR_VIEWER`** | DECIDE |
-| **`AttackHook.ATTACK_PLAN_PREVIEW`** | SELECT (`attack_plan`) |
-| **`MovementHook.RETREAT_PATH_PREVIEW`** | SELECT (`retreat_path`) |
+| **`InteractionHook.ATTACK_PLAN_PREVIEW`** | SELECT (`attack_plan`) |
+| **`ModificationHook.RETREAT_PATH_PREVIEW`** | SELECT (`retreat_path`) |
 | **`UIHook.PLACE_MARKER_PREVIEW`** | SELECT (`place_marker`) |
 
 Full table: [`PACK_HOOK_CONTRACTS.md` § UI hook inventory](PACK_HOOK_CONTRACTS.md#ui-hook-inventory).

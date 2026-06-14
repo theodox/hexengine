@@ -21,7 +21,7 @@ from hexengine.gamedef.builtin import InterleavedTwoFactionGameDefinition
 from hexengine.hexes.types import Hex
 from hexengine.hooks.arcs import ArcsHooks
 from hexengine.hooks.core import ENGINE_MOVEMENT_ARC_PRESET
-from hexengine.hooks.movement import MoveContext, MovementHooks, MovementStepContext
+from hexengine.hooks.modification import MoveContext, ModificationHooks, MovementStepContext
 from hexengine.hooks.title import TitleHooks
 from hexengine.server import GameServer
 from hexengine.server.arcs import (
@@ -52,16 +52,16 @@ def _blue_after_first_step(_ctx: MovementStepContext) -> tuple[str, ...]:
 
 
 class StepwiseInterleaved(InterleavedTwoFactionGameDefinition):
-    def __init__(self, movement: MovementHooks) -> None:
+    def __init__(self, modification: ModificationHooks) -> None:
         super().__init__()
-        self._movement_hooks = movement
+        self._modification_hooks = modification
 
     @property
     def hooks(self) -> TitleHooks:
         b = super().hooks
         return TitleHooks(
-            movement=self._movement_hooks,
-            attack=b.attack,
+            modification=self._modification_hooks,
+            interaction=b.interaction,
             ui=b.ui,
             arcs=ArcsHooks(movement_arc=lambda: ENGINE_MOVEMENT_ARC_PRESET),
         )
@@ -144,7 +144,7 @@ def test_sync_cursor_maps_continue_gate() -> None:
             )
         }
     )
-    host = _Host(st, StepwiseInterleaved(MovementHooks()).hooks)
+    host = _Host(st, StepwiseInterleaved(ModificationHooks()).hooks)
     sync_movement_cursor_from_payload(host)
     cur = read_arc_cursor(host.action_manager.current_state)
     assert cur == ArcCursor(arc_id=MOVEMENT_ARC_ID, segment_id=SEG_CONTINUE)
@@ -159,7 +159,7 @@ def test_sync_cursor_maps_interrupt_gate_with_suspend_frame() -> None:
             )
         }
     )
-    host = _Host(st, StepwiseInterleaved(MovementHooks()).hooks)
+    host = _Host(st, StepwiseInterleaved(ModificationHooks()).hooks)
     sync_movement_cursor_from_payload(host)
     cur = read_arc_cursor(host.action_manager.current_state)
     assert cur == ArcCursor(
@@ -170,7 +170,7 @@ def test_sync_cursor_maps_interrupt_gate_with_suspend_frame() -> None:
 
 
 def test_server_stepwise_move_routes_through_runner() -> None:
-    mh = MovementHooks(
+    mh = ModificationHooks(
         resolve_move_as_steps=_always_stepwise,
         movement_interrupt_factions_after_step=_blue_after_first_step,
     )
@@ -267,7 +267,7 @@ def test_drive_rejects_wrong_interrupt_owner() -> None:
             )
         )
     )
-    host = _Host(st, StepwiseInterleaved(MovementHooks()).hooks)
+    host = _Host(st, StepwiseInterleaved(ModificationHooks()).hooks)
     sync_movement_cursor_from_payload(host)
 
     async def run() -> bool:

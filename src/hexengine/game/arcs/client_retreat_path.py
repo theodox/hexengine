@@ -1,7 +1,7 @@
 """
 Retreat path map-selection (click-to-extend) mixed into ``Game``.
 
-Used when the title binds ``MovementHook.RETREAT_PATH_PREVIEW`` and the viewer has a
+Used when the title binds ``ModificationHook.RETREAT_PATH_PREVIEW`` and the viewer has a
 retreat obligation on the selected unit.
 """
 

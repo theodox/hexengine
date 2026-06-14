@@ -23,16 +23,16 @@ Attack RPC → SetArcCursor(attack) → submit_event("Attack")
 
 | Author concern | Hexdemo module | Hook / arc slot |
 |----------------|----------------|-----------------|
-| CRT / dice | `combat_rules.py` | `AttackHook.resolve_attack` |
-| Post-attack bucket | `combat_outcome.py` | `AttackHook.combat_outcome_after_applied` → `CombatOutcome` |
+| CRT / dice | `combat_rules.py` | `InteractionHook.resolve_attack` |
+| Post-attack bucket | `combat_outcome.py` | `InteractionHook.combat_outcome_after_applied` → `CombatOutcome` |
 | Cleanup guards/effects | `combat_rules.HexdemoCombatRules` (`BINDING`) | `ArcHook.COMBAT_ARC` via `combat_rules_binding_to_arc_spec` |
 | Low-level cleanup mutations | `combat_actions.py` | Called from binding effect methods |
 | Gate ui_mode strings / phase clear | `combat_transitions.py` | `COMBAT_ARC_GATE_UI_MODES`, `clear_combat_state_actions` |
 | “May I attack?” (rules) | `combat_rules.validate_attack` | Engine segment gate runs first |
-| Movement / retreat | `movement_rules.py` | `MovementHook.*` adapters |
+| Movement / retreat | `movement_rules.py` | `ModificationHook.*` adapters |
 | Buttons / copy | `segment_ui.py`, `presentation/` | `UIHook` dock + inform |
 
-**Removed from engine and hexdemo:** `AttackHook.AFTER_ATTACK_APPLIED`, `follow_up_after_attack`, deprecated attack cleanup hook slots (`ON_RETREAT_OBLIGATION_CLEARED`, `COMBAT_DISRUPT_*`, `IS_COMBAT_ADVANCE_MOVE`). Cleanup and advance `MoveUnit` routing are **arc-only**.
+**Removed from engine and hexdemo:** `InteractionHook.AFTER_ATTACK_APPLIED`, `follow_up_after_attack`, deprecated attack cleanup hook slots (`ON_RETREAT_OBLIGATION_CLEARED`, `COMBAT_DISRUPT_*`, `IS_COMBAT_ADVANCE_MOVE`). Cleanup and advance `MoveUnit` routing are **arc-only**.
 
 **Engine-owned:** wire normalize, `submit_event`, `Attack` / `ApplyCombatEffects` assembly, `restore_routine_cursor` after overlay completion, movement payload bridge, `current_segment` projection.
 
@@ -99,7 +99,7 @@ Authors work in **three layers** only (aligned with [`TITLE_AUTHORING.md` § Flo
 
 3. **Bucket access only via `session_state` helpers.** Documented author API uses typed accessors (`retreat_obligations(state)`, `set_last_combat(...)`, etc.). Raw bucket key strings are not part of the author guide.
 
-4. **Cleanup only on the arc.** `AttackHook` slots `combat_disrupt_instead_of_retreat`, `combat_resolve_advance`, `on_retreat_obligation_cleared`, `is_combat_advance_move` are deprecated and removed from author docs; arc binding is authoritative.
+4. **Cleanup only on the arc.** `InteractionHook` slots `combat_disrupt_instead_of_retreat`, `combat_resolve_advance`, `on_retreat_obligation_cleared`, `is_combat_advance_move` are deprecated and removed from author docs; arc binding is authoritative.
 
 5. **Incremental delivery.** Phases A–C improve the interface without requiring full `Attack` → `submit_event` migration (Phase D). Movement unification (Phase E) follows the same pattern later.
 
@@ -115,10 +115,10 @@ Authors work in **three layers** only (aligned with [`TITLE_AUTHORING.md` § Flo
 
 #### Sub-steps (completed)
 
-1. **Marked deprecated** on `AttackHook`: `COMBAT_DISRUPT_INSTEAD_OF_RETREAT`, `COMBAT_RESOLVE_ADVANCE`, `ON_RETREAT_OBLIGATION_CLEARED`, `IS_COMBAT_ADVANCE_MOVE`; documented in [`PACK_HOOK_CONTRACTS.md`](../PACK_HOOK_CONTRACTS.md).
+1. **Marked deprecated** on `InteractionHook`: `COMBAT_DISRUPT_INSTEAD_OF_RETREAT`, `COMBAT_RESOLVE_ADVANCE`, `ON_RETREAT_OBLIGATION_CLEARED`, `IS_COMBAT_ADVANCE_MOVE`; documented in [`PACK_HOOK_CONTRACTS.md`](../PACK_HOOK_CONTRACTS.md).
 2. **Removed dead server paths:** `GameServer._on_retreat_obligation_cleared` / `_maybe_open_combat_advance_after_retreat`; tests use `begin_combat_arc`.
 3. **Docs:** [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md), [`PACK_HOOK_CONTRACTS.md`](../PACK_HOOK_CONTRACTS.md), [`games/hexdemo/hooks/README.md`](../../games/hexdemo/hooks/README.md).
-4. **Hexdemo:** Unbound cleanup slots from `hooks/attack.py`; `combat_arc.py` owns cleanup + `ArcSpec.advance_move_detector` for advance `MoveUnit` pre-routing.
+4. **Hexdemo:** Unbound cleanup slots from `hooks/interaction.py`; `combat_arc.py` owns cleanup + `ArcSpec.advance_move_detector` for advance `MoveUnit` pre-routing.
 
 #### Tests that must stay green
 
@@ -152,11 +152,11 @@ Authors work in **three layers** only (aligned with [`TITLE_AUTHORING.md` § Flo
 
 #### Sub-steps
 
-1. **Add** `hexengine.authoring.combat_outcome` (or `hexengine.hooks.attack_outcome`): `CombatOutcome` dataclass + `apply_outcome(outcome, ctx) -> list[StateAction]` engine helper (or title-scoped adapter interface).
+1. **Add** `hexengine.authoring.combat_outcome` (or `hexengine.hooks.interaction_outcome`): `CombatOutcome` dataclass + `apply_outcome(outcome, ctx) -> list[StateAction]` engine helper (or title-scoped adapter interface).
 2. **Extend** `CombatRulesBinding` / pattern: `resolve_attack(ctx) -> CombatOutcome` (authors may still return `AttackResolution` during deprecation window via adapter).
 3. **Engine:** After `Attack` + `ApplyCombatEffects`, call `outcome.to_state_actions(ctx)` instead of `follow_up_after_attack`; then `begin_combat_arc` unchanged.
-4. **Hexdemo:** Move `follow_up_after_attack` body into `CombatOutcome` builder in `combat_outcome.py` or `combat_transitions.py`; delete `AttackHook.AFTER_ATTACK_APPLIED` from author path when adapter is sole caller.
-5. **Deprecate** `AttackHook.AFTER_ATTACK_APPLIED` in docs; remove from `validate_title_contract` requirements.
+4. **Hexdemo:** Move `follow_up_after_attack` body into `CombatOutcome` builder in `combat_outcome.py` or `combat_transitions.py`; delete `InteractionHook.AFTER_ATTACK_APPLIED` from author path when adapter is sole caller.
+5. **Deprecate** `InteractionHook.AFTER_ATTACK_APPLIED` in docs; remove from `validate_title_contract` requirements.
 
 #### Author migration (hexdemo)
 
@@ -234,8 +234,8 @@ Full combat integration suite + replay/undo tests if present.
 ## Success criteria (met)
 
 - A new title author can implement combat by filling **one binding class** and a **segment registry** without reading `authority_attack.py` or bucket handoff timing.
-- `AttackHook` author surface is **validate, resolve, combat_outcome_after_applied, preview, auto-advance** only; cleanup slots removed from engine and hexdemo.
-- Hexdemo matches the three-layer layout; `hooks/attack.py` and `hooks/arcs.py` are thin.
+- `InteractionHook` author surface is **validate, resolve, combat_outcome_after_applied, preview, auto-advance** only; cleanup slots removed from engine and hexdemo.
+- Hexdemo matches the three-layer layout; `hooks/interaction.py` and `hooks/arcs.py` are thin.
 - Author docs steer away from raw `combat_gate` and bucket key strings; `session_state` helpers are the API.
 - Combat/movement integration tests green (690+ as of last full run).
 
@@ -279,7 +279,7 @@ Full combat integration suite + replay/undo tests if present.
 
 | Piece | Module | Notes |
 |-------|--------|-------|
-| CRT / resolve | `combat_rules.py` | `BINDING.resolve_attack`; `hooks/attack.py` adapter only |
+| CRT / resolve | `combat_rules.py` | `BINDING.resolve_attack`; `hooks/interaction.py` adapter only |
 | Bucket after attack | `combat_outcome.py` | `CombatOutcome`; engine applies via arc `attack` effect |
 | Arc spec | `combat_arc.py` | `combat_rules_binding_to_arc_spec(BINDING, …)` |
 | Classify / gates | `combat_rules.BINDING` | Guards/effects; `attack_arc_effect` for `Attack` segment |

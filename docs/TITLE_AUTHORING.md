@@ -23,12 +23,12 @@ A **title pack** is a self-contained game: scenario TOML, `resources/`, Python u
 
 ## Modification vs interaction
 
-Two **families** frame hook and RPC design. The engine hook types still use legacy names (`MovementHook`, `AttackHook`); charter vocabulary is **modification** and **interaction**.
+Two **families** frame hook and RPC design: `ModificationHook` / `TitleHooks.modification` and `InteractionHook` / `TitleHooks.interaction`.
 
-| Family | Meaning | Core wire verb | Hook bundle (today) | Required? |
-|--------|---------|----------------|---------------------|-----------|
-| **Modification** | One entity’s board state changes (chiefly locomotion) | `MoveUnit` | `MovementHook` | Yes for typical hex titles |
-| **Interaction** | Two or more parties; resolution may spawn follow-up changes | `Attack` (one kind today) | `AttackHook` + interaction arc | **Optional** — a move-only title is valid |
+| Family | Meaning | Core wire verb | Hook enum | Required? |
+|--------|---------|----------------|-----------|-----------|
+| **Modification** | One entity’s board state changes (chiefly locomotion) | `MoveUnit` | `ModificationHook` | Yes for typical hex titles |
+| **Interaction** | Two or more parties; resolution may spawn follow-up changes | `Attack` (one kind today) | `InteractionHook` + interaction arc | **Optional** — a move-only title is valid |
 | **Board modification** | Markers, terrain, placement | `MoveMarker`, … | Marker/placement hooks | Title-specific |
 
 **Modification** is the baseline: most titles need legal unit movement and configure when/how via movement policy and routine arc segments.
@@ -41,8 +41,8 @@ Follow-up moves after interaction (retreat steps, combat advance) are **modifica
 
 | Family | Flow (arcs) | Policy (rules) | Hook adapters |
 |--------|-------------|----------------|---------------|
-| Modification | [`arcs/turn_schedule.py`](../games/hexdemo/arcs/turn_schedule.py) routine segments | [`movement/rules.py`](../games/hexdemo/movement/rules.py) | [`hooks/movement.py`](../games/hexdemo/hooks/movement.py) |
-| Interaction | [`combat/graph.py`](../games/hexdemo/combat/graph.py) overlay FSM | [`combat/rules.py`](../games/hexdemo/combat/rules.py) | [`hooks/attack.py`](../games/hexdemo/hooks/attack.py), [`arcs/wiring.py`](../games/hexdemo/arcs/wiring.py) |
+| Modification | [`arcs/turn_schedule.py`](../games/hexdemo/arcs/turn_schedule.py) routine segments | [`movement/rules.py`](../games/hexdemo/movement/rules.py) | [`hooks/modification.py`](../games/hexdemo/hooks/modification.py) |
+| Interaction | [`combat/graph.py`](../games/hexdemo/combat/graph.py) overlay FSM | [`combat/rules.py`](../games/hexdemo/combat/rules.py) | [`hooks/interaction.py`](../games/hexdemo/hooks/interaction.py), [`arcs/wiring.py`](../games/hexdemo/arcs/wiring.py) |
 
 Normative boundary: [`ENGINE_TITLE_CHARTER.md`](ENGINE_TITLE_CHARTER.md). Execution plan: [`ENGINE_TITLE_CHARTER_PLAN.md`](ENGINE_TITLE_CHARTER_PLAN.md).
 
@@ -275,23 +275,23 @@ Server prepends `games/` when loading a scenario path; see hexdemo README for lo
 | **Combat gate dock rows** | [`authoring/patterns/combat.py`](../src/hexengine/authoring/patterns/combat.py) | `combat_gate_panel_actions` — Disrupt / Advance / Skip `PanelAction` rows from `allowed_actions` + `shell_ui` |
 | **Session-state reads** | [`state/session_state.py`](../games/hexdemo/state/session_state.py) | `bucket()`, retreat obligations, advance offer |
 | **Modification policy** | [`movement/rules.py`](../games/hexdemo/movement/rules.py) | Budget, ZoC, step cost, retreat constraints |
-| **Hook adapters** | [`hooks/attack.py`](../games/hexdemo/hooks/attack.py), [`hooks/movement.py`](../games/hexdemo/hooks/movement.py) | `@bind_title_hook` only |
+| **Hook adapters** | [`hooks/interaction.py`](../games/hexdemo/hooks/interaction.py), [`hooks/modification.py`](../games/hexdemo/hooks/modification.py) | `@bind_title_hook` only |
 | **Segment projection** | [`arcs/segment.py`](../games/hexdemo/arcs/segment.py) | `phase_advance_blocked`, planning block helpers |
 
 **Attack RPC flow:** engine discovers the interaction commit segment from the declared graph (`arc_commit_segment_for_action`, typically `attack` in hexdemo) → cursor → `submit_event` → binding applies resolution + `CombatOutcome` → `classify` auto-advances to cleanup gates or completes → **`restore_routine_cursor`** so routine combat segment (and End Phase) return. Legality and dock rows read **`current_segment`**, not bucket gate strings. Legacy **`combat_gate`** is not written; it is cleared on phase advance for old saves.
 
-**Author `AttackHook` surface:** `validate_attack`, `resolve_attack`, `combat_outcome_after_applied`, `attack_plan_preview`, `auto_advance_phase_after_attack` only. No cleanup slots on `AttackHook` (removed).
+**Author `InteractionHook` surface:** `validate_attack`, `resolve_attack`, `combat_outcome_after_applied`, `attack_plan_preview`, `auto_advance_phase_after_attack` only. No cleanup slots on `InteractionHook` (removed).
 
 ---
 
 ## API: `TitleHooks` bundles
 
-Assembled with [`assemble_title_hooks`](../src/hexengine/hooks/wiring.py). Enum markers: [`MovementHook`](../src/hexengine/hooks/movement.py), [`AttackHook`](../src/hexengine/hooks/attack.py), [`UIHook`](../src/hexengine/hooks/ui.py).
+Assembled with [`assemble_title_hooks`](../src/hexengine/hooks/wiring.py). Enum markers: [`ModificationHook`](../src/hexengine/hooks/modification.py), [`InteractionHook`](../src/hexengine/hooks/interaction.py), [`UIHook`](../src/hexengine/hooks/ui.py). Fields on `TitleHooks`: `.modification`, `.interaction`, `.ui`, `.arcs`.
 
 | Bundle | Typical responsibilities | Contract / validation |
 |--------|-------------------------|---------------------|
-| **movement** | Step cost, ZoC, retreat obligations, retreat path preview, **auto-advance after move spend** | Movement arc; retreat preview optional; `AUTO_ADVANCE_PHASE_AFTER_MOVE_SPEND` (catalog default: advance when action pool empty) |
-| **attack** | `validate_attack` (rules only — segment legality is engine-default when `session_state_key` is set), `resolve_attack`, attack plan preview, optional **`combat_outcome_after_applied`** (`CombatOutcome` + `BucketPatch`), **auto-advance after attack** | **Required** when you declare an interaction arc (`ArcHook.COMBAT_ARC` returning `ArcSpec`); `AUTO_ADVANCE_PHASE_AFTER_ATTACK` has no catalog default (omit hook = no auto-advance) |
+| **modification** | Step cost, ZoC, retreat obligations, retreat path preview, **auto-advance after move spend** | Movement arc; retreat preview optional; `AUTO_ADVANCE_PHASE_AFTER_MOVE_SPEND` (catalog default: advance when action pool empty) |
+| **interaction** | `validate_attack` (rules only — segment legality is engine-default when `session_state_key` is set), `resolve_attack`, attack plan preview, optional **`combat_outcome_after_applied`** (`CombatOutcome` + `BucketPatch`), **auto-advance after attack** | **Required** when you declare an interaction arc (`ArcHook.COMBAT_ARC` returning `ArcSpec`); `AUTO_ADVANCE_PHASE_AFTER_ATTACK` has no catalog default (omit hook = no auto-advance) |
 | **ui** | Banners, dock, popups, overlays, combat banners | `COMBAT_INTERACTION_MESSAGES`, `TURN_ACTION_DOCK_FOR_VIEWER` |
 | **arcs** | Turn registry, **interaction arc** (overlay graph + cleanup subgraph), optional **movement arc preset** (`ENGINE_MOVEMENT_ARC_PRESET` for stepwise moves / retreat paths), optional **combat rules binding** for contract check | `TURN_ARC_REGISTRY`, `COMBAT_ARC` (when interaction enabled); `MOVEMENT_ARC` preset (hexdemo: stepwise + retreat continuation); `COMBAT_RULES_BINDING` (hexdemo: validates `BINDING` at startup). Wired in [`arcs/wiring.py`](../games/hexdemo/arcs/wiring.py) |
 
@@ -354,8 +354,8 @@ Panel / action wire schemas (reference): [`TURN_ACTION_DOCK_CONTRACT.md` § Pane
 
 | `InteractionKind` | Title hook | Hexdemo module |
 |-------------------|------------|----------------|
-| `attack_plan` | `AttackHook.ATTACK_PLAN_PREVIEW` | `combat_planning` / `hooks/attack.py` |
-| `retreat_path` | `MovementHook.RETREAT_PATH_PREVIEW` | `retreat_path_preview.py` |
+| `attack_plan` | `InteractionHook.ATTACK_PLAN_PREVIEW` | `combat_planning` / `hooks/interaction.py` |
+| `retreat_path` | `ModificationHook.RETREAT_PATH_PREVIEW` | `retreat_path_preview.py` |
 | `place_marker` | `UIHook.PLACE_MARKER_PREVIEW` | `place_marker_preview.py`, `hooks/markers.py` |
 
 Registry dispatch: [`map_selection_registry.py`](../src/hexengine/hooks/map_selection_registry.py). Server helper: [`compute_map_selection_preview`](../src/hexengine/server/map_selection.py).
@@ -431,7 +431,7 @@ Preview hooks receive `shell_ui` on context objects; dock hook receives it on `T
 1. Set `session_state_key` in `game_data.toml`; add `state/session_state.py` accessors (no raw bucket strings in author code).
 2. Declare `ArcHook.TURN_ARC_REGISTRY` with schedule slots whose `allowed_actions` includes `Attack` (see [`arcs/turn_schedule.py`](../games/hexdemo/arcs/turn_schedule.py)).
 3. Implement one `CombatRulesBinding` in `combat/rules.py`; build `ArcSpec` from [`combat/graph.py`](../games/hexdemo/combat/graph.py) + [`combat/arc.py`](../games/hexdemo/combat/arc.py) (or template: [`combat_rules_binding_to_arc_spec`](../src/hexengine/authoring/patterns/combat.py)); bind via [`arcs/wiring.py`](../games/hexdemo/arcs/wiring.py) (`ArcHook.COMBAT_ARC`, optional `COMBAT_RULES_BINDING`).
-4. Thin `hooks/attack.py` adapters to binding methods; add `movement/rules.py` if retreat/move policy is non-default.
+4. Thin `hooks/interaction.py` adapters to binding methods; add `movement/rules.py` if retreat/move policy is non-default.
 5. Register segment `ui_mode` values in `ui/segment_registry.py` (routine combat segment, each gate `ui_mode`); bind `UIHook.SEGMENT_PRESENTATION_REGISTRY`, `ENRICH_CURRENT_SEGMENT`, and `TURN_ACTION_DOCK_FOR_VIEWER`.
 6. In the dock hook, call `combat_gate_panel_actions(seg, ctx.shell_ui)` plus `_end_phase_row`; add presentation rows under `presentation/` for each `presentation_id`; run `validate_title_contract` and combat integration tests.
 

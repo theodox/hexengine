@@ -67,13 +67,13 @@ turn_action_dock_for_viewer_engine_default = hook(
 auto_advance_phase_after_move_spend_engine_default = hook(
     contract=SINGLE_DEFAULT,
     engine_impl=default_auto_advance_phase_after_move_spend,
-    title_field="movement.auto_advance_phase_after_move_spend",
+    title_field="modification.auto_advance_phase_after_move_spend",
 )(default_auto_advance_phase_after_move_spend)
 
 
 def _load_defaults() -> None:
     register_engine_catalog_hook(
-        "movement.movement_budget_for_unit",
+        "modification.movement_budget_for_unit",
         movement_budget_for_unit_engine_default,
     )
     register_engine_catalog_hook(
@@ -81,7 +81,7 @@ def _load_defaults() -> None:
         turn_action_dock_for_viewer_engine_default,
     )
     register_engine_catalog_hook(
-        "movement.auto_advance_phase_after_move_spend",
+        "modification.auto_advance_phase_after_move_spend",
         auto_advance_phase_after_move_spend_engine_default,
     )
 

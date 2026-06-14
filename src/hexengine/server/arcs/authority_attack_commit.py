@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from ...hooks.attack import (
+from ...hooks.interaction import (
     AfterAttackAppliedContext,
     AttackContext,
     AttackResolution,
@@ -91,10 +91,10 @@ def resolve_authority_attack(
 ) -> tuple[AttackResolution, CombatOutcome | None]:
     """Run title validate + resolve; raise when unsupported or invalid."""
 
-    hv = host.hooks.attack.validate(ctx)
+    hv = host.hooks.interaction.validate(ctx)
     if hv is ENGINE_DEFAULT:
         raise ValueError("This game title does not support Attack actions")
-    resolve_raw = host.hooks.attack.resolve(ctx)
+    resolve_raw = host.hooks.interaction.resolve(ctx)
     if resolve_raw is ENGINE_DEFAULT:
         raise ValueError("This game title does not resolve Attack actions")
     return split_resolve_result(resolve_raw)

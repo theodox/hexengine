@@ -1,7 +1,7 @@
 """
 Hexdemo movement policy (pure rules).
 
-``hooks/movement.py`` delegates here. Preview RPCs stay in hooks
+``hooks/modification.py`` delegates here. Preview RPCs stay in hooks
 (``retreat_path_preview`` delegates to ``retreat_preview.py``).
 """
 

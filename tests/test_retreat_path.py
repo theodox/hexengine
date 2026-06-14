@@ -61,7 +61,7 @@ def test_hexdemo_binds_retreat_path_preview() -> None:
     from hexdemo.registry import build_game_definition
 
     th = build_game_definition().hooks
-    assert th.movement.retreat_path_preview is not None
+    assert th.modification.retreat_path_preview is not None
 
 
 def test_can_complete_retreat_in_steps() -> None:

@@ -36,10 +36,10 @@ This charter states **who owns what** between `hexengine` (authoritative server,
 
 Two interaction **families** frame hook and RPC design:
 
-| Family | Meaning | Typical wire verb | Hook bundle (today → direction) |
-|--------|---------|-------------------|----------------------------------|
-| **Modification** | One entity’s state on the board changes (chiefly locomotion) | `MoveUnit` | `MovementHook` → locomotion / modification hooks |
-| **Interaction** | Two or more parties; resolution may produce many follow-up changes | `Attack` (one kind among possible future kinds) | `AttackHook` → interaction hooks |
+| Family | Meaning | Typical wire verb | Hook bundle |
+|--------|---------|-------------------|-------------|
+| **Modification** | One entity’s state on the board changes (chiefly locomotion) | `MoveUnit` | `ModificationHook` → `TitleHooks.modification` |
+| **Interaction** | Two or more parties; resolution may produce many follow-up changes | `Attack` (one kind among possible future kinds) | `InteractionHook` → `TitleHooks.interaction` |
 
 **Modification** is the hex-engine baseline: most titles need legal unit movement. **Interaction** is optional: a title may have no wargame combat, no `Attack` segment, and no interaction arc.
 
@@ -201,7 +201,7 @@ Work toward this charter may proceed in any order, but these are the main known 
 4. **Soften or remove phase-name contract heuristics** ✅ — opt-in interaction bundle only; phase names do not require attack hooks (phase 4).
 5. **Move pattern modules toward reference packs** ✅ — no silent movement arc; titles opt in via `ENGINE_MOVEMENT_ARC_PRESET` (phase 5).
 6. **Strip client/engine hexdemo fallbacks** ✅ — generic dock CSS swap, neutral highlight fallback, shell_ui copy from title (phase 6).
-7. **Document terminology** — modification / interaction in [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) ✅ (phase 0); hook renames are optional and later (charter plan phase 7).
+7. **Document terminology** — modification / interaction in [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) ✅ (phase 0); hook enums `ModificationHook` / `InteractionHook` and `TitleHooks.modification` / `.interaction` ✅ (phase 7).
 
 ---
 

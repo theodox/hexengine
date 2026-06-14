@@ -14,7 +14,7 @@ from hexengine.authoring.present import map_selection_preview, panel_action
 from hexengine.hexes.los import has_line_of_sight
 from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
-from hexengine.hooks.attack import AttackContext, AttackHooks
+from hexengine.hooks.interaction import AttackContext, InteractionHooks
 from hexengine.server.arcs.authority_attack import (
     normalize_attack_party_ids,
     sorted_unique_hexes_from_unit_ids,
@@ -234,7 +234,7 @@ def _try_validate_commit(
     player_faction: str,
     payload: dict[str, Any],
     *,
-    attack_hooks: AttackHooks,
+    attack_hooks: InteractionHooks,
 ) -> str | None:
     """Return an error string when commit would fail validate_attack; else None."""
     fn = attack_hooks.validate_attack
@@ -310,7 +310,7 @@ def compute_attack_plan_preview(
     draft: dict[str, Any],
     shell_ui: Mapping[str, Any],
     board_hexes: list[Hex],
-    attack_hooks: AttackHooks,
+    attack_hooks: InteractionHooks,
 ) -> MapSelectionPreview:
     """Map-selection preview for ``kind=attack_plan``."""
     blocked = attack_planning_blocked_reason(state, player_faction)

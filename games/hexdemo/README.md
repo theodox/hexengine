@@ -56,9 +56,9 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `hooks/turn_action_dock.py` | Commit dock — `combat_gate_panel_actions` + End Phase + segment presentation |
 | `combat/transitions.py` | Gate `ui_mode` strings, phase-scoped session-state clear, attack-planning block reason |
 | `combat/actions.py` | Pack-local cleanup state actions (disrupt, advance, retreat step) |
-| `movement/rules.py` | Movement policy (`MovementRulesBinding`); `hooks/movement.py` adapts |
+| `movement/rules.py` | Movement policy (`MovementRulesBinding`); `hooks/modification.py` adapts |
 | `movement/retreat_preview.py` | Retreat path map-selection preview |
-| `combat/planning.py` | Attack plan preview (shared by `hooks/attack` and tests) |
+| `combat/planning.py` | Attack plan preview (shared by `hooks/interaction` and tests) |
 | `state/session_state.py` | Session-state reads (`bucket()`, retreat obligations, advance offer) |
 | `arcs/segment.py` | Project `current_segment` per viewer; `phase_advance_blocked` for auto-advance |
 | `ui/focus.py` | Suggested unit focus after state sync |

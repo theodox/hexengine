@@ -88,7 +88,7 @@ Phase 5 can start after phase 1 for movement-default removal; full pattern reloc
 
 **Exit criteria:** A new author can answer “what is optional?” and “where is flow declared?” from docs only.
 
-**Non-goals:** Rename `MovementHook` / `AttackHook` types (phase 7).
+**Non-goals:** Rename `ModificationHook` / `InteractionHook` types (phase 7).
 
 ---
 
@@ -215,17 +215,17 @@ Phase 5 can start after phase 1 for movement-default removal; full pattern reloc
 
 ---
 
-## Phase 7 — Optional hook renames (A) (defer)
+## Phase 7 — Optional hook renames (A) ✅
 
 **Objective:** Align type names with modification / interaction vocabulary.
 
 **Deliverables (only if churn acceptable):**
 
-- [ ] Alias or rename `MovementHook` → modification hook family name.
-- [ ] Alias or rename `AttackHook` → interaction hook family name.
-- [ ] Deprecation period with re-exports.
+- [x] Rename `MovementHook` / `MovementHooks` → `ModificationHook` / `ModificationHooks`.
+- [x] Rename `AttackHook` / `AttackHooks` → `InteractionHook` / `InteractionHooks`.
+- [x] Rename `TitleHooks.movement` / `.attack` → `.modification` / `.interaction`; modules `hexengine.hooks.modification` / `.interaction`.
 
-**Defer** until phases 1–6 stable; docs (phase 0) already use charter terms.
+**Shipped:** full rename (no legacy re-exports). Wire verbs `MoveUnit` / `Attack` unchanged.
 
 ---
 

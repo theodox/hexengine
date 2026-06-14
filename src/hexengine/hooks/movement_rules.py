@@ -16,11 +16,11 @@ from typing import Protocol
 
 from ..hexes.types import Hex
 from ..state import GameState
-from .movement import MoveContext
+from .modification import MoveContext
 
 
 class MovementRulesBinding(Protocol):
-    """Pack-level movement policy surface (maps to ``MovementHook`` slots)."""
+    """Pack-level movement policy surface (maps to ``ModificationHook`` slots)."""
 
     def movement_budget_for_unit(
         self, state: GameState, unit_id: str

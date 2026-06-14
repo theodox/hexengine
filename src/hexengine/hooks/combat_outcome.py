@@ -16,7 +16,7 @@ attack assembly), before classify auto-advances cleanup segments.
 
 Titles may return ``CombatOutcome`` (with embedded ``AttackResolution``) from
 
-``resolve_attack``, or bind ``AttackHook.COMBAT_OUTCOME_AFTER_APPLIED`` to build an
+``resolve_attack``, or bind ``InteractionHook.COMBAT_OUTCOME_AFTER_APPLIED`` to build an
 
 outcome from ``AfterAttackAppliedContext`` after board effects commit.
 
@@ -36,7 +36,7 @@ from ..state.action_manager import StateAction
 
 from ..state.engine_session_state import BucketPatch
 
-from .attack import AttackResolution
+from .interaction import AttackResolution
 
 
 

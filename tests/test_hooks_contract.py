@@ -7,7 +7,7 @@ import types
 
 import pytest
 
-from hexengine.hooks.attack import AttackHook, AttackHooks, attack_hooks_unsupported
+from hexengine.hooks.interaction import InteractionHook, InteractionHooks, interaction_hooks_unsupported
 from hexengine.hooks.core import (
     ENGINE_DEFAULT,
     PRESET,
@@ -21,7 +21,7 @@ from hexengine.hooks.internal import (
     movement_budget_for_unit_engine_default,
     validate_title_contract,
 )
-from hexengine.hooks.movement import MovementHook, MovementHooks
+from hexengine.hooks.modification import ModificationHook, ModificationHooks
 from hexengine.hooks.preset_options import PresetOptions
 from hexengine.hooks.title import TitleHooks
 from hexengine.hooks.ui import (
@@ -157,7 +157,7 @@ def test_validate_title_contract_fails_when_interaction_arc_without_attack_hooks
     arc = build_combat_cleanup_arc(StubEffects(), gates)
     spec = ArcSpec(arc=arc, owner_resolver=None)
 
-    class PackWithInteractionNoAttackHooks:
+    class PackWithInteractionNoInteractionHooks:
         hooks = TitleHooks(
             arcs=ArcsHooks(combat_arc=lambda: spec),
         )
@@ -170,7 +170,7 @@ def test_validate_title_contract_fails_when_interaction_arc_without_attack_hooks
             return []
 
     with pytest.raises(HookContractError, match="interaction arc"):
-        validate_title_contract(PackWithInteractionNoAttackHooks())
+        validate_title_contract(PackWithInteractionNoInteractionHooks())
 
 
 def test_validate_title_contract_four_phase_move_only_passes() -> None:
@@ -303,7 +303,7 @@ def test_validate_title_contract_checks_combat_rules_binding_methods() -> None:
                 combat_arc=lambda: ArcSpec(arc=reg.routine_specs["blue_combat"].arc),
                 combat_rules_binding=lambda: IncompleteBinding(),
             ),
-            attack=AttackHooks(
+            interaction=InteractionHooks(
                 validate_attack=lambda _c: None,
                 resolve_attack=lambda _c: None,
             ),
@@ -333,7 +333,7 @@ def test_validate_title_contract_requires_turn_arc_registry_with_session_state_k
 
 
 def test_engine_catalog_has_movement_budget_default() -> None:
-    fn = get_engine_catalog_hook("movement.movement_budget_for_unit")
+    fn = get_engine_catalog_hook("modification.movement_budget_for_unit")
     assert fn is movement_budget_for_unit_engine_default
 
 
@@ -346,7 +346,7 @@ def test_engine_catalog_auto_advance_after_move_spend_when_depleted() -> None:
     )
     from hexengine.state.game_state import TurnState
 
-    fn = get_engine_catalog_hook("movement.auto_advance_phase_after_move_spend")
+    fn = get_engine_catalog_hook("modification.auto_advance_phase_after_move_spend")
     assert fn is auto_advance_phase_after_move_spend_engine_default
     import dataclasses
 
@@ -365,36 +365,38 @@ def test_engine_catalog_auto_advance_after_move_spend_when_depleted() -> None:
     assert default_auto_advance_phase_after_move_spend(st2) is True
 
 
-def test_attack_hooks_unsupported_contract() -> None:
-    a = attack_hooks_unsupported()
+def test_interaction_hooks_unsupported_contract() -> None:
+    a = interaction_hooks_unsupported()
     assert a.validate_attack is not None and a.resolve_attack is not None
 
 
 def test_hook_accepts_title_field_for_assembly() -> None:
-    @hook(title_field="attack.validate_attack")
+    @hook(title_field="interaction.validate_attack")
     def _stub_attack_validate(_ctx: object) -> None:
         return None
 
-    assert _stub_attack_validate.__hexengine_title_field__ == ("attack.validate_attack")
+    assert _stub_attack_validate.__hexengine_title_field__ == (
+        "interaction.validate_attack"
+    )
 
 
 def test_assemble_title_hooks_from_modules() -> None:
-    @bind_title_hook(MovementHook.MOVEMENT_BUDGET_FOR_UNIT)
+    @bind_title_hook(ModificationHook.MOVEMENT_BUDGET_FOR_UNIT)
     def budget(_s: object, _u: str) -> float:
         return 1.0
 
     mod = types.ModuleType("hexengine_test_wiring")
     mod.budget = budget
     th = assemble_title_hooks(mod)
-    assert th.movement.movement_budget_for_unit is budget
+    assert th.modification.movement_budget_for_unit is budget
 
 
 def test_hook_enum_members_match_dataclass_fields() -> None:
-    assert {e.value for e in MovementHook} == {
-        f.name for f in dataclasses.fields(MovementHooks)
+    assert {e.value for e in ModificationHook} == {
+        f.name for f in dataclasses.fields(ModificationHooks)
     }
-    assert {e.value for e in AttackHook} == {
-        f.name for f in dataclasses.fields(AttackHooks)
+    assert {e.value for e in InteractionHook} == {
+        f.name for f in dataclasses.fields(InteractionHooks)
     }
     assert {e.value for e in UIHook} == {f.name for f in dataclasses.fields(UIHooks)}
 
@@ -421,8 +423,8 @@ def test_assemble_title_hooks_rejects_duplicate_paths() -> None:
 def test_bind_title_hook_rebind_raises() -> None:
     with pytest.raises(ValueError, match="already bound"):
 
-        @bind_title_hook(MovementHook.VALIDATE_MOVE)
-        @bind_title_hook(MovementHook.VALIDATE_MOVE)
+        @bind_title_hook(ModificationHook.VALIDATE_MOVE)
+        @bind_title_hook(ModificationHook.VALIDATE_MOVE)
         def _twice() -> None:  # pragma: no cover - definition fails
             pass
 
@@ -431,8 +433,8 @@ def test_hexdemo_build_hooks_wires_all_marked() -> None:
     from games.hexdemo.hooks import build_hooks
 
     th = build_hooks()
-    assert th.movement.zoc_hexes_for_unit is not None
-    assert th.attack.validate_attack is not None
+    assert th.modification.zoc_hexes_for_unit is not None
+    assert th.interaction.validate_attack is not None
     assert th.ui.inform_popup is not None
     assert th.ui.phase_banner_text_for_viewer is not None
     assert th.ui.phase_banner_html_for_viewer is not None

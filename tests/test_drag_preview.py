@@ -75,7 +75,7 @@ def test_unit_preview_endpoints_pass_move_validation() -> None:
         zoc_hexes_for_unit=server._zoc_hexes_for_unit,
         max_active_units_per_hex=server._max_active_units_per_hex,
         movement_step_cost_fn=server._movement_step_cost_fn,
-        retreat_blocked_hexes=server.hooks.movement.retreat_blocked,
+        retreat_blocked_hexes=server.hooks.modification.retreat_blocked,
     )
     assert preview.kind == "move"
     budget = server._movement_budget_for_unit(st, unit_id)

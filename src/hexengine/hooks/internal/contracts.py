@@ -76,7 +76,7 @@ def validate_title_contract(game_definition: Any) -> None:
     """Validate title hook contracts against the game definition.
 
     Opt-in bundles only: when the title declares an interaction arc
-    (``ArcHook.COMBAT_ARC`` returning ``ArcSpec``), ``TitleHooks.attack`` must provide
+    (``ArcHook.COMBAT_ARC`` returning ``ArcSpec``), ``TitleHooks.interaction`` must provide
     ``validate_attack`` and ``resolve_attack``. Phase names in ``turn_order()`` do not
     infer combat requirements.
 
@@ -131,11 +131,11 @@ def validate_title_contract(game_definition: Any) -> None:
                 details={"requires_enrich_current_segment": True},
             )
     if _title_declares_interaction_arc(bundle):
-        a = bundle.attack
+        a = bundle.interaction
         if a.validate_attack is None or a.resolve_attack is None:
             raise HookContractError(
                 message=(
-                    "Title declares an interaction arc but TitleHooks.attack is "
+                    "Title declares an interaction arc but TitleHooks.interaction is "
                     "missing validate_attack and/or resolve_attack."
                 ),
                 details={"interaction_requires_attack_hooks": True},

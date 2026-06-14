@@ -8,7 +8,7 @@ from hexengine.authoring.present import map_selection_preview, panel_action
 from hexengine.hexes.math import distance
 from hexengine.hexes.types import Hex
 from hexengine.hooks.core import ENGINE_DEFAULT
-from hexengine.hooks.movement import MoveContext, RetreatPathPreviewContext
+from hexengine.hooks.modification import MoveContext, RetreatPathPreviewContext
 from hexengine.retreat_path import (
     compute_retreat_path_highlight_sets,
     hex_to_wire,
@@ -20,7 +20,7 @@ from hexengine.retreat_path import (
 from hexengine.state import GameState
 from hexengine.ui.display import MapSelectionPreview, PanelAction
 
-from ..hooks import movement as movement_hooks
+from ..hooks import modification as movement_hooks
 from ..state import session_state
 
 

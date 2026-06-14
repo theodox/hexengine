@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from ...hexes.types import Hex
-from ...hooks.attack import CombatAdvanceMoveContext
+from ...hooks.interaction import CombatAdvanceMoveContext
 from ...hooks.title import TitleHooks
 from ...state import ActionManager, GameState
 from ..protocol import ActionRequest, PlayerInfo

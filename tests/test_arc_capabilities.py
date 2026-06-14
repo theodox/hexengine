@@ -21,7 +21,7 @@ from hexengine.authoring.patterns.combat import (
 )
 from hexengine.hexes.types import Hex
 from hexengine.hooks.arcs import ArcsHooks
-from hexengine.hooks.attack import AttackHooks, AttackResolution
+from hexengine.hooks.interaction import InteractionHooks, AttackResolution
 from hexengine.hooks.title import TitleHooks
 from hexengine.server.arcs.authority_attack import execute_authority_attack_request
 from hexengine.state import GameState
@@ -159,7 +159,7 @@ def test_authority_attack_uses_strike_segment_not_engine_id() -> None:
     mgr = ActionManager(st)
     hooks = TitleHooks(
         arcs=ArcsHooks(combat_arc=lambda: spec),
-        attack=AttackHooks(
+        interaction=InteractionHooks(
             validate_attack=lambda _ctx: None,
             resolve_attack=lambda _ctx: AttackResolution(outcome="none"),
         ),

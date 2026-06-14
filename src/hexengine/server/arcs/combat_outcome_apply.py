@@ -4,7 +4,7 @@ Apply title combat outcomes after ``Attack`` + ``ApplyCombatEffects``.
 
 from __future__ import annotations
 
-from ...hooks.attack import AfterAttackAppliedContext, AttackResolution
+from ...hooks.interaction import AfterAttackAppliedContext, AttackResolution
 from ...hooks.combat_outcome import CombatOutcome
 from ...hooks.core import ENGINE_DEFAULT
 from ...hooks.title import TitleHooks
@@ -50,12 +50,12 @@ def follow_up_state_actions_after_attack(
     if outcome_from_resolve is not None:
         return outcome_from_resolve.follow_up_state_actions(ctx.session_state_key)
 
-    raw_outcome = hooks.attack.build_combat_outcome_after_applied(ctx)
+    raw_outcome = hooks.interaction.build_combat_outcome_after_applied(ctx)
     if raw_outcome is ENGINE_DEFAULT:
         return []
     if not isinstance(raw_outcome, CombatOutcome):
         raise TypeError(
-            "hooks.attack.combat_outcome_after_applied must return "
+            "hooks.interaction.combat_outcome_after_applied must return "
             "CombatOutcome or hooks.ENGINE_DEFAULT"
         )
     return raw_outcome.follow_up_state_actions(ctx.session_state_key)

@@ -31,7 +31,7 @@ Today hexdemo builds the graph in [`games/hexdemo/combat/graph.py`](../games/hex
 ## Non-goals (this plan)
 
 - YAML/JSON arc specs or a second symbolic graph language (unless phase 4 proves necessary).
-- Moving CRT / `AttackHook` paths (preview, validate, resolve) into the arc graph module.
+- Moving CRT / `InteractionHook` paths (preview, validate, resolve) into the arc graph module.
 - Rewriting turn schedule / routine phase arcs (separate readability pass).
 - Forking cleanup subgraph semantics per title without strong justification (engine pattern remains the default for minimal titles).
 
