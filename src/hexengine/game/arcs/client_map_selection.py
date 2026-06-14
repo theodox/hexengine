@@ -93,7 +93,7 @@ class ClientMapSelectionMixin:
             if isinstance(raw, str) and raw.strip():
                 return raw.strip()
         return self._shell_attack_copy(
-            "attack_pick_target_status", "Combat: pick a target hex."
+            "attack_pick_target_status", ""
         )
 
     def _attack_plan_confirm_enabled(self) -> bool:

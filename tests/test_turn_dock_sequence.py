@@ -65,6 +65,22 @@ def test_replace_dock_arc_css_class_swaps_modifier() -> None:
     )
 
 
+def test_replace_dock_arc_css_class_hexengine_prefix() -> None:
+    css = "hexengine-turn-dock hexengine-turn-dock--routine"
+    assert (
+        replace_dock_arc_css_class(css, "preview")
+        == "hexengine-turn-dock hexengine-turn-dock--preview"
+    )
+
+
+def test_replace_dock_arc_css_class_appends_modifier_to_base() -> None:
+    css = "hexengine-turn-dock"
+    assert (
+        replace_dock_arc_css_class(css, "routine")
+        == "hexengine-turn-dock hexengine-turn-dock--routine"
+    )
+
+
 def test_turn_dock_sequence_headline_attack_ready_idle() -> None:
     hl = turn_dock_sequence_headline(
         server_headline="Combat",

@@ -29,9 +29,7 @@ from .client_panel_actions import (
 
 TURN_ACTIONS_PANEL_ID = "turn_actions"
 USER_CONTROLS_HOST_ID = "user-controls"
-_DOCK_ARC_CSS_RE = re.compile(
-    r"\b(hexdemo-turn-dock|hexengine-turn-dock)--[a-z0-9_]+\b"
-)
+_DOCK_ARC_CSS_RE = re.compile(r"\b([\w-]+-turn-dock)--[\w]+\b")
 
 def effective_turn_dock_presentation_id(
     server_presentation_id: str,
@@ -54,17 +52,16 @@ def effective_turn_dock_presentation_id(
 
 
 def replace_dock_arc_css_class(css_class: str, effective_arc: str) -> str:
-    """Swap ``--<arc>`` modifiers on turn-dock panel roots."""
+    """Swap ``--<presentation_id>`` modifiers on turn-dock panel roots."""
     arc = str(effective_arc or "").strip()
     css = str(css_class or "").strip()
     if not arc:
         return css
     if _DOCK_ARC_CSS_RE.search(css):
         return _DOCK_ARC_CSS_RE.sub(rf"\1--{arc}", css)
-    if "hexdemo-turn-dock" in css.split():
-        return f"{css} hexdemo-turn-dock--{arc}".strip()
-    if "hexengine-turn-dock" in css.split():
-        return f"{css} hexengine-turn-dock--{arc}".strip()
+    for token in css.split():
+        if token.endswith("-turn-dock"):
+            return f"{css} {token}--{arc}".strip()
     return css
 
 
@@ -330,11 +327,11 @@ class ClientInteractionPanelsMixin:
             attack_ready_idle=attack_ready_idle,
             attack_pick_target_status=self._shell_ui_status_copy(
                 "attack_pick_target_status",
-                "Combat: select target hex and attackers, then confirm.",
+                "",
             ),
             attack_target_set_status=self._shell_ui_status_copy(
                 "attack_target_set_status",
-                "Target set — adjust attackers or confirm.",
+                "",
             ),
         )
 

@@ -43,7 +43,7 @@
 | RPC routing | Dedicated `GameServer` branches for `CombatAdvance`, `CombatDisruptInsteadOfRetreat`, `CombatDeclineAdvance` | Active segment `allowed_actions` + `submit_event` should gate |
 | Contract validation | ~~`_phase_implies_attack_schedule` infers attack hooks from phase **names**~~ | Resolved phase 4: opt-in bundle validation only |
 | Default movement arc | ~~`authoring_bridge.build_default_movement_arc_spec` when title omits movement arc~~ | Resolved phase 5: explicit `ENGINE_MOVEMENT_ARC_PRESET` opt-in |
-| Client presentation | Engine CSS fallbacks (`hexdemo-turn-dock--*`) and default coaching copy | Wire `presentation_id` + title `shell_ui` only |
+| Client presentation | ~~Engine CSS fallbacks (`hexdemo-turn-dock--*`) and default coaching copy~~ | Resolved phase 6: title `css_class` + `shell_ui`; engine uses generic `-turn-dock` / `highlight` affordances |
 
 ---
 
@@ -200,16 +200,16 @@ Phase 5 can start after phase 1 for movement-default removal; full pattern reloc
 
 ---
 
-## Phase 6 — Presentation boundary (F) (1 PR)
+## Phase 6 — Presentation boundary (F) (1 PR) ✅
 
 **Objective:** Engine affordances only; no hexdemo-named CSS or coaching fallbacks.
 
 **Deliverables:**
 
-- [ ] Remove or genericize `hexdemo-turn-dock` CSS prefix logic in [`client_interaction_panels.py`](../src/hexengine/game/arcs/client_interaction_panels.py); classes come from title segment presentation DTOs.
-- [ ] Audit engine UI hooks for hardcoded hexdemo copy; replace with neutral placeholders or omit when wire omits `presentation_id`.
-- [ ] Hexdemo [`ui/segment_registry.py`](../games/hexdemo/ui/segment_registry.py) owns all segment skin keys referenced by arcs.
-- [ ] Contract test: every `ui_mode` in registered arcs appears in presentation registry (when session key set).
+- [x] Remove or genericize `hexdemo-turn-dock` CSS prefix logic in [`client_interaction_panels.py`](../src/hexengine/game/arcs/client_interaction_panels.py); classes come from title segment presentation DTOs.
+- [x] Audit engine UI hooks for hardcoded hexdemo copy; replace with neutral placeholders or omit when wire omits `presentation_id`.
+- [x] Hexdemo [`ui/segment_registry.py`](../games/hexdemo/ui/segment_registry.py) owns all segment skin keys referenced by arcs.
+- [x] Contract test: every `ui_mode` in registered arcs appears in presentation registry (when session key set).
 
 **Exit criteria:** New template title renders without hexdemo CSS classes in engine code paths.
 

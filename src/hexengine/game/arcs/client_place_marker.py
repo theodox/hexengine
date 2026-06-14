@@ -84,7 +84,7 @@ class ClientPlaceMarkerMixin:
         cls = (
             hi.marker_hex_class
             if isinstance(hi.marker_hex_class, str) and hi.marker_hex_class.strip()
-            else "hexdemo-marker-hex"
+            else "highlight"
         )
         self.display_mgr.clear_highlights()
         legal: set[Hex] = set()

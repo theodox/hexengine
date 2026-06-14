@@ -3,7 +3,7 @@ Turn action dock button dispatch (local handlers + preview commit ratify).
 
 Titles declare routes in ``game_data.toml`` → ``[client_contract.panel_action_routes]``;
 the server mirrors them on ``turn_rules.client_contract``. When a title omits routes,
-the engine falls back to built-in defaults (hexdemo-shaped flows).
+the engine falls back to built-in reference routes for common map-selection flows.
 """
 
 from __future__ import annotations

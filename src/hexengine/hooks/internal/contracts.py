@@ -117,7 +117,7 @@ def validate_title_contract(game_definition: Any) -> None:
                 message=(
                     "session_state_key is set but "
                     "TitleHooks.ui.segment_presentation_registry is not bound. "
-                    "Wire UIHook.SEGMENT_PRESENTATION_REGISTRY (hexdemo: segment_ui.py)."
+                    "Wire UIHook.SEGMENT_PRESENTATION_REGISTRY in the title hooks package."
                 ),
                 details={"requires_segment_presentation_registry": True},
             )
@@ -126,7 +126,7 @@ def validate_title_contract(game_definition: Any) -> None:
                 message=(
                     "session_state_key is set but "
                     "TitleHooks.ui.enrich_current_segment is not bound. "
-                    "Wire UIHook.ENRICH_CURRENT_SEGMENT (hexdemo: segment_presentation.py)."
+                    "Wire UIHook.ENRICH_CURRENT_SEGMENT in the title hooks package."
                 ),
                 details={"requires_enrich_current_segment": True},
             )

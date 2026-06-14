@@ -200,7 +200,7 @@ Work toward this charter may proceed in any order, but these are the main known 
 3. **Generic RPC routing** ✅ — `try_arc_rpc` / `overlay_rpc_action_types`; single GameServer branch for aftermath verbs (phase 3).
 4. **Soften or remove phase-name contract heuristics** ✅ — opt-in interaction bundle only; phase names do not require attack hooks (phase 4).
 5. **Move pattern modules toward reference packs** ✅ — no silent movement arc; titles opt in via `ENGINE_MOVEMENT_ARC_PRESET` (phase 5).
-6. **Strip client/engine hexdemo fallbacks** — CSS class prefixes, default coaching copy; use wire `presentation_id` and title `shell_ui`.
+6. **Strip client/engine hexdemo fallbacks** ✅ — generic dock CSS swap, neutral highlight fallback, shell_ui copy from title (phase 6).
 7. **Document terminology** — modification / interaction in [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) ✅ (phase 0); hook renames are optional and later (charter plan phase 7).
 
 ---

@@ -282,12 +282,12 @@ class ClientRetreatPathMixin:
             hi.retreat_through_hex_class
             if isinstance(hi.retreat_through_hex_class, str)
             and hi.retreat_through_hex_class.strip()
-            else hi.retreat_hex_class or "hexdemo-retreat-hex"
+            else hi.retreat_hex_class or "highlight"
         )
         tip_cls = (
             hi.retreat_hex_class
             if isinstance(hi.retreat_hex_class, str) and hi.retreat_hex_class.strip()
-            else "hexdemo-retreat-hex"
+            else "highlight"
         )
 
         through: set[Hex] = set()
