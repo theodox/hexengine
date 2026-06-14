@@ -52,16 +52,13 @@ class ArcRuntimeHost(Protocol):
     async def _broadcast_state_update(self) -> None: ...
 
 
-class CombatArcDispatch(str, Enum):
+class ArcDispatch(str, Enum):
     """Result of offering an RPC to the active overlay (interaction) arc."""
 
     NOT_DECLARED = "not_declared"
     HANDLED = "handled"
     NO_CURSOR = "no_cursor"
     REJECTED = "rejected"
-
-
-ArcDispatch = CombatArcDispatch
 
 
 # Stable interaction-aftermath wire verbs (core mechanisms; titles gate via segments).
@@ -103,12 +100,6 @@ def overlay_rpc_action_types(hooks: TitleHooks) -> frozenset[str]:
 def active_overlay_arc_cursor(state: GameState, hooks: TitleHooks) -> ArcCursor | None:
     """Active cursor when it points at the title's declared overlay (interaction) arc."""
 
-    return active_combat_arc_cursor(state, hooks)
-
-
-def active_combat_arc_cursor(state: GameState, hooks: TitleHooks) -> ArcCursor | None:
-    """Active cursor when it points at the title's declared combat arc."""
-
     spec = combat_arc_spec(hooks)
     if spec is None:
         return None
@@ -118,12 +109,8 @@ def active_combat_arc_cursor(state: GameState, hooks: TitleHooks) -> ArcCursor |
     return cur
 
 
-def title_declares_combat_arc(hooks: TitleHooks) -> bool:
-    return combat_arc_spec(hooks) is not None
-
-
 def title_declares_overlay_arc(hooks: TitleHooks) -> bool:
-    return title_declares_combat_arc(hooks)
+    return combat_arc_spec(hooks) is not None
 
 
 def turn_arc_registry_from_hooks(hooks: TitleHooks) -> TurnArcRegistry | None:
@@ -223,37 +210,18 @@ async def finish_arc_dispatch(
     no_cursor_msg: str = COMBAT_NO_CURSOR_MSG,
     rejected_msg: str = COMBAT_REJECTED_MSG,
 ) -> bool:
-    """Apply an overlay arc dispatch outcome (see ``finish_combat_arc_dispatch``)."""
-
-    return await finish_combat_arc_dispatch(
-        host,
-        player_id,
-        outcome,
-        no_cursor_msg=no_cursor_msg,
-        rejected_msg=rejected_msg,
-    )
-
-
-async def finish_combat_arc_dispatch(
-    host: ArcRuntimeHost,
-    player_id: str,
-    outcome: CombatArcDispatch,
-    *,
-    no_cursor_msg: str = COMBAT_NO_CURSOR_MSG,
-    rejected_msg: str = COMBAT_REJECTED_MSG,
-) -> bool:
     """
-    Apply a combat dispatch outcome.
+    Apply an overlay arc dispatch outcome.
 
     Returns True when the request is finished (success or error sent). False when the
-    title declares no combat arc and the caller should reject the combat cleanup RPC.
+    title declares no overlay arc and the caller should reject the cleanup RPC.
     """
 
-    if outcome == CombatArcDispatch.HANDLED:
+    if outcome == ArcDispatch.HANDLED:
         return True
-    if outcome == CombatArcDispatch.NOT_DECLARED:
+    if outcome == ArcDispatch.NOT_DECLARED:
         return False
-    if outcome == CombatArcDispatch.NO_CURSOR:
+    if outcome == ArcDispatch.NO_CURSOR:
         await host._send_error(player_id, no_cursor_msg)
     else:
         await host._send_error(player_id, rejected_msg)
@@ -281,18 +249,6 @@ async def try_arc_rpc(
     if await drive_overlay_arc_event(host, player_id, player, action_type, params):
         return ArcDispatch.HANDLED
     return ArcDispatch.REJECTED
-
-
-async def try_combat_arc_rpc(
-    host: ArcRuntimeHost,
-    player_id: str,
-    player: PlayerInfo,
-    action_type: str,
-    params: dict[str, Any] | None = None,
-) -> CombatArcDispatch:
-    """Backward-compatible alias for ``try_arc_rpc``."""
-
-    return await try_arc_rpc(host, player_id, player, action_type, params)
 
 
 async def try_arc_move_unit(
@@ -343,27 +299,6 @@ async def try_arc_move_unit(
     return ArcDispatch.REJECTED
 
 
-async def try_combat_arc_move_unit(
-    host: ArcRuntimeHost,
-    player_id: str,
-    player: PlayerInfo,
-    params: dict[str, Any],
-    *,
-    is_retreat_fulfillment: bool,
-    is_advance_fulfillment: bool,
-) -> CombatArcDispatch:
-    """Backward-compatible alias for ``try_arc_move_unit``."""
-
-    return await try_arc_move_unit(
-        host,
-        player_id,
-        player,
-        params,
-        is_retreat_fulfillment=is_retreat_fulfillment,
-        is_advance_fulfillment=is_advance_fulfillment,
-    )
-
-
 async def drive_overlay_arc_event(
     host: ArcRuntimeHost,
     player_id: str,
@@ -372,18 +307,6 @@ async def drive_overlay_arc_event(
     params: dict[str, Any] | None = None,
 ) -> bool:
     """Offer one RPC to the active overlay (interaction) arc."""
-
-    return await drive_combat_arc_event(host, player_id, player, action_type, params)
-
-
-async def drive_combat_arc_event(
-    host: ArcRuntimeHost,
-    player_id: str,
-    player: PlayerInfo,
-    action_type: str,
-    params: dict[str, Any] | None = None,
-) -> bool:
-    """Offer one RPC to the active combat arc."""
 
     spec = combat_arc_spec(host.hooks)
     if spec is None:
@@ -520,19 +443,15 @@ __all__ = [
     "COMBAT_ARC_REQUIRED_MSG",
     "COMBAT_NO_CURSOR_MSG",
     "COMBAT_REJECTED_MSG",
-    "CombatArcDispatch",
     "INTERACTION_AFTERMATH_WIRE_VERBS",
-    "active_combat_arc_cursor",
     "active_overlay_arc_cursor",
     "begin_combat_arc",
     "begin_movement_arc",
     "begin_routine_slot",
     "combat_arc_spec",
-    "drive_combat_arc_event",
     "drive_movement_arc_event",
     "drive_overlay_arc_event",
     "finish_arc_dispatch",
-    "finish_combat_arc_dispatch",
     "lookup_arc_spec",
     "movement_arc_spec",
     "overlay_rpc_action_types",
@@ -540,11 +459,8 @@ __all__ = [
     "restore_routine_cursor",
     "schedule_next_phase_info",
     "sync_movement_cursor_from_payload",
-    "title_declares_combat_arc",
     "title_declares_overlay_arc",
     "try_arc_move_unit",
     "try_arc_rpc",
-    "try_combat_arc_move_unit",
-    "try_combat_arc_rpc",
     "turn_arc_registry_from_hooks",
 ]

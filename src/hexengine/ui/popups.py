@@ -168,7 +168,3 @@ class Popup:
                     canvas.removeChild(el)
             except Exception:
                 pass
-
-    def do_fade(self, *_args: object) -> None:
-        """Legacy entry point; prefer ``_begin_fade_out``."""
-        self._begin_fade_out()

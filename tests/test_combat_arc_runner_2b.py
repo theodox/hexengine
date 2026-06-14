@@ -1,7 +1,7 @@
 """
 Phase 2b: routing combat RPCs through the generic arc runner.
 
-These drive the engine arc-runtime bridge (`begin_combat_arc` / `drive_combat_arc_event`)
+These drive the engine arc-runtime bridge (`begin_combat_arc` / `drive_overlay_arc_event`)
 against the real hexdemo combat arc. They assert that the Attack follow-up classifies into
 the right gate, that the runner accepts valid RPCs, and that it returns False on a stale
 cursor, wrong owner, or undeclared arc (no legacy fallback when a combat arc is bound).
@@ -20,7 +20,7 @@ from hexengine.arcs import ArcCursor, SetArcCursor, read_arc_cursor
 from hexengine.authoring.patterns.combat import combat_gate_panel_actions
 from hexengine.hexes.types import Hex
 from hexengine.hooks.title import TitleHooks
-from hexengine.server.arcs import begin_combat_arc, drive_combat_arc_event
+from hexengine.server.arcs import begin_combat_arc, drive_overlay_arc_event
 from hexengine.state import ActionManager, GameState
 from hexengine.state.game_state import UnitState
 from hexengine.state.engine_session_state import engine_read_session_state
@@ -118,7 +118,7 @@ def test_begin_is_noop_without_declared_arc() -> None:
     assert read_arc_cursor(host.action_manager.current_state) is None
 
 
-# ---- drive_combat_arc_event: runner authoritative only when it accepts --------
+# ---- drive_overlay_arc_event: runner authoritative only when it accepts --------
 
 
 def test_disrupt_through_runner_clears_obligation_and_cursor() -> None:
@@ -131,7 +131,7 @@ def test_disrupt_through_runner_clears_obligation_and_cursor() -> None:
     begin_combat_arc(host)
 
     handled = asyncio.run(
-        drive_combat_arc_event(
+        drive_overlay_arc_event(
             host, "p1", _player("union"), "CombatDisruptInsteadOfRetreat"
         )
     )
@@ -158,7 +158,7 @@ def test_disrupt_by_wrong_faction_rejected() -> None:
     cursor_before = read_arc_cursor(host.action_manager.current_state)
 
     handled = asyncio.run(
-        drive_combat_arc_event(
+        drive_overlay_arc_event(
             host, "p1", _player("rebel"), "CombatDisruptInsteadOfRetreat"
         )
     )
@@ -186,7 +186,7 @@ def test_decline_advance_through_runner_clears_gate_and_cursor() -> None:
     )
 
     handled = asyncio.run(
-        drive_combat_arc_event(host, "p1", _player("union"), "CombatDeclineAdvance")
+        drive_overlay_arc_event(host, "p1", _player("union"), "CombatDeclineAdvance")
     )
 
     assert handled is True
@@ -211,7 +211,7 @@ def test_decline_advance_by_non_current_faction_rejected() -> None:
     )
 
     handled = asyncio.run(
-        drive_combat_arc_event(host, "p1", _player("rebel"), "CombatDeclineAdvance")
+        drive_overlay_arc_event(host, "p1", _player("rebel"), "CombatDeclineAdvance")
     )
 
     assert handled is False  # owner is CURRENT (union); rebel is not the owner
@@ -223,7 +223,7 @@ def test_drive_rejects_without_active_cursor() -> None:
         _state(combat_transitions.GATE_AWAITING_ADVANCE, advance={"faction": "union"})
     )
     handled = asyncio.run(
-        drive_combat_arc_event(host, "p1", _player("union"), "CombatDeclineAdvance")
+        drive_overlay_arc_event(host, "p1", _player("union"), "CombatDeclineAdvance")
     )
     assert (
         handled is False
@@ -239,7 +239,7 @@ def test_drive_not_declared_without_combat_arc() -> None:
         hooks=TitleHooks(),
     )
     handled = asyncio.run(
-        drive_combat_arc_event(
+        drive_overlay_arc_event(
             host, "p1", _player("union"), "CombatDisruptInsteadOfRetreat"
         )
     )

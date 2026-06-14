@@ -84,9 +84,6 @@ DEFAULT_PANEL_ACTION_ROUTES: tuple[PanelActionRoute, ...] = (
     ),
 )
 
-# Back-compat alias for tests and docs that reference the old name.
-PANEL_ACTION_ROUTES = DEFAULT_PANEL_ACTION_ROUTES
-
 
 def _manifest_routes(game: Any | None) -> tuple[PanelActionRoute, ...] | None:
     if game is None:
@@ -174,7 +171,6 @@ def dispatch_panel_action_route(
 
 __all__ = [
     "DEFAULT_PANEL_ACTION_ROUTES",
-    "PANEL_ACTION_ROUTES",
     "PanelActionRoute",
     "dispatch_panel_action_route",
     "panel_action_routes_for_game",

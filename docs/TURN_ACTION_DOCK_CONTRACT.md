@@ -287,7 +287,7 @@ Same shape as [action rows](PACK_HOOK_CONTRACTS.md#action-row-schema-shared) wit
 | `group` | `str` | no | Layout hint: `primary`, `secondary`, `danger`. Client may sort or style; unknown values ignored. |
 | `order` | `int` | no | Optional sort key within panel; lower first |
 
-**Client-only / special dispatch:** Registered in [`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py) (`PANEL_ACTION_ROUTES`). Titles should not rely on the server accepting these as ordinary RPCs:
+**Client-only / special dispatch:** Registered in [`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py) (`DEFAULT_PANEL_ACTION_ROUTES`). Titles should not rely on the server accepting these as ordinary RPCs:
 
 | Match | Dispatch | Behavior |
 |-------|----------|----------|

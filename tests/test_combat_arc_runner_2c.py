@@ -20,7 +20,7 @@ from games.hexdemo.hooks import build_hooks
 
 from hexengine.arcs import read_arc_cursor
 from hexengine.hexes.types import Hex
-from hexengine.server.arcs import begin_combat_arc, drive_combat_arc_event
+from hexengine.server.arcs import begin_combat_arc, drive_overlay_arc_event
 from hexengine.state import ActionManager, GameState
 from hexengine.state.game_state import UnitState
 from hexengine.state.engine_session_state import engine_read_session_state
@@ -134,7 +134,7 @@ def test_retreat_through_runner_advances_cursor_to_resolve() -> None:
         "to_hex": {"i": h1.i, "j": h1.j, "k": h1.k},
     }
     handled = asyncio.run(
-        drive_combat_arc_event(host, "p1", _player("union"), "MoveUnit", params)
+        drive_overlay_arc_event(host, "p1", _player("union"), "MoveUnit", params)
     )
 
     assert handled is True
@@ -164,7 +164,7 @@ def test_partial_retreat_loops_cursor_to_retreat_gate() -> None:
         "to_hex": {"i": h1.i, "j": h1.j, "k": h1.k},
     }
     handled = asyncio.run(
-        drive_combat_arc_event(host, "p1", _player("union"), "MoveUnit", params)
+        drive_overlay_arc_event(host, "p1", _player("union"), "MoveUnit", params)
     )
     assert handled is True
     final = host.action_manager.current_state
@@ -192,7 +192,7 @@ def test_retreat_without_cursor_rejected() -> None:
         "to_hex": {"i": h1.i, "j": h1.j, "k": h1.k},
     }
     handled = asyncio.run(
-        drive_combat_arc_event(host, "p1", _player("union"), "MoveUnit", params)
+        drive_overlay_arc_event(host, "p1", _player("union"), "MoveUnit", params)
     )
     assert handled is False
     assert host.action_manager.current_state.board.units["u1"].position == h0
@@ -242,7 +242,7 @@ def test_retreat_or_disrupt_gate_accepts_moveunit() -> None:
         "to_hex": {"i": h1.i, "j": h1.j, "k": h1.k},
     }
     assert asyncio.run(
-        drive_combat_arc_event(host, "p1", _player("union"), "MoveUnit", params)
+        drive_overlay_arc_event(host, "p1", _player("union"), "MoveUnit", params)
     )
     assert host.action_manager.current_state.board.units["u1"].position == h1
 
@@ -263,7 +263,7 @@ def test_wrong_owner_retreat_move_rejected() -> None:
         "to_hex": {"i": h1.i, "j": h1.j, "k": h1.k},
     }
     handled = asyncio.run(
-        drive_combat_arc_event(host, "p1", _player("rebel"), "MoveUnit", params)
+        drive_overlay_arc_event(host, "p1", _player("rebel"), "MoveUnit", params)
     )
     assert handled is False
     assert host.action_manager.current_state.board.units["u1"].position == h0

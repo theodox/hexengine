@@ -164,10 +164,6 @@ def build_combat_cleanup_arc(
     return a.build()
 
 
-# Plan alias: mandatory retreat obligations then optional advance window.
-build_mandatory_retreat_then_optional_advance_arc = build_combat_cleanup_arc
-
-
 def combat_gate_panel_actions(
     segment: Mapping[str, Any] | None,
     shell_ui: Mapping[str, Any],
@@ -389,7 +385,6 @@ __all__ = [
     "SEG_RETREAT_GATE",
     "SEG_RETREAT_OR_DISRUPT_GATE",
     "build_combat_cleanup_arc",
-    "build_mandatory_retreat_then_optional_advance_arc",
     "CombatRulesEffectsAdapter",
     "combat_arc_to_spec",
     "combat_gate_panel_actions",

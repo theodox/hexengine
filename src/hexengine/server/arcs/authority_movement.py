@@ -32,11 +32,11 @@ from ...state.movement_arc import (
 from ..protocol import ActionRequest, Message, PlayerInfo
 from .authority_arc_runtime import (
     COMBAT_ARC_REQUIRED_MSG,
-    CombatArcDispatch,
+    ArcDispatch,
     drive_movement_arc_event,
-    finish_combat_arc_dispatch,
+    finish_arc_dispatch,
     sync_movement_cursor_from_payload,
-    try_combat_arc_move_unit,
+    try_arc_move_unit,
 )
 from .authority_combat_cleanup import validate_retreat_fulfillment_stack
 
@@ -137,7 +137,7 @@ async def _complete_retreat_fulfillment_step(
     Returns True when the RPC is fully handled (arc success or error).
     """
 
-    outcome = await try_combat_arc_move_unit(
+    outcome = await try_arc_move_unit(
         host,
         player_id,
         player,
@@ -145,10 +145,10 @@ async def _complete_retreat_fulfillment_step(
         is_retreat_fulfillment=True,
         is_advance_fulfillment=False,
     )
-    if outcome == CombatArcDispatch.NOT_DECLARED:
+    if outcome == ArcDispatch.NOT_DECLARED:
         await host._send_error(player_id, COMBAT_ARC_REQUIRED_MSG)
         return True
-    await finish_combat_arc_dispatch(host, player_id, outcome)
+    await finish_arc_dispatch(host, player_id, outcome)
     return True
 
 

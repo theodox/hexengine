@@ -17,7 +17,6 @@ from .combat import (
     CombatArcEffectsBinding,
     CombatArcGateUiModes,
     build_combat_cleanup_arc,
-    build_mandatory_retreat_then_optional_advance_arc,
     combat_gate_panel_actions,
 )
 from .movement import build_movement_arc
@@ -36,7 +35,6 @@ __all__ = [
     "SEG_RETREAT_GATE",
     "SEG_RETREAT_OR_DISRUPT_GATE",
     "build_combat_cleanup_arc",
-    "build_mandatory_retreat_then_optional_advance_arc",
     "combat_gate_panel_actions",
     "build_movement_arc",
     "build_routine_phase_arc",

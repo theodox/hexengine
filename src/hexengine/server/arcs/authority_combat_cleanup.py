@@ -2,7 +2,7 @@
 Combat cleanup helpers for the arc runtime.
 
 Dedicated combat RPCs (disrupt, advance, retreat fulfillment) are handled only through
-the declared combat arc (`try_combat_arc_rpc`, `try_combat_arc_move_unit`). This module
+the declared overlay arc (``try_arc_rpc``, ``try_arc_move_unit``). This module
 keeps advance-move detection and stacked-retreat pre-validation used before the arc runs.
 """
 

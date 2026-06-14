@@ -48,7 +48,7 @@ Inventory for checklist items 1–9 in [`.cursor/plans/test_game_boundary_plan.m
 | Combat gate dock buttons | `combat_gate_panel_actions` in `TURN_ACTION_DOCK_FOR_VIEWER` | Catalog default dock: End Phase only; no gate row builder in `segment_wire` |
 | `combat_event` wire (retreat UI) | `UIHook.COMBAT_EVENT_SUMMARY` → `CombatEventSummary` | `_broadcast_combat_events` fans out per viewer (no session-state reads) |
 | Post-attack bucket patches | `InteractionHook.COMBAT_OUTCOME_AFTER_APPLIED` → hexdemo `combat_outcome.build_combat_outcome_after_applied` | Combat arc `attack` effect applies `CombatOutcome`; `classify` auto-advances; no `begin_combat_arc` on attack RPC |
-| Routine cursor after cleanup | — | `restore_routine_cursor` when combat overlay completes (`drive_combat_arc_event` and successful arc `Attack`) |
+| Routine cursor after cleanup | — | `restore_routine_cursor` when combat overlay completes (`drive_overlay_arc_event` and successful arc `Attack`) |
 | Post-retreat advance / disrupt / resolve advance | `CombatRulesBinding` methods on `BINDING` | Combat arc `submit_event` only; no `InteractionHook` cleanup slots |
 | Is this `MoveUnit` a combat advance? | `BINDING.detect_combat_advance_move` wired as `ArcSpec.advance_move_detector` | `authority_combat_cleanup.move_unit_is_combat_advance_fulfillment` |
 | `combat_event` wire payload | `COMBAT_EVENT_SUMMARY` → `CombatEventSummary` | Fan-out per viewer + `COMBAT_INSTRUCTION_FOR_VIEWER`; `ENGINE_DEFAULT`/`None` = no combat events |

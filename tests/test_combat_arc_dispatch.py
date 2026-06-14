@@ -13,14 +13,12 @@ from hexengine.arcs import read_arc_cursor
 from hexengine.hexes.types import Hex
 from hexengine.hooks.title import TitleHooks
 from hexengine.server.arcs import (
-    CombatArcDispatch,
+    ArcDispatch,
     begin_combat_arc,
-    finish_combat_arc_dispatch,
+    finish_arc_dispatch,
     overlay_rpc_action_types,
     try_arc_move_unit,
     try_arc_rpc,
-    try_combat_arc_move_unit,
-    try_combat_arc_rpc,
 )
 from hexengine.state import ActionManager, GameState
 from hexengine.state.game_state import UnitState
@@ -66,13 +64,6 @@ def _retreat_state() -> GameState:
     )
 
 
-def test_try_arc_rpc_alias_delegates() -> None:
-    host = _Host(_retreat_state(), hooks=TitleHooks())
-    assert asyncio.run(
-        try_combat_arc_rpc(host, "p1", _player("union"), "CombatAdvance")
-    ) == asyncio.run(try_arc_rpc(host, "p1", _player("union"), "CombatAdvance"))
-
-
 def test_overlay_rpc_action_types_from_declared_arc() -> None:
     from hexengine.server.arcs import overlay_rpc_action_types
 
@@ -85,30 +76,30 @@ def test_overlay_rpc_action_types_from_declared_arc() -> None:
 def test_try_rpc_not_declared_without_combat_arc() -> None:
     host = _Host(_retreat_state(), hooks=TitleHooks())
     outcome = asyncio.run(
-        try_combat_arc_rpc(host, "p1", _player("union"), "CombatAdvance")
+        try_arc_rpc(host, "p1", _player("union"), "CombatAdvance")
     )
-    assert outcome == CombatArcDispatch.NOT_DECLARED
+    assert outcome == ArcDispatch.NOT_DECLARED
 
 
 def test_try_rpc_no_cursor_when_obligations_without_begin() -> None:
     host = _Host(_retreat_state())
     outcome = asyncio.run(
-        try_combat_arc_rpc(
+        try_arc_rpc(
             host, "p1", _player("union"), "CombatDisruptInsteadOfRetreat"
         )
     )
-    assert outcome == CombatArcDispatch.NO_CURSOR
+    assert outcome == ArcDispatch.NO_CURSOR
 
 
 def test_try_rpc_rejects_wrong_owner() -> None:
     host = _Host(_retreat_state())
     begin_combat_arc(host)
     outcome = asyncio.run(
-        try_combat_arc_rpc(
+        try_arc_rpc(
             host, "p1", _player("rebel"), "CombatDisruptInsteadOfRetreat"
         )
     )
-    assert outcome == CombatArcDispatch.REJECTED
+    assert outcome == ArcDispatch.REJECTED
 
 
 def test_try_move_unit_retreat_without_cursor_is_inactive() -> None:
@@ -119,7 +110,7 @@ def test_try_move_unit_retreat_without_cursor_is_inactive() -> None:
         "to_hex": {"i": 1, "j": -1, "k": 0},
     }
     outcome = asyncio.run(
-        try_combat_arc_move_unit(
+        try_arc_move_unit(
             host,
             "p1",
             _player("union"),
@@ -128,7 +119,7 @@ def test_try_move_unit_retreat_without_cursor_is_inactive() -> None:
             is_advance_fulfillment=False,
         )
     )
-    assert outcome == CombatArcDispatch.NO_CURSOR
+    assert outcome == ArcDispatch.NO_CURSOR
 
 
 def test_try_move_unit_routine_not_declared_during_move_phase() -> None:
@@ -147,7 +138,7 @@ def test_try_move_unit_routine_not_declared_during_move_phase() -> None:
         "to_hex": {"i": 1, "j": -1, "k": 0},
     }
     outcome = asyncio.run(
-        try_combat_arc_move_unit(
+        try_arc_move_unit(
             host,
             "p1",
             _player("union"),
@@ -156,13 +147,13 @@ def test_try_move_unit_routine_not_declared_during_move_phase() -> None:
             is_advance_fulfillment=False,
         )
     )
-    assert outcome == CombatArcDispatch.NOT_DECLARED
+    assert outcome == ArcDispatch.NOT_DECLARED
 
 
 def test_finish_dispatch_sends_error_on_reject() -> None:
     host = _Host(_retreat_state())
     done = asyncio.run(
-        finish_combat_arc_dispatch(host, "p1", CombatArcDispatch.REJECTED)
+        finish_arc_dispatch(host, "p1", ArcDispatch.REJECTED)
     )
     assert done is True
     assert host.errors
@@ -181,11 +172,11 @@ def test_try_rpc_handles_disrupt_on_active_gate() -> None:
         == combat_arc.SEG_RETREAT_OR_DISRUPT_GATE
     )
     outcome = asyncio.run(
-        try_combat_arc_rpc(
+        try_arc_rpc(
             host, "p1", _player("union"), "CombatDisruptInsteadOfRetreat"
         )
     )
-    assert outcome == CombatArcDispatch.HANDLED
+    assert outcome == ArcDispatch.HANDLED
     assert host.broadcasts == 1
     assert not engine_read_session_state_obligations(host)
 

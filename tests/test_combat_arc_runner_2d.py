@@ -11,7 +11,7 @@ from games.hexdemo.hooks import build_hooks
 
 from hexengine.arcs import ArcCursor, SetArcCursor, read_arc_cursor
 from hexengine.hexes.types import Hex
-from hexengine.server.arcs import drive_combat_arc_event
+from hexengine.server.arcs import drive_overlay_arc_event
 from hexengine.state import ActionManager, GameState
 from hexengine.state.actions import ClearUnitRetreatObligation
 from hexengine.state.game_state import UnitState
@@ -104,7 +104,7 @@ def test_advance_moveunit_through_runner() -> None:
         "to_hex": {"i": h1.i, "j": h1.j, "k": h1.k},
     }
     handled = asyncio.run(
-        drive_combat_arc_event(
+        drive_overlay_arc_event(
             host, "p1", SimpleNamespace(faction="union"), "MoveUnit", params
         )
     )

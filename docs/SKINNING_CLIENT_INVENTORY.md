@@ -28,7 +28,7 @@ File-level map of how the browser renders title UX. Server owns legality; the cl
 | Module | Role |
 |--------|------|
 | [`client_interaction_panels.py`](../src/hexengine/game/arcs/client_interaction_panels.py) | Renders `StateUpdate.interaction_panels`; `headline`, `html`, `actions[]`, `inputs[]`; merges preview actions; SEQUENCE skin (`attack_draft`, `retreat_path_draft`, `place_marker_draft`) |
-| [`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py) | `PANEL_ACTION_ROUTES`: local + `preview_commit` dispatch before default RPC |
+| [`client_panel_actions.py`](../src/hexengine/game/arcs/client_panel_actions.py) | `DEFAULT_PANEL_ACTION_ROUTES`: local + `preview_commit` dispatch before default RPC |
 | [`game.py`](../src/hexengine/game/game.py) | `_sync_interaction_panels()` on state sync |
 | [`games/hexdemo/hooks/turn_action_dock.py`](../games/hexdemo/hooks/turn_action_dock.py) | Hexdemo server dock rows; copy via [`segment_ui.py`](../games/hexdemo/segment_ui.py) + [`presentation/dock.py`](../games/hexdemo/presentation/dock.py) |
 
