@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from games.hexdemo.combat import arc as combat_arc, transitions as combat_transitions
+from games.hexdemo.combat import arc as combat_arc
+from games.hexdemo.combat import transitions as combat_transitions
 
 from hexengine.arcs import CURRENT, NO_OWNER, OwnerRef
 from hexengine.authoring.patterns.combat import (
@@ -77,6 +78,33 @@ def test_hexdemo_combat_arc_matches_pattern() -> None:
     arc = build_hexdemo_combat_arc_spec().arc
     arc.validate()
     assert arc == combat_arc.build_combat_arc()
+
+
+def test_hexdemo_combat_graph_matches_engine_pattern() -> None:
+    """Pack ``graph.py`` stays aligned with ``build_combat_cleanup_arc``."""
+
+    from games.hexdemo.combat import rules as combat_rules
+    from games.hexdemo.combat.graph import build_hexdemo_combat_arc
+
+    from hexengine.authoring.patterns.combat import combat_rules_effects_adapter
+
+    gates = CombatArcGateUiModes(
+        awaiting_retreat=combat_transitions.GATE_AWAITING_RETREAT,
+        awaiting_retreat_or_disrupt=combat_transitions.GATE_AWAITING_RETREAT_OR_DISRUPT,
+        awaiting_advance=combat_transitions.GATE_AWAITING_ADVANCE,
+    )
+    effects = combat_rules_effects_adapter(combat_rules.BINDING)
+    pack_arc = build_hexdemo_combat_arc(
+        effects,
+        gates,
+        attack_effect=combat_rules.BINDING.attack_arc_effect,
+    )
+    pattern_arc = build_combat_cleanup_arc(
+        effects,
+        gates,
+        attack_effect=combat_rules.BINDING.attack_arc_effect,
+    )
+    assert pack_arc == pattern_arc
 
 
 def test_hexdemo_gate_kinds_on_segments() -> None:

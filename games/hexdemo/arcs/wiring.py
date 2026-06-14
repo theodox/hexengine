@@ -1,12 +1,12 @@
-"""Thin ``ArcHook`` adapters — arc specs live in ``combat/arc.py`` and ``arcs/``."""
+"""``ArcHook`` adapters — turn registry and combat arc spec for ``TitleHooks.arcs``."""
 
 from __future__ import annotations
 
 from hexengine.hooks.arcs import ArcHook
 from hexengine.hooks.wiring import bind_title_hook
 
-from ..arcs.turn_schedule import build_hexdemo_turn_arc_registry
 from ..combat.arc import BINDING, build_hexdemo_combat_arc_spec
+from .turn_schedule import build_hexdemo_turn_arc_registry
 
 _TURN_ARC_REGISTRY = build_hexdemo_turn_arc_registry()
 

@@ -204,9 +204,7 @@ def combat_gate_panel_actions(
                 panel_action(
                     id="combat_disrupt_instead",
                     action_type=at,
-                    label=_label(
-                        "disrupt_instead_label", "Disrupt instead of retreat"
-                    ),
+                    label=_label("disrupt_instead_label", "Disrupt instead of retreat"),
                     title=_label(
                         "disrupt_instead_title",
                         "Take disruption on your retreating stack and waive "
@@ -283,7 +281,7 @@ def combat_rules_binding_satisfies(binding: Any) -> bool:
     return not combat_rules_binding_missing_methods(binding)
 
 
-class _CombatRulesEffectsAdapter:
+class CombatRulesEffectsAdapter:
     """Bridge a ``CombatRulesBinding`` into ``CombatArcEffectsBinding`` for the pattern."""
 
     def __init__(self, binding: CombatArcRulesBinding) -> None:
@@ -320,6 +318,29 @@ class _CombatRulesEffectsAdapter:
         return list(self._binding.clear_advance_gate(ctx))
 
 
+def combat_rules_effects_adapter(
+    binding: CombatArcRulesBinding,
+) -> CombatRulesEffectsAdapter:
+    """Wrap a ``CombatRulesBinding`` for ``build_combat_cleanup_arc`` / pack graph builders."""
+
+    return CombatRulesEffectsAdapter(binding)
+
+
+def combat_arc_to_spec(
+    arc_obj: Arc,
+    *,
+    owner_resolver: OwnerRefResolver | None = None,
+    advance_move_detector: Callable[..., bool] | None = None,
+) -> ArcSpec:
+    """Wrap a built combat ``Arc`` in ``ArcSpec`` metadata (owner resolver, advance detector)."""
+
+    return ArcSpec(
+        arc=arc_obj,
+        owner_resolver=owner_resolver,
+        advance_move_detector=advance_move_detector,
+    )
+
+
 def combat_rules_binding_to_arc_spec(
     binding: CombatRulesBinding,
     gates: CombatArcGateUiModes,
@@ -332,15 +353,18 @@ def combat_rules_binding_to_arc_spec(
 ) -> ArcSpec:
     """
     Build ``ArcSpec`` from one author binding (cleanup subgraph + optional attack segment).
+
+    Titles that own the graph in pack code should call ``combat_arc_to_spec`` on a
+    locally built ``Arc`` instead.
     """
 
     if not combat_rules_binding_satisfies(binding):
         missing = ", ".join(combat_rules_binding_missing_methods(binding))
         raise TypeError(f"CombatRulesBinding missing methods: {missing}")
 
-    effects = _CombatRulesEffectsAdapter(binding)
-    return ArcSpec(
-        arc=build_combat_cleanup_arc(
+    effects = combat_rules_effects_adapter(binding)
+    return combat_arc_to_spec(
+        build_combat_cleanup_arc(
             effects,
             gates,
             arc_id=arc_id,
@@ -366,8 +390,11 @@ __all__ = [
     "SEG_RETREAT_OR_DISRUPT_GATE",
     "build_combat_cleanup_arc",
     "build_mandatory_retreat_then_optional_advance_arc",
+    "CombatRulesEffectsAdapter",
+    "combat_arc_to_spec",
     "combat_gate_panel_actions",
     "combat_rules_binding_missing_methods",
     "combat_rules_binding_satisfies",
     "combat_rules_binding_to_arc_spec",
+    "combat_rules_effects_adapter",
 ]

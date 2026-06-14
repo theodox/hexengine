@@ -19,8 +19,8 @@ from __future__ import annotations
 from hexengine.hooks.title import TitleHooks
 from hexengine.hooks.wiring import assemble_title_hooks
 
+from ..arcs import wiring as arc_wiring
 from . import (
-    arcs,
     attack,
     markers,
     movement,
@@ -36,7 +36,7 @@ def build_hooks() -> TitleHooks:
     return assemble_title_hooks(
         movement,
         attack,
-        arcs,
+        arc_wiring,
         ui,
         overlays,
         turn_action_dock,

@@ -46,10 +46,11 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `hooks/title_load.py` | Splash/setup/server-log (`[hooks.title_load]` in manifest) |
 | `presentation/` | Viewer copy (`dock.py`, `inform.py`, `interaction_messages.py`) |
 | `ui/segment_registry.py` | Segment `ui_mode` → presentation registry (`PRESENTATION_BY_UI_MODE`) |
-| `arcs/segment.py` | Project `current_segment` per viewer; `phase_advance_blocked` for auto-advance |
+| `arcs/` | Turn schedule, segment helpers, `ArcHook` wiring — see [`arcs/README.md`](arcs/README.md) |
+| `combat/graph.py` | **Combat arc FSM** — read first; builds `Arc` via `authoring.builder` |
 | `combat/rules.py` | `HexdemoCombatRules` / `BINDING` — CRT, validate, arc guards/effects, `attack_arc_effect` |
 | `combat/outcome.py` | Post-attack `CombatOutcome` / `BucketPatch` builder |
-| `combat/arc.py` | `combat_rules_binding_to_arc_spec` + owner resolver → `ArcHook.COMBAT_ARC` |
+| `combat/arc.py` | `ArcSpec` wrapper (owner resolver); wired via `arcs/wiring.py` |
 | `hooks/turn_action_dock.py` | Commit dock — `combat_gate_panel_actions` + End Phase + segment presentation |
 | `combat/transitions.py` | Gate `ui_mode` strings, phase-scoped session-state clear, attack-planning block reason |
 | `combat/actions.py` | Pack-local cleanup state actions (disrupt, advance, retreat step) |
@@ -57,7 +58,7 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `movement/retreat_preview.py` | Retreat path map-selection preview |
 | `combat/planning.py` | Attack plan preview (shared by `hooks/attack` and tests) |
 | `state/session_state.py` | Session-state reads (`bucket()`, retreat obligations, advance offer) |
-| `arcs/turn_schedule.py` | Turn arc registry builder (move/combat schedule slots) |
+| `arcs/segment.py` | Project `current_segment` per viewer; `phase_advance_blocked` for auto-advance |
 | `ui/focus.py` | Suggested unit focus after state sync |
 | `ui/markup.py` | Template render helpers + flag URLs (skinning tier 2–3) |
 | `ui/previews/place_marker.py` | Place-marker map-selection preview |
@@ -70,7 +71,7 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `game_config.py` | **Match config** (`HexdemoMatchConfig`), schedule wrapper, `focus_unit_id_after_state_sync` |
 | `registry.py` | Manifest `build_game_definition()` (uses `game_config`) |
 
-Movement and combat policy live in **`movement/`** and **`combat/`**; **`TitleHooks`** (`hooks/movement.py`, `hooks/attack.py`, `hooks/arcs.py`) are thin adapters. Attack resolution runs through the **combat arc `attack` segment** (`BINDING.attack_arc_effect`), not a separate engine handoff path. The server resolves rules through `GameDefinition.hooks` only.
+Movement and combat policy live in **`movement/`** and **`combat/`**; match flow graphs and **`ArcHook`** wiring live in **`arcs/`** and **`combat/graph.py`**. **`TitleHooks`** adapters are in **`hooks/`** (`movement.py`, `attack.py`, `ui.py`, …). Attack resolution runs through the **combat arc `attack` segment** (`BINDING.attack_arc_effect`), not a separate engine handoff path.
 
 ## Zip packs
 

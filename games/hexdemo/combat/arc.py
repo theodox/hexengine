@@ -1,25 +1,28 @@
-"""
-Hexdemo combat arc — built from ``combat_rules.BINDING``.
-"""
+"""Hexdemo combat ``ArcSpec`` — owner resolver and hook-facing spec builder."""
 
 from __future__ import annotations
 
 from hexengine.arcs import Arc
 from hexengine.authoring.patterns.combat import (
-    COMBAT_ARC_ID,
     OWNER_RETREATING,
+    combat_arc_to_spec,
+    combat_rules_binding_missing_methods,
+    combat_rules_binding_satisfies,
+    combat_rules_effects_adapter,
+)
+from hexengine.state import GameState
+
+from ..state import session_state
+from . import rules, transitions
+from .graph import (
     SEG_ADVANCE_GATE,
     SEG_ATTACK,
     SEG_CLASSIFY,
     SEG_RESOLVE,
     SEG_RETREAT_GATE,
     SEG_RETREAT_OR_DISRUPT_GATE,
-    combat_rules_binding_to_arc_spec,
+    build_hexdemo_combat_arc,
 )
-from hexengine.state import GameState
-
-from ..state import session_state
-from . import rules, transitions
 
 BINDING = rules.BINDING
 
@@ -51,12 +54,19 @@ def resolve_owner_ref(key: str, state: GameState) -> str | None:
 def build_hexdemo_combat_arc_spec():
     global _COMBAT_ARC_SPEC
     if _COMBAT_ARC_SPEC is None:
-        _COMBAT_ARC_SPEC = combat_rules_binding_to_arc_spec(
-            BINDING,
+        if not combat_rules_binding_satisfies(BINDING):
+            missing = ", ".join(combat_rules_binding_missing_methods(BINDING))
+            raise TypeError(f"CombatRulesBinding missing methods: {missing}")
+        effects = combat_rules_effects_adapter(BINDING)
+        arc = build_hexdemo_combat_arc(
+            effects,
             transitions.COMBAT_ARC_GATE_UI_MODES,
-            arc_id=COMBAT_ARC_ID,
-            owner_resolver=resolve_owner_ref,
             attack_effect=BINDING.attack_arc_effect,
+        )
+        _COMBAT_ARC_SPEC = combat_arc_to_spec(
+            arc,
+            owner_resolver=resolve_owner_ref,
+            advance_move_detector=BINDING.detect_combat_advance_move,
         )
     return _COMBAT_ARC_SPEC
 

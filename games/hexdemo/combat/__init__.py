@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from . import actions, arc, outcome, planning, rules, transitions
+from . import actions, arc, graph, outcome, planning, rules, transitions
 from .arc import (
     BINDING,
     SEG_ADVANCE_GATE,
@@ -46,6 +46,7 @@ __all__ = [
     "SEG_RETREAT_OR_DISRUPT_GATE",
     "actions",
     "arc",
+    "graph",
     "attack_planning_blocked_reason",
     "build_combat_arc",
     "build_hexdemo_combat_arc_spec",
