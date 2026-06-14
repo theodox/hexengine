@@ -28,7 +28,9 @@ When you run `hexserver` (or start the local WebSocket server) with a scenario u
 **Configure the match** in `hexdemo.game_config`:
 
 - `hexdemo.game_config.HexdemoMatchConfig` — factions and `movement_budget`.
-- `hexdemo.game_config.hexdemo_four_phase_entries` / `game_definition_from_config` — define the single static rota (Union/Confederate Move/Combat) wrapped by `HexdemoGameDefinition`.
+- `hexdemo.game_config.game_definition_from_config` — builds `HexdemoGameDefinition`.
+
+**Turn rota (when each faction acts):** edit [`arcs/turn_schedule.py`](arcs/turn_schedule.py) — `build_hexdemo_turn_arc_registry` is authoritative; wired via [`arcs/wiring.py`](arcs/wiring.py).
 
 The manifest entry `hexdemo.registry.build_game_definition()` returns that definition; the engine does not pass a schedule from the CLI.
 
@@ -68,7 +70,7 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `resources/flags/` | Example faction flag SVGs (turn banner + unit art) |
 | `resources/templates/` | HTML shells for phase banner, inspect popup, panels |
 | `resources/ui.css` | Pack skin modifiers (including SEQUENCE draft steps) |
-| `game_config.py` | **Match config** (`HexdemoMatchConfig`), schedule wrapper, `focus_unit_id_after_state_sync` |
+| `game_config.py` | **Match config** (`HexdemoMatchConfig`), lifecycle hooks, `focus_unit_id_after_state_sync` |
 | `registry.py` | Manifest `build_game_definition()` (uses `game_config`) |
 
 Movement and combat policy live in **`movement/`** and **`combat/`**; match flow graphs and **`ArcHook`** wiring live in **`arcs/`** and **`combat/graph.py`**. **`TitleHooks`** adapters are in **`hooks/`** (`movement.py`, `attack.py`, `ui.py`, …). Attack resolution runs through the **combat arc `attack` segment** (`BINDING.attack_arc_effect`), not a separate engine handoff path.

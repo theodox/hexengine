@@ -47,7 +47,6 @@ def test_pack_resource_site_href_under_repo_static_root() -> None:
 
 def test_turn_rules_asset_base_url_hexdemo() -> None:
     from hexdemo.game_config import (
-        HexdemoGameDefinition,
         default_match_config,
         game_definition_from_config,
     )
@@ -57,7 +56,7 @@ def test_turn_rules_asset_base_url_hexdemo() -> None:
 
     scenario_path = HEXDEMO_ROOT / "scenarios" / "default" / "scenario.toml"
     scenario_data = load_scenario(scenario_path)
-    gd = HexdemoGameDefinition(game_definition_from_config(default_match_config()))
+    gd = game_definition_from_config(default_match_config())
     first = {"faction": "union", "phase": "Move", "max_actions": 4}
     st = scenario_to_initial_state(
         scenario_data,

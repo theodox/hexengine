@@ -99,6 +99,27 @@ def test_hexdemo_default_turn_order_four_phases() -> None:
     assert order[3] == {"faction": "confederate", "phase": "Combat", "max_actions": 2}
 
 
+def test_hexdemo_turn_order_matches_registry() -> None:
+    """Flat turn_order() derives from the same registry as ArcHook.TURN_ARC_REGISTRY."""
+    import sys
+
+    games = str(REPO_ROOT / "games")
+    if games not in sys.path:
+        sys.path.insert(0, games)
+    from hexdemo.arcs.turn_schedule import (
+        build_hexdemo_turn_arc_registry,
+        hexdemo_four_phase_entries,
+    )
+    from hexdemo.registry import build_game_definition
+
+    gd = build_game_definition()
+    reg = build_hexdemo_turn_arc_registry()
+    assert gd.turn_order() == reg.schedule.turn_order_entries()
+    assert tuple(gd.turn_order()) == hexdemo_four_phase_entries(
+        ("union", "confederate")
+    )
+
+
 def test_hexdemo_game_config_matches_registry() -> None:
     """`build_game_definition` matches `game_definition_from_config(default_match_config())`."""
     import sys

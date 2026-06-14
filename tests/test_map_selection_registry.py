@@ -30,7 +30,6 @@ def test_registry_lists_attack_plan() -> None:
 
 def test_unknown_kind_returns_empty_preview() -> None:
     from hexdemo.game_config import (
-        HexdemoGameDefinition,
         default_match_config,
         game_definition_from_config,
     )
@@ -42,7 +41,7 @@ def test_unknown_kind_returns_empty_preview() -> None:
         REPO_ROOT / "games" / "hexdemo" / "scenarios" / "default" / "scenario.toml"
     )
     scenario_data = load_scenario(scenario_path)
-    gd = HexdemoGameDefinition(game_definition_from_config(default_match_config()))
+    gd = game_definition_from_config(default_match_config())
     first = {"faction": "union", "phase": "Combat", "max_actions": 4}
     st = scenario_to_initial_state(
         scenario_data,

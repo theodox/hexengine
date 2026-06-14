@@ -22,7 +22,6 @@ from hexengine.server.map_selection import compute_map_selection_preview
 
 def _hexdemo_server() -> GameServer:
     from hexdemo.game_config import (
-        HexdemoGameDefinition,
         default_match_config,
         game_definition_from_config,
     )
@@ -33,7 +32,7 @@ def _hexdemo_server() -> GameServer:
         REPO_ROOT / "games" / "hexdemo" / "scenarios" / "default" / "scenario.toml"
     )
     scenario_data = load_scenario(scenario_path)
-    gd = HexdemoGameDefinition(game_definition_from_config(default_match_config()))
+    gd = game_definition_from_config(default_match_config())
     first = {"faction": "union", "phase": "Combat", "max_actions": 4}
     st = scenario_to_initial_state(
         scenario_data,

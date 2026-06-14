@@ -15,5 +15,5 @@ from .game_config import default_match_config, game_definition_from_config
 
 
 def build_game_definition() -> GameDefinition:
-    """Return a new `GameDefinition` for this pack's static schedule."""
+    """Return a new `GameDefinition` for this pack (registry-backed turn rota)."""
     return game_definition_from_config(default_match_config())

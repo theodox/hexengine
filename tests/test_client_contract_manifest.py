@@ -67,7 +67,6 @@ def test_panel_action_routes_prefer_title_manifest() -> None:
 
 def test_hexdemo_turn_rules_includes_client_contract_rows() -> None:
     from hexdemo.game_config import (
-        HexdemoGameDefinition,
         default_match_config,
         game_definition_from_config,
     )
@@ -78,7 +77,7 @@ def test_hexdemo_turn_rules_includes_client_contract_rows() -> None:
         REPO_ROOT / "games" / "hexdemo" / "scenarios" / "default" / "scenario.toml"
     )
     scenario_data = load_scenario(scenario_path)
-    gd = HexdemoGameDefinition(game_definition_from_config(default_match_config()))
+    gd = game_definition_from_config(default_match_config())
     st = scenario_to_initial_state(
         scenario_data,
         initial_faction="union",

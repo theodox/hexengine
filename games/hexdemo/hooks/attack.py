@@ -1,4 +1,4 @@
-"""Thin ``AttackHook`` adapters — combat policy lives in ``combat_rules.py``."""
+"""Thin ``AttackHook`` adapters — combat policy lives in ``combat/rules.py``."""
 
 from __future__ import annotations
 

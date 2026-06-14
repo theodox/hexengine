@@ -1,5 +1,5 @@
 """
-Hexdemo match configuration — **edit here** to change turn order, factions, and budgets.
+Hexdemo match configuration — **edit here** to change factions and movement budget.
 
 The engine calls `hexdemo.registry.build_game_definition`, which builds a
 `hexengine.gamedef.protocol.GameDefinition` from `HexdemoMatchConfig`.
@@ -10,9 +10,12 @@ Typical changes:
   `resources/game_data.toml`, referenced from `hexengine_pack.toml` `[gamedata]`.
 - **Faction order** — `HEXDEMO_FACTIONS` in `hexdemo.constants` (first side opens
   the round; see `hexengine.gameroot.initial_turn_slot_for_game_definition`).
-- **Turn rota** — edit `hexdemo_four_phase_entries` (or replace the
-  `StaticScheduleGameDefinition` built in `game_definition_from_config`).
+- **Turn rota** — `arcs/turn_schedule.py` (`TurnArcRegistry`); not a parallel
+  static schedule table on this class.
 - **Movement preview budget** — set `movement_budget` to match scenario feel.
+
+``turn.current_phase`` on the wire remains a display label derived from the
+schedule; legality uses the arc cursor and ``current_segment`` (not phase names).
 """
 
 from __future__ import annotations
@@ -21,13 +24,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hexengine.gamedef import unit_attributes as unit_attr_helpers
-from hexengine.gamedef.builtin import StaticScheduleGameDefinition
 from hexengine.gamedef.game_data import GameData
 from hexengine.gamedef.game_data_toml import load_game_data_for_pack_root
 from hexengine.gamedef.protocol import GameDefinition
 from hexengine.state import DEFAULT_MOVEMENT_BUDGET, GameState
 
+from .arcs.turn_schedule import (
+    build_hexdemo_turn_arc_registry,
+    hexdemo_four_phase_entries,
+)
 from .combat import transitions as combat_transitions
 from .constants import HEXDEMO_FACTIONS
 from .hooks import build_hooks
@@ -37,32 +42,22 @@ from .ui.marker_rules import default_marker_placement_rule
 _HEXDEMO_PACK_ROOT = Path(__file__).resolve().parent
 
 
-def hexdemo_four_phase_entries(
-    factions: tuple[str, ...],
-) -> tuple[dict[str, Any], ...]:
-    """Union Move, Union Combat, Confederate Move, Confederate Combat."""
-    if len(factions) < 2:
-        raise ValueError("hexdemo four-phase schedule requires two factions")
-    union, confederate = factions[0], factions[1]
-    return (
-        {"faction": union, "phase": "Move", "max_actions": 4},
-        {"faction": union, "phase": "Combat", "max_actions": 2},
-        {"faction": confederate, "phase": "Move", "max_actions": 4},
-        {"faction": confederate, "phase": "Combat", "max_actions": 2},
-    )
-
-
 class HexdemoGameDefinition:
     """
-    Wraps a `GameDefinition` with Hexdemo-specific lifecycle hooks.
+    Hexdemo match rules: turn rota from ``TurnArcRegistry``, title hooks, lifecycle.
 
-    Delegates turn geometry to the inner definition.
+    Turn geometry is declared in ``arcs/turn_schedule.py`` and exposed on
+    ``TitleHooks.arcs``; ``turn_order()`` here mirrors that registry for wire and
+    contract validation only.
     """
 
-    __slots__ = ("_base",)
+    __slots__ = ("_config",)
 
-    def __init__(self, base: GameDefinition) -> None:
-        self._base = base
+    def __init__(self, config: HexdemoMatchConfig) -> None:
+        self._config = config
+
+    def _turn_registry(self):
+        return build_hexdemo_turn_arc_registry(self._config.factions)
 
     @property
     def game_data(self) -> GameData:
@@ -79,17 +74,25 @@ class HexdemoGameDefinition:
 
     @property
     def _movement_budget(self) -> float:
-        """Scalar schedule budget on the inner definition (used by server `turn_rules` wire)."""
-        return float(self._base._movement_budget)
+        """Scalar schedule budget on the definition (used by server `turn_rules` wire)."""
+        return float(self._config.movement_budget)
 
     def available_factions(self) -> list[str]:
-        return list(self._base.available_factions())
+        return self._turn_registry().schedule.available_factions()
 
     def turn_order(self) -> list[dict[str, Any]]:
-        return self._base.turn_order()
+        return self._turn_registry().schedule.turn_order_entries()
 
     def get_next_phase(self, state: GameState) -> dict[str, Any]:
-        return self._base.get_next_phase(state)
+        slot, next_idx = self._turn_registry().schedule.next_after(
+            state.turn.schedule_index
+        )
+        return {
+            "faction": slot.faction,
+            "phase": slot.phase,
+            "max_actions": int(slot.max_actions),
+            "schedule_index": next_idx,
+        }
 
     def focus_unit_id_after_state_sync(
         self, state: GameState, viewer_faction: str | None
@@ -98,10 +101,8 @@ class HexdemoGameDefinition:
         return focus_unit_id_after_state_sync(state, viewer_faction)
 
     def default_attributes_for_unit_type(self, unit_type: str) -> dict[str, Any]:
-        fn = getattr(self._base, "default_attributes_for_unit_type", None)
-        if callable(fn):
-            return dict(fn(unit_type))
-        return unit_attr_helpers.default_attributes_for_unit_type(self._base, unit_type)
+        _ = unit_type
+        return {}
 
     def merge_spawn_attributes(
         self,
@@ -109,23 +110,14 @@ class HexdemoGameDefinition:
         instance_attrs: dict[str, Any],
         state: GameState | None = None,
     ) -> dict[str, Any]:
-        fn = getattr(self._base, "merge_spawn_attributes", None)
-        if callable(fn):
-            return dict(fn(unit_type, dict(instance_attrs or {}), state))
-        return unit_attr_helpers.merge_spawn_attributes(
-            self._base, unit_type, instance_attrs, state=state
-        )
+        _ = state
+        base = self.default_attributes_for_unit_type(unit_type)
+        return {**base, **dict(instance_attrs or {})}
 
     def validate_unit_attributes_patch(
         self, state: GameState, unit_id: str, patch: dict[str, Any]
     ) -> None:
-        fn = getattr(self._base, "validate_unit_attributes_patch", None)
-        if callable(fn):
-            fn(state, unit_id, patch)
-            return
-        unit_attr_helpers.validate_unit_attributes_patch(
-            self._base, state, unit_id, patch
-        )
+        _ = state, unit_id, patch
 
     def after_phase_transition(self, state: GameState) -> list:
         """
@@ -147,14 +139,19 @@ class HexdemoMatchConfig:
 
 
 def game_definition_from_config(config: HexdemoMatchConfig) -> GameDefinition:
-    """Return a fresh `GameDefinition` for `config` (single static four-phase rota)."""
-    base = StaticScheduleGameDefinition(
-        hexdemo_four_phase_entries(config.factions),
-        movement_budget=config.movement_budget,
-    )
-    return HexdemoGameDefinition(base)
+    """Return a fresh `GameDefinition` for `config` (registry-backed four-phase rota)."""
+    return HexdemoGameDefinition(config)
 
 
 def default_match_config() -> HexdemoMatchConfig:
     """Default factions and movement budget for the shipped rota."""
     return HexdemoMatchConfig()
+
+
+__all__ = [
+    "HexdemoGameDefinition",
+    "HexdemoMatchConfig",
+    "default_match_config",
+    "game_definition_from_config",
+    "hexdemo_four_phase_entries",
+]

@@ -1,8 +1,8 @@
 """
 Hexdemo combat rules binding (attack CRT + arc cleanup policy).
 
-``hooks/attack.py`` and ``combat_arc.py`` delegate here. Low-level cleanup state
-actions remain in ``combat_actions.py``; bucket handoff in ``combat_outcome.py``.
+``hooks/attack.py`` and ``combat/arc.py`` delegate here. Low-level cleanup state
+actions remain in ``combat/actions.py``; bucket handoff in ``combat/outcome.py``.
 """
 
 from __future__ import annotations

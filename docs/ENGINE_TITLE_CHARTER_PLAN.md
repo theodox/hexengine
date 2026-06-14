@@ -1,6 +1,6 @@
 # Engine / title charter — implementation plan
 
-**Status:** draft — phase 0 done; phases 1–7 pending.
+**Status:** draft — phases 0–1 done; phases 2–7 pending.
 
 **One-line goal:** Align runtime and contracts with the charter so titles own flow, policy, and presentation; the engine owns authority, arc cursors, and generic affordances — without hexdemo-shaped silent defaults or parallel turn models.
 
@@ -17,7 +17,7 @@
 
 - Hexdemo hooks use `@bind_title_hook` scan pattern; arc wiring in [`games/hexdemo/arcs/wiring.py`](../games/hexdemo/arcs/wiring.py).
 - Interaction aftermath FSM is pack-visible in [`games/hexdemo/combat/graph.py`](../games/hexdemo/combat/graph.py).
-- `TurnArcRegistry` hook exists alongside legacy `StaticScheduleGameDefinition` in hexdemo.
+- Hexdemo and template derive `turn_order()` from `TurnArcRegistry` only (phase 1).
 
 ---
 
@@ -38,7 +38,7 @@
 
 | Area | Today | Charter strain |
 |------|--------|------------------|
-| Turn flow | Hexdemo wraps `StaticScheduleGameDefinition` **and** exposes `TurnArcRegistry` | Two sources of truth; `turn.current_phase` still schedule-shaped |
+| Turn flow | ~~Hexdemo wrapped `StaticScheduleGameDefinition` and `TurnArcRegistry`~~ | Resolved in phase 1; `turn.current_phase` still schedule-shaped for display |
 | Interaction discovery | `authority_attack.py` requires segment id `attack` (`SEG_ATTACK`) | Titles should name segments freely; engine scans `Event("Attack")` on registered arc |
 | RPC routing | Dedicated `GameServer` branches for `CombatAdvance`, `CombatDisruptInsteadOfRetreat`, `CombatDeclineAdvance` | Active segment `allowed_actions` + `submit_event` should gate |
 | Contract validation | `_phase_implies_attack_schedule` infers attack hooks from phase **names** in static schedule | Opt-in bundle validation only; no combat from `"Combat"` string |
@@ -92,17 +92,17 @@ Phase 5 can start after phase 1 for movement-default removal; full pattern reloc
 
 ---
 
-## Phase 1 — Single turn model (D) (1–2 PRs)
+## Phase 1 — Single turn model (D) (1–2 PRs) ✅
 
 **Objective:** Hexdemo authoritative flow comes from **`TurnArcRegistry` only**; static schedule becomes a **pattern that emits the registry**, not a parallel `GameDefinition` geometry.
 
 **Deliverables:**
 
-- [ ] Refactor [`games/hexdemo/game_config.py`](../games/hexdemo/game_config.py): stop wrapping `StaticScheduleGameDefinition` for turn geometry; `HexdemoGameDefinition` implements `GameDefinition` directly (movement budget, factions, lifecycle).
-- [ ] Move or alias `hexdemo_four_phase_entries` into [`games/hexdemo/arcs/turn_schedule.py`](../games/hexdemo/arcs/turn_schedule.py) as the single schedule artifact; document that it **feeds** `build_hexdemo_turn_arc_registry`.
-- [ ] Engine: routine phase advance uses registry cursor from hooks; audit callers of `game_definition.turn_order()` on extension-key titles — prefer registry slot metadata or arc segment projection.
-- [ ] Deprecate (doc + comment) hexdemo reliance on `turn.current_phase` for **legality**; keep for display banners until phase 4/6 if needed.
-- [ ] Tests: move-only template title runs without static schedule class; hexdemo full rota unchanged in behavior.
+- [x] Refactor [`games/hexdemo/game_config.py`](../games/hexdemo/game_config.py): stop wrapping `StaticScheduleGameDefinition` for turn geometry; `HexdemoGameDefinition` implements `GameDefinition` directly (movement budget, factions, lifecycle).
+- [x] Move or alias `hexdemo_four_phase_entries` into [`games/hexdemo/arcs/turn_schedule.py`](../games/hexdemo/arcs/turn_schedule.py) as the single schedule artifact; document that it **feeds** `build_hexdemo_turn_arc_registry`.
+- [x] Template pack uses registry-only `turn_order()` / `get_next_phase()` (no `StaticScheduleGameDefinition` wrapper).
+- [x] Deprecate (doc + comment) hexdemo reliance on `turn.current_phase` for **legality**; keep for display banners until phase 4/6 if needed.
+- [x] Tests: template move-only unchanged; hexdemo full rota unchanged in behavior.
 
 **Touch (expected):**
 

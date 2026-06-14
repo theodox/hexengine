@@ -44,7 +44,7 @@ Hexdemo today:
 | `../combat/actions.py` — retreat/disrupt/advance state actions | Called from `BINDING` only |
 | `../combat/transitions.py` — gate `ui_mode` strings, phase-scoped clear, planning block | Used by arc spec + `game_config` |
 | `../movement/rules.py` — budget, ZoC, step cost, retreat constraints | `movement.py` |
-| `../state/session_state.py` — session-state reads (`bucket()`, retreat helpers) | `movement_rules`, `combat/rules` |
+| `../state/session_state.py` — session-state reads (`bucket()`, retreat helpers) | `movement/rules`, `combat/rules` |
 | `../ui/marker_rules.py` — `MarkerPlacementRule` factory | Injected on `GameServer`, not `TitleHooks` |
 
 Keep **one coherent policy** in pack modules when it is reused (server validation + client preview + unit tests). Movement legality lives in [`movement/rules.py`](../movement/rules.py); `hooks/movement.py` is adapters only.

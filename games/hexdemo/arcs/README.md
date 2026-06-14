@@ -1,6 +1,6 @@
 # Hexdemo arcs (match flow)
 
-**Turn rota:** [`turn_schedule.py`](turn_schedule.py) — faction × phase schedule and routine arc registry.
+**Turn rota:** [`turn_schedule.py`](turn_schedule.py) — faction × phase schedule, flat `hexdemo_turn_order_entries`, and `build_hexdemo_turn_arc_registry` (authoritative).
 
 **Arc hook wiring:** [`wiring.py`](wiring.py) — `@bind_title_hook(ArcHook.…)` for turn registry, combat arc spec, and combat rules binding. Assembled via [`../hooks/__init__.py`](../hooks/__init__.py) `build_hooks()`.
 

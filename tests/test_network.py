@@ -1114,13 +1114,11 @@ class TestGameServer(unittest.TestCase):
 
     def test_turn_rules_wire_hexdemo_includes_session_state_key(self) -> None:
         from games.hexdemo.game_config import (
-            HexdemoGameDefinition,
             default_match_config,
             game_definition_from_config,
         )
 
-        base = game_definition_from_config(default_match_config())
-        gd = HexdemoGameDefinition(base)
+        gd = game_definition_from_config(default_match_config())
         server = GameServer(self.initial_state, game_definition=gd)
         tr = server._turn_rules_wire()
         self.assertEqual(tr.get("session_state_key"), "hexdemo")

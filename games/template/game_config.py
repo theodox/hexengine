@@ -1,16 +1,16 @@
 """
 Template match configuration — start here when cloning this pack.
 
-Uses a declared turn arc registry (Phase 6 authoring patterns) plus a static schedule
-fallback on the inner GameDefinition for tooling that still reads turn_order().
+Turn rota is declared in ``turn_arc_schedule.py`` (``TurnArcRegistry`` on hooks).
+``turn_order()`` and ``get_next_phase()`` derive from that registry.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
-from hexengine.gamedef.builtin import StaticScheduleGameDefinition
 from hexengine.gamedef.game_data import GameData
 from hexengine.gamedef.game_data_toml import load_game_data_for_pack_root
 from hexengine.gamedef.protocol import GameDefinition
@@ -33,12 +33,15 @@ def default_match_config() -> TemplateMatchConfig:
 
 
 class TemplateGameDefinition:
-    """Minimal GameDefinition: move-only schedule + arc registry on hooks."""
+    """Minimal GameDefinition: move-only schedule from ``TurnArcRegistry``."""
 
-    __slots__ = ("_base",)
+    __slots__ = ("_config",)
 
-    def __init__(self, base: StaticScheduleGameDefinition) -> None:
-        self._base = base
+    def __init__(self, config: TemplateMatchConfig) -> None:
+        self._config = config
+
+    def _turn_registry(self):
+        return build_template_turn_arc_registry(self._config.factions)
 
     @property
     def game_data(self) -> GameData:
@@ -52,25 +55,28 @@ class TemplateGameDefinition:
 
     @property
     def _movement_budget(self) -> float:
-        return float(self._base._movement_budget)
+        return float(self._config.movement_budget)
 
     def available_factions(self) -> list[str]:
-        return list(self._base.available_factions())
+        return self._turn_registry().schedule.available_factions()
 
-    def turn_order(self) -> list[dict]:
-        return self._base.turn_order()
+    def turn_order(self) -> list[dict[str, Any]]:
+        return self._turn_registry().schedule.turn_order_entries()
 
-    def get_next_phase(self, state: GameState) -> dict:
-        return self._base.get_next_phase(state)
+    def get_next_phase(self, state: GameState) -> dict[str, Any]:
+        slot, next_idx = self._turn_registry().schedule.next_after(
+            state.turn.schedule_index
+        )
+        return {
+            "faction": slot.faction,
+            "phase": slot.phase,
+            "max_actions": int(slot.max_actions),
+            "schedule_index": next_idx,
+        }
 
 
 def game_definition_from_config(config: TemplateMatchConfig) -> GameDefinition:
-    reg = build_template_turn_arc_registry(config.factions)
-    base = StaticScheduleGameDefinition(
-        reg.schedule.turn_order_entries(),
-        movement_budget=float(config.movement_budget),
-    )
-    return TemplateGameDefinition(base)
+    return TemplateGameDefinition(config)
 
 
 __all__ = [
