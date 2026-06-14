@@ -1,12 +1,18 @@
 # Pack-visible combat arc graph — plan
 
-**Status:** phases 1–3 done (hexdemo + docs + template stub); phase 4 (tooling) pending.
+> **Archived — phases 1–3 shipped** (optional phase 4 tooling deferred). Author hub:
+> [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md) § Interaction arc graph. Sibling archives:
+> [`ENGINE_TITLE_CHARTER_PLAN.md`](ENGINE_TITLE_CHARTER_PLAN.md), [`COMPOSABLE_ARCS_PLAN.md`](COMPOSABLE_ARCS_PLAN.md),
+> [`ENGINE_BOUNDARY_2_PLAN.md`](ENGINE_BOUNDARY_2_PLAN.md), [`TITLE_AUTHOR_INTERFACE_PLAN.md`](TITLE_AUTHOR_INTERFACE_PLAN.md).
+> Index: [`README.md`](README.md).
+
+**Status:** phases 1–3 done (hexdemo + docs + template stub); phase 4 (tooling) deferred.
 
 **One-line goal:** Put the combat FSM where title authors look first — a pack module that builds the real `Arc` spec — so match flow shape is readable without opening `src/hexengine/authoring/patterns/combat.py`.
 
-**Related:** [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) (author hub). **Charter:** [`ENGINE_TITLE_CHARTER.md`](ENGINE_TITLE_CHARTER.md). **Broader migration:** [`ENGINE_TITLE_CHARTER_PLAN.md`](ENGINE_TITLE_CHARTER_PLAN.md) (phase 0 includes this plan’s phase 3 docs).
+**Related:** [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md) (author hub). **Charter:** [`ENGINE_TITLE_CHARTER.md`](../ENGINE_TITLE_CHARTER.md). **Broader migration:** [`ENGINE_TITLE_CHARTER_PLAN.md`](ENGINE_TITLE_CHARTER_PLAN.md) (phase 0 includes this plan’s phase 3 docs).
 
-**Related:** [`archive/COMPOSABLE_ARCS_PLAN.md`](archive/COMPOSABLE_ARCS_PLAN.md) (runtime model), [`archive/TITLE_AUTHOR_INTERFACE_PLAN.md`](archive/TITLE_AUTHOR_INTERFACE_PLAN.md) (rules vs hooks layering).
+**Related:** [`COMPOSABLE_ARCS_PLAN.md`](COMPOSABLE_ARCS_PLAN.md) (runtime model), [`TITLE_AUTHOR_INTERFACE_PLAN.md`](TITLE_AUTHOR_INTERFACE_PLAN.md) (rules vs hooks layering).
 
 ---
 
@@ -14,7 +20,7 @@
 
 Hooks are now easy to read: one `@bind_title_hook` adapter per slot, policy in `rules.py`. Combat flow is not.
 
-Today hexdemo builds the graph in [`games/hexdemo/combat/graph.py`](../games/hexdemo/combat/graph.py) and wraps it in [`combat/arc.py`](../games/hexdemo/combat/arc.py). The engine still ships [`build_combat_cleanup_arc`](../src/hexengine/authoring/patterns/combat.py) for template convenience and parity tests.
+Today hexdemo builds the graph in [`games/hexdemo/combat/graph.py`](../../games/hexdemo/combat/graph.py) and wraps it in [`combat/arc.py`](../../games/hexdemo/combat/arc.py). The engine still ships [`build_combat_cleanup_arc`](../../src/hexengine/authoring/patterns/combat.py) for template convenience and parity tests.
 
 `combat/transitions.py` already documents gate *policy* well (state table in the module docstring). What is missing is a **visible graph construct** that corresponds 1:1 to `Arc.segments` and `Transition` edges.
 
@@ -107,7 +113,7 @@ Two viable options — pick in phase 1 spike:
 
 - Copy `build_combat_cleanup_arc` body into hexdemo `graph.py`.
 - Keep `build_combat_cleanup_arc` in engine for template / tests.
-- **Parity test** (already exists): `test_hexdemo_combat_arc_matches_pattern` in [`tests/test_authoring_combat_pattern.py`](../tests/test_authoring_combat_pattern.py) must stay green.
+- **Parity test** (already exists): `test_hexdemo_combat_arc_matches_pattern` in [`tests/test_authoring_combat_pattern.py`](../../tests/test_authoring_combat_pattern.py) must stay green.
 
 **Pros:** fastest path to pack visibility; no engine↔games import issues.  
 **Cons:** two copies until consolidated.
@@ -145,7 +151,7 @@ Longer term, if drift hurts, extract shared graph body to engine and **generate 
 
 - [x] `build_hexdemo_combat_arc_spec` uses `graph.py` as the graph source.
 - [x] Slim `arc.py`: owner resolver, spec cache, `SEG_*` re-exports (or re-export segment ids from `graph.py`).
-- [x] Update [`games/hexdemo/hooks/README.md`](../games/hexdemo/hooks/README.md) and [`games/hexdemo/README.md`](../games/hexdemo/README.md) reading order.
+- [x] Update [`games/hexdemo/hooks/README.md`](../../games/hexdemo/hooks/README.md) and [`games/hexdemo/README.md`](../../games/hexdemo/README.md) reading order.
 - [x] Add `games/hexdemo/combat/README.md` (short): file map + link to `graph.py`.
 
 **Exit criteria:** full test suite green; `test_hexdemo_combat_arc_matches_pattern` still passes (hexdemo graph ≡ engine pattern output).
@@ -154,9 +160,9 @@ Longer term, if drift hurts, extract shared graph body to engine and **generate 
 
 **Deliverables:**
 
-- [x] [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md): § [Interaction arc graph](TITLE_AUTHORING.md#interaction-arc-graph) and § [Modification vs interaction](TITLE_AUTHORING.md#modification-vs-interaction); pack reading order.
-- [x] [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md): interaction arc author layout paths (`combat/graph.py`, `arcs/wiring.py`, …).
-- [x] Template pack: stub [`games/template/combat/graph.py`](../games/template/combat/graph.py) (comment outline + pointer to hexdemo); `build_template_combat_arc_spec` remains on engine convenience path in [`combat_arc.py`](../games/template/combat_arc.py).
+- [x] [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md): § [Interaction arc graph](../TITLE_AUTHORING.md#interaction-arc-graph) and § [Modification vs interaction](../TITLE_AUTHORING.md#modification-vs-interaction); pack reading order.
+- [x] [`PACK_HOOK_CONTRACTS.md`](../PACK_HOOK_CONTRACTS.md): interaction arc author layout paths (`combat/graph.py`, `arcs/wiring.py`, …).
+- [x] Template pack: stub [`games/template/combat/graph.py`](../../games/template/combat/graph.py) (comment outline + pointer to hexdemo); `build_template_combat_arc_spec` remains on engine convenience path in [`combat_arc.py`](../../games/template/combat_arc.py).
 
 **Exit criteria:** a new author can answer “what happens after Attack?” from pack files only.
 

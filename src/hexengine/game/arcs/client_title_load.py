@@ -13,7 +13,7 @@ Multiplayer note: every browser client runs this connect arc independently when
 The server runs a separate one-shot hook (`on_server_loaded`) after authoritative load;
 it does not coordinate splash timing across players yet.
 
-See `hexengine.server.arcs` for in-match authority arcs (movement, attack, cleanup).
+See `hexengine.server.arcs` for in-match authority arcs (modification, interaction, cleanup).
 
 Hook validation is intentionally loose today; see `docs/TITLE_LOAD_HOOKS.md` and the
 cross-cutting plan in `docs/PACK_HOOK_CONTRACTS.md`.

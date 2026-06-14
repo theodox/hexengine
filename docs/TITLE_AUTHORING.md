@@ -44,7 +44,7 @@ Follow-up moves after interaction (retreat steps, combat advance) are **modifica
 | Modification | [`arcs/turn_schedule.py`](../games/hexdemo/arcs/turn_schedule.py) routine segments | [`movement/rules.py`](../games/hexdemo/movement/rules.py) | [`hooks/modification.py`](../games/hexdemo/hooks/modification.py) |
 | Interaction | [`combat/graph.py`](../games/hexdemo/combat/graph.py) overlay FSM | [`combat/rules.py`](../games/hexdemo/combat/rules.py) | [`hooks/interaction.py`](../games/hexdemo/hooks/interaction.py), [`arcs/wiring.py`](../games/hexdemo/arcs/wiring.py) |
 
-Normative boundary: [`ENGINE_TITLE_CHARTER.md`](ENGINE_TITLE_CHARTER.md). Execution plan: [`ENGINE_TITLE_CHARTER_PLAN.md`](ENGINE_TITLE_CHARTER_PLAN.md).
+Normative boundary: [`ENGINE_TITLE_CHARTER.md`](ENGINE_TITLE_CHARTER.md).
 
 ---
 
@@ -54,7 +54,6 @@ Normative boundary: [`ENGINE_TITLE_CHARTER.md`](ENGINE_TITLE_CHARTER.md). Execut
 |------|-----|-----|
 | 1 | This page | Map of concepts and APIs |
 | 2 | [`ENGINE_TITLE_CHARTER.md`](ENGINE_TITLE_CHARTER.md) | Engine vs title ownership and arc-first flow (normative) |
-| 2b | [`ENGINE_TITLE_CHARTER_PLAN.md`](ENGINE_TITLE_CHARTER_PLAN.md) | Phased migration toward the charter |
 | 3 | [`games/hexdemo/README.md`](../games/hexdemo/README.md) | Pack layout, PYTHONPATH, `game_config` |
 | 4 | [`games/hexdemo/hooks/README.md`](../games/hexdemo/hooks/README.md) | Rules vs hooks, three wiring paths |
 | 5 | [`TURN_ACTION_DOCK_CONTRACT.md`](TURN_ACTION_DOCK_CONTRACT.md) | Player primitives + three wire lanes |
@@ -65,7 +64,7 @@ Normative boundary: [`ENGINE_TITLE_CHARTER.md`](ENGINE_TITLE_CHARTER.md). Execut
 | 10 | [`games/hexdemo/arcs/README.md`](../games/hexdemo/arcs/README.md) | Turn rota + arc hook wiring |
 | 11 | [`games/hexdemo/combat/README.md`](../games/hexdemo/combat/README.md) | Interaction aftermath graph (if combat) |
 
-**Planning only (not API):** [`SKINNING_AFFORDANCES_PLAN.md`](SKINNING_AFFORDANCES_PLAN.md) (roadmap/status), [`RULE_COMPOSITION.md`](RULE_COMPOSITION.md) (future rule catalog).
+**Planning only (not API):** [`SKINNING_AFFORDANCES_PLAN.md`](SKINNING_AFFORDANCES_PLAN.md) (roadmap/status), [`RULE_COMPOSITION.md`](RULE_COMPOSITION.md) (future rule catalog). Doc index and archived plans: [`README.md`](README.md), [`archive/README.md`](archive/README.md).
 
 ### Pack reading order (hexdemo, flow-first)
 
@@ -117,7 +116,7 @@ Full primitive catalog and path-draft shapes: [`TURN_ACTION_DOCK_CONTRACT.md` §
 
 | Path | When | Declare | Example (hexdemo) |
 |------|------|---------|-------------------|
-| **`TitleHooks`** | Every in-match RPC / state update | `@bind_title_hook` in `hooks/*.py`, `build_hooks()` | `movement.py`, `turn_action_dock.py` |
+| **`TitleHooks`** | Every in-match RPC / state update | `@bind_title_hook` in `hooks/*.py`, `build_hooks()` | `modification.py`, `interaction.py`, `turn_action_dock.py` |
 | **Manifest title-load** | Browser connect / server boot | `[hooks.title_load]` in `hexengine_pack.toml` | `hooks/title_load.py` |
 | **Turn schedule** | Phase entry | `GameDefinition.after_phase_transition` | `game_config.py` → `combat_transitions` |
 
@@ -176,7 +175,7 @@ When a title declares wargame-style interaction, the **aftermath FSM** should be
 | `combat/actions.py` | State mutations invoked from binding effects |
 | `ui/segment_registry.py` | Presentation row per `ui_mode` |
 
-Graph parity with the engine pattern is tested in CI (`test_hexdemo_combat_graph_matches_engine_pattern`). See [`COMBAT_ARC_GRAPH_PLAN.md`](COMBAT_ARC_GRAPH_PLAN.md) (phases 1–2 done).
+Graph parity with the engine pattern is tested in CI (`test_hexdemo_combat_graph_matches_engine_pattern`). See [`games/hexdemo/combat/README.md`](../games/hexdemo/combat/README.md) and [`combat/graph.py`](../games/hexdemo/combat/graph.py).
 
 ---
 
@@ -355,7 +354,7 @@ Panel / action wire schemas (reference): [`TURN_ACTION_DOCK_CONTRACT.md` § Pane
 | `InteractionKind` | Title hook | Hexdemo module |
 |-------------------|------------|----------------|
 | `attack_plan` | `InteractionHook.ATTACK_PLAN_PREVIEW` | `combat_planning` / `hooks/interaction.py` |
-| `retreat_path` | `ModificationHook.RETREAT_PATH_PREVIEW` | `retreat_path_preview.py` |
+| `retreat_path` | `ModificationHook.RETREAT_PATH_PREVIEW` | [`movement/retreat_preview.py`](../games/hexdemo/movement/retreat_preview.py) |
 | `place_marker` | `UIHook.PLACE_MARKER_PREVIEW` | `place_marker_preview.py`, `hooks/markers.py` |
 
 Registry dispatch: [`map_selection_registry.py`](../src/hexengine/hooks/map_selection_registry.py). Server helper: [`compute_map_selection_preview`](../src/hexengine/server/map_selection.py).
@@ -486,8 +485,8 @@ When you change player UX or hook contracts:
 |-----|----------|
 | [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) | Title authors (this page) |
 | [`ENGINE_TITLE_CHARTER.md`](ENGINE_TITLE_CHARTER.md) | Engine vs title ownership (normative) |
-| [`ENGINE_TITLE_CHARTER_PLAN.md`](ENGINE_TITLE_CHARTER_PLAN.md) | Charter migration phases |
-| [`COMBAT_ARC_GRAPH_PLAN.md`](COMBAT_ARC_GRAPH_PLAN.md) | Pack-visible interaction graph (phases 1–2 done) |
+| [`archive/ENGINE_TITLE_CHARTER_PLAN.md`](archive/ENGINE_TITLE_CHARTER_PLAN.md) | Charter migration (archived phase history) |
+| [`archive/COMBAT_ARC_GRAPH_PLAN.md`](archive/COMBAT_ARC_GRAPH_PLAN.md) | Pack-visible interaction graph (archived phase history) |
 | [`archive/TITLE_AUTHOR_INTERFACE_PLAN.md`](archive/TITLE_AUTHOR_INTERFACE_PLAN.md) | Combat/movement interface (archived phase history) |
 | [`archive/COMPOSABLE_ARCS_PLAN.md`](archive/COMPOSABLE_ARCS_PLAN.md) | Composable arcs (archived phase history) |
 | [`archive/ENGINE_BOUNDARY_2_PLAN.md`](archive/ENGINE_BOUNDARY_2_PLAN.md) | Engine boundary 2 (archived phase history) |

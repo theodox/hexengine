@@ -2,14 +2,16 @@
 
 > **Archived — phases A–F shipped.** Author hub: [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md).
 > Sibling archives: [`TITLE_AUTHOR_INTERFACE_PLAN.md`](TITLE_AUTHOR_INTERFACE_PLAN.md),
-> [`COMPOSABLE_ARCS_PLAN.md`](COMPOSABLE_ARCS_PLAN.md). Index: [`README.md`](README.md).
+> [`COMPOSABLE_ARCS_PLAN.md`](COMPOSABLE_ARCS_PLAN.md),
+> [`ENGINE_TITLE_CHARTER_PLAN.md`](ENGINE_TITLE_CHARTER_PLAN.md),
+> [`COMBAT_ARC_GRAPH_PLAN.md`](COMBAT_ARC_GRAPH_PLAN.md). Index: [`README.md`](README.md).
 > Removed APIs referenced below (`BLOCKS_ROUTINE_PHASE_ADVANCE`, `follow_up_after_attack`,
 > `InteractionHook.AFTER_ATTACK_APPLIED`, attack cleanup hook slots,
 > `blocks_routine_phase_advance`, `dock_arc_hint`, `GATE_RETREAT` / `GATE_ADVANCE` aliases,
 > `DOCK_ARC_*` UI tokens) are **not** part of the current hexdemo pack. Legality and End Phase
 > blocking use `current_segment.allowed_actions` via
 > [`segment_blocks_routine_phase_advance`](../../src/hexengine/arcs/segment_wire.py); hexdemo
-> delegates through [`arc_segment.py`](../../games/hexdemo/arc_segment.py).
+> delegates through [`arcs/segment.py`](../../games/hexdemo/arcs/segment.py).
 
 Branch: `engine_boundary_2` (from skinning squash on `main`).
 
@@ -95,7 +97,7 @@ Reserved top-level keys: prefix `hexengine_` (e.g. `hexengine_movement_arc`) —
 
 **Status (shipped):** `UIHook.COMBAT_INTERACTION_MESSAGES`, `ui_combat_messages.py`, hexdemo `combat_transitions` / `presentation/interaction_messages.py` (via `hooks/ui.py`), `NextPhase` guard.
 
-**Superseded:** `UIHook.BLOCKS_ROUTINE_PHASE_ADVANCE` and `blocks_routine_phase_advance` — replaced by declared arc segments and [`segment_blocks_routine_phase_advance`](../../src/hexengine/arcs/segment_wire.py). Hexdemo auto-advance uses [`arc_segment.phase_advance_blocked`](../../games/hexdemo/arc_segment.py).
+**Superseded:** `UIHook.BLOCKS_ROUTINE_PHASE_ADVANCE` and `blocks_routine_phase_advance` — replaced by declared arc segments and [`segment_blocks_routine_phase_advance`](../../src/hexengine/arcs/segment_wire.py). Hexdemo auto-advance uses [`arcs/segment.phase_advance_blocked`](../../games/hexdemo/arcs/segment.py).
 
 ### B.1 Hook: combat / phase blocking (unified policy)
 
@@ -105,7 +107,7 @@ Reserved top-level keys: prefix `hexengine_` (e.g. `hexengine_movement_arc`) —
 | `combat_interaction_messages(ctx) -> list[InteractionMessage] \| ENGINE_DEFAULT` | `UIHook` | Per-viewer INFORM rows from segment `ui_mode` + partial combat hooks |
 
 - Phase advance blocking and End Phase dock enablement: `current_segment` + `segment_blocks_routine_phase_advance`.
-- Auto-advance after move/attack: title attack/movement hooks call `arc_segment.phase_advance_blocked` (hexdemo).
+- Auto-advance after move/attack: title modification/interaction hooks call `arcs/segment.phase_advance_blocked` (hexdemo).
 - Move `game_server` combat banner branches behind `combat_interaction_messages` (hexdemo implements; catalog default: empty or minimal).
 
 ### B.2 Document gate strings as title-owned
@@ -169,7 +171,7 @@ Context: `GameState`, `AttackResolution`, `session_state_key`, attacker/defender
 | `attack_planning_blocked_reason` | Attack plan preview + validation messaging |
 | `follow_up_after_attack` | `InteractionHook.AFTER_ATTACK_APPLIED` bucket patches |
 | `clear_combat_state_actions` | Phase-scoped key clear on `NextPhase` |
-Phase advance blocking: [`arc_segment.phase_advance_blocked`](../../games/hexdemo/arc_segment.py), not exports from this module.
+Phase advance blocking: [`arcs/segment.phase_advance_blocked`](../../games/hexdemo/arcs/segment.py), not exports from this module.
 
 Dock skin: [`segment_ui.resolve_presentation_id`](../../games/hexdemo/segment_ui.py) + `UIHook.ENRICH_CURRENT_SEGMENT`, not `dock_arc_hint`.
 
@@ -241,7 +243,7 @@ Each PR should keep pytest green (`test_combat_hexdemo`, `test_hooks_contract`, 
 
 | Question | Resolution |
 |----------|------------|
-| `blocks_routine_phase_advance` on `UIHook` vs `ModificationHook`? | **Resolved — removed.** Use `current_segment` + `segment_blocks_routine_phase_advance`; hexdemo via `arc_segment`. |
+| `blocks_routine_phase_advance` on `UIHook` vs `ModificationHook`? | **Resolved — removed.** Use `current_segment` + `segment_blocks_routine_phase_advance`; hexdemo via [`arcs/segment.py`](../../games/hexdemo/arcs/segment.py). |
 | Clear whole session state on `NextPhase` vs named keys only? | **Named keys** (`PHASE_SCOPED_COMBAT_KEYS` in `combat_transitions.py`). |
 | Require `after_attack_applied` when `session_state_key` set? | **No** — optional hook; hexdemo binds `follow_up_after_attack`. |
 
@@ -251,6 +253,6 @@ Each PR should keep pytest green (`test_combat_hexdemo`, `test_hooks_contract`, 
 
 - Title combat policy readable in `games/hexdemo/combat_transitions.py` + `session_state.py`.
 - `game_server` does not interpret hexdemo `combat_gate` / `last_combat` for INFORM banners (hook path only).
-- Phase advance blocking reads active arc segment; post-move auto-advance uses `arc_segment.phase_advance_blocked` (hexdemo).
+- Phase advance blocking reads active arc segment; post-move auto-advance uses [`arcs/segment.phase_advance_blocked`](../../games/hexdemo/arcs/segment.py) (hexdemo).
 - Extension access for titles goes through helpers; engine keys stay prefixed `hexengine_`.
 - [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md) reflects post-skinning + this track.

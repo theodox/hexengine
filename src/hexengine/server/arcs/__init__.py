@@ -11,8 +11,8 @@ path, one interrupt resolution, and so on). Overlay arcs (combat cleanup,
 movement stepwise) suspend the routine arc cursor; the turn registry schedules
 which routine arc is active each slot.
 
-This package holds arc runtime bridges (`authority_arc_runtime`, attack/movement/
-combat cleanup dispatch). Shared vocabulary and movement wire details are documented
+This package holds arc runtime bridges (`authority_arc_runtime`, modification/
+interaction/combat cleanup dispatch). Shared vocabulary and movement wire details are documented
 in `hexengine.state.movement_arc`.
 """
 

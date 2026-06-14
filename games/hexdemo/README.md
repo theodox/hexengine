@@ -73,7 +73,7 @@ When you run `hexserver` (or `start_servers`) with a scenario under `games/hexde
 | `game_config.py` | **Match config** (`HexdemoMatchConfig`), lifecycle hooks, `focus_unit_id_after_state_sync` |
 | `registry.py` | Manifest `build_game_definition()` (uses `game_config`) |
 
-Movement and combat policy live in **`movement/`** and **`combat/`**; match flow graphs and **`ArcHook`** wiring live in **`arcs/`** and **`combat/graph.py`**. **`TitleHooks`** adapters are in **`hooks/`** (`movement.py`, `attack.py`, `ui.py`, …). Attack resolution runs through the **combat arc `attack` segment** (`BINDING.attack_arc_effect`), not a separate engine handoff path.
+Movement and combat policy live in **`movement/`** and **`combat/`**; match flow graphs and **`ArcHook`** wiring live in **`arcs/`** and **`combat/graph.py`**. **`TitleHooks`** adapters are in **`hooks/`** (`modification.py`, `interaction.py`, `ui.py`, …). Attack resolution runs through the **combat arc `attack` segment** (`BINDING.attack_arc_effect`), not a separate engine handoff path.
 
 ## Zip packs
 

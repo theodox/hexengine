@@ -23,24 +23,24 @@ class GameDefinition(Protocol):
     - Exposed by the game definition as either `hooks` (attribute) or `hooks()` (callable)
 
     Declarative wire knobs (stacking cap, faction labels, CSS paths, …) live on
-    `game_data` (`hexengine.gamedef.game_data.GameData`), not on movement hooks.
+    `game_data` (`hexengine.gamedef.game_data.GameData`), not on modification hooks.
 
     The engine uses only hooks (plus engine defaults when a hook returns `hooks.ENGINE_DEFAULT`).
 
     On `GameServer` startup, `hexengine.hooks.internal.validate_title_contract` checks
     opt-in bundles: when the title declares an interaction arc (`ArcHook.COMBAT_ARC`),
-    `TitleHooks` must expose `validate_attack` and `resolve_attack`. Phase names in
-    the turn schedule do not infer combat requirements. Built-in static schedules may
-    still supply minimal attack stubs that return `ENGINE_DEFAULT` for legacy demos.
+    `TitleHooks.interaction` must expose `validate_attack` and `resolve_attack`. Phase
+    names in the turn schedule do not infer combat requirements. Built-in static schedules
+    may still supply minimal interaction stubs that return `ENGINE_DEFAULT`.
 
     Optional: `game_data.session_state_key` names the pack id for
     `GameState.session_state` / `GameState.session_state_key` (title-owned match data).
     When set, the server publishes it in `StateUpdate.turn_rules` and runs phase/combat
     housekeeping against that key. Built-in schedules omit it.
 
-    Phase auto-advance after combat is provided via `TitleHooks` (attack hooks).
+    Phase auto-advance after combat is provided via `TitleHooks.interaction`.
 
-    Retreat / obligation UX is also provided via `TitleHooks` (movement hooks).
+    Retreat / obligation UX is also provided via `TitleHooks.modification`.
 
     Optional (per-unit UnitState.attributes, title-defined JSON-safe data):
 

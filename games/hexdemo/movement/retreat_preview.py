@@ -20,7 +20,7 @@ from hexengine.retreat_path import (
 from hexengine.state import GameState
 from hexengine.ui.display import MapSelectionPreview, PanelAction
 
-from ..hooks import modification as movement_hooks
+from ..hooks import modification as modification_hooks
 from ..state import session_state
 
 
@@ -122,7 +122,7 @@ def retreat_path_preview(ctx: RetreatPathPreviewContext) -> MapSelectionPreview:
     elif path[0] != start:
         path = (start, *path)
 
-    blocked = movement_hooks.retreat_blocked_hexes(st, uid)
+    blocked = modification_hooks.retreat_blocked_hexes(st, uid)
     if blocked is ENGINE_DEFAULT:
         blocked_set = None
     else:
@@ -132,7 +132,7 @@ def retreat_path_preview(ctx: RetreatPathPreviewContext) -> MapSelectionPreview:
         state: GameState, from_hex: Hex, to_hex: Hex, base_cost: float
     ) -> float:
         return float(
-            movement_hooks.movement_step_cost_for_unit(
+            modification_hooks.movement_step_cost_for_unit(
                 state, uid, from_hex, to_hex, base_cost
             )
         )
@@ -182,7 +182,7 @@ def retreat_path_preview(ctx: RetreatPathPreviewContext) -> MapSelectionPreview:
                     player_faction=faction,
                     is_retreat_fulfillment=True,
                 )
-                movement_hooks.validate_retreat_move(mctx, hexes_remaining)
+                modification_hooks.validate_retreat_move(mctx, hexes_remaining)
 
             validate_retreat_path(
                 state=st,

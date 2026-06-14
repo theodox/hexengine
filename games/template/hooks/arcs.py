@@ -6,7 +6,7 @@ retreat-path continuation, bind ``ENGINE_MOVEMENT_ARC_PRESET`` (see hexdemo
 ``arcs/wiring.py``) or return a custom ``ArcSpec``.
 
 When enabling combat: see ``combat_arc.build_template_combat_arc_spec``,
-``segment_ui.py``, attack/movement hooks, and TITLE_AUTHORING.md § Minimal combat title.
+``segment_ui.py``, modification/interaction hooks, and TITLE_AUTHORING.md § Minimal combat title.
 """
 
 from __future__ import annotations

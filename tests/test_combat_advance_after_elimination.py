@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import patch
 
-from games.hexdemo.hooks import interaction as attack_hooks
+from games.hexdemo.hooks import interaction as interaction_hooks
 from tests.test_combat_hexdemo import _hexdemo_combat_state
 
 pytest_plugins = ("tests.test_combat_hexdemo",)
@@ -25,7 +25,7 @@ def test_auto_advance_blocked_while_awaiting_advance_gate() -> None:
         session_state_key="hexdemo",
     )
     st = with_arc_cursor(st, ArcCursor(arc_id="combat", segment_id="advance_gate"))
-    assert attack_hooks.auto_advance_phase_after_attack(st) is False
+    assert interaction_hooks.auto_advance_phase_after_attack(st) is False
 
 
 def test_attack_eliminating_defender_offers_advance_not_auto_phase(

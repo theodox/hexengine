@@ -1,6 +1,6 @@
 # Title author interface — implementation plan
 
-**Status:** **archived** (Phases A–F complete; hexdemo is the reference layout). Living guide: [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md).
+**Status:** **archived** (Phases A–F complete; hexdemo is the reference layout). Living guide: [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md). Sibling archives: [`COMPOSABLE_ARCS_PLAN.md`](COMPOSABLE_ARCS_PLAN.md), [`ENGINE_BOUNDARY_2_PLAN.md`](ENGINE_BOUNDARY_2_PLAN.md), [`ENGINE_TITLE_CHARTER_PLAN.md`](ENGINE_TITLE_CHARTER_PLAN.md), [`COMBAT_ARC_GRAPH_PLAN.md`](COMBAT_ARC_GRAPH_PLAN.md). Index: [`README.md`](README.md).
 
 **One-line goal:** Give title authors **one coherent programming interface** for match flow — rules in pack-root modules, a single combat binding into declared arcs, presentation in a segment registry — so authors do not need to learn engine pipelines, bucket handoff protocols, or duplicate hook surfaces.
 

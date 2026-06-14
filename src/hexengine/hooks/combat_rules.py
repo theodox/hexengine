@@ -3,7 +3,7 @@ Author-facing combat rules binding protocol.
 
 One pack-root class (in ``combat_arc.py``) implements attack policy plus combat arc
 guards/effects. Use ``combat_rules_binding_to_arc_spec`` to produce ``ArcSpec``; keep
-``hooks/interaction.py`` thin during migration.
+``hooks/interaction.py`` thin.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ class CombatArcRulesBinding(Protocol):
 
 
 class CombatRulesBinding(CombatArcRulesBinding, Protocol):
-    """Full combat author surface: attack hooks + arc cleanup."""
+    """Full combat author surface: interaction hooks + arc cleanup."""
 
     def validate_attack(self, ctx: AttackContext) -> None: ...
 

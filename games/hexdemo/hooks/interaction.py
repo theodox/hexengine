@@ -87,7 +87,7 @@ def attack_plan_preview(ctx: AttackPlanPreviewContext):
         draft=ctx.draft,
         shell_ui=ctx.shell_ui,
         board_hexes=board_hexes,
-        attack_hooks=pack_interaction,
+        interaction_hooks=pack_interaction,
     )
 
 

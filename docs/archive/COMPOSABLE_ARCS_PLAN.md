@@ -1,6 +1,6 @@
 # Composable turn arcs — implementation plan
 
-**Status:** **archived** (Phases 0–7 complete). Living guide: [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md). Successor track to [`ENGINE_BOUNDARY_2_PLAN.md`](ENGINE_BOUNDARY_2_PLAN.md); sibling (different axis) to [`RULE_COMPOSITION.md`](../RULE_COMPOSITION.md).
+**Status:** **archived** (Phases 0–7 complete). Living guide: [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md). Successor track to [`ENGINE_BOUNDARY_2_PLAN.md`](ENGINE_BOUNDARY_2_PLAN.md); sibling (different axis) to [`RULE_COMPOSITION.md`](../RULE_COMPOSITION.md). Sibling archives: [`ENGINE_TITLE_CHARTER_PLAN.md`](ENGINE_TITLE_CHARTER_PLAN.md), [`COMBAT_ARC_GRAPH_PLAN.md`](COMBAT_ARC_GRAPH_PLAN.md). Index: [`README.md`](README.md).
 
 **One-line goal:** Reify the *implicit* arc state machines into a single **declared** model — a turn is a composition of **arcs**, an arc is a state machine over **segments** — so the engine drives arcs generically and never reads title-shaped gate strings.
 

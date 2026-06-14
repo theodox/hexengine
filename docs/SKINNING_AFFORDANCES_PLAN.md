@@ -102,7 +102,7 @@ Shipped for hexdemo mandatory retreat:
 | Piece | Location |
 |-------|----------|
 | Kind | `retreat_path` (`InteractionKind`) |
-| Preview + legality | [`retreat_path.py`](../src/hexengine/retreat_path.py), [`games/hexdemo/retreat_path_preview.py`](../games/hexdemo/retreat_path_preview.py) |
+| Preview + legality | [`retreat_path.py`](../src/hexengine/retreat_path.py), [`games/hexdemo/movement/retreat_preview.py`](../games/hexdemo/movement/retreat_preview.py) |
 | Wire fields | `legal_next_hexes`, `through_hexes`, `preview_path_hexes`, `commit_payload.path`, `panel_actions` |
 | Client | [`client_retreat_path.py`](../src/hexengine/game/arcs/client_retreat_path.py) (polyline on `#map-svg`, click-extend) |
 | Stepwise commit | [`handle_authority_retreat_path_move_unit`](../src/hexengine/server/arcs/authority_movement.py) |

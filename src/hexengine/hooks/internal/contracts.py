@@ -138,7 +138,7 @@ def validate_title_contract(game_definition: Any) -> None:
                     "Title declares an interaction arc but TitleHooks.interaction is "
                     "missing validate_attack and/or resolve_attack."
                 ),
-                details={"interaction_requires_attack_hooks": True},
+                details={"interaction_incomplete": True},
             )
         binding_raw = bundle.arcs.combat_rules_binding_spec()
         if binding_raw is not ENGINE_DEFAULT:

@@ -1,7 +1,7 @@
 """
 Server-side attack plan preview (map selection draft → legality + commit payload).
 
-Shared by ``hooks/attack.attack_plan_preview`` and tests; mirrors hexdemo
+Shared by ``hooks/interaction.attack_plan_preview`` and tests; mirrors hexdemo
 ``validate_attack`` eligibility without duplicating CRT resolution.
 """
 
@@ -234,10 +234,10 @@ def _try_validate_commit(
     player_faction: str,
     payload: dict[str, Any],
     *,
-    attack_hooks: InteractionHooks,
+    interaction_hooks: InteractionHooks,
 ) -> str | None:
     """Return an error string when commit would fail validate_attack; else None."""
-    fn = attack_hooks.validate_attack
+    fn = interaction_hooks.validate_attack
     if fn is None:
         return "Attack validation not configured"
     anchor_a = str(payload.get("attacker_id", "")).strip()
@@ -310,7 +310,7 @@ def compute_attack_plan_preview(
     draft: dict[str, Any],
     shell_ui: Mapping[str, Any],
     board_hexes: list[Hex],
-    attack_hooks: InteractionHooks,
+    interaction_hooks: InteractionHooks,
 ) -> MapSelectionPreview:
     """Map-selection preview for ``kind=attack_plan``."""
     blocked = attack_planning_blocked_reason(state, player_faction)
@@ -369,7 +369,7 @@ def compute_attack_plan_preview(
         else None
     )
     err = (
-        _try_validate_commit(state, player_faction, commit, attack_hooks=attack_hooks)
+        _try_validate_commit(state, player_faction, commit, interaction_hooks=interaction_hooks)
         if commit
         else "Select at least one attacker"
     )

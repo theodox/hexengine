@@ -1,6 +1,12 @@
 # Engine / title charter — implementation plan
 
-**Status:** draft — phases 0–3 done; phases 4–7 pending.
+> **Archived — phases 0–7 shipped.** Normative target: [`ENGINE_TITLE_CHARTER.md`](../ENGINE_TITLE_CHARTER.md).
+> Author hub: [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md). Sibling archives:
+> [`COMBAT_ARC_GRAPH_PLAN.md`](COMBAT_ARC_GRAPH_PLAN.md), [`COMPOSABLE_ARCS_PLAN.md`](COMPOSABLE_ARCS_PLAN.md),
+> [`ENGINE_BOUNDARY_2_PLAN.md`](ENGINE_BOUNDARY_2_PLAN.md), [`TITLE_AUTHOR_INTERFACE_PLAN.md`](TITLE_AUTHOR_INTERFACE_PLAN.md).
+> Index: [`README.md`](README.md).
+
+**Status:** phases 0–7 complete (charter migration shipped on `stress_test`).
 
 **One-line goal:** Align runtime and contracts with the charter so titles own flow, policy, and presentation; the engine owns authority, arc cursors, and generic affordances — without hexdemo-shaped silent defaults or parallel turn models.
 
@@ -8,15 +14,15 @@
 
 | Doc | Role |
 |-----|------|
-| [`ENGINE_TITLE_CHARTER.md`](ENGINE_TITLE_CHARTER.md) | Normative target (A–F) |
-| [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) | Author how-to (update in phase 0) |
+| [`ENGINE_TITLE_CHARTER.md`](../ENGINE_TITLE_CHARTER.md) | Normative target (A–F) |
+| [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md) | Author how-to (update in phase 0) |
 | [`COMBAT_ARC_GRAPH_PLAN.md`](COMBAT_ARC_GRAPH_PLAN.md) | Pack-visible interaction graph (phases 1–2 done) |
-| [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md) | Per-dimension inventory (update as phases land) |
+| [`engine_game_boundary_matrix.md`](../engine_game_boundary_matrix.md) | Per-dimension inventory (update as phases land) |
 
 **Already shipped (baseline for this plan):**
 
-- Hexdemo hooks use `@bind_title_hook` scan pattern; arc wiring in [`games/hexdemo/arcs/wiring.py`](../games/hexdemo/arcs/wiring.py).
-- Interaction aftermath FSM is pack-visible in [`games/hexdemo/combat/graph.py`](../games/hexdemo/combat/graph.py).
+- Hexdemo hooks use `@bind_title_hook` scan pattern; arc wiring in [`games/hexdemo/arcs/wiring.py`](../../games/hexdemo/arcs/wiring.py).
+- Interaction aftermath FSM is pack-visible in [`games/hexdemo/combat/graph.py`](../../games/hexdemo/combat/graph.py).
 - Hexdemo and template derive `turn_order()` from `TurnArcRegistry` only (phase 1).
 
 ---
@@ -81,10 +87,10 @@ Phase 5 can start after phase 1 for movement-default removal; full pattern reloc
 
 **Deliverables:**
 
-- [x] [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md): new § “Modification vs interaction” — maps to hook families, wire verbs, pack file layout (see charter table).
+- [x] [`TITLE_AUTHORING.md`](../TITLE_AUTHORING.md): new § “Modification vs interaction” — maps to hook families, wire verbs, pack file layout (see charter table).
 - [x] Update reading order to match [`ENGINE_TITLE_CHARTER.md` § Author reading order](ENGINE_TITLE_CHARTER.md#author-reading-order-flow-centric).
 - [x] [`COMBAT_ARC_GRAPH_PLAN.md`](COMBAT_ARC_GRAPH_PLAN.md) phase 3: combat graph section + template pointer.
-- [x] [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md): paths for `arcs/wiring.py`, `combat/graph.py`, segment registry.
+- [x] [`PACK_HOOK_CONTRACTS.md`](../PACK_HOOK_CONTRACTS.md): paths for `arcs/wiring.py`, `combat/graph.py`, segment registry.
 
 **Exit criteria:** A new author can answer “what is optional?” and “where is flow declared?” from docs only.
 
@@ -98,8 +104,8 @@ Phase 5 can start after phase 1 for movement-default removal; full pattern reloc
 
 **Deliverables:**
 
-- [x] Refactor [`games/hexdemo/game_config.py`](../games/hexdemo/game_config.py): stop wrapping `StaticScheduleGameDefinition` for turn geometry; `HexdemoGameDefinition` implements `GameDefinition` directly (movement budget, factions, lifecycle).
-- [x] Move or alias `hexdemo_four_phase_entries` into [`games/hexdemo/arcs/turn_schedule.py`](../games/hexdemo/arcs/turn_schedule.py) as the single schedule artifact; document that it **feeds** `build_hexdemo_turn_arc_registry`.
+- [x] Refactor [`games/hexdemo/game_config.py`](../../games/hexdemo/game_config.py): stop wrapping `StaticScheduleGameDefinition` for turn geometry; `HexdemoGameDefinition` implements `GameDefinition` directly (movement budget, factions, lifecycle).
+- [x] Move or alias `hexdemo_four_phase_entries` into [`games/hexdemo/arcs/turn_schedule.py`](../../games/hexdemo/arcs/turn_schedule.py) as the single schedule artifact; document that it **feeds** `build_hexdemo_turn_arc_registry`.
 - [x] Template pack uses registry-only `turn_order()` / `get_next_phase()` (no `StaticScheduleGameDefinition` wrapper).
 - [x] Deprecate (doc + comment) hexdemo reliance on `turn.current_phase` for **legality**; keep for display banners until phase 4/6 if needed.
 - [x] Tests: template move-only unchanged; hexdemo full rota unchanged in behavior.
@@ -128,7 +134,7 @@ Phase 5 can start after phase 1 for movement-default removal; full pattern reloc
 **Deliverables:**
 
 - [x] Add `arc_supports_action_type(arc: Arc, action_type: str) -> bool` (or segment scan helper) in `hexengine.arcs` — finds segments whose transitions accept `Event(action_type)`.
-- [x] Replace `_combat_arc_supports_attack_event` in [`authority_attack.py`](../src/hexengine/server/arcs/authority_attack.py): scan interaction arc for `Attack`, not `spec.arc.get(SEG_ATTACK)`.
+- [x] Replace `_combat_arc_supports_attack_event` in [`authority_attack.py`](../../src/hexengine/server/arcs/authority_attack.py): scan interaction arc for `Attack`, not `spec.arc.get(SEG_ATTACK)`.
 - [x] Replace hardcoded cursor jumps to `SEG_ATTACK` with **entry segment for Attack path** from spec metadata or first segment that accepts `Attack` (document algorithm in module docstring).
 - [x] Hexdemo: rename segment id `attack` only if desired for dogfooding free-form ids — optional; parity tests must update.
 - [x] Remove `SEG_ATTACK` import from authority modules; keep constants in `authoring.patterns.combat` for reference graph only.
@@ -147,14 +153,14 @@ Phase 5 can start after phase 1 for movement-default removal; full pattern reloc
 **Deliverables:**
 
 - [x] Introduce `try_arc_rpc(host, player, action_type) -> ArcDispatch` — unified path for overlay segment RPCs (aliases `try_combat_arc_rpc`).
-- [x] Migrate `CombatAdvance`, `CombatDeclineAdvance`, `CombatDisruptInsteadOfRetreat` handlers in [`game_server.py`](../src/hexengine/server/game_server.py) to generic path via `overlay_rpc_action_types`.
+- [x] Migrate `CombatAdvance`, `CombatDeclineAdvance`, `CombatDisruptInsteadOfRetreat` handlers in [`game_server.py`](../../src/hexengine/server/game_server.py) to generic path via `overlay_rpc_action_types`.
 - [x] Migrate combat-scoped `MoveUnit` to `try_arc_move_unit` with segment `allowed_actions` pre-check.
 - [x] Reject unknown RPCs with segment-deny message (charter B), not “title misconfigured.”
-- [x] Document stable **wire verb** list in [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md); note verbs are core mechanisms, segment allowance is title policy.
+- [x] Document stable **wire verb** list in [`PACK_HOOK_CONTRACTS.md`](../PACK_HOOK_CONTRACTS.md); note verbs are core mechanisms, segment allowance is title policy.
 
 **Exit criteria:**
 
-- [`tests/test_combat_arc_dispatch.py`](../tests/test_combat_arc_dispatch.py) green via generic router.
+- [`tests/test_combat_arc_dispatch.py`](../../tests/test_combat_arc_dispatch.py) green via generic router.
 - No new title-specific `if request.action_type ==` blocks without justification comment.
 
 **Non-goals:** Rename wire verbs (`CombatAdvance` → title-specific names) — verbs stay stable; titles gate via segments.
@@ -167,10 +173,10 @@ Phase 5 can start after phase 1 for movement-default removal; full pattern reloc
 
 **Deliverables:**
 
-- [x] Remove or gate `_phase_implies_attack_schedule` / `_schedule_expects_attack_hooks` in [`contracts.py`](../src/hexengine/hooks/internal/contracts.py).
+- [x] Remove or gate `_phase_implies_attack_schedule` / `_schedule_expects_attack_hooks` in [`contracts.py`](../../src/hexengine/hooks/internal/contracts.py).
 - [x] New rules:
-  - Interaction arc registered → require full attack hook bundle + `combat_rules_binding` + presentation registry entries for declared `ui_mode`s.
-  - No interaction arc → attack hooks optional; move-only schedule valid.
+  - Interaction arc registered → require full interaction hook bundle + `combat_rules_binding` + presentation registry entries for declared `ui_mode`s.
+  - No interaction arc → interaction hooks optional; move-only schedule valid.
 - [x] Validate `TurnArcRegistry` completeness when hook returns registry (existing `validate.py` paths).
 - [x] Add test: four-phase **move-only** title (no overlay arc) starts clean; incomplete interaction bundle fails fast.
 
@@ -186,7 +192,7 @@ Phase 5 can start after phase 1 for movement-default removal; full pattern reloc
 
 **PR 5a — Stop silent movement default**
 
-- [x] Remove or narrow [`build_default_movement_arc_spec`](../src/hexengine/hooks/internal/authoring_bridge.py) usage in [`game_server.py`](../src/hexengine/server/game_server.py): movement arc comes from title `ArcHook` or explicit opt-in preset.
+- [x] Remove or narrow [`build_default_movement_arc_spec`](../../src/hexengine/hooks/internal/authoring_bridge.py) usage in [`game_server.py`](../../src/hexengine/server/game_server.py): movement arc comes from title `ArcHook` or explicit opt-in preset.
 - [x] Template + hexdemo declare movement arc explicitly (or bind `ENGINE_DEFAULT` preset documented in template).
 - [x] Tests for titles without movement arc: modification still works via core path or clear startup error if arc required.
 
@@ -194,7 +200,7 @@ Phase 5 can start after phase 1 for movement-default removal; full pattern reloc
 
 - [x] Audit `GameServer` and `server/arcs/*` imports from `authoring.patterns.*`; move title-facing builders toward `games/reference/` or document “copy from hexdemo.”
 - [x] `StaticScheduleGameDefinition` remains as **pattern helper** that returns `TurnArcRegistry` + display metadata, not authority class for extension-key titles.
-- [x] [`games/template/`](../games/template/): minimal registry + optional stub interaction graph.
+- [x] [`games/template/`](../../games/template/): minimal registry + optional stub interaction graph.
 
 **Exit criteria:** `rg 'from hexengine.authoring.patterns' src/hexengine/server` shows no title-semantics imports in authority hot path.
 
@@ -206,9 +212,9 @@ Phase 5 can start after phase 1 for movement-default removal; full pattern reloc
 
 **Deliverables:**
 
-- [x] Remove or genericize `hexdemo-turn-dock` CSS prefix logic in [`client_interaction_panels.py`](../src/hexengine/game/arcs/client_interaction_panels.py); classes come from title segment presentation DTOs.
+- [x] Remove or genericize `hexdemo-turn-dock` CSS prefix logic in [`client_interaction_panels.py`](../../src/hexengine/game/arcs/client_interaction_panels.py); classes come from title segment presentation DTOs.
 - [x] Audit engine UI hooks for hardcoded hexdemo copy; replace with neutral placeholders or omit when wire omits `presentation_id`.
-- [x] Hexdemo [`ui/segment_registry.py`](../games/hexdemo/ui/segment_registry.py) owns all segment skin keys referenced by arcs.
+- [x] Hexdemo [`ui/segment_registry.py`](../../games/hexdemo/ui/segment_registry.py) owns all segment skin keys referenced by arcs.
 - [x] Contract test: every `ui_mode` in registered arcs appears in presentation registry (when session key set).
 
 **Exit criteria:** New template title renders without hexdemo CSS classes in engine code paths.
@@ -263,9 +269,9 @@ Add **charter fixture titles** under `tests/fixtures/titles/` when helpful:
 
 Update as each phase lands:
 
-- [`ENGINE_TITLE_CHARTER.md`](ENGINE_TITLE_CHARTER.md) migration backlog — strike items, link PRs.
+- [`ENGINE_TITLE_CHARTER.md`](../ENGINE_TITLE_CHARTER.md) migration backlog — strike items, link PRs.
 - [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md) — ownership rows for turn model, RPC routing, patterns.
-- Pack READMEs: [`games/hexdemo/arcs/README.md`](../games/hexdemo/arcs/README.md), [`games/hexdemo/README.md`](../games/hexdemo/README.md).
+- Pack READMEs: [`games/hexdemo/arcs/README.md`](../../games/hexdemo/arcs/README.md), [`games/hexdemo/README.md`](../../games/hexdemo/README.md).
 
 ---
 
@@ -284,7 +290,7 @@ Estimated touch for phases 1–3: ~8 engine files, ~6 pack files, ~4 test module
 A maintainer can verify charter compliance when:
 
 1. Hexdemo flow is read from `arcs/turn_schedule.py` + `combat/graph.py` without opening `StaticScheduleGameDefinition`.
-2. A move-only title starts with no attack hooks and no contract error.
+2. A move-only title starts with no interaction hooks and no contract error.
 3. Authority modules do not import pattern segment id constants.
 4. `GameServer` routes overlay RPCs through segment allowance, not a growing action-type elif chain.
 5. Engine client code does not mention hexdemo presentation prefixes.

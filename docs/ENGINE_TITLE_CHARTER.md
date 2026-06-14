@@ -1,10 +1,10 @@
 # Engine / title charter
 
-**Status:** normative target for pack authoring and engine refactors. The codebase may lag this document in places; prefer updating code toward the charter, or note exceptions here when migration is in progress.
+**Status:** normative target for pack authoring and engine refactors. Charter migration (phases 0–7) is **shipped**; see [`archive/ENGINE_TITLE_CHARTER_PLAN.md`](archive/ENGINE_TITLE_CHARTER_PLAN.md) for phase history.
 
 **Audience:** title authors and engine maintainers.
 
-**Related:** [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) (how-to), [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md) (inventory), [`COMBAT_ARC_GRAPH_PLAN.md`](COMBAT_ARC_GRAPH_PLAN.md) (hexdemo combat graph work), [`archive/COMPOSABLE_ARCS_PLAN.md`](archive/COMPOSABLE_ARCS_PLAN.md) (arc runtime history).
+**Related:** [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) (how-to), [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md) (inventory), [`games/hexdemo/combat/graph.py`](../games/hexdemo/combat/graph.py) (reference interaction graph), [`archive/COMPOSABLE_ARCS_PLAN.md`](archive/COMPOSABLE_ARCS_PLAN.md) (arc runtime history).
 
 ---
 
@@ -45,7 +45,7 @@ Two interaction **families** frame hook and RPC design:
 
 Follow-up moves (retreat, combat advance) are **modifications** authorized by an **interaction aftermath** arc segment, not a second interaction.
 
-A third family, **board modification** (markers, terrain, placement), remains separate today (marker rules, placement hooks). It is not folded into movement hooks.
+A third family, **board modification** (markers, terrain, placement), remains separate today (marker rules, placement hooks). It is not folded into modification hooks.
 
 ---
 
@@ -101,7 +101,7 @@ The engine does **not** maintain a canonical list of mode names or interpret the
 
 | Title declares | Expected behavior |
 |----------------|-----------------|
-| Nothing about interaction | No interaction arc, no `Attack` segments → **valid**. No attack hooks required. |
+| Nothing about interaction | No interaction arc, no `Attack` segments → **valid**. No interaction hooks required. |
 | Client sends `Attack` or interaction-aftermath RPCs with no matching segment | **Reject** as illegal for current segment (same as illegal move), not “title misconfigured.” |
 | Interaction arc + `session_state_key` + full UI contract | **Fail at startup** if graph, binding, presentation registry, or turn registry is incomplete. |
 
@@ -191,17 +191,15 @@ A **static four-phase rota** for prototypes is a **pattern that emits `TurnArcRe
 
 ## Migration backlog (engine and hexdemo)
 
-**Execution plan:** [`ENGINE_TITLE_CHARTER_PLAN.md`](ENGINE_TITLE_CHARTER_PLAN.md) (phased PRs, dependencies, tests).
-
-Work toward this charter may proceed in any order, but these are the main known gaps:
+**Shipped** — all items below landed in phases 0–7. Phase history: [`archive/ENGINE_TITLE_CHARTER_PLAN.md`](archive/ENGINE_TITLE_CHARTER_PLAN.md).
 
 1. **Retire dual turn model in hexdemo** ✅ — single `TurnArcRegistry`; `HexdemoGameDefinition` derives `turn_order()` from `arcs/turn_schedule.py` (phase 1).
 2. **Decouple authority from pattern ids** ✅ — `arc_supports_action_type` / `arc_commit_segment_for_action`; authority_attack scans Event("Attack") (phase 2).
 3. **Generic RPC routing** ✅ — `try_arc_rpc` / `overlay_rpc_action_types`; single GameServer branch for aftermath verbs (phase 3).
-4. **Soften or remove phase-name contract heuristics** ✅ — opt-in interaction bundle only; phase names do not require attack hooks (phase 4).
+4. **Soften or remove phase-name contract heuristics** ✅ — opt-in interaction bundle only; phase names do not require interaction hooks (phase 4).
 5. **Move pattern modules toward reference packs** ✅ — no silent movement arc; titles opt in via `ENGINE_MOVEMENT_ARC_PRESET` (phase 5).
 6. **Strip client/engine hexdemo fallbacks** ✅ — generic dock CSS swap, neutral highlight fallback, shell_ui copy from title (phase 6).
-7. **Document terminology** — modification / interaction in [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) ✅ (phase 0); hook enums `ModificationHook` / `InteractionHook` and `TitleHooks.modification` / `.interaction` ✅ (phase 7).
+7. **Document terminology** ✅ — modification / interaction in [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md); hook enums `ModificationHook` / `InteractionHook` and `TitleHooks.modification` / `.interaction` (phase 7). Phase history: [`archive/ENGINE_TITLE_CHARTER_PLAN.md`](archive/ENGINE_TITLE_CHARTER_PLAN.md).
 
 ---
 

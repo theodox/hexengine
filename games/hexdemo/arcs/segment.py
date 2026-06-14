@@ -21,7 +21,7 @@ def _segment_host() -> SimpleNamespace:
     global _SEGMENT_HOST
     if _SEGMENT_HOST is None:
         from ..hooks import (
-            build_hooks,  # breaks cycle: hooks → attack → arcs.segment → hooks
+            build_hooks,  # breaks cycle: hooks → interaction → arcs.segment → hooks
         )
 
         hooks = build_hooks()

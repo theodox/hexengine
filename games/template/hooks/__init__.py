@@ -1,4 +1,4 @@
-"""Template title hooks — extend with movement, attack, ui modules as the title grows."""
+"""Template title hooks — extend with modification, interaction, and ui modules as the title grows."""
 
 from __future__ import annotations
 

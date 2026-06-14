@@ -117,7 +117,7 @@ def _blue_after_first_step(_ctx: MovementStepContext) -> tuple[str, ...]:
 
 
 class StepwiseInterleaved(InterleavedTwoFactionGameDefinition):
-    """`InterleavedTwoFactionGameDefinition` with custom movement hooks."""
+    """`InterleavedTwoFactionGameDefinition` with custom modification hooks."""
 
     def __init__(self, modification: ModificationHooks) -> None:
         super().__init__()

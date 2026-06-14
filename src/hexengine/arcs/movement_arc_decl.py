@@ -6,7 +6,7 @@ generic runner. Segment `kind` values match the movement arc gate strings so the
 declaration can be parity-checked against the legacy payload mirror.
 
 Effects are supplied at runtime (see server.arcs.movement_arc_effects) because step
-application needs movement hooks from the authoritative server host.
+application needs modification hooks from the authoritative server host.
 """
 
 from __future__ import annotations

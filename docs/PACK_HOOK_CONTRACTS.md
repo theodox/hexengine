@@ -132,7 +132,7 @@ Stable **mechanism** names the engine understands. Titles gate when each is lega
 
 | Verb | Family | Routing |
 |------|--------|---------|
-| `MoveUnit` | Modification | Routine movement hooks; overlay path via `try_arc_move_unit` when interaction cursor active |
+| `MoveUnit` | Modification | Routine modification hooks; overlay path via `try_arc_move_unit` when interaction cursor active |
 | `NextPhase` | Schedule | Routine arc segment |
 | `Attack` | Interaction | Authority attack pipeline (`execute_authority_attack_request`) |
 | `CombatAdvance`, `CombatDeclineAdvance`, `CombatDisruptInsteadOfRetreat` | Interaction aftermath | `try_arc_rpc` when declared on overlay graph (`overlay_rpc_action_types`) |
@@ -259,7 +259,7 @@ Context dataclasses: [`CombatInteractionContext`](../src/hexengine/hooks/ui.py),
 
 **Phase advance blocking:** `NextPhase` legality and End Phase dock enablement derive from `current_segment.allowed_actions` ([`segment_blocks_routine_phase_advance`](../src/hexengine/arcs/segment_wire.py)). Titles with `session_state_key` must bind `ArcHook.TURN_ARC_REGISTRY`.
 
-### Attack hook inventory (combat policy)
+### Interaction hook inventory (combat policy)
 
 Bind with `@bind_title_hook(InteractionHook.…)`. Values match [`InteractionHook`](../src/hexengine/hooks/interaction.py). **There are no attack cleanup hook slots** — retreat, disrupt, and advance run through the declared combat arc (`ArcHook.COMBAT_ARC`).
 
@@ -296,7 +296,7 @@ When the combat overlay finishes (classify `done` or last cleanup step), the eng
 
 Dock gate rows: [`combat_gate_panel_actions`](../src/hexengine/authoring/patterns/combat.py) from `TURN_ACTION_DOCK_FOR_VIEWER`.
 
-**Reference pack hooks:** [`games/hexdemo/hooks/`](../games/hexdemo/hooks/) (`attack.py`, `movement.py`, `turn_action_dock.py`, `ui.py`); arc wiring [`arcs/wiring.py`](../games/hexdemo/arcs/wiring.py). Policy: [`combat/rules.py`](../games/hexdemo/combat/rules.py), [`combat/outcome.py`](../games/hexdemo/combat/outcome.py), [`combat/actions.py`](../games/hexdemo/combat/actions.py), [`combat/transitions.py`](../games/hexdemo/combat/transitions.py), [`movement/rules.py`](../games/hexdemo/movement/rules.py), [`state/session_state.py`](../games/hexdemo/state/session_state.py). Inventory: [`SKINNING_CLIENT_INVENTORY.md`](SKINNING_CLIENT_INVENTORY.md). Boundary matrix: [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md).
+**Reference pack hooks:** [`games/hexdemo/hooks/`](../games/hexdemo/hooks/) (`modification.py`, `interaction.py`, `turn_action_dock.py`, `ui.py`); arc wiring [`arcs/wiring.py`](../games/hexdemo/arcs/wiring.py). Policy: [`combat/rules.py`](../games/hexdemo/combat/rules.py), [`combat/outcome.py`](../games/hexdemo/combat/outcome.py), [`combat/actions.py`](../games/hexdemo/combat/actions.py), [`combat/transitions.py`](../games/hexdemo/combat/transitions.py), [`movement/rules.py`](../games/hexdemo/movement/rules.py), [`state/session_state.py`](../games/hexdemo/state/session_state.py). Inventory: [`SKINNING_CLIENT_INVENTORY.md`](SKINNING_CLIENT_INVENTORY.md). Boundary matrix: [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md).
 
 ### Client contract features (not wire rows)
 
@@ -387,7 +387,7 @@ Align naming and validation rules with `TitleHooks` contract sentinels (`REQUIRE
 | Area | Declaration | Entry / validation | Notes |
 |------|-------------|-------------------|--------|
 | Modification | `TitleHooks.modification` | Server movement arc; hook catalog | `ModificationHook` + `bind_title_hook` |
-| Interaction | `TitleHooks.interaction` | [`authority_attack`](../src/hexengine/server/arcs/authority_attack.py); `validate_title_contract` when interaction arc is declared (`ArcHook.COMBAT_ARC` → `ArcSpec`) | Required `validate_attack` / `resolve_attack` when interaction arc is declared; optional `combat_outcome_after_applied`; cleanup via `ArcHook.COMBAT_ARC` — see [Attack hook inventory](#attack-hook-inventory-combat-policy) |
+| Interaction | `TitleHooks.interaction` | [`authority_attack`](../src/hexengine/server/arcs/authority_attack.py); `validate_title_contract` when interaction arc is declared (`ArcHook.COMBAT_ARC` → `ArcSpec`) | Required `validate_attack` / `resolve_attack` when interaction arc is declared; optional `combat_outcome_after_applied`; cleanup via `ArcHook.COMBAT_ARC` — see [Interaction hook inventory](#interaction-hook-inventory-combat-policy) |
 | Arcs | `TitleHooks.arcs` | Arc runner, turn registry, overlay cursor | `TURN_ARC_REGISTRY`; `COMBAT_ARC` when interaction enabled; wire in [`arcs/wiring.py`](../games/hexdemo/arcs/wiring.py) (hexdemo) |
 | UI | `TitleHooks.ui` | Client/server UI hook points | Per-viewer wire: [`interaction_messages`](#stateupdateinteraction_messages), [`interaction_panels`](#stateupdateinteraction_panels-turn-action-dock), [`ui_popup`](#ui-popup-standalone-message); see [UI affordances](#ui-affordances--wire-schemas-and-hooks-v1) |
 | Title-load (client) | `[hooks.title_load]` | Client title-load arc; tolerant dispatch in `gameroot` | See [`TITLE_LOAD_HOOKS.md`](TITLE_LOAD_HOOKS.md) |

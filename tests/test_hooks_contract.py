@@ -79,8 +79,8 @@ def test_validate_title_contract_skips_unknown_or_move_only_schedule() -> None:
     validate_title_contract(object())
 
 
-def test_validate_title_contract_skips_attack_hooks_without_interaction_arc() -> None:
-    """Phase names alone do not require attack hooks (charter opt-in bundles)."""
+def test_validate_title_contract_skips_interaction_hooks_without_interaction_arc() -> None:
+    """Phase names alone do not require interaction hooks (charter opt-in bundles)."""
     from hexengine.gamedef.game_data import GameData
 
     class AttackPhaseNoHooks:
@@ -107,7 +107,7 @@ def test_validate_title_contract_skips_attack_hooks_without_interaction_arc() ->
         validate_title_contract(gd)
 
 
-def test_validate_title_contract_fails_when_interaction_arc_without_attack_hooks() -> (
+def test_validate_title_contract_fails_when_interaction_arc_without_interaction_hooks() -> (
     None
 ):
     from hexengine.arcs import ArcSpec
