@@ -196,7 +196,7 @@ A **static four-phase rota** for prototypes is a **pattern that emits `TurnArcRe
 Work toward this charter may proceed in any order, but these are the main known gaps:
 
 1. **Retire dual turn model in hexdemo** ✅ — single `TurnArcRegistry`; `HexdemoGameDefinition` derives `turn_order()` from `arcs/turn_schedule.py` (phase 1).
-2. **Decouple authority from pattern ids** — remove `SEG_ATTACK` / `"combat"` requirements; discover interaction commit from `ArcSpec`.
+2. **Decouple authority from pattern ids** ✅ — `arc_supports_action_type` / `arc_commit_segment_for_action`; authority_attack scans Event("Attack") (phase 2).
 3. **Generic RPC routing** — reduce dedicated `GameServer` branches for interaction-aftermath action types where the active segment can gate.
 4. **Soften or remove phase-name contract heuristics** — do not require attack hooks based on schedule phase strings.
 5. **Move pattern modules toward reference packs** — stop server bridge from building default title-shaped movement graphs silently.

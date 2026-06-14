@@ -254,7 +254,7 @@ For packs with `session_state_key`, the engine rejects `Attack` when `current_se
 | Hook | When invoked | Signature / context | Return | `ENGINE_DEFAULT` behavior |
 |------|--------------|---------------------|--------|---------------------------|
 | **`VALIDATE_ATTACK`** | After engine segment gate, before resolve | `(ctx: AttackContext)` | `None` or raise | Unsupported attack |
-| **`RESOLVE_ATTACK`** | Combat arc `attack` segment (or imperative path without `SEG_ATTACK`) | `(ctx: AttackContext)` | `AttackResolution` or `CombatOutcome` (with embedded resolution) | Unsupported attack |
+| **`RESOLVE_ATTACK`** | Interaction arc segment with `Event("Attack")` (discovered via `arc_commit_segment_for_action`) | `(ctx: AttackContext)` | `AttackResolution` or `CombatOutcome` (with embedded resolution) | Unsupported attack |
 | **`ATTACK_PLAN_PREVIEW`** | `map_selection_preview` `InteractionKind` `attack_plan` | `(ctx: AttackPlanPreviewContext)` | `MapSelectionPreview` | Empty/minimal preview |
 | **`AUTO_ADVANCE_PHASE_AFTER_ATTACK`** | After attack applied + broadcast | `(state: GameState)` | `bool` | No auto-advance |
 | **`COMBAT_OUTCOME_AFTER_APPLIED`** | After `Attack` + `ApplyCombatEffects` inside arc `attack` effect | `(ctx: AfterAttackAppliedContext)` | [`CombatOutcome`](../src/hexengine/hooks/combat_outcome.py) | No bucket follow-up |

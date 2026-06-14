@@ -9,6 +9,10 @@ three server-side **arcs** (vocabulary in `hexengine.state.movement_arc`).
 
 Titles customize behavior via `TitleHooks.attack` (validate / resolve / auto-advance);
 this file is the stable **orchestration** surface for authors reading the engine.
+
+Interaction commit segments are discovered from the declared arc graph: the first
+segment (declaration order) with an ``Event("Attack")`` transition receives the cursor
+before ``submit_event`` (see ``hexengine.arcs.capabilities``).
 """
 
 from __future__ import annotations
@@ -18,8 +22,8 @@ from enum import StrEnum
 from typing import Any, Protocol
 
 from ...arcs import ArcCursor, SetArcCursor, read_arc_cursor, submit_event
+from ...arcs.capabilities import arc_commit_segment_for_action, arc_supports_action_type
 from ...arcs.segment_wire import segment_denies_action_for_faction
-from ...authoring.patterns.combat import SEG_ATTACK
 from ...hooks.title import TitleHooks
 from ...state import GameState
 from ...state.action_manager import ActionManager
@@ -33,7 +37,7 @@ from .authority_attack_wire import (
 )
 
 ATTACK_REQUIRES_COMBAT_ARC_MSG = (
-    "This game title does not declare a combat arc Attack segment"
+    "This game title does not declare an interaction arc that accepts Attack"
 )
 
 
@@ -63,11 +67,7 @@ def _combat_arc_supports_attack_event(host: AuthorityAttackHost) -> bool:
     spec = combat_arc_spec(host.hooks)
     if spec is None:
         return False
-    try:
-        spec.arc.get(SEG_ATTACK)
-    except KeyError:
-        return False
-    return True
+    return arc_supports_action_type(spec.arc, "Attack")
 
 
 def _attack_submit_error_message(reason: str) -> str:
@@ -114,11 +114,16 @@ async def _execute_arc_attack(
     current_state: GameState,
     params: dict[str, Any],
 ) -> bool:
-    """Route ``Attack`` through the declared combat arc ``attack`` segment."""
+    """Route ``Attack`` through the declared interaction arc commit segment."""
 
     spec = combat_arc_spec(host.hooks)
     if spec is None:
         raise RuntimeError("combat arc spec missing")
+
+    try:
+        attack_segment_id = arc_commit_segment_for_action(spec.arc, "Attack")
+    except ValueError:
+        raise RuntimeError("interaction arc missing Attack event segment") from None
 
     prior_cursor = read_arc_cursor(current_state)
 
@@ -139,7 +144,7 @@ async def _execute_arc_attack(
 
     host.action_manager.execute(
         SetArcCursor(
-            ArcCursor(arc_id=spec.arc.id, segment_id=SEG_ATTACK),
+            ArcCursor(arc_id=spec.arc.id, segment_id=attack_segment_id),
         )
     )
 

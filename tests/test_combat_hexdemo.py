@@ -1087,7 +1087,8 @@ def test_builtin_game_rejects_attack() -> None:
 
     err = asyncio.run(run())
     assert err is not None
-    assert "combat arc attack segment" in err.lower()
+    assert "interaction arc" in err.lower()
+    assert "attack" in err.lower()
 
 
 def test_retreat_move_no_spend_action(hexdemo_server: GameServer) -> None:

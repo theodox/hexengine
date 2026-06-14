@@ -6,6 +6,11 @@ Author-time construction lives in hexengine.authoring (builder + patterns).
 
 from __future__ import annotations
 
+from .capabilities import (
+    arc_commit_segment_for_action,
+    arc_event_segments,
+    arc_supports_action_type,
+)
 from .cursor import (
     ARC_CURSOR_SCHEMA,
     HEXENGINE_ARC_CURSOR_KEY,
@@ -84,6 +89,9 @@ __all__ = [
     "Transition",
     "Trigger",
     "TurnArcRegistry",
+    "arc_commit_segment_for_action",
+    "arc_event_segments",
+    "arc_supports_action_type",
     "begin_arc",
     "cursor_from_snapshot",
     "cursor_to_snapshot",

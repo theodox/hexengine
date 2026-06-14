@@ -1,6 +1,6 @@
 # Engine / title charter — implementation plan
 
-**Status:** draft — phases 0–1 done; phases 2–7 pending.
+**Status:** draft — phases 0–2 done; phases 3–7 pending.
 
 **One-line goal:** Align runtime and contracts with the charter so titles own flow, policy, and presentation; the engine owns authority, arc cursors, and generic affordances — without hexdemo-shaped silent defaults or parallel turn models.
 
@@ -39,7 +39,7 @@
 | Area | Today | Charter strain |
 |------|--------|------------------|
 | Turn flow | ~~Hexdemo wrapped `StaticScheduleGameDefinition` and `TurnArcRegistry`~~ | Resolved in phase 1; `turn.current_phase` still schedule-shaped for display |
-| Interaction discovery | `authority_attack.py` requires segment id `attack` (`SEG_ATTACK`) | Titles should name segments freely; engine scans `Event("Attack")` on registered arc |
+| Interaction discovery | ~~`authority_attack.py` required segment id `attack`~~ | Resolved phase 2: scans `Event("Attack")` on registered arc |
 | RPC routing | Dedicated `GameServer` branches for `CombatAdvance`, `CombatDisruptInsteadOfRetreat`, `CombatDeclineAdvance` | Active segment `allowed_actions` + `submit_event` should gate |
 | Contract validation | `_phase_implies_attack_schedule` infers attack hooks from phase **names** in static schedule | Opt-in bundle validation only; no combat from `"Combat"` string |
 | Default movement arc | `authoring_bridge.build_default_movement_arc_spec` when title omits movement arc | Silent title-shaped fallback; patterns belong in reference packs |
@@ -121,17 +121,17 @@ Phase 5 can start after phase 1 for movement-default removal; full pattern reloc
 
 ---
 
-## Phase 2 — ArcSpec-driven interaction discovery (E) (1 PR)
+## Phase 2 — ArcSpec-driven interaction discovery (E) (1 PR) ✅
 
 **Objective:** Engine discovers interaction commit from **registered arc topology**, not `SEG_ATTACK` / arc id `"combat"`.
 
 **Deliverables:**
 
-- [ ] Add `arc_supports_action_type(arc: Arc, action_type: str) -> bool` (or segment scan helper) in `hexengine.arcs` — finds segments whose transitions accept `Event(action_type)`.
-- [ ] Replace `_combat_arc_supports_attack_event` in [`authority_attack.py`](../src/hexengine/server/arcs/authority_attack.py): scan interaction arc for `Attack`, not `spec.arc.get(SEG_ATTACK)`.
-- [ ] Replace hardcoded cursor jumps to `SEG_ATTACK` with **entry segment for Attack path** from spec metadata or first segment that accepts `Attack` (document algorithm in module docstring).
-- [ ] Hexdemo: rename segment id `attack` only if desired for dogfooding free-form ids — optional; parity tests must update.
-- [ ] Remove `SEG_ATTACK` import from authority modules; keep constants in `authoring.patterns.combat` for reference graph only.
+- [x] Add `arc_supports_action_type(arc: Arc, action_type: str) -> bool` (or segment scan helper) in `hexengine.arcs` — finds segments whose transitions accept `Event(action_type)`.
+- [x] Replace `_combat_arc_supports_attack_event` in [`authority_attack.py`](../src/hexengine/server/arcs/authority_attack.py): scan interaction arc for `Attack`, not `spec.arc.get(SEG_ATTACK)`.
+- [x] Replace hardcoded cursor jumps to `SEG_ATTACK` with **entry segment for Attack path** from spec metadata or first segment that accepts `Attack` (document algorithm in module docstring).
+- [x] Hexdemo: rename segment id `attack` only if desired for dogfooding free-form ids — optional; parity tests must update.
+- [x] Remove `SEG_ATTACK` import from authority modules; keep constants in `authoring.patterns.combat` for reference graph only.
 
 **Exit criteria:**
 
