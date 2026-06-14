@@ -1,10 +1,10 @@
 # Pack-visible combat arc graph — plan
 
-**Status:** phases 1–2 done (hexdemo); phase 3 (TITLE_AUTHORING) and phase 4 (tooling) pending.
+**Status:** phases 1–2 done (hexdemo); phase 3 (TITLE_AUTHORING + template) done; phase 4 (tooling) pending.
 
 **One-line goal:** Put the combat FSM where title authors look first — a pack module that builds the real `Arc` spec — so match flow shape is readable without opening `src/hexengine/authoring/patterns/combat.py`.
 
-**Related:** [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) (author hub). **Charter:** [`ENGINE_TITLE_CHARTER.md`](ENGINE_TITLE_CHARTER.md).
+**Related:** [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) (author hub). **Charter:** [`ENGINE_TITLE_CHARTER.md`](ENGINE_TITLE_CHARTER.md). **Broader migration:** [`ENGINE_TITLE_CHARTER_PLAN.md`](ENGINE_TITLE_CHARTER_PLAN.md) (phase 0 includes this plan’s phase 3 docs).
 
 **Related:** [`archive/COMPOSABLE_ARCS_PLAN.md`](archive/COMPOSABLE_ARCS_PLAN.md) (runtime model), [`archive/TITLE_AUTHOR_INTERFACE_PLAN.md`](archive/TITLE_AUTHOR_INTERFACE_PLAN.md) (rules vs hooks layering).
 
@@ -156,13 +156,13 @@ Longer term, if drift hurts, extract shared graph body to engine and **generate 
 
 **Exit criteria:** full test suite green; `test_hexdemo_combat_arc_matches_pattern` still passes (hexdemo graph ≡ engine pattern output).
 
-### Phase 3 — Authoring docs and template (1 PR)
+### Phase 3 — Authoring docs and template (1 PR) ✅
 
 **Deliverables:**
 
-- [ ] [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md): new § “Combat arc graph” — read `combat/graph.py` first; when to use engine `build_combat_cleanup_arc` vs pack graph.
-- [ ] [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md): update combat author layout paths.
-- [ ] Template pack: optional stub `combat/graph.py` (comment-only graph outline) or pointer to hexdemo; keep `build_template_combat_arc_spec` on engine convenience path.
+- [x] [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md): § [Interaction arc graph](TITLE_AUTHORING.md#interaction-arc-graph) and § [Modification vs interaction](TITLE_AUTHORING.md#modification-vs-interaction); pack reading order.
+- [x] [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md): interaction arc author layout paths (`combat/graph.py`, `arcs/wiring.py`, …).
+- [x] Template pack: stub [`games/template/combat/graph.py`](../games/template/combat/graph.py) (comment outline + pointer to hexdemo); `build_template_combat_arc_spec` remains on engine convenience path in [`combat_arc.py`](../games/template/combat_arc.py).
 
 **Exit criteria:** a new author can answer “what happens after Attack?” from pack files only.
 

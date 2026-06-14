@@ -1,9 +1,11 @@
 """
 Template combat scaffold (copy when enabling combat + extension key).
 
-Wire ``ArcHook.COMBAT_ARC`` in ``hooks/arcs.py`` after you set
+Wire ``ArcHook.COMBAT_ARC`` in ``hooks/arcs.py`` (or ``arcs/wiring.py``) after you set
 ``session_state_key``, add combat schedule slots, attack hooks, segment registry
-rows, and ``attack_effect`` on the arc spec. Until then this module is reference-only.
+rows, and ``attack_effect`` on the arc spec. For a visible graph, copy
+``games/hexdemo/combat/graph.py`` — see ``games/template/combat/graph.py`` (outline).
+Until then this module is reference-only.
 """
 
 from __future__ import annotations

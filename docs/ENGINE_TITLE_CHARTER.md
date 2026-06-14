@@ -191,6 +191,8 @@ A **static four-phase rota** for prototypes is a **pattern that emits `TurnArcRe
 
 ## Migration backlog (engine and hexdemo)
 
+**Execution plan:** [`ENGINE_TITLE_CHARTER_PLAN.md`](ENGINE_TITLE_CHARTER_PLAN.md) (phased PRs, dependencies, tests).
+
 Work toward this charter may proceed in any order, but these are the main known gaps:
 
 1. **Retire dual turn model in hexdemo** — single `TurnArcRegistry`; stop wrapping `StaticScheduleGameDefinition` for authoritative flow.
@@ -199,7 +201,7 @@ Work toward this charter may proceed in any order, but these are the main known 
 4. **Soften or remove phase-name contract heuristics** — do not require attack hooks based on schedule phase strings.
 5. **Move pattern modules toward reference packs** — stop server bridge from building default title-shaped movement graphs silently.
 6. **Strip client/engine hexdemo fallbacks** — CSS class prefixes, default coaching copy; use wire `presentation_id` and title `shell_ui`.
-7. **Document terminology** — modification / interaction in [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) (hook renames are optional and later).
+7. **Document terminology** — modification / interaction in [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) ✅ (phase 0); hook renames are optional and later (charter plan phase 7).
 
 ---
 

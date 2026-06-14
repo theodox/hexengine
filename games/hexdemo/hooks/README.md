@@ -39,7 +39,7 @@ Hexdemo today:
 
 | Rules (policy) | Hook adapters |
 |----------------|---------------|
-| `../combat/rules.py` — `BINDING`: CRT, validate, outcome, arc guards/effects | `attack.py`, `arcs.py` |
+| `../combat/rules.py` — `BINDING`: CRT, validate, outcome, arc guards/effects | `attack.py`, `../arcs/wiring.py` |
 | `../combat/outcome.py` — post-attack `BucketPatch` builder | `attack.py` → `COMBAT_OUTCOME_AFTER_APPLIED` |
 | `../combat/actions.py` — retreat/disrupt/advance state actions | Called from `BINDING` only |
 | `../combat/transitions.py` — gate `ui_mode` strings, phase-scoped clear, planning block | Used by arc spec + `game_config` |
@@ -70,7 +70,6 @@ Longer term, the engine may offer **composable rule pieces** (ZOC, terrain, mora
 | `turn_action_dock.py` | Commit dock — `combat_gate_panel_actions` + End Phase; returns `TurnDockPanel` from `hexengine.authoring.present`; copy via [`ui/segment_registry.py`](../ui/segment_registry.py) + [`presentation/`](../presentation/) | `@bind_title_hook(UIHook.TURN_ACTION_DOCK_FOR_VIEWER)` |
 | `segment_presentation.py` | `presentation_id` / `interaction_mode` on `current_segment` wire | `@bind_title_hook(UIHook.ENRICH_CURRENT_SEGMENT)` |
 | `segment_ui_registry.py` | Exposes `PRESENTATION_BY_UI_MODE` for P5 load-time validation | `@bind_title_hook(UIHook.SEGMENT_PRESENTATION_REGISTRY)` |
-| `arcs.py` | Turn arc registry + combat arc declarations | `@bind_title_hook(ArcHook.…)` |
 | `markers.py` | Place-marker map-selection preview | `@bind_title_hook(UIHook.PLACE_MARKER_PREVIEW)` |
 | `../ui/markup.py` | HTML templates + flag URLs (tier 2–3; `hexengine.ui.display`) | Imported by `ui.py`, `presentation/dock.py` |
 | `../resources/templates/` | `phase_banner.html`, `unit_inspect.html`, `dock_gate.html` | Loaded by `ui/markup` |
