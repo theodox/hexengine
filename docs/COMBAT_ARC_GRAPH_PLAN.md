@@ -4,7 +4,7 @@
 
 **One-line goal:** Put the combat FSM where title authors look first — a pack module that builds the real `Arc` spec — so match flow shape is readable without opening `src/hexengine/authoring/patterns/combat.py`.
 
-**Author hub:** [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md). **Hooks map:** [`games/hexdemo/hooks/README.md`](../games/hexdemo/hooks/README.md).
+**Related:** [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) (author hub). **Charter:** [`ENGINE_TITLE_CHARTER.md`](ENGINE_TITLE_CHARTER.md).
 
 **Related:** [`archive/COMPOSABLE_ARCS_PLAN.md`](archive/COMPOSABLE_ARCS_PLAN.md) (runtime model), [`archive/TITLE_AUTHOR_INTERFACE_PLAN.md`](archive/TITLE_AUTHOR_INTERFACE_PLAN.md) (rules vs hooks layering).
 

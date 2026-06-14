@@ -14,7 +14,7 @@ A **title pack** is a self-contained game: scenario TOML, `resources/`, Python u
 
 | Layer | You own | Engine owns |
 |-------|---------|-------------|
-| Match rules | `GameDefinition`, hooks, rules modules | Turn schedule plumbing, action dispatch arcs |
+| Match rules | `GameDefinition`, hooks, rules modules, declared arcs | Arc runner, cursor, RPC routing (see [`ENGINE_TITLE_CHARTER.md`](ENGINE_TITLE_CHARTER.md)) |
 | Scenario | `scenarios/*/scenario.toml`, placements | Loader schema, initial `GameState` |
 | Player UX | Messages, dock, previews, templates, CSS | DOM hosts, RPC routing, merge/render |
 | Trust | Same process as server today — treat pack code as trusted | See [`PACK_TRUST_MODEL.md`](PACK_TRUST_MODEL.md) |
@@ -26,13 +26,14 @@ A **title pack** is a self-contained game: scenario TOML, `resources/`, Python u
 | Step | Doc | Why |
 |------|-----|-----|
 | 1 | This page | Map of concepts and APIs |
-| 2 | [`games/hexdemo/README.md`](../games/hexdemo/README.md) | Pack layout, PYTHONPATH, `game_config` |
-| 3 | [`games/hexdemo/hooks/README.md`](../games/hexdemo/hooks/README.md) | Rules vs hooks, three wiring paths |
-| 4 | [`TURN_ACTION_DOCK_CONTRACT.md`](TURN_ACTION_DOCK_CONTRACT.md) | Player primitives + three wire lanes |
-| 5 | [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md) | Wire field tables + hook inventory |
-| 6 | [`SKINNING_CLIENT_INVENTORY.md`](SKINNING_CLIENT_INVENTORY.md) | Which client module does what |
-| 7 | [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md) | Server vs title per domain |
-| 8 | [`TITLE_LOAD_HOOKS.md`](TITLE_LOAD_HOOKS.md) | Splash / setup manifest hooks |
+| 2 | [`ENGINE_TITLE_CHARTER.md`](ENGINE_TITLE_CHARTER.md) | Engine vs title ownership and arc-first flow (normative) |
+| 3 | [`games/hexdemo/README.md`](../games/hexdemo/README.md) | Pack layout, PYTHONPATH, `game_config` |
+| 4 | [`games/hexdemo/hooks/README.md`](../games/hexdemo/hooks/README.md) | Rules vs hooks, three wiring paths |
+| 5 | [`TURN_ACTION_DOCK_CONTRACT.md`](TURN_ACTION_DOCK_CONTRACT.md) | Player primitives + three wire lanes |
+| 6 | [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md) | Wire field tables + hook inventory |
+| 7 | [`SKINNING_CLIENT_INVENTORY.md`](SKINNING_CLIENT_INVENTORY.md) | Which client module does what |
+| 8 | [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md) | Server vs title per domain |
+| 9 | [`TITLE_LOAD_HOOKS.md`](TITLE_LOAD_HOOKS.md) | Splash / setup manifest hooks |
 
 **Planning only (not API):** [`SKINNING_AFFORDANCES_PLAN.md`](SKINNING_AFFORDANCES_PLAN.md) (roadmap/status), [`RULE_COMPOSITION.md`](RULE_COMPOSITION.md) (future rule catalog).
 
