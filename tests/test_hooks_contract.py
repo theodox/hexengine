@@ -79,10 +79,11 @@ def test_validate_title_contract_skips_unknown_or_move_only_schedule() -> None:
     validate_title_contract(object())
 
 
-def test_validate_title_contract_fails_when_combat_phase_without_attack_hooks() -> None:
+def test_validate_title_contract_skips_attack_hooks_without_interaction_arc() -> None:
+    """Phase names alone do not require attack hooks (charter opt-in bundles)."""
     from hexengine.gamedef.game_data import GameData
 
-    class BadAttack:
+    class AttackPhaseNoHooks:
         def turn_order(self) -> list[dict[str, object]]:
             return [{"faction": "A", "phase": "Attack", "max_actions": 1}]
 
@@ -92,7 +93,7 @@ def test_validate_title_contract_fails_when_combat_phase_without_attack_hooks() 
         def game_data(self) -> GameData:
             return GameData.empty()
 
-    class BadCombat:
+    class CombatPhaseNoHooks:
         def turn_order(self) -> list[dict[str, object]]:
             return [{"faction": "U", "phase": "Combat", "max_actions": 2}]
 
@@ -102,9 +103,146 @@ def test_validate_title_contract_fails_when_combat_phase_without_attack_hooks() 
         def game_data(self) -> GameData:
             return GameData.empty()
 
-    for bad in (BadAttack(), BadCombat()):
-        with pytest.raises(HookContractError):
-            validate_title_contract(bad)
+    for gd in (AttackPhaseNoHooks(), CombatPhaseNoHooks()):
+        validate_title_contract(gd)
+
+
+def test_validate_title_contract_fails_when_interaction_arc_without_attack_hooks() -> (
+    None
+):
+    from hexengine.arcs import ArcSpec
+    from hexengine.authoring.patterns.combat import (
+        CombatArcGateUiModes,
+        build_combat_cleanup_arc,
+    )
+    from hexengine.gamedef.game_data import GameData
+    from hexengine.hooks.arcs import ArcsHooks
+
+    class StubEffects:
+        def has_pending_retreat(self, _ctx):
+            return False
+
+        def disrupt_offered(self, _ctx):
+            return False
+
+        def advance_available(self, _ctx):
+            return False
+
+        def is_retreat_fulfillment(self, _ctx):
+            return False
+
+        def is_combat_advance_move(self, _ctx):
+            return False
+
+        def apply_retreat_step(self, _ctx):
+            return []
+
+        def disrupt_instead(self, _ctx):
+            return []
+
+        def open_advance(self, _ctx):
+            return []
+
+        def resolve_advance(self, _ctx):
+            return []
+
+        def clear_advance_gate(self, _ctx):
+            return []
+
+    gates = CombatArcGateUiModes(
+        awaiting_retreat="awaiting_retreat",
+        awaiting_retreat_or_disrupt="awaiting_retreat_or_disrupt",
+        awaiting_advance="awaiting_advance",
+    )
+    arc = build_combat_cleanup_arc(StubEffects(), gates)
+    spec = ArcSpec(arc=arc, owner_resolver=None)
+
+    class PackWithInteractionNoAttackHooks:
+        hooks = TitleHooks(
+            arcs=ArcsHooks(combat_arc=lambda: spec),
+        )
+
+        @property
+        def game_data(self) -> GameData:
+            return GameData.empty()
+
+        def turn_order(self):
+            return []
+
+    with pytest.raises(HookContractError, match="interaction arc"):
+        validate_title_contract(PackWithInteractionNoAttackHooks())
+
+
+def test_validate_title_contract_four_phase_move_only_passes() -> None:
+    from hexengine.authoring.patterns.schedule import (
+        build_turn_registry,
+        interleaved_slots,
+    )
+    from hexengine.gamedef.game_data import GameData
+    from hexengine.hooks.arcs import ArcsHooks
+    from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer
+
+    slots = interleaved_slots(
+        ("blue", "red"),
+        (
+            ("Move", 2, "move"),
+            ("Attack", 2, "attack"),
+        ),
+    )
+    reg = build_turn_registry(
+        slots, allowed_actions_for_phase=lambda _p: frozenset({"NextPhase"})
+    )
+
+    class MoveOnlyTitle:
+        @property
+        def game_data(self) -> GameData:
+            return GameData.empty()
+
+        hooks = TitleHooks(
+            arcs=ArcsHooks(turn_arc_registry=lambda: reg),
+        )
+
+        def turn_order(self):
+            return reg.schedule.turn_order_entries()
+
+    validate_title_contract(MoveOnlyTitle())
+
+
+def test_validate_title_contract_move_only_with_session_state_key_passes() -> None:
+    from hexengine.authoring.patterns.schedule import (
+        build_turn_registry,
+        interleaved_slots,
+    )
+    from hexengine.gamedef.game_data import GameData
+    from hexengine.hooks.arcs import ArcsHooks
+    from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer
+
+    slots = interleaved_slots(
+        ("blue", "red"),
+        (("Move", 4, "move"),),
+    )
+    reg = build_turn_registry(
+        slots, allowed_actions_for_phase=lambda _p: frozenset({"NextPhase"})
+    )
+
+    class MoveOnlyExtension:
+        @property
+        def game_data(self) -> GameData:
+            return GameData.empty().replacing(session_state_key="pack")
+
+        hooks = TitleHooks(
+            ui=UIHooks(
+                turn_action_dock_for_viewer=empty_turn_action_dock_for_viewer,
+                segment_presentation_registry=lambda: frozenset({"move"}),
+                enrich_current_segment=lambda _ctx: SegmentPresentationPatch(),
+            ),
+            arcs=ArcsHooks(turn_arc_registry=lambda: reg),
+        )
+
+        def turn_order(self):
+            return reg.schedule.turn_order_entries()
+
+    validate_title_contract(MoveOnlyExtension())
 
 
 def test_validate_title_contract_passes_builtin_combat_schedule() -> None:
@@ -125,45 +263,6 @@ def test_validate_title_contract_requires_turn_action_dock_when_session_state_ke
 
     with pytest.raises(HookContractError, match="turn_action_dock_for_viewer"):
         validate_title_contract(PackWithExtension())
-
-
-def test_validate_title_contract_requires_combat_arc_with_session_state_key() -> None:
-    from hexengine.authoring.patterns.schedule import (
-        build_turn_registry,
-        interleaved_slots,
-    )
-    from hexengine.gamedef.game_data import GameData
-    from hexengine.hooks.arcs import ArcsHooks
-    from hexengine.hooks.ui_turn_action_dock import empty_turn_action_dock_for_viewer
-
-    turn_registry = build_turn_registry(
-        interleaved_slots(
-            ("Red", "Blue"),
-            (("Movement", 2, "move"), ("Attack", 2, "attack")),
-            faction_first=True,
-        ),
-        allowed_actions_for_phase=lambda phase: frozenset({"NextPhase"}),
-    )
-
-    class PackWithoutCombatArc:
-        @property
-        def game_data(self) -> GameData:
-            return GameData.empty().replacing(session_state_key="pack")
-
-        hooks = TitleHooks(
-            ui=UIHooks(
-                turn_action_dock_for_viewer=empty_turn_action_dock_for_viewer,
-                segment_presentation_registry=lambda: frozenset({"move", "attack"}),
-                enrich_current_segment=lambda _ctx: SegmentPresentationPatch(),
-            ),
-            arcs=ArcsHooks(turn_arc_registry=lambda: turn_registry),
-        )
-
-        def turn_order(self):
-            return []
-
-    with pytest.raises(HookContractError, match="COMBAT_ARC"):
-        validate_title_contract(PackWithoutCombatArc())
 
 
 def test_validate_title_contract_checks_combat_rules_binding_methods() -> None:
@@ -192,9 +291,6 @@ def test_validate_title_contract_checks_combat_rules_binding_methods() -> None:
         @property
         def game_data(self) -> GameData:
             return GameData.empty().replacing(session_state_key="pack")
-
-        def turn_order(self):
-            return [{"faction": "blue", "phase": "Combat", "max_actions": 1}]
 
         hooks = TitleHooks(
             ui=UIHooks(

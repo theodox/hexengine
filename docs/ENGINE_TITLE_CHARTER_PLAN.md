@@ -41,8 +41,8 @@
 | Turn flow | ~~Hexdemo wrapped `StaticScheduleGameDefinition` and `TurnArcRegistry`~~ | Resolved in phase 1; `turn.current_phase` still schedule-shaped for display |
 | Interaction discovery | ~~`authority_attack.py` required segment id `attack`~~ | Resolved phase 2: scans `Event("Attack")` on registered arc |
 | RPC routing | Dedicated `GameServer` branches for `CombatAdvance`, `CombatDisruptInsteadOfRetreat`, `CombatDeclineAdvance` | Active segment `allowed_actions` + `submit_event` should gate |
-| Contract validation | `_phase_implies_attack_schedule` infers attack hooks from phase **names** in static schedule | Opt-in bundle validation only; no combat from `"Combat"` string |
-| Default movement arc | `authoring_bridge.build_default_movement_arc_spec` when title omits movement arc | Silent title-shaped fallback; patterns belong in reference packs |
+| Contract validation | ~~`_phase_implies_attack_schedule` infers attack hooks from phase **names**~~ | Resolved phase 4: opt-in bundle validation only |
+| Default movement arc | ~~`authoring_bridge.build_default_movement_arc_spec` when title omits movement arc~~ | Resolved phase 5: explicit `ENGINE_MOVEMENT_ARC_PRESET` opt-in |
 | Client presentation | Engine CSS fallbacks (`hexdemo-turn-dock--*`) and default coaching copy | Wire `presentation_id` + title `shell_ui` only |
 
 ---
@@ -161,18 +161,18 @@ Phase 5 can start after phase 1 for movement-default removal; full pattern reloc
 
 ---
 
-## Phase 4 — Opt-in contract validation (B) (1 PR)
+## Phase 4 — Opt-in contract validation (B) (1 PR) ✅
 
 **Objective:** Startup validation checks **declared** bundles only; remove phase-name attack heuristics.
 
 **Deliverables:**
 
-- [ ] Remove or gate `_phase_implies_attack_schedule` / `_schedule_expects_attack_hooks` in [`contracts.py`](../src/hexengine/hooks/internal/contracts.py).
-- [ ] New rules:
+- [x] Remove or gate `_phase_implies_attack_schedule` / `_schedule_expects_attack_hooks` in [`contracts.py`](../src/hexengine/hooks/internal/contracts.py).
+- [x] New rules:
   - Interaction arc registered → require full attack hook bundle + `combat_rules_binding` + presentation registry entries for declared `ui_mode`s.
   - No interaction arc → attack hooks optional; move-only schedule valid.
-- [ ] Validate `TurnArcRegistry` completeness when hook returns registry (existing `validate.py` paths).
-- [ ] Add test: four-phase **move-only** title (no overlay arc) starts clean; incomplete interaction bundle fails fast.
+- [x] Validate `TurnArcRegistry` completeness when hook returns registry (existing `validate.py` paths).
+- [x] Add test: four-phase **move-only** title (no overlay arc) starts clean; incomplete interaction bundle fails fast.
 
 **Exit criteria:** Charter table in § Opt-in bundles matches test cases.
 
@@ -180,21 +180,21 @@ Phase 5 can start after phase 1 for movement-default removal; full pattern reloc
 
 ---
 
-## Phase 5 — Reference patterns, not runtime (C) (2 PRs)
+## Phase 5 — Reference patterns, not runtime (C) (2 PRs) ✅
 
 **Objective:** Pattern modules are **borrow-only**; engine does not silently build hexdemo-shaped graphs.
 
 **PR 5a — Stop silent movement default**
 
-- [ ] Remove or narrow [`build_default_movement_arc_spec`](../src/hexengine/hooks/internal/authoring_bridge.py) usage in [`game_server.py`](../src/hexengine/server/game_server.py): movement arc comes from title `ArcHook` or explicit opt-in preset.
-- [ ] Template + hexdemo declare movement arc explicitly (or bind `ENGINE_DEFAULT` preset documented in template).
-- [ ] Tests for titles without movement arc: modification still works via core path or clear startup error if arc required.
+- [x] Remove or narrow [`build_default_movement_arc_spec`](../src/hexengine/hooks/internal/authoring_bridge.py) usage in [`game_server.py`](../src/hexengine/server/game_server.py): movement arc comes from title `ArcHook` or explicit opt-in preset.
+- [x] Template + hexdemo declare movement arc explicitly (or bind `ENGINE_DEFAULT` preset documented in template).
+- [x] Tests for titles without movement arc: modification still works via core path or clear startup error if arc required.
 
 **PR 5b — Pattern package boundary**
 
-- [ ] Audit `GameServer` and `server/arcs/*` imports from `authoring.patterns.*`; move title-facing builders toward `games/reference/` or document “copy from hexdemo.”
-- [ ] `StaticScheduleGameDefinition` remains as **pattern helper** that returns `TurnArcRegistry` + display metadata, not authority class for extension-key titles.
-- [ ] [`games/template/`](../games/template/): minimal registry + optional stub interaction graph.
+- [x] Audit `GameServer` and `server/arcs/*` imports from `authoring.patterns.*`; move title-facing builders toward `games/reference/` or document “copy from hexdemo.”
+- [x] `StaticScheduleGameDefinition` remains as **pattern helper** that returns `TurnArcRegistry` + display metadata, not authority class for extension-key titles.
+- [x] [`games/template/`](../games/template/): minimal registry + optional stub interaction graph.
 
 **Exit criteria:** `rg 'from hexengine.authoring.patterns' src/hexengine/server` shows no title-semantics imports in authority hot path.
 

@@ -11,7 +11,7 @@ import asyncio
 from dataclasses import replace
 from types import SimpleNamespace
 
-from hexengine.arcs import ArcCursor, SuspendedFrame, read_arc_cursor
+from hexengine.arcs import ArcCursor, ArcSpec, SuspendedFrame, read_arc_cursor
 from hexengine.arcs.movement_arc_decl import (
     MOVEMENT_ARC_ID,
     SEG_CONTINUE,
@@ -19,6 +19,8 @@ from hexengine.arcs.movement_arc_decl import (
 )
 from hexengine.gamedef.builtin import InterleavedTwoFactionGameDefinition
 from hexengine.hexes.types import Hex
+from hexengine.hooks.arcs import ArcsHooks
+from hexengine.hooks.core import ENGINE_MOVEMENT_ARC_PRESET
 from hexengine.hooks.movement import MoveContext, MovementHooks, MovementStepContext
 from hexengine.hooks.title import TitleHooks
 from hexengine.server import GameServer
@@ -61,7 +63,7 @@ class StepwiseInterleaved(InterleavedTwoFactionGameDefinition):
             movement=self._movement_hooks,
             attack=b.attack,
             ui=b.ui,
-            arcs=b.arcs,
+            arcs=ArcsHooks(movement_arc=lambda: ENGINE_MOVEMENT_ARC_PRESET),
         )
 
 
@@ -76,7 +78,7 @@ class _Host:
         self._movement_arc_spec_cache = None
         from hexengine.arcs import ArcSpec
         from hexengine.arcs.movement_arc_decl import resolve_moving_faction
-        from hexengine.authoring.patterns.movement import build_movement_arc
+        from hexengine.arcs.movement_arc_build import build_movement_arc
         from hexengine.server.arcs.movement_arc_effects import MovementArcEffects
 
         class _MovementHostAdapter:

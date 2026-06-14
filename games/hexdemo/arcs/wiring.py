@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from hexengine.hooks.core import ENGINE_MOVEMENT_ARC_PRESET
 from hexengine.hooks.arcs import ArcHook
 from hexengine.hooks.wiring import bind_title_hook
 
@@ -9,6 +10,13 @@ from ..combat.arc import BINDING, build_hexdemo_combat_arc_spec
 from .turn_schedule import build_hexdemo_turn_arc_registry
 
 _TURN_ARC_REGISTRY = build_hexdemo_turn_arc_registry()
+
+
+@bind_title_hook(ArcHook.MOVEMENT_ARC)
+def movement_arc():
+    """Engine stepwise movement preset (retreat paths, optional resolve_move_as_steps)."""
+
+    return ENGINE_MOVEMENT_ARC_PRESET
 
 
 @bind_title_hook(ArcHook.COMBAT_ARC)
@@ -26,4 +34,4 @@ def turn_arc_registry():
     return _TURN_ARC_REGISTRY
 
 
-__all__ = ["combat_arc", "combat_rules_binding", "turn_arc_registry"]
+__all__ = ["combat_arc", "combat_rules_binding", "movement_arc", "turn_arc_registry"]

@@ -21,6 +21,9 @@ from typing import Any, get_type_hints
 
 ENGINE_DEFAULT: object = object()
 
+# Bind-time opt-in: title declares engine stepwise movement arc (host-bound at server init).
+ENGINE_MOVEMENT_ARC_PRESET: object = object()
+
 # Bind-time contract modes (distinct from runtime return sentinel `ENGINE_DEFAULT`).
 REQUIRED: object = object()
 PRESET: object = object()

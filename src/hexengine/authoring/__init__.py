@@ -2,7 +2,7 @@
 Author-time arc construction: builder, patterns, and validation.
 
 Runtime engine code (server, runner, client) must not import this package except
-through hexengine.hooks.internal.authoring_bridge (movement default) and
+through hexengine.hooks.internal.authoring_bridge and
 hexengine.hooks.internal.contracts (load-time validate).
 
 Titles and tests import from here freely.

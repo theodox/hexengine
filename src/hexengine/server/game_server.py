@@ -36,7 +36,7 @@ from ..gamedef.unit_attributes import (
 )
 from ..hexes.math import distance
 from ..hexes.types import Hex, HexColRow
-from ..hooks.core import ENGINE_DEFAULT
+from ..hooks.core import ENGINE_DEFAULT, ENGINE_MOVEMENT_ARC_PRESET
 from ..hooks.inform_popup import InformPopupContext, default_inform_popup_for_viewer
 from ..hooks.internal import get_engine_catalog_hook, validate_title_contract
 from ..hooks.map_selection_registry import bound_map_selection_kinds
@@ -277,23 +277,21 @@ class GameServer:
         return str(player_faction) == self._segment_owner_faction(state)
 
     def movement_arc_spec(self) -> ArcSpec | None:
-        """Built-in stepwise movement arc (host-bound effects, cached per server)."""
+        """Stepwise movement arc when the title opts in via ``ArcHook.MOVEMENT_ARC``."""
 
-        override = self.hooks.arcs.movement_arc_spec()
-        if isinstance(override, ArcSpec):
-            return override
-        if override is not ENGINE_DEFAULT:
-            return None
-        if self._movement_arc_spec_cache is None:
-            from ..hooks.internal.authoring_bridge import (
-                build_default_movement_arc_spec,
-            )
+        raw = self.hooks.arcs.movement_arc_spec()
+        if isinstance(raw, ArcSpec):
+            return raw
+        if raw is ENGINE_MOVEMENT_ARC_PRESET:
+            if self._movement_arc_spec_cache is None:
+                from .arcs.movement_arc_spec import build_host_bound_movement_arc_spec
 
-            self._movement_arc_spec_cache = build_default_movement_arc_spec(self)
-        return self._movement_arc_spec_cache
+                self._movement_arc_spec_cache = build_host_bound_movement_arc_spec(self)
+            return self._movement_arc_spec_cache
+        return None
 
     def movement_arc_effects_binding(self):
-        """Host-bound movement arc guards/effects (used by authoring_bridge only)."""
+        """Host-bound movement arc guards/effects (for custom ``ArcSpec`` assembly)."""
 
         from .arcs.movement_arc_effects import MovementArcEffects
 

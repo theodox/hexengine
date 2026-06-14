@@ -6,6 +6,8 @@ import asyncio
 
 from hexengine.gamedef.builtin import InterleavedTwoFactionGameDefinition
 from hexengine.hexes.types import Hex
+from hexengine.hooks.arcs import ArcsHooks
+from hexengine.hooks.core import ENGINE_MOVEMENT_ARC_PRESET
 from hexengine.hooks.movement import MoveContext, MovementHooks, MovementStepContext
 from hexengine.hooks.title import TitleHooks
 from hexengine.server import ActionRequest, GameServer
@@ -128,6 +130,7 @@ class StepwiseInterleaved(InterleavedTwoFactionGameDefinition):
             movement=self._movement_hooks,
             attack=b.attack,
             ui=b.ui,
+            arcs=ArcsHooks(movement_arc=lambda: ENGINE_MOVEMENT_ARC_PRESET),
         )
 
 

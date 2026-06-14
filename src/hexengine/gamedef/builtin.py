@@ -172,10 +172,10 @@ class StaticScheduleGameDefinition:
 
     @property
     def hooks(self) -> TitleHooks:
-        """Minimal `TitleHooks` so built-in combat schedules satisfy contract validation.
+        """Minimal `TitleHooks` for built-in static schedules.
 
         Attack callables return `ENGINE_DEFAULT`; the server rejects `Attack` actions
-        with the usual title message unless a subclass or wrapper overrides `hooks`.
+        unless a subclass or pack declares an interaction arc and overrides `hooks`.
         """
 
         return TitleHooks(

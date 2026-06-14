@@ -27,11 +27,11 @@ class GameDefinition(Protocol):
 
     The engine uses only hooks (plus engine defaults when a hook returns `hooks.ENGINE_DEFAULT`).
 
-    On `GameServer` startup, `hexengine.hooks.internal.validate_title_contract` checks basic
-    consistency: when the schedule includes a combat-oriented phase, `TitleHooks` must
-    expose `validate_attack` and `resolve_attack`. Built-in static schedules supply
-    minimal attack stubs that return `ENGINE_DEFAULT` unless a title overrides
-    `hooks`.
+    On `GameServer` startup, `hexengine.hooks.internal.validate_title_contract` checks
+    opt-in bundles: when the title declares an interaction arc (`ArcHook.COMBAT_ARC`),
+    `TitleHooks` must expose `validate_attack` and `resolve_attack`. Phase names in
+    the turn schedule do not infer combat requirements. Built-in static schedules may
+    still supply minimal attack stubs that return `ENGINE_DEFAULT` for legacy demos.
 
     Optional: `game_data.session_state_key` names the pack id for
     `GameState.session_state` / `GameState.session_state_key` (title-owned match data).

@@ -9,6 +9,7 @@ from hexengine.arcs.registry import TurnArcRegistry
 from hexengine.arcs.schedule import ArcSchedule, ScheduleSlot
 from hexengine.authoring.validate import validate_arc_contract
 from hexengine.hooks.arcs import ArcsHooks
+from hexengine.hooks.attack import AttackHooks
 from hexengine.hooks.core import HookContractError
 from hexengine.hooks.internal.contracts import validate_title_contract
 from hexengine.hooks.title import TitleHooks
@@ -61,7 +62,13 @@ def test_validate_title_contract_fails_on_broken_combat_arc() -> None:
         ),
     )
     broken = ArcSpec(arc=bad_arc, owner_resolver=None)
-    bundle = TitleHooks(arcs=ArcsHooks(combat_arc=lambda: broken))
+    bundle = TitleHooks(
+        arcs=ArcsHooks(combat_arc=lambda: broken),
+        attack=AttackHooks(
+            validate_attack=lambda _c: None,
+            resolve_attack=lambda _c: None,
+        ),
+    )
 
     class _GD:
         game_data = type("GD", (), {"session_state_key": ""})()

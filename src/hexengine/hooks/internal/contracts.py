@@ -54,24 +54,13 @@ def hook(
     return decorator
 
 
-def _phase_implies_attack_schedule(phase: str) -> bool:
-    p = str(phase).strip().lower()
-    if p in ("attack", "combat"):
-        return True
-    return "attack" in p or "combat" in p
+def _title_declares_interaction_arc(bundle: Any) -> bool:
+    """True when the title binds ``ArcHook.COMBAT_ARC`` to an ``ArcSpec``."""
 
+    from ...arcs import ArcSpec
 
-def _schedule_expects_attack_hooks(game_definition: Any) -> bool:
-    try:
-        order = game_definition.turn_order()
-    except Exception:
-        return False
-    for slot in order:
-        if not isinstance(slot, dict):
-            continue
-        if _phase_implies_attack_schedule(str(slot.get("phase", ""))):
-            return True
-    return False
+    combat_raw = bundle.arcs.combat_arc_spec()
+    return isinstance(combat_raw, ArcSpec)
 
 
 def _title_requires_turn_action_dock(game_definition: Any) -> bool:
@@ -86,18 +75,19 @@ def _title_requires_turn_action_dock(game_definition: Any) -> bool:
 def validate_title_contract(game_definition: Any) -> None:
     """Validate title hook contracts against the game definition.
 
-    When `turn_order()` includes a combat-oriented phase name (`Attack`, `Combat`,
-    or strings containing `attack` / `combat`), `TitleHooks.attack` must provide
-    `validate_attack` and `resolve_attack` callables. Implementations may return
-    `ENGINE_DEFAULT` from those callables to decline attacks at action time.
+    Opt-in bundles only: when the title declares an interaction arc
+    (``ArcHook.COMBAT_ARC`` returning ``ArcSpec``), ``TitleHooks.attack`` must provide
+    ``validate_attack`` and ``resolve_attack``. Phase names in ``turn_order()`` do not
+    infer combat requirements.
 
-    When `GameData.session_state_key` is set (pack session state),
-    `TitleHooks.ui.turn_action_dock_for_viewer` and
-    `TitleHooks.ui.segment_presentation_registry` must be bound. Commit UI is delivered
-    only via ``interaction_panels`` (turn action dock).
+    When ``GameData.session_state_key`` is set (pack session state),
+    ``TitleHooks.ui.turn_action_dock_for_viewer``,
+    ``TitleHooks.ui.segment_presentation_registry``, and related arc UI hooks must be
+    bound. Commit UI is delivered only via ``interaction_panels`` (turn action dock).
 
     Raises:
-        HookContractError: When an attack-capable schedule has incomplete attack hooks.
+        HookContractError: When a declared interaction bundle or extension UI contract
+        is incomplete.
     """
 
     bundle = read_title_hooks_from_definition(game_definition)
@@ -140,32 +130,16 @@ def validate_title_contract(game_definition: Any) -> None:
                 ),
                 details={"requires_enrich_current_segment": True},
             )
-        from ...arcs import ArcSpec
-
-        combat_raw = bundle.arcs.combat_arc_spec()
-        if not isinstance(combat_raw, ArcSpec):
-            raise HookContractError(
-                message=(
-                    "session_state_key requires ArcHook.COMBAT_ARC "
-                    "returning an ArcSpec."
-                ),
-                details={"requires_combat_arc": True},
-            )
-    if _schedule_expects_attack_hooks(game_definition):
+    if _title_declares_interaction_arc(bundle):
         a = bundle.attack
         if a.validate_attack is None or a.resolve_attack is None:
             raise HookContractError(
                 message=(
-                    "Turn schedule includes a combat/attack phase but TitleHooks.attack is "
-                    "missing validate_attack and/or resolve_attack. Provide callables (they may "
-                    "return ENGINE_DEFAULT if attacks are not supported)."
+                    "Title declares an interaction arc but TitleHooks.attack is "
+                    "missing validate_attack and/or resolve_attack."
                 ),
-                details={"schedule_requires_attack_hooks": True},
+                details={"interaction_requires_attack_hooks": True},
             )
-
-    if _title_requires_turn_action_dock(
-        game_definition
-    ) and _schedule_expects_attack_hooks(game_definition):
         binding_raw = bundle.arcs.combat_rules_binding_spec()
         if binding_raw is not ENGINE_DEFAULT:
             from ...authoring.patterns.combat import (

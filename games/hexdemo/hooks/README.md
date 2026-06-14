@@ -76,7 +76,7 @@ Longer term, the engine may offer **composable rule pieces** (ZOC, terrain, mora
 | `../resources/flags/` | Example faction SVGs (banner `<img>`, optional `unit_graphics`) | See `flags/README.md` |
 | `overlays.py` | Map overlay glyphs | UI hooks |
 
-Implementations may return `hexengine.hooks.ENGINE_DEFAULT` to defer to engine catalog defaults. Combat schedules that include an attack/combat phase need `validate_attack` and `resolve_attack` present (see `validate_title_contract`).
+Implementations may return `hexengine.hooks.ENGINE_DEFAULT` to defer to engine catalog defaults. When you declare an interaction arc (`ArcHook.COMBAT_ARC`), `validate_attack` and `resolve_attack` must be bound (see `validate_title_contract`).
 
 ## Manifest title-load (`title_load.py`)
 

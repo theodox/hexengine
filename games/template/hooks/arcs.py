@@ -1,6 +1,10 @@
 """
 Declared turn arc registry (composable arcs).
 
+Move-only titles omit ``ArcHook.MOVEMENT_ARC``. When enabling stepwise movement or
+retreat-path continuation, bind ``ENGINE_MOVEMENT_ARC_PRESET`` (see hexdemo
+``arcs/wiring.py``) or return a custom ``ArcSpec``.
+
 When enabling combat: see ``combat_arc.build_template_combat_arc_spec``,
 ``segment_ui.py``, attack/movement hooks, and TITLE_AUTHORING.md § Minimal combat title.
 """

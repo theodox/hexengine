@@ -30,7 +30,7 @@ from ...arcs.movement_arc_decl import (
     read_movement_payload,
 )
 from ...arcs.registry import TurnArcRegistry
-from ...hooks.core import ENGINE_DEFAULT
+from ...hooks.core import ENGINE_DEFAULT, ENGINE_MOVEMENT_ARC_PRESET
 from ...hooks.title import TitleHooks
 from ...state import ActionManager, GameState
 from ...state.movement_arc import MOVEMENT_ARC_GATE_AWAITING_INTERRUPT
@@ -418,9 +418,9 @@ def movement_arc_spec(host: ArcRuntimeHost) -> ArcSpec | None:
     raw = host.hooks.arcs.movement_arc_spec()
     if isinstance(raw, ArcSpec):
         return raw
-    if raw is not ENGINE_DEFAULT:
-        return None
-    return host.movement_arc_spec()
+    if raw is ENGINE_DEFAULT or raw is ENGINE_MOVEMENT_ARC_PRESET:
+        return host.movement_arc_spec()
+    return None
 
 
 def sync_movement_cursor_from_payload(host: ArcRuntimeHost) -> None:

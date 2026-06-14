@@ -10,7 +10,7 @@ from typing import Any
 
 from ..arcs.registry import TurnArcRegistry
 from ..arcs.runner import ArcSpec
-from ..hooks.core import ENGINE_DEFAULT
+from ..hooks.core import ENGINE_DEFAULT, ENGINE_MOVEMENT_ARC_PRESET
 from ..hooks.title import TitleHooks
 
 
@@ -65,9 +65,12 @@ def validate_arc_contract(bundle: TitleHooks) -> list[str]:
             _validate_arc_spec("combat_arc", combat_raw, errors)
 
     movement_raw = bundle.arcs.movement_arc_spec()
-    if movement_raw is not ENGINE_DEFAULT:
+    if movement_raw not in (ENGINE_DEFAULT, ENGINE_MOVEMENT_ARC_PRESET):
         if not isinstance(movement_raw, ArcSpec):
-            errors.append("movement_arc hook must return ArcSpec or ENGINE_DEFAULT")
+            errors.append(
+                "movement_arc hook must return ArcSpec, ENGINE_DEFAULT, or "
+                "ENGINE_MOVEMENT_ARC_PRESET"
+            )
         else:
             _validate_arc_spec("movement_arc", movement_raw, errors)
 

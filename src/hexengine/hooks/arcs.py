@@ -41,7 +41,7 @@ class ArcsHooks:
         return self.combat_rules_binding()
 
     def movement_arc_spec(self) -> ArcSpec | object:
-        """The title's movement arc bundle, or ENGINE_DEFAULT when not provided."""
+        """The title's movement arc bundle, ``ENGINE_MOVEMENT_ARC_PRESET``, or ``ENGINE_DEFAULT``."""
 
         if self.movement_arc is None:
             return ENGINE_DEFAULT
