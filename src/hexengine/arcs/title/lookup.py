@@ -2,15 +2,15 @@
 Resolve declared arc specs from TitleHooks (title allowlist; no server import).
 
 GameServer and segment projection use the same lookup rules: routine arcs from the
-turn registry, overlay arc from ArcHook.COMBAT_ARC, optional movement arc from hooks
-or an engine preset supplied by the host.
+turn registry, overlay arc from ArcHook.COMBAT_ARC, optional movement arc when the
+title binds ArcHook.MOVEMENT_ARC to ArcSpec or ENGINE_MOVEMENT_ARC_PRESET.
 """
 
 from __future__ import annotations
 
 from typing import Any, Protocol
 
-from ...hooks.core import ENGINE_DEFAULT, ENGINE_MOVEMENT_ARC_PRESET
+from ...hooks.core import ENGINE_MOVEMENT_ARC_PRESET
 from ...hooks.title import TitleHooks
 from ..registry import TurnArcRegistry
 from ..runner import ArcSpec
@@ -39,13 +39,18 @@ def combat_arc_spec(hooks: TitleHooks) -> ArcSpec | None:
 
 
 def movement_arc_spec_for_host(host: Any) -> ArcSpec | None:
-    """Movement arc bundle from hooks, optionally via host.movement_arc_spec preset."""
+    """Movement arc bundle from hooks.
+
+    Titles return a custom ``ArcSpec``, or ``ENGINE_MOVEMENT_ARC_PRESET`` to use the
+    host's built-in preset (``GameServer.movement_arc_spec``). When the hook is
+    unbound (``ENGINE_DEFAULT``), there is no movement arc.
+    """
 
     hooks = host.hooks
     raw = hooks.arcs.movement_arc_spec()
     if isinstance(raw, ArcSpec):
         return raw
-    if raw is ENGINE_DEFAULT or raw is ENGINE_MOVEMENT_ARC_PRESET:
+    if raw is ENGINE_MOVEMENT_ARC_PRESET:
         fn = getattr(host, "movement_arc_spec", None)
         if callable(fn):
             return fn()

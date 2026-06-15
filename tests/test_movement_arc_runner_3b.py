@@ -280,3 +280,38 @@ def test_drive_rejects_wrong_interrupt_owner() -> None:
         )
 
     assert asyncio.run(run()) is False
+
+
+def test_movement_arc_spec_for_host_omits_when_hook_unbound() -> None:
+    from hexengine.arcs.title.lookup import movement_arc_spec_for_host
+    from hexengine.hooks.title import TitleHooks
+
+    class Host:
+        hooks = TitleHooks()
+        movement_calls = 0
+
+        def movement_arc_spec(self):
+            self.movement_calls += 1
+            return None
+
+    host = Host()
+    assert movement_arc_spec_for_host(host) is None
+    assert host.movement_calls == 0
+
+
+def test_movement_arc_spec_for_host_uses_preset_via_host() -> None:
+    from hexengine.arcs.title.lookup import movement_arc_spec_for_host
+    from hexengine.hooks.arcs import ArcsHooks
+    from hexengine.hooks.title import TitleHooks
+
+    sentinel = object()
+
+    class Host:
+        hooks = TitleHooks(
+            arcs=ArcsHooks(movement_arc=lambda: ENGINE_MOVEMENT_ARC_PRESET)
+        )
+
+        def movement_arc_spec(self):
+            return sentinel
+
+    assert movement_arc_spec_for_host(Host()) is sentinel

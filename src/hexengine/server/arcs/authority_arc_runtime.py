@@ -312,7 +312,14 @@ def movement_arc_spec(host: ArcRuntimeHost) -> ArcSpec | None:
 
 
 def sync_movement_cursor_from_payload(host: ArcRuntimeHost) -> None:
-    """Keep the generic arc cursor aligned with the movement payload gate mirror."""
+    """Align the generic arc cursor with the movement payload gate mirror.
+
+    Stepwise paths open by writing ``engine_state[hexengine_movement_arc]`` in
+    ``authority_movement`` (not via ``begin_arc`` on the movement graph entry). This
+    function sets ``SetArcCursor`` to the interrupt or continue segment so
+    ``drive_movement_arc_event`` can dispatch ``PassMovementInterrupt`` and continuation
+    ``MoveUnit`` RPCs.
+    """
 
     spec = movement_arc_spec(host)
     if spec is None:
@@ -339,15 +346,6 @@ def sync_movement_cursor_from_payload(host: ArcRuntimeHost) -> None:
     host.action_manager.execute(
         SetArcCursor(ArcCursor(arc_id=MOVEMENT_ARC_ID, segment_id=SEG_CONTINUE))
     )
-
-
-def begin_movement_arc(host: ArcRuntimeHost) -> None:
-    """Start the movement arc cursor when a stepwise path opens (no-op without spec)."""
-
-    spec = movement_arc_spec(host)
-    if spec is None:
-        return
-    begin_arc(spec.arc, host.action_manager, resolver=spec.owner_resolver)
 
 
 async def drive_movement_arc_event(
@@ -411,7 +409,6 @@ __all__ = [
     "INTERACTION_AFTERMATH_WIRE_VERBS",
     "active_overlay_arc_cursor",
     "begin_combat_arc",
-    "begin_movement_arc",
     "begin_routine_slot",
     "combat_arc_spec",
     "drive_movement_arc_event",

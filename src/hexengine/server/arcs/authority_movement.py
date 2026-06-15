@@ -3,6 +3,14 @@ Authority-side **movement arc**: stepwise `MoveUnit`, interrupt handoff, and con
 
 See **Arc** / **Segment** vocabulary in `hexengine.state.movement_arc`. Attack and combat
 cleanup arcs live in `hexengine.server.arcs.authority_attack` and `authority_combat_cleanup`.
+
+**Stepwise open vs continuation:** when a multi-hex move or retreat path starts, this
+module writes the movement payload (`WriteHexengineMovementArc`) and calls
+``sync_movement_cursor_from_payload`` so the generic arc cursor matches the payload gate.
+Later steps use ``drive_movement_arc_event`` / ``continue_stepwise_move_unit``. Titles opt
+in via ``ArcHook.MOVEMENT_ARC`` returning ``ENGINE_MOVEMENT_ARC_PRESET`` (or a custom
+``ArcSpec``). Optional ``resolve_move_as_steps`` still opens stepwise moves here when no
+arc segment has started yet; consolidating that opener into the arc is future work.
 """
 
 from __future__ import annotations

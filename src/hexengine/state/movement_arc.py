@@ -16,7 +16,9 @@ Vocabulary (cross-cutting, engine + client):
     arcs (combat, movement) suspend that cursor until they finish.
 
 Combat arcs use the title `extension` bucket; movement stepwise state uses this module’s
-wire key. See `hexengine.server.arcs.authority_attack` (attack RPC),
+wire key. Stepwise paths open by writing the payload in `authority_movement`, then
+`sync_movement_cursor_from_payload` aligns the arc cursor (see
+`hexengine.server.arcs.authority_attack` (attack RPC),
 `hexengine.server.arcs.authority_movement` (stepwise move), and
 `hexengine.server.arcs.authority_combat_cleanup` (disrupt / advance / stacked retreat).
 """
