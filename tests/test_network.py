@@ -173,7 +173,9 @@ class _NetworkTestCombatEffects:
         return False
 
     def apply_retreat_step(self, ctx):
-        from hexengine.state.actions import ClearUnitRetreatObligation, MoveUnit
+        from hexengine.hooks.bucket import ApplyBucketPatch, BucketPatch
+        from hexengine.state.actions import MoveUnit
+        from hexengine.state.engine_session_state import engine_read_session_state
 
         uid = ctx.params.get("unit_id")
         if not isinstance(uid, str) or not ctx.session_state_key:
@@ -184,7 +186,16 @@ class _NetworkTestCombatEffects:
         from_hex = Hex(int(fh["i"]), int(fh["j"]), int(fh["k"]))
         to_hex = Hex(int(th["i"]), int(th["j"]), int(th["k"]))
         actions: list = [MoveUnit(uid, from_hex=from_hex, to_hex=to_hex)]
-        actions.append(ClearUnitRetreatObligation(uid, ctx.session_state_key))
+        hx = engine_read_session_state(ctx.state, ctx.session_state_key)
+        ro = dict(hx.get("retreat_obligations", {}))
+        if uid in ro:
+            ro.pop(uid, None)
+            actions.append(
+                ApplyBucketPatch(
+                    ctx.session_state_key,
+                    BucketPatch(values={"retreat_obligations": ro}),
+                )
+            )
         return actions
 
     def disrupt_instead(self, _ctx):

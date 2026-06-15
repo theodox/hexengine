@@ -15,13 +15,31 @@ from hexengine.hooks.bucket import ApplyBucketPatch, BucketPatch, clear_session_
 from hexengine.hooks.unit import ApplyUnitAttributesPatch, UnitAttributesPatch
 from hexengine.state import GameState
 from hexengine.state.action_manager import StateAction
-from hexengine.state.actions import (
-    ClearUnitRetreatObligation,
-    MoveUnit,
-)
+from hexengine.state.actions import MoveUnit
 
 from ..arcs import segment as arc_segment
 from ..state import session_state
+
+
+def patch_clear_retreat_obligations(
+    state: GameState,
+    session_state_key: str,
+    unit_ids: tuple[str, ...] | list[str],
+) -> ApplyBucketPatch | None:
+    """Return a bucket patch that clears ``unit_ids`` from ``retreat_obligations``."""
+
+    ro = dict(session_state.retreat_obligations(state))
+    changed = False
+    for uid in unit_ids:
+        if uid in ro:
+            ro.pop(uid, None)
+            changed = True
+    if not changed:
+        return None
+    return ApplyBucketPatch(
+        session_state_key,
+        BucketPatch(values={"retreat_obligations": ro}),
+    )
 
 
 def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:
@@ -96,8 +114,9 @@ def apply_retreat_fulfillment_step(
                 f"Unit {move_uid} is at {u.position}, expected {from_hex} or {to_hex}"
             )
         actions.append(MoveUnit(move_uid, from_hex=from_hex, to_hex=to_hex))
-    for moved_uid in to_move:
-        actions.append(ClearUnitRetreatObligation(moved_uid, session_state_key))
+    patch = patch_clear_retreat_obligations(state, session_state_key, to_move)
+    if patch is not None:
+        actions.append(patch)
     return actions
 
 

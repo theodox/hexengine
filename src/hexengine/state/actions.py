@@ -554,55 +554,6 @@ class ApplyBucketPatch(StateAction):
         return f"<ApplyBucketPatch {self.session_state_key!r}>"
 
 
-class ClearUnitRetreatObligation(StateAction):
-    """Clear one unit's entry from session-state retreat_obligations after a fulfillment move."""
-
-    def __init__(self, unit_id: str, session_state_key: str) -> None:
-        self.unit_id = unit_id
-        self.session_state_key = session_state_key
-        self._inner: ApplyBucketPatch | None = None
-
-    def apply(self, state: GameState) -> GameState:
-        hx = engine_read_session_state(state, self.session_state_key)
-        if not hx:
-            self._inner = None
-            return state
-        ro = dict(hx.get("retreat_obligations", {}))
-        if self.unit_id not in ro:
-            self._inner = None
-            return state
-        ro.pop(self.unit_id, None)
-        self._inner = ApplyBucketPatch(
-            self.session_state_key,
-            BucketPatch(values={"retreat_obligations": ro}),
-        )
-        return self._inner.apply(state)
-
-    def revert(self, state: GameState) -> GameState:
-        if self._inner is None:
-            return state
-        return self._inner.revert(state)
-
-    def should_revert_prior(self) -> bool:
-        return False
-
-    def __repr__(self) -> str:
-        return (
-            f"<ClearUnitRetreatObligation {self.unit_id!r} "
-            f"session_state_key={self.session_state_key!r}>"
-        )
-
-
-def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:
-    for v in ro.values():
-        try:
-            if int(v) > 0:
-                return True
-        except (TypeError, ValueError):
-            continue
-    return False
-
-
 class ApplyCombatEffects(StateAction):
     """Apply title AttackResolution.effects after the core Attack state action.
 

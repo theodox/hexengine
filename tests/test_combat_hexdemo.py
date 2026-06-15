@@ -157,27 +157,26 @@ def _hexdemo_artillery_ranged_vs_infantry() -> GameState:
     )
 
 
-def test_pack_extension_retreat_reads_custom_key() -> None:
-    from hexengine.state.pack_extension_retreat import retreat_hexes_remaining
+def test_hexdemo_retreat_hexes_remaining_reads_bucket() -> None:
+    from games.hexdemo.state import session_state
 
-    st = GameState.create_empty()
-    st = st.with_session_state(
-        {"retreat_obligations": {"u": 3}}, session_state_key="other"
+    st = GameState.create_empty().with_session_state(
+        {"retreat_obligations": {"u": 3}}, session_state_key="hexdemo"
     )
-    assert retreat_hexes_remaining(st, "u", session_state_key="other") == 3
+    assert session_state.retreat_hexes_remaining(st, "u") == 3
 
 
 def test_hexdemo_retreat_reads_extension() -> None:
-    """Mandatory retreat steps live in extension; engine helper has no UI imports."""
-    from hexengine.state.pack_extension_retreat import retreat_hexes_remaining
+    """Mandatory retreat steps live in the title session-state bucket."""
+    from games.hexdemo.state import session_state
     from hexengine.state.engine_session_state import engine_read_session_state
 
     st = _hexdemo_combat_state()
     hx = dict(engine_read_session_state(st, "hexdemo"))
     hx["retreat_obligations"] = {"u_def": 2}
     st2 = st.with_session_state(hx, session_state_key="hexdemo")
-    assert retreat_hexes_remaining(st2, "u_def", session_state_key="hexdemo") == 2
-    assert retreat_hexes_remaining(st2, "u_att", session_state_key="hexdemo") is None
+    assert session_state.retreat_hexes_remaining(st2, "u_def") == 2
+    assert session_state.retreat_hexes_remaining(st2, "u_att") is None
 
 
 def test_hexdemo_stacking_limit_rejects_move() -> None:

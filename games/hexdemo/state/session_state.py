@@ -13,9 +13,6 @@ from hexengine.state import GameState
 from hexengine.state.engine_session_state import (
     engine_read_session_state as _engine_read_session_state,
 )
-from hexengine.state.pack_extension_retreat import (
-    retreat_hexes_remaining as _pack_retreat_steps,
-)
 
 from ..constants import PACK_SESSION_STATE_KEY
 
@@ -67,7 +64,14 @@ def disrupt_instead_offered(state: GameState) -> bool:
 def retreat_hexes_remaining(state: GameState, unit_id: str) -> int | None:
     """Steps remaining for ``unit_id`` under the hexdemo extension bucket."""
 
-    return _pack_retreat_steps(state, unit_id, session_state_key=PACK_SESSION_STATE_KEY)
+    raw = retreat_obligations(state).get(unit_id)
+    if raw is None:
+        return None
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return n if n > 0 else None
 
 
 def any_retreat_obligation_pending(state: GameState) -> bool:

@@ -13,7 +13,6 @@ from hexengine.arcs import ArcCursor, SetArcCursor, read_arc_cursor
 from hexengine.hexes.types import Hex
 from hexengine.server.arcs import drive_overlay_arc_event
 from hexengine.state import ActionManager, GameState
-from hexengine.state.actions import ClearUnitRetreatObligation
 from hexengine.state.game_state import UnitState
 from hexengine.state.engine_session_state import engine_read_session_state
 
@@ -23,8 +22,10 @@ def test_clear_unit_retreat_obligation_does_not_touch_segment_state() -> None:
         {"retreat_obligations": {"u1": 1}},
         session_state_key="hexdemo",
     )
+    patch = combat_actions.patch_clear_retreat_obligations(st, "hexdemo", ("u1",))
+    assert patch is not None
     mgr = ActionManager(st)
-    mgr.execute(ClearUnitRetreatObligation("u1", "hexdemo"))
+    mgr.execute(patch)
     hx = engine_read_session_state(mgr.current_state, "hexdemo")
     assert not hx.get("retreat_obligations")
     assert "combat_gate" not in hx
