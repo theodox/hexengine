@@ -20,7 +20,7 @@ override UI locally on the client and do not require title hooks.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
@@ -35,7 +35,6 @@ from ..ui.display import (
 )
 from .core import ENGINE_DEFAULT, RuleViolation
 from .inform_popup import InformPopupContext
-from .ui_combat_messages import CombatInteractionMessagesContext
 from .ui_segment import SegmentPresentationContext, SegmentPresentationPatch
 from .ui_turn_action_dock import TurnActionDockContext
 
@@ -59,6 +58,17 @@ class AdvanceGateInteractionContext:
     viewer_faction: str | None
     advancing_faction: str
     shell_ui: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class CombatInteractionMessagesContext:
+    """Inputs for ``UIHook.COMBAT_INTERACTION_MESSAGES``."""
+
+    state: GameState
+    viewer_faction: str | None
+    session_state_key: str | None
+    current_segment: Mapping[str, Any] | None = None
+    shell_ui: Mapping[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)

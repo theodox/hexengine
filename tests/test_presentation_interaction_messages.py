@@ -61,7 +61,7 @@ def test_combat_interaction_messages_hook_uses_ctx_shell_ui() -> None:
         session_state_key="hexdemo",
         rng_log=(),
     )
-    from hexengine.hooks.ui_combat_messages import CombatInteractionMessagesContext
+    from hexengine.hooks.ui import CombatInteractionMessagesContext
 
     rows = combat_interaction_messages(
         CombatInteractionMessagesContext(

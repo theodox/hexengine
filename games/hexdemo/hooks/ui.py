@@ -8,6 +8,9 @@ Presentation copy lives in ``hexdemo.presentation``; phase/inspect templates in
 from __future__ import annotations
 
 from hexengine.authoring.present import inform_popup
+from hexengine.authoring.patterns.combat_messages import (
+    combat_interaction_messages_from_session,
+)
 from hexengine.hooks.inform_popup import InformPopupContext
 from hexengine.hooks.ui import (
     AdvanceGateInteractionContext,
@@ -17,7 +20,6 @@ from hexengine.hooks.ui import (
     PhaseBannerContext,
     UIHook,
 )
-from hexengine.hooks.ui_combat_messages import default_combat_interaction_messages
 from hexengine.hooks.wiring import bind_title_hook
 from hexengine.state import GameState
 from hexengine.ui.display import InteractionMessage
@@ -122,7 +124,7 @@ def combat_interaction_messages(
         )
         return advance_gate_banner_copy(actx, shell_ui=su)
 
-    return default_combat_interaction_messages(
+    return combat_interaction_messages_from_session(
         ctx,
         combat_instruction=combat_instruction,
         advance_gate_banners=advance_gate_banners,

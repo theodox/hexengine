@@ -1,0 +1,139 @@
+"""
+Wargame combat interaction-message orchestration (borrow-only pattern).
+
+Titles with combat cleanup arcs call ``combat_interaction_messages_from_session``
+from ``UIHook.COMBAT_INTERACTION_MESSAGES``, injecting copy via
+``combat_instruction`` and ``advance_gate_banners`` callables (hexdemo uses
+``presentation/interaction_messages.py``).
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping
+from typing import Any
+
+from ...hooks.ui import CombatInteractionMessagesContext
+from ...state import GameState
+from ...state.engine_session_state import engine_read_session_state
+from ...ui.display import InteractionMessage, interaction_message
+
+# Default gate ui_mode strings for titles using ``CombatArcGateUiModes`` defaults.
+RETREAT_GATE_UI_MODES = frozenset({"awaiting_retreat", "awaiting_retreat_or_disrupt"})
+ADVANCE_GATE_UI_MODE = "awaiting_advance"
+
+
+def retreat_owner_faction(
+    state: GameState, outcome: str, attacker_id: str, defender_id: str
+) -> str | None:
+    """Faction that must fulfill a retreat for this outcome, if any."""
+
+    if outcome == "attacker_retreat":
+        u = state.board.units.get(attacker_id)
+        return u.faction if u else None
+    if outcome == "defender_retreat":
+        u = state.board.units.get(defender_id)
+        return u.faction if u else None
+    return None
+
+
+def combat_interaction_messages_from_session(
+    ctx: CombatInteractionMessagesContext,
+    *,
+    combat_instruction: Callable[[str, str | None], tuple[str, str]],
+    advance_gate_banners: Callable[[str], tuple[str, str]],
+    retreat_gate_ui_modes: frozenset[str] = RETREAT_GATE_UI_MODES,
+    advance_gate_ui_mode: str = ADVANCE_GATE_UI_MODE,
+) -> list[InteractionMessage]:
+    """
+    Build combat/retreat/advance rows from session bucket + segment ``ui_mode``.
+
+    Reads ``last_combat`` and ``advance`` from the title session-state bucket.
+    """
+
+    ek = str(ctx.session_state_key or "").strip()
+    if not ek:
+        return []
+    hx = engine_read_session_state(ctx.state, ek)
+    if not hx:
+        return []
+
+    segment = ctx.current_segment if isinstance(ctx.current_segment, Mapping) else None
+    segment_ui_mode = str(segment.get("ui_mode", "")).strip() if segment else ""
+
+    out: list[InteractionMessage] = []
+    viewer = str(ctx.viewer_faction).strip() if ctx.viewer_faction else ""
+
+    last_combat = hx.get("last_combat")
+    if isinstance(last_combat, dict):
+        outcome = str(last_combat.get("outcome", ""))
+        attacker_id = str(last_combat.get("attacker_id", ""))
+        defender_id = str(last_combat.get("defender_id", ""))
+        retreat_owner = retreat_owner_faction(
+            ctx.state, outcome, attacker_id, defender_id
+        )
+        inst, msg = combat_instruction(outcome, retreat_owner)
+        if (
+            inst in ("retreat_required", "wait")
+            and segment_ui_mode not in retreat_gate_ui_modes
+        ):
+            inst, msg = "resolved", "Combat resolved."
+        kind = (
+            "retreat"
+            if inst == "retreat_required"
+            else "wait"
+            if inst == "wait"
+            else "info"
+        )
+        out.append(
+            interaction_message(
+                kind=kind,
+                dedupe_key="combat_prompt",
+                ttl_ms=None if kind in ("retreat", "wait") else 4_000,
+                css_class=(
+                    "interaction-msg--retreat"
+                    if kind == "retreat"
+                    else "interaction-msg--wait"
+                    if kind == "wait"
+                    else "interaction-msg--info"
+                ),
+                text=msg,
+            )
+        )
+
+    if segment_ui_mode == advance_gate_ui_mode:
+        adv = hx.get("advance")
+        adv_faction = (
+            str(adv.get("faction", "")).strip() if isinstance(adv, dict) else ""
+        )
+        if adv_faction:
+            t_adv, t_wait = advance_gate_banners(adv_faction)
+            if adv_faction == viewer:
+                out.append(
+                    interaction_message(
+                        kind="advance",
+                        dedupe_key="combat_advance",
+                        ttl_ms=None,
+                        css_class="interaction-msg--advance",
+                        text=t_adv,
+                    )
+                )
+            else:
+                out.append(
+                    interaction_message(
+                        kind="wait",
+                        dedupe_key="combat_advance_wait",
+                        ttl_ms=None,
+                        css_class="interaction-msg--wait",
+                        text=t_wait,
+                    )
+                )
+
+    return out
+
+
+__all__ = [
+    "ADVANCE_GATE_UI_MODE",
+    "RETREAT_GATE_UI_MODES",
+    "combat_interaction_messages_from_session",
+    "retreat_owner_faction",
+]

@@ -1,15 +1,15 @@
-"""Tests for combat interaction message hooks."""
+"""Combat interaction message pattern (authoring.patterns.combat_messages)."""
 
 from __future__ import annotations
 
 from games.hexdemo.combat import transitions as combat_transitions
 
 from hexengine.arcs import ArcCursor, with_arc_cursor
-from hexengine.hooks.ui_combat_messages import (
-    CombatInteractionMessagesContext,
-    default_combat_interaction_messages,
+from hexengine.authoring.patterns.combat_messages import (
+    combat_interaction_messages_from_session,
     retreat_owner_faction,
 )
+from hexengine.hooks.ui import CombatInteractionMessagesContext
 from hexengine.state import GameState
 
 
@@ -39,7 +39,7 @@ def test_retreat_owner_faction_defender() -> None:
     assert retreat_owner_faction(st, "defender_retreat", "a", "d") == "confederate"
 
 
-def test_default_combat_interaction_messages_advance_row_uses_segment() -> None:
+def test_combat_interaction_messages_advance_row_uses_segment() -> None:
     st = GameState.create_empty().with_session_state(
         {"advance": {"faction": "union"}},
         session_state_key="hexdemo",
@@ -63,7 +63,7 @@ def test_default_combat_interaction_messages_advance_row_uses_segment() -> None:
         session_state_key="hexdemo",
         current_segment=segment,
     )
-    rows = default_combat_interaction_messages(
+    rows = combat_interaction_messages_from_session(
         ctx,
         combat_instruction=lambda _o, _r: ("resolved", "ok"),
         advance_gate_banners=lambda _f: ("Advance now", "Wait"),

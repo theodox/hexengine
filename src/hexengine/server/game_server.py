@@ -1103,10 +1103,8 @@ class GameServer:
             )
         )
 
-        from ..hooks.ui_combat_messages import (
-            CombatInteractionMessagesContext,
-            default_combat_interaction_messages,
-        )
+        from ..hooks.ui import CombatInteractionMessagesContext
+        from ..hooks.ui_combat_messages import default_combat_interaction_messages
 
         ek = self._engine_session_state_key()
         msg_ctx = CombatInteractionMessagesContext(
@@ -1284,7 +1282,7 @@ class GameServer:
         rd_int = summary.retreat_distance
         ru = summary.retreat_unit_id
         hex_remaining = summary.retreat_hexes_remaining
-        from ..hooks.ui_combat_messages import retreat_owner_faction
+        from ..authoring.patterns.combat_messages import retreat_owner_faction
 
         retreat_owner = retreat_owner_faction(
             state_after, outcome, attacker_id, defender_id
