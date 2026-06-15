@@ -607,8 +607,8 @@ class ApplyCombatEffects(StateAction):
     """Apply title AttackResolution.effects after the core Attack state action.
 
     effects is normalized to a JSON-safe snapshot tree in __init__ (nested
-    dataclasses expanded). Titles expand domain-specific keys (e.g. hexdemo
-    step_losses) into generic unit_ops before AttackResolution is returned.
+    dataclasses expanded). Titles expand domain-specific combat keys into generic
+    unit_ops before AttackResolution is returned.
     """
 
     def __init__(self, effects: dict[str, Any]) -> None:
@@ -648,25 +648,6 @@ class ApplyCombatEffects(StateAction):
                         st = st.with_board(st.board.with_unit(u.with_graphics(g)))
                 elif op == "deactivate":
                     st = DeleteUnit(uid).apply(st)
-
-        disrupt = eff.get("disrupt")
-        if isinstance(disrupt, list):
-            seen: set[str] = set()
-            for item in disrupt:
-                uid = str(item).strip() if isinstance(item, str) else ""
-                if not uid or uid in seen:
-                    continue
-                seen.add(uid)
-                u0 = st.board.units.get(uid)
-                if u0 is None or not u0.active:
-                    continue
-                for u in st.board.active_units_at_hex(u0.position):
-                    if u.faction != u0.faction:
-                        continue
-                    st = ApplyUnitAttributesPatch(
-                        str(u.unit_id),
-                        UnitAttributesPatch(values={"disrupted": True}),
-                    ).apply(st)
         return st
 
     def revert(self, state: GameState) -> GameState:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from games.hexdemo.combat.disrupt import expand_disrupt_ids
 from games.hexdemo.combat.step_loss import expand_step_losses
 from hexengine.hexes.types import Hex
 from hexengine.state import GameState
@@ -8,6 +9,11 @@ from hexengine.state.actions import AddUnit, ApplyCombatEffects, Attack
 
 def _apply_step_losses(st: GameState, rows: list[dict[str, object]]) -> GameState:
     extra = expand_step_losses(st, rows)
+    return ApplyCombatEffects({"schema": 1, **extra}).apply(st)
+
+
+def _apply_disrupt(st: GameState, anchor_ids: list[str]) -> GameState:
+    extra = expand_disrupt_ids(st, anchor_ids)
     return ApplyCombatEffects({"schema": 1, **extra}).apply(st)
 
 
@@ -136,3 +142,25 @@ def test_artillery_step_loss_does_not_auto_reduce_combat() -> None:
     assert u.attributes.get("steps_lost") == 1
     assert u.attributes.get("combat") == 3
     assert u.attributes.get("morale") == 6
+
+
+def test_disrupt_anchor_marks_friendly_stack_on_hex() -> None:
+    st = GameState.create_empty()
+    h = Hex(0, 0, 0)
+    st = AddUnit("u1", "infantry", "union", h).apply(st)
+    st = AddUnit("u2", "infantry", "union", h).apply(st)
+    st = st.with_session_state({}, session_state_key="hexdemo")
+    st2 = _apply_disrupt(st, ["u1"])
+    assert st2.board.units["u1"].attributes.get("disrupted") is True
+    assert st2.board.units["u2"].attributes.get("disrupted") is True
+
+
+def test_disrupt_skips_enemy_units_on_same_hex() -> None:
+    st = GameState.create_empty()
+    h = Hex(0, 0, 0)
+    st = AddUnit("u1", "infantry", "union", h).apply(st)
+    st = AddUnit("e1", "infantry", "confederate", h).apply(st)
+    st = st.with_session_state({}, session_state_key="hexdemo")
+    st2 = _apply_disrupt(st, ["u1"])
+    assert st2.board.units["u1"].attributes.get("disrupted") is True
+    assert st2.board.units["e1"].attributes.get("disrupted") is not True
