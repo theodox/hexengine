@@ -603,113 +603,12 @@ def _retreat_obligations_have_pending(ro: dict[str, Any]) -> bool:
     return False
 
 
-def _unit_type_is_infantry(unit: UnitState) -> bool:
-    """Hexdemo-style two-step cadence applies to `unit_type` `infantry` only."""
-    return str(unit.unit_type).strip().lower() == "infantry"
-
-
-def _int_attr(attrs: dict[str, Any], key: str, default: int = 0) -> int:
-    raw = attrs.get(key, default)
-    try:
-        return int(raw)
-    except (TypeError, ValueError):
-        return default
-
-
-def _graphics_template_key_for_step(
-    attrs: dict[str, Any], *, step_index: int
-) -> str | None:
-    """Return `[[unit_graphics]]` `type` from `attributes['steps'][step_index].graphics`."""
-    raw = attrs.get("steps")
-    if not isinstance(raw, list) or step_index < 0 or step_index >= len(raw):
-        return None
-    row = raw[step_index]
-    if not isinstance(row, dict):
-        return None
-    g = row.get("graphics")
-    if isinstance(g, str):
-        s = g.strip()
-        if s:
-            return s
-    return None
-
-
-def _step1_patch_from_explicit_steps(attrs: dict[str, Any]) -> dict[str, Any] | None:
-    """
-    Optional explicit step table in unit attributes:
-
-        steps = [ { combat=..., morale=... }, { combat=..., morale=... }, ... ]
-
-    On first step loss we apply step index 1 values when present.
-    """
-    raw = attrs.get("steps")
-    if not isinstance(raw, list) or len(raw) < 2:
-        return None
-    step1 = raw[1]
-    if not isinstance(step1, dict):
-        return None
-    patch: dict[str, Any] = {}
-    if "combat" in step1:
-        try:
-            patch["combat"] = max(0, int(step1["combat"]))
-        except (TypeError, ValueError):
-            pass
-    if "morale" in step1:
-        try:
-            patch["morale"] = max(0, int(step1["morale"]))
-        except (TypeError, ValueError):
-            pass
-    return patch or None
-
-
-def _apply_step_loss_to_unit(state: GameState, unit_id: str) -> GameState:
-    """Apply one combat step loss: infantry drops combat/morale on first loss; then delete.
-
-    - **Infantry** (`unit_type` `infantry`, case-insensitive): first loss sets
-      `steps_lost` to 1 and reduces `combat` and `morale` by 1 each (floor 0);
-      movement and other attributes are unchanged. A second loss applies
-      `DeleteUnit` (unit deactivated).
-    - **Other types**: first loss only sets `steps_lost` to 1; second loss applies
-      `DeleteUnit` (no automatic combat/morale change on the first loss).
-    - If `attributes['steps'][1].graphics` is set, first loss also updates
-      `UnitState.graphics` so clients swap `[[unit_graphics]]` templates.
-    """
-    unit = state.board.units.get(unit_id)
-    if unit is None or not unit.active:
-        return state
-    raw = unit.attributes.get("steps_lost", 0)
-    try:
-        n = int(raw)
-    except (TypeError, ValueError):
-        n = 0
-    if n <= 0:
-        patch: dict[str, Any] = {"steps_lost": 1}
-        if _unit_type_is_infantry(unit):
-            explicit = _step1_patch_from_explicit_steps(unit.attributes)
-            if explicit is not None:
-                patch.update(explicit)
-            else:
-                c = _int_attr(unit.attributes, "combat", 0)
-                m = _int_attr(unit.attributes, "morale", 0)
-                patch["combat"] = max(0, c - 1)
-                patch["morale"] = max(0, m - 1)
-        st = ApplyUnitAttributesPatch(
-            unit_id, UnitAttributesPatch(values=patch)
-        ).apply(state)
-        u2 = st.board.units.get(unit_id)
-        if u2 is not None and u2.active:
-            gkey = _graphics_template_key_for_step(u2.attributes, step_index=1)
-            if gkey is not None and gkey != u2.graphics:
-                st = st.with_board(st.board.with_unit(u2.with_graphics(gkey)))
-        return st
-    return DeleteUnit(unit_id).apply(state)
-
-
 class ApplyCombatEffects(StateAction):
-    """Apply title `AttackResolution.effects` after the core `Attack` state action.
+    """Apply title AttackResolution.effects after the core Attack state action.
 
-    `effects` is normalized to a JSON-safe snapshot tree in `__init__` (nested
-    dataclasses expanded); titles should not call snapshot helpers themselves.
+    effects is normalized to a JSON-safe snapshot tree in __init__ (nested
+    dataclasses expanded). Titles expand domain-specific keys (e.g. hexdemo
+    step_losses) into generic unit_ops before AttackResolution is returned.
     """
 
     def __init__(self, effects: dict[str, Any]) -> None:
@@ -724,23 +623,31 @@ class ApplyCombatEffects(StateAction):
         if not eff:
             return state
 
-        step_rows = eff.get("step_losses")
-        if isinstance(step_rows, list):
-            for row in step_rows:
-                if isinstance(row, dict):
-                    uid = str(row.get("unit_id", "")).strip()
-                    try:
-                        count = int(row.get("count", 1))
-                    except (TypeError, ValueError):
-                        count = 1
-                elif isinstance(row, str) and row.strip():
-                    uid, count = row.strip(), 1
-                else:
+        unit_ops = eff.get("unit_ops")
+        if isinstance(unit_ops, list):
+            for row in unit_ops:
+                if not isinstance(row, dict):
                     continue
+                op = str(row.get("op", "")).strip()
+                uid = str(row.get("unit_id", "")).strip()
                 if not uid:
                     continue
-                for _ in range(max(count, 1)):
-                    st = _apply_step_loss_to_unit(st, uid)
+                if op == "patch":
+                    values = row.get("values")
+                    if not isinstance(values, dict) or not values:
+                        continue
+                    st = ApplyUnitAttributesPatch(
+                        uid, UnitAttributesPatch(values=dict(values))
+                    ).apply(st)
+                elif op == "graphics":
+                    g = row.get("graphics")
+                    if not isinstance(g, str) or not g.strip():
+                        continue
+                    u = st.board.units.get(uid)
+                    if u is not None and u.active and g != u.graphics:
+                        st = st.with_board(st.board.with_unit(u.with_graphics(g)))
+                elif op == "deactivate":
+                    st = DeleteUnit(uid).apply(st)
 
         disrupt = eff.get("disrupt")
         if isinstance(disrupt, list):

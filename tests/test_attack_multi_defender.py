@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+from games.hexdemo.combat.step_loss import expand_step_losses
 from hexengine.hexes.types import Hex
 from hexengine.state import GameState
 from hexengine.state.actions import AddUnit, ApplyCombatEffects, Attack
+
+
+def _apply_step_losses(st: GameState, rows: list[dict[str, object]]) -> GameState:
+    extra = expand_step_losses(st, rows)
+    return ApplyCombatEffects({"schema": 1, **extra}).apply(st)
 
 
 def test_attack_can_destroy_multiple_defenders_on_one_hex() -> None:
@@ -42,9 +48,7 @@ def test_infantry_step_loss_reduces_combat_and_morale_once() -> None:
         attributes={"combat": 6, "morale": 5, "movement": 6},
     ).apply(st)
     st = st.with_session_state({}, session_state_key="hexdemo")
-    st2 = ApplyCombatEffects(
-        {"schema": 1, "step_losses": [{"unit_id": "u1", "count": 1}]},
-    ).apply(st)
+    st2 = _apply_step_losses(st, [{"unit_id": "u1", "count": 1}])
     u = st2.board.units["u1"]
     assert u.attributes.get("steps_lost") == 1
     assert u.attributes.get("combat") == 5
@@ -68,9 +72,7 @@ def test_infantry_step_loss_uses_explicit_steps_table_when_present() -> None:
         },
     ).apply(st)
     st = st.with_session_state({}, session_state_key="hexdemo")
-    st2 = ApplyCombatEffects(
-        {"schema": 1, "step_losses": [{"unit_id": "u1", "count": 1}]},
-    ).apply(st)
+    st2 = _apply_step_losses(st, [{"unit_id": "u1", "count": 1}])
     u = st2.board.units["u1"]
     assert u.attributes.get("steps_lost") == 1
     assert u.attributes.get("combat") == 2
@@ -89,15 +91,12 @@ def test_infantry_second_step_loss_removes_unit() -> None:
         attributes={"combat": 5, "morale": 4, "steps_lost": 1},
     ).apply(st)
     st = st.with_session_state({}, session_state_key="hexdemo")
-    st2 = ApplyCombatEffects(
-        {"schema": 1, "step_losses": [{"unit_id": "u1", "count": 1}]},
-    ).apply(st)
+    st2 = _apply_step_losses(st, [{"unit_id": "u1", "count": 1}])
     u = st2.board.units["u1"]
     assert u.active is False
 
 
 def test_step_loss_sets_graphics_from_steps_table() -> None:
-    """First step loss switches `UnitState.graphics` to `steps[1].graphics` when set."""
     st = GameState.create_empty()
     h = Hex(0, 0, 0)
     st = AddUnit(
@@ -117,9 +116,7 @@ def test_step_loss_sets_graphics_from_steps_table() -> None:
         },
     ).apply(st)
     st = st.with_session_state({}, session_state_key="hexdemo")
-    st2 = ApplyCombatEffects(
-        {"schema": 1, "step_losses": [{"unit_id": "u1", "count": 1}]},
-    ).apply(st)
+    st2 = _apply_step_losses(st, [{"unit_id": "u1", "count": 1}])
     assert st2.board.units["u1"].graphics == "union_infantry_step"
 
 
@@ -134,9 +131,7 @@ def test_artillery_step_loss_does_not_auto_reduce_combat() -> None:
         attributes={"combat": 3, "morale": 6, "movement": 6},
     ).apply(st)
     st = st.with_session_state({}, session_state_key="hexdemo")
-    st2 = ApplyCombatEffects(
-        {"schema": 1, "step_losses": [{"unit_id": "a1", "count": 1}]},
-    ).apply(st)
+    st2 = _apply_step_losses(st, [{"unit_id": "a1", "count": 1}])
     u = st2.board.units["a1"]
     assert u.attributes.get("steps_lost") == 1
     assert u.attributes.get("combat") == 3

@@ -35,7 +35,7 @@ from hexengine.state.action_manager import StateAction
 from hexengine.state.map_feature_queries import edges_block_los_predicate
 
 from ..state import session_state
-from . import actions, outcome
+from . import actions, outcome, step_loss
 
 # When the board has no explicit or unset-default terrain for a hex, CRT math still
 # needs a stable type (matches legacy tests and minimal `BoardState` fixtures).
@@ -465,7 +465,7 @@ def resolve_attack(ctx: AttackContext) -> AttackResolution:
         raise ValueError(f"Unhandled combat outcome {result!r}")
 
     if step_losses:
-        effects["step_losses"] = step_losses
+        effects.update(step_loss.expand_step_losses(st, step_losses))
     if disrupt_ids:
         effects["disrupt"] = list(dict.fromkeys(disrupt_ids))
     if retreat_allow_disrupt:
