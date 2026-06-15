@@ -173,6 +173,77 @@ def test_validate_title_contract_fails_when_interaction_arc_without_interaction_
         validate_title_contract(PackWithInteractionNoInteractionHooks())
 
 
+def test_validate_title_contract_fails_when_interaction_arc_without_combat_ui_hooks() -> (
+    None
+):
+    from hexengine.arcs import ArcSpec
+    from hexengine.authoring.patterns.combat import (
+        CombatArcGateUiModes,
+        build_combat_cleanup_arc,
+    )
+    from hexengine.gamedef.game_data import GameData
+    from hexengine.hooks.arcs import ArcsHooks
+    from hexengine.hooks.interaction import InteractionHooks
+
+    class StubEffects:
+        def has_pending_retreat(self, _ctx):
+            return False
+
+        def disrupt_offered(self, _ctx):
+            return False
+
+        def advance_available(self, _ctx):
+            return False
+
+        def is_retreat_fulfillment(self, _ctx):
+            return False
+
+        def is_combat_advance_move(self, _ctx):
+            return False
+
+        def apply_retreat_step(self, _ctx):
+            return []
+
+        def disrupt_instead(self, _ctx):
+            return []
+
+        def open_advance(self, _ctx):
+            return []
+
+        def resolve_advance(self, _ctx):
+            return []
+
+        def clear_advance_gate(self, _ctx):
+            return []
+
+    gates = CombatArcGateUiModes(
+        awaiting_retreat="awaiting_retreat",
+        awaiting_retreat_or_disrupt="awaiting_retreat_or_disrupt",
+        awaiting_advance="awaiting_advance",
+    )
+    arc = build_combat_cleanup_arc(StubEffects(), gates)
+    spec = ArcSpec(arc=arc, owner_resolver=None)
+
+    class PackWithInteractionNoCombatUi:
+        hooks = TitleHooks(
+            arcs=ArcsHooks(combat_arc=lambda: spec),
+            interaction=InteractionHooks(
+                validate_attack=lambda *_a, **_k: None,
+                resolve_attack=lambda *_a, **_k: None,
+            ),
+        )
+
+        @property
+        def game_data(self) -> GameData:
+            return GameData.empty()
+
+        def turn_order(self):
+            return []
+
+    with pytest.raises(HookContractError, match="combat_interaction_messages"):
+        validate_title_contract(PackWithInteractionNoCombatUi())
+
+
 def test_validate_title_contract_four_phase_move_only_passes() -> None:
     from hexengine.authoring.patterns.schedule import (
         build_turn_registry,
@@ -297,6 +368,10 @@ def test_validate_title_contract_checks_combat_rules_binding_methods() -> None:
                 turn_action_dock_for_viewer=empty_turn_action_dock_for_viewer,
                 segment_presentation_registry=lambda: frozenset({"combat"}),
                 enrich_current_segment=lambda _ctx: SegmentPresentationPatch(),
+                combat_interaction_messages=lambda _ctx: [],
+                combat_event_summary=lambda _state: None,
+                combat_instruction_for_viewer=lambda _ctx: ("resolved", ""),
+                advance_gate_banners_for_viewer=lambda _ctx: ("", ""),
             ),
             arcs=ArcsHooks(
                 turn_arc_registry=lambda: reg,
@@ -480,7 +555,25 @@ def test_default_advance_gate_banners_pair() -> None:
         advancing_faction="union",
     )
     a, w = default_advance_gate_banners_for_viewer(ctx)
-    assert "Advance" in a and "Waiting" in w
+    assert a == "" and w == ""
+
+
+def test_default_combat_instruction_is_neutral() -> None:
+    from hexengine.hooks.ui import (
+        CombatInteractionContext,
+        default_combat_instruction_for_viewer,
+    )
+
+    st = GameState.create_empty()
+    ctx = CombatInteractionContext(
+        state=st,
+        viewer_faction="union",
+        outcome="defender_destroyed",
+        retreat_owner_faction="confederate",
+    )
+    instruction, message = default_combat_instruction_for_viewer(ctx)
+    assert instruction == "resolved"
+    assert "retreat" not in message.lower()
 
 
 def test_default_phase_banner_text_format() -> None:

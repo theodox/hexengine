@@ -13,6 +13,7 @@ from hexengine.hooks.interaction import InteractionHooks
 from hexengine.hooks.core import HookContractError
 from hexengine.hooks.internal.contracts import validate_title_contract
 from hexengine.hooks.title import TitleHooks
+from hexengine.hooks.ui import UIHooks
 
 
 def test_validate_arc_contract_catches_missing_routine_spec() -> None:
@@ -67,6 +68,12 @@ def test_validate_title_contract_fails_on_broken_combat_arc() -> None:
         interaction=InteractionHooks(
             validate_attack=lambda _c: None,
             resolve_attack=lambda _c: None,
+        ),
+        ui=UIHooks(
+            combat_interaction_messages=lambda _ctx: [],
+            combat_event_summary=lambda _state: None,
+            combat_instruction_for_viewer=lambda _ctx: ("resolved", ""),
+            advance_gate_banners_for_viewer=lambda _ctx: ("", ""),
         ),
     )
 

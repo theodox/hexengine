@@ -240,14 +240,14 @@ Bind with `@bind_title_hook(UIHook.…)` in the title hooks package. Values matc
 | **`INTERACTION_MESSAGES`** | Every per-player `StateUpdate` | `(state, viewer_faction)` | `list[InteractionMessage]` | Server builds default list (phase + combat + advance rows) |
 | **`PHASE_BANNER_TEXT_FOR_VIEWER`** | Default message composition | `(ctx: PhaseBannerContext)` | `str` | [`default_phase_banner_text_for_viewer`](../src/hexengine/hooks/ui.py) |
 | **`PHASE_BANNER_HTML_FOR_VIEWER`** | Default message composition | `(ctx: PhaseBannerContext)` | `str` | Omitted — phase row is text-only |
-| **`COMBAT_INSTRUCTION_FOR_VIEWER`** | After combat with retreat context | `(ctx: CombatInteractionContext)` | `(instruction, message)` | [`default_combat_instruction_for_viewer`](../src/hexengine/hooks/ui.py) |
-| **`ADVANCE_GATE_BANNERS_FOR_VIEWER`** | Active segment `ui_mode` is advance gate | `(ctx: AdvanceGateInteractionContext)` | `(text_advancing, text_other)` | [`default_advance_gate_banners_for_viewer`](../src/hexengine/hooks/ui.py) |
+| **`COMBAT_INSTRUCTION_FOR_VIEWER`** | After combat with retreat context | `(ctx: CombatInteractionContext)` | `(instruction, message)` | Generic `"resolved"` copy only; titles with a combat arc must bind this hook for retreat-specific messaging |
+| **`ADVANCE_GATE_BANNERS_FOR_VIEWER`** | Active segment `ui_mode` is advance gate | `(ctx: AdvanceGateInteractionContext)` | `(text_advancing, text_other)` | Empty strings; titles with a combat arc must bind this hook |
 | **`INFORM_POPUP`** | `InspectRequest` (`unit` / `marker` / `inform`) | `(ctx: InformPopupContext)` | `InformPopup` | [`default_inform_popup_for_viewer`](../src/hexengine/hooks/inform_popup.py) |
 | **`MAP_OVERLAYS`** | Every per-player `StateUpdate` | `(state, viewer_faction)` | `list[MapOverlay]` | `[]` |
 | **`ENRICH_CURRENT_SEGMENT`** | Every per-player `current_segment` projection | `(ctx: SegmentPresentationContext)` | `SegmentPresentationPatch` | No enrichment (base segment only) |
 | **`TURN_ACTION_DOCK_FOR_VIEWER`** | Every per-player `StateUpdate` | `(ctx: TurnActionDockContext)` | `list[TurnDockPanel]` | Engine catalog ([`default_turn_action_dock_for_viewer`](../src/hexengine/hooks/ui_turn_action_dock.py)). No draft on context — see [draft locus](TURN_ACTION_DOCK_CONTRACT.md#draft-locus-invariant). |
-| **`COMBAT_INTERACTION_MESSAGES`** | Default `interaction_messages` combat slice (after phase row) | `(ctx: CombatInteractionMessagesContext)` | `list[InteractionMessage]` | [`default_combat_interaction_messages`](../src/hexengine/hooks/ui_combat_messages.py) using segment `ui_mode` + partial combat/advance hooks |
-| **`COMBAT_EVENT_SUMMARY`** | After combat, to fan out `combat_event` wires | `(state)` | `CombatEventSummary \| None` | `None` (no `combat_event` broadcast) |
+| **`COMBAT_INTERACTION_MESSAGES`** | Default `interaction_messages` combat slice (after phase row) | `(ctx: CombatInteractionMessagesContext)` | `list[InteractionMessage]` | `[]` (titles with a combat arc must bind this hook or use the authoring pattern) |
+| **`COMBAT_EVENT_SUMMARY`** | After combat, to fan out `combat_event` wires | `(state)` | `CombatEventSummary \| None` | `None` (no `combat_event` broadcast; titles with a combat arc must bind this hook) |
 
 **Partial vs full message hooks**
 
@@ -389,7 +389,7 @@ Align naming and validation rules with `TitleHooks` contract sentinels (`REQUIRE
 | Modification | `TitleHooks.modification` | Server movement arc; hook catalog | `ModificationHook` + `bind_title_hook` |
 | Interaction | `TitleHooks.interaction` | [`authority_attack`](../src/hexengine/server/arcs/authority_attack.py); `validate_title_contract` when interaction arc is declared (`ArcHook.COMBAT_ARC` → `ArcSpec`) | Required `validate_attack` / `resolve_attack` when interaction arc is declared; optional `combat_outcome_after_applied`; cleanup via `ArcHook.COMBAT_ARC` — see [Interaction hook inventory](#interaction-hook-inventory-combat-policy) |
 | Arcs | `TitleHooks.arcs` | Arc runner, turn registry, overlay cursor | `TURN_ARC_REGISTRY`; `COMBAT_ARC` when interaction enabled; wire in [`arcs/wiring.py`](../games/hexdemo/arcs/wiring.py) (hexdemo) |
-| UI | `TitleHooks.ui` | Client/server UI hook points | Per-viewer wire: [`interaction_messages`](#stateupdateinteraction_messages), [`interaction_panels`](#stateupdateinteraction_panels-turn-action-dock), [`ui_popup`](#ui-popup-standalone-message); see [UI affordances](#ui-affordances--wire-schemas-and-hooks-v1) |
+| UI | `TitleHooks.ui` | Client/server UI hook points | When a combat arc is declared, `validate_title_contract` requires `combat_interaction_messages`, `combat_event_summary`, `combat_instruction_for_viewer`, and `advance_gate_banners_for_viewer`; per-viewer wire: [`interaction_messages`](#stateupdateinteraction_messages), [`interaction_panels`](#stateupdateinteraction_panels-turn-action-dock), [`ui_popup`](#ui-popup-standalone-message); see [UI affordances](#ui-affordances--wire-schemas-and-hooks-v1) |
 | Title-load (client) | `[hooks.title_load]` | Client title-load arc; tolerant dispatch in `gameroot` | See [`TITLE_LOAD_HOOKS.md`](TITLE_LOAD_HOOKS.md) |
 | Title-load (server) | same manifest | `try_pack_title_load_server` | One-shot log hook today |
 | Game definition | `[python].entry_*` | Required for pack load | Already hard-required |

@@ -120,40 +120,24 @@ class PhaseBannerContext:
 def default_combat_instruction_for_viewer(
     ctx: CombatInteractionContext,
 ) -> tuple[str, str]:
-    """Engine default `(instruction, message)` for combat banners and combat events.
+    """Engine default `(instruction, message)` when the title omits the hook.
 
-    `instruction` matches wire expectations: `resolved`, `retreat_required`, `wait`.
+    Neutral copy only. Titles with a combat arc must bind
+    ``UIHook.COMBAT_INSTRUCTION_FOR_VIEWER`` for retreat-specific messaging.
     """
 
-    recipient = str(ctx.viewer_faction).strip() if ctx.viewer_faction else ""
-    outcome = ctx.outcome
-    retreat_owner = ctx.retreat_owner_faction
-
-    match (outcome, retreat_owner, recipient):
-        case ("defender_destroyed", _, _):
-            return "resolved", "Defender destroyed."
-        case ("none", _, _):
-            return "resolved", "Combat resolved with no effect."
-        case (_, None, _):
-            return "resolved", "Combat resolved."
-        case (_, ro, rec) if rec == ro:
-            return (
-                "retreat_required",
-                "You must retreat this unit in one move (exact hex distance).",
-            )
-        case _:
-            return "wait", "Waiting for the opponent to complete a mandatory retreat."
+    outcome = str(ctx.outcome or "").strip()
+    if outcome == "none":
+        return "resolved", "Combat resolved with no effect."
+    return "resolved", "Combat resolved."
 
 
 def default_advance_gate_banners_for_viewer(
     _ctx: AdvanceGateInteractionContext,
 ) -> tuple[str, str]:
-    """Engine default `(text_for_advancing_faction, text_for_other_factions)`."""
+    """Engine default when the title omits advance-gate banner copy."""
 
-    return (
-        "Advance is available (click Advance).",
-        "Waiting for the opponent to advance.",
-    )
+    return ("", "")
 
 
 def default_phase_banner_text_for_viewer(ctx: PhaseBannerContext) -> str:

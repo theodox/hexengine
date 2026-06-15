@@ -77,8 +77,10 @@ def validate_title_contract(game_definition: Any) -> None:
 
     Opt-in bundles only: when the title declares an interaction arc
     (``ArcHook.COMBAT_ARC`` returning ``ArcSpec``), ``TitleHooks.interaction`` must provide
-    ``validate_attack`` and ``resolve_attack``. Phase names in ``turn_order()`` do not
-    infer combat requirements.
+    ``validate_attack`` and ``resolve_attack``, and ``TitleHooks.ui`` must bind
+    ``combat_interaction_messages``, ``combat_event_summary``,
+    ``combat_instruction_for_viewer``, and ``advance_gate_banners_for_viewer``.
+    Phase names in ``turn_order()`` do not infer combat requirements.
 
     When ``GameData.session_state_key`` is set (pack session state),
     ``TitleHooks.ui.turn_action_dock_for_viewer``,
@@ -139,6 +141,24 @@ def validate_title_contract(game_definition: Any) -> None:
                     "missing validate_attack and/or resolve_attack."
                 ),
                 details={"interaction_incomplete": True},
+            )
+        ui = bundle.ui
+        missing_combat_ui: list[str] = []
+        if ui.combat_interaction_messages is None:
+            missing_combat_ui.append("combat_interaction_messages")
+        if ui.combat_event_summary is None:
+            missing_combat_ui.append("combat_event_summary")
+        if ui.combat_instruction_for_viewer is None:
+            missing_combat_ui.append("combat_instruction_for_viewer")
+        if ui.advance_gate_banners_for_viewer is None:
+            missing_combat_ui.append("advance_gate_banners_for_viewer")
+        if missing_combat_ui:
+            raise HookContractError(
+                message=(
+                    "Title declares an interaction arc but TitleHooks.ui is missing "
+                    f"{', '.join(missing_combat_ui)}."
+                ),
+                details={"combat_ui_incomplete": missing_combat_ui},
             )
         binding_raw = bundle.arcs.combat_rules_binding_spec()
         if binding_raw is not ENGINE_DEFAULT:
