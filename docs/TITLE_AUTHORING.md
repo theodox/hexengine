@@ -432,7 +432,7 @@ Loaded from pack `resources/game_data.toml` (and related tables). Use for **labe
 | Key area | Examples (hexdemo) |
 |----------|-------------------|
 | Turn dock | `advance_turn_button_label`, `dock_*_headline`, `dock_gate_panel_hint` |
-| Attack plan | `attack_confirm_label`, `attack_pick_target_status`, `attack_planning_phases` |
+| Attack plan | `attack_confirm_label`, `attack_pick_target_status` (legality from `current_segment`) |
 | Retreat path | `retreat_path_confirm_label`, `retreat_path_pick_hex_status`, `retreat_path_ready_status` |
 | Place marker | `place_marker_confirm_label`, `place_marker_pick_hex_status`, … |
 | Chrome | `interaction_kind_styles`, hex highlight classes in client title data |

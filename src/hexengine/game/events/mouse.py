@@ -296,11 +296,6 @@ class MouseEventHandlerMixin:
                 # (do not wait out the double-click timeout).
                 try:
                     state = self._interactive_game_state()
-                    phase = (
-                        str(state.turn.current_phase).strip().lower()
-                        if state is not None
-                        else ""
-                    )
                     if (
                         state
                         and getattr(
@@ -318,7 +313,7 @@ class MouseEventHandlerMixin:
                     elif (
                         state
                         and self._client_has_attack_planning_ui()
-                        and self._phase_allows_attack_planning(phase)
+                        and self._attack_planning_allowed()
                         and self.is_my_turn()
                     ):
                         # Mousedown on a unit often ends with mouseup on the background (no
@@ -470,10 +465,9 @@ class MouseEventHandlerMixin:
         if not unit_state:
             return
 
-        phase = str(state.turn.current_phase).strip().lower()
         phase_ok = (
             self._client_has_attack_planning_ui()
-            and self._phase_allows_attack_planning(phase)
+            and self._attack_planning_allowed()
         )
         current_faction = state.turn.current_faction
         retreating = self.retreat_obligation_hexes_remaining(state, unit_id) is not None
@@ -485,7 +479,7 @@ class MouseEventHandlerMixin:
             self.begin_retreat_path_for_unit(str(unit_id))
             return
 
-        # Attack planning: treat unit mousedown as selection/toggle (not drag) during Combat.
+        # Attack planning: treat unit mousedown as selection/toggle (not drag) when allowed.
         if phase_ok and self.is_my_turn() and not retreating:
             try:
                 if unit_state.faction != current_faction:

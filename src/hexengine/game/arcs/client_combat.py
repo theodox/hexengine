@@ -35,8 +35,11 @@ class ClientCombatMixin(ClientMapSelectionMixin):
             "attack_planning_ui" in self._client_title_data().client_contract_features
         )
 
-    def _phase_allows_attack_planning(self, phase: str | None) -> bool:
-        return self._client_title_data().shell_ui.phase_allows_attack_planning(phase)
+    def _attack_planning_allowed(self) -> bool:
+        """True when server ``current_segment`` allows ``Attack``."""
+
+        allowed = self._segment_allows_action("Attack")
+        return allowed is True
 
     def _shell_attack_copy(self, key: str, default: str) -> str:
         su = self._client_title_data().shell_ui
@@ -85,14 +88,12 @@ class ClientCombatMixin(ClientMapSelectionMixin):
         if st is None:
             self.cancel_attack_plan()
             return
-        phase_ok = self._phase_allows_attack_planning(
-            getattr(st.turn, "current_phase", None)
-        )
+        planning_ok = self._attack_planning_allowed()
         my_turn = True
         client = getattr(self, "client", None)
         if client is not None and client.is_connected() and client.faction:
             my_turn = self.is_my_turn()
-        if not phase_ok or not my_turn:
+        if not planning_ok or not my_turn:
             self.cancel_attack_plan()
             return
         tgt = self.attack_plan_target_hex
@@ -269,11 +270,6 @@ class ClientCombatMixin(ClientMapSelectionMixin):
             pass
 
     def _sync_attack_plan_ui(self) -> None:
-        st = self._interactive_game_state()
-        self._phase_allows_attack_planning(
-            str(getattr(getattr(st, "turn", None), "current_phase", "")) if st else ""
-        )
-
         tgt = self.attack_plan_target_hex
         len(self.attack_plan_attacker_ids)
 

@@ -10,7 +10,7 @@ State table (segment ``kind`` on the combat arc cursor):
 
 | Kind | End phase / auto-advance | Attack planning | Typical entry |
 |------|--------------------------|-----------------|---------------|
-| (routine) | allowed when no retreat obligations | allowed | turn combat slot |
+| (routine combat slot) | allowed when no retreat obligations | allowed when segment allows ``Attack`` | turn combat slot |
 | ``awaiting_retreat`` | blocked | blocked | ``Attack`` retreat outcome |
 | ``awaiting_retreat_or_disrupt`` | blocked | blocked | optional disrupt CRT |
 | ``awaiting_advance`` | blocked | blocked | post-retreat advance window |
@@ -73,13 +73,10 @@ def attack_planning_blocked_reason(state: GameState, player_faction: str) -> str
 
     if str(player_faction).strip() != str(state.turn.current_faction).strip():
         return "Not your turn"
-    phase = str(state.turn.current_phase).strip()
-    if phase not in ("Combat", "Attack"):
-        return "Attack planning is only available during Combat"
 
     seg = arc_segment.project_segment_for_faction(state, player_faction)
     if seg is None:
-        return None
+        return "Attack planning is not available"
     if segment_allows_action(seg, "Attack"):
         return None
     ui_mode = str(seg.get("ui_mode", "")).strip()
@@ -87,7 +84,7 @@ def attack_planning_blocked_reason(state: GameState, player_faction: str) -> str
         return "Resolve combat advance before planning an attack"
     if ui_mode in (GATE_AWAITING_RETREAT, GATE_AWAITING_RETREAT_OR_DISRUPT):
         return "Resolve retreat before planning an attack"
-    return "Combat obligations must be resolved before planning an attack"
+    return "Attack planning is not available"
 
 
 __all__ = [

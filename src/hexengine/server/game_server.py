@@ -611,9 +611,7 @@ class GameServer:
         if shell:
             out_shell: dict[str, Any] = {"schema": 1}
             for k, v in shell.items():
-                if k == "attack_planning_phases" and isinstance(v, list):
-                    out_shell[k] = [str(p).strip() for p in v if str(p).strip()]
-                elif isinstance(v, str) and v.strip():
+                if isinstance(v, str) and v.strip():
                     out_shell[k] = v.strip()
             if len(out_shell) > 1:
                 out["shell_ui"] = out_shell

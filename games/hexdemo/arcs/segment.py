@@ -85,7 +85,14 @@ def segment_allows(
     return segment_allows_action(seg, action_type)
 
 
+def attack_allowed_for_faction(state: GameState, viewer_faction: str | None) -> bool:
+    """True when the active segment permits ``Attack`` for viewer_faction."""
+
+    return segment_allows(state, viewer_faction, "Attack")
+
+
 __all__ = [
+    "attack_allowed_for_faction",
     "phase_advance_blocked",
     "project_segment_for_faction",
     "segment_allows",

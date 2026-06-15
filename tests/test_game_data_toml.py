@@ -94,7 +94,6 @@ def test_load_game_data_for_pack_root_hexdemo() -> None:
     assert gd.hex_highlight_ui.get("move_hex_class") == "hexdemo-move-hex"
     assert gd.shell_ui.get("advance_turn_button_label") == "End Phase"
     assert gd.shell_ui.get("attack_confirm_label") == "Confirm attack"
-    assert "Combat" in gd.shell_ui.get("attack_planning_phases", [])
     assert gd.interaction_kind_styles.get("retreat") == "interaction-msg--retreat"
 
 

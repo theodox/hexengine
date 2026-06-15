@@ -192,7 +192,6 @@ def _shell_ui_dict(v: Any) -> dict[str, Any]:
         "combat_advance_label",
         "combat_advance_title",
         "attack_pick_target_status",
-        "attack_not_in_phase_status",
         "attack_target_set_status",
         "attack_confirm_label",
         "attack_cancel_label",
@@ -209,11 +208,6 @@ def _shell_ui_dict(v: Any) -> dict[str, Any]:
         raw = v.get(k)
         if isinstance(raw, str) and raw.strip():
             out[k] = raw.strip()
-    phases = v.get("attack_planning_phases")
-    if isinstance(phases, list):
-        cleaned = [str(p).strip() for p in phases if str(p).strip()]
-        if cleaned:
-            out["attack_planning_phases"] = cleaned
     return out
 
 

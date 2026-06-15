@@ -10,7 +10,7 @@ from hexengine.hooks.interaction import (
 )
 from hexengine.hooks.wiring import bind_title_hook
 
-from ..arcs.segment import phase_advance_blocked
+from ..arcs.segment import attack_allowed_for_faction, phase_advance_blocked
 from ..combat import rules as combat_rules
 from ..combat.planning import compute_attack_plan_preview
 from ..state import session_state
@@ -37,8 +37,7 @@ def combat_outcome_after_applied(ctx):
 def auto_advance_phase_after_attack(state) -> bool:
     if phase_advance_blocked(state):
         return False
-    phase = str(state.turn.current_phase)
-    if phase not in ("Combat", "Attack"):
+    if not attack_allowed_for_faction(state, state.turn.current_faction):
         return False
     faction = state.turn.current_faction
     active_ids = {

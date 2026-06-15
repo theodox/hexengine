@@ -55,3 +55,32 @@ def test_attack_planning_blocked_on_advance_segment() -> None:
     reason = combat_transitions.attack_planning_blocked_reason(st, "union")
     assert reason is not None
     assert "advance" in reason.lower()
+
+
+def test_attack_planning_blocked_on_move_segment() -> None:
+    base = GameState.create_empty()
+    st = base.with_turn(
+        replace(
+            base.turn,
+            current_faction="union",
+            current_phase="Move",
+            phase_actions_remaining=4,
+        )
+    ).with_session_state_key("hexdemo")
+    st = with_arc_cursor(st, ArcCursor(arc_id="union_move", segment_id="routine"))
+    reason = combat_transitions.attack_planning_blocked_reason(st, "union")
+    assert reason == "Attack planning is not available"
+
+
+def test_attack_planning_allowed_on_combat_routine_segment() -> None:
+    base = GameState.create_empty()
+    st = base.with_turn(
+        replace(
+            base.turn,
+            current_faction="union",
+            current_phase="Combat",
+            phase_actions_remaining=2,
+        )
+    ).with_session_state_key("hexdemo")
+    st = with_arc_cursor(st, ArcCursor(arc_id="union_combat", segment_id="routine"))
+    assert combat_transitions.attack_planning_blocked_reason(st, "union") is None

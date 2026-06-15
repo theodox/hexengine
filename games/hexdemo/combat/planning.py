@@ -50,10 +50,6 @@ def _shell_label(shell_ui: Mapping[str, Any], key: str, default: str) -> str:
     return default
 
 
-def _phase_allows_attack(state: GameState) -> bool:
-    return str(state.turn.current_phase).strip() in ("Combat", "Attack")
-
-
 def _terrain_blocks_los(board):
     def blocks(h: Hex) -> bool:
         loc = board.effective_location(h)

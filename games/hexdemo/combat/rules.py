@@ -34,6 +34,7 @@ from hexengine.state import UnitState
 from hexengine.state.action_manager import StateAction
 from hexengine.state.map_feature_queries import edges_block_los_predicate
 
+from ..arcs import segment as arc_segment
 from ..state import session_state
 from . import actions, disrupt, outcome, step_loss
 
@@ -117,9 +118,8 @@ def _artillery_can_hit_any_defender_hex(
 def validate_attack(ctx: AttackContext) -> None:
     if ctx.attack_kind not in ("combined",):
         raise ValueError(f"Unknown attack_kind for hexdemo: {ctx.attack_kind!r}")
-    phase = str(ctx.state.turn.current_phase)
-    if phase not in ("Combat", "Attack"):
-        raise ValueError("Attacks are only allowed during the combat phase")
+    if not arc_segment.attack_allowed_for_faction(ctx.state, ctx.player_faction):
+        raise ValueError("Attacks are not allowed in the current segment")
     if ctx.player_faction != ctx.state.turn.current_faction:
         raise ValueError("Not your turn")
 

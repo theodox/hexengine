@@ -64,13 +64,6 @@ def _step1_patch_from_explicit_steps(attrs: dict[str, Any]) -> dict[str, Any] | 
     return patch or None
 
 
-def apply_step_loss_to_state(state: GameState, unit_id: str) -> GameState:
-    """Apply one hexdemo combat step loss (see module docstring)."""
-
-    st, _ = _step_loss_row_unit_ops(state, unit_id)
-    return st
-
-
 def _step_loss_row_unit_ops(state: GameState, unit_id: str) -> tuple[GameState, list[dict[str, Any]]]:
     """One step-loss application as ordered unit_ops plus updated state."""
 
@@ -141,6 +134,5 @@ def expand_step_losses(
 
 
 __all__ = [
-    "apply_step_loss_to_state",
     "expand_step_losses",
 ]
