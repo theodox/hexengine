@@ -15,6 +15,7 @@ from ...arcs.movement_arc_decl import path_tuple_from_payload, read_movement_pay
 from ...hexes.types import Hex
 from ...hooks.core import ENGINE_DEFAULT
 from ...hooks.modification import MovementStepContext
+from ...retreat_path import parse_wire_path
 from ...state.action_manager import StateAction
 from ...state.actions import (
     MoveUnit,
@@ -26,10 +27,41 @@ from ...state.logic import is_valid_move
 from ...state.movement_arc import (
     MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
     MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
+    MOVEMENT_ARC_SCHEMA,
     MOVEMENT_INTERRUPT_PHASE,
     turn_state_to_movement_arc_snapshot,
 )
 from .authority_movement import AuthorityMovementHost, dedupe_faction_ids
+
+
+def build_retreat_fulfillment_flow(
+    *,
+    unit_id: str,
+    path: tuple[Hex, ...],
+    moving_faction: str,
+    budget_remaining: float,
+    step_index: int,
+) -> dict[str, Any]:
+    """Movement arc payload for stepwise mandatory retreat along a client ``path``."""
+
+    wire_path = [{"i": int(h.i), "j": int(h.j), "k": int(h.k)} for h in path]
+    return {
+        "schema": MOVEMENT_ARC_SCHEMA,
+        "unit_id": unit_id,
+        "path": wire_path,
+        "step_index": int(step_index),
+        "moving_faction": str(moving_faction).strip(),
+        "budget_remaining": float(budget_remaining),
+        "retreat_fulfillment": True,
+        "gate": MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
+        "interrupt_queue": [],
+        "saved_turn": None,
+        "finalize_request": {
+            "unit_id": unit_id,
+            "from_hex": wire_path[0],
+            "to_hex": wire_path[-1],
+        },
+    }
 
 
 class _AdvanceMovementArcAfterStep(StateAction):
@@ -205,5 +237,55 @@ class MovementArcEffects:
             return []
         return [ResolvePassMovementInterrupt(str(ctx.owner_faction))]
 
+    def matches_retreat_open(self, ctx: ArcContext) -> bool:
+        if read_movement_payload(ctx.state):
+            return False
+        uid = str(ctx.params.get("unit_id", "")).strip()
+        if not uid:
+            return False
+        path = parse_wire_path(ctx.params.get("path"))
+        if len(path) < 3:
+            return False
+        rem_raw = self._host.hooks.modification.retreat_remaining(ctx.state, uid)
+        if rem_raw is ENGINE_DEFAULT or rem_raw is None:
+            return False
+        try:
+            if int(rem_raw) <= 0:
+                return False
+        except (TypeError, ValueError):
+            return False
+        unit = ctx.state.board.units.get(uid)
+        if unit is None or unit.position != path[0]:
+            return False
+        fh, th = ctx.params.get("from_hex"), ctx.params.get("to_hex")
+        if not isinstance(fh, dict) or not isinstance(th, dict):
+            return False
+        from_hex = Hex(int(fh["i"]), int(fh["j"]), int(fh["k"]))
+        to_hex = Hex(int(th["i"]), int(th["j"]), int(th["k"]))
+        return from_hex == path[0] and to_hex == path[1]
 
-__all__ = ["MovementArcEffects"]
+    def open_retreat_step(self, ctx: ArcContext) -> list[StateAction]:
+        uid = str(ctx.params.get("unit_id", "")).strip()
+        path = parse_wire_path(ctx.params.get("path"))
+        if len(path) < 2:
+            return []
+        rem_raw = self._host.hooks.modification.retreat_remaining(ctx.state, uid)
+        try:
+            rem = float(rem_raw) if rem_raw is not None else 0.0
+        except (TypeError, ValueError):
+            return []
+        first_from, first_to = path[0], path[1]
+        flow = build_retreat_fulfillment_flow(
+            unit_id=uid,
+            path=path,
+            moving_faction=str(ctx.owner_faction or ""),
+            budget_remaining=rem,
+            step_index=1,
+        )
+        return [
+            MoveUnit(uid, from_hex=first_from, to_hex=first_to),
+            WriteHexengineMovementArc(flow),
+        ]
+
+
+__all__ = ["MovementArcEffects", "build_retreat_fulfillment_flow"]

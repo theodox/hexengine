@@ -7,6 +7,19 @@ declaration can be parity-checked against the legacy payload mirror.
 
 Effects are supplied at runtime (see server.arcs.movement_arc_effects) because step
 application needs modification hooks from the authoritative server host.
+
+Mandatory retreats reuse this arc (``SEG_RETREAT_OPEN``): multi-hex retreat paths share
+the same stepwise payload and continuation/interrupt machinery as long moves instead of
+a separate retreat graph. Combat cleanup still owns retreat gates, obligations, and
+final fulfillment; this arc only walks the committed polyline. Titles opt in once via
+``ENGINE_MOVEMENT_ARC_PRESET``.
+
+We accept cross-arc coupling: payload fields ``retreat_fulfillment`` and
+``finalize_request`` hand back to the combat overlay when the path completes, and
+path/stack validation in ``authority_movement`` runs before
+``drive_movement_arc_retreat_open``. Single-hex retreats still use a plain ``MoveUnit``
+without ``retreat_open``. Normal ``resolve_move_as_steps`` opens inline in authority
+for now (not yet on this graph).
 """
 
 from __future__ import annotations
@@ -28,6 +41,7 @@ from .spec import ArcContext
 MOVEMENT_ARC_ID = "movement"
 
 SEG_CONTINUE = "continue"
+SEG_RETREAT_OPEN = "retreat_open"
 SEG_STEP_RESOLVE = "step_resolve"
 SEG_INTERRUPT = "interrupt"
 SEG_INTERRUPT_RESOLVE = "interrupt_resolve"
@@ -50,6 +64,10 @@ class MovementArcEffectsBinding(Protocol):
     def is_interrupt_responder(self, ctx: ArcContext) -> bool: ...
 
     def pass_interrupt(self, ctx: ArcContext) -> list[StateAction]: ...
+
+    def matches_retreat_open(self, ctx: ArcContext) -> bool: ...
+
+    def open_retreat_step(self, ctx: ArcContext) -> list[StateAction]: ...
 
 
 def read_movement_payload(state: GameState) -> dict[str, Any] | None:
@@ -125,6 +143,7 @@ __all__ = [
     "MOVEMENT_ARC_ID",
     "OWNER_MOVING",
     "SEG_CONTINUE",
+    "SEG_RETREAT_OPEN",
     "SEG_INTERRUPT",
     "SEG_INTERRUPT_RESOLVE",
     "SEG_STEP_RESOLVE",

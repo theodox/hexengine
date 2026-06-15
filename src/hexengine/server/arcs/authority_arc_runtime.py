@@ -33,6 +33,7 @@ from ...arcs.movement_arc_decl import (
     MOVEMENT_ARC_ID,
     SEG_CONTINUE,
     SEG_INTERRUPT,
+    SEG_RETREAT_OPEN,
     read_movement_payload,
 )
 from ...hooks.title import TitleHooks
@@ -315,10 +316,10 @@ def sync_movement_cursor_from_payload(host: ArcRuntimeHost) -> None:
     """Align the generic arc cursor with the movement payload gate mirror.
 
     Stepwise paths open by writing ``engine_state[hexengine_movement_arc]`` in
-    ``authority_movement`` (not via ``begin_arc`` on the movement graph entry). This
-    function sets ``SetArcCursor`` to the interrupt or continue segment so
-    ``drive_movement_arc_event`` can dispatch ``PassMovementInterrupt`` and continuation
-    ``MoveUnit`` RPCs.
+    ``authority_movement`` (normal ``resolve_move_as_steps``) or via the movement arc
+    ``retreat_open`` segment (``drive_movement_arc_retreat_open``). This function sets
+    ``SetArcCursor`` to the interrupt or continue segment so ``drive_movement_arc_event``
+    can dispatch ``PassMovementInterrupt`` and continuation ``MoveUnit`` RPCs.
     """
 
     spec = movement_arc_spec(host)
@@ -346,6 +347,50 @@ def sync_movement_cursor_from_payload(host: ArcRuntimeHost) -> None:
     host.action_manager.execute(
         SetArcCursor(ArcCursor(arc_id=MOVEMENT_ARC_ID, segment_id=SEG_CONTINUE))
     )
+
+
+async def drive_movement_arc_retreat_open(
+    host: ArcRuntimeHost,
+    player_id: str,
+    player: PlayerInfo,
+    params: dict[str, Any],
+) -> bool:
+    """Open a multi-hex mandatory retreat via the movement arc ``retreat_open`` segment.
+
+    Returns True when this RPC is fully handled (success or error). False when no
+    movement arc is declared.
+    """
+
+    spec = movement_arc_spec(host)
+    if spec is None:
+        return False
+
+    host.action_manager.execute(
+        SetArcCursor(
+            ArcCursor(arc_id=MOVEMENT_ARC_ID, segment_id=SEG_RETREAT_OPEN)
+        )
+    )
+    result = submit_event(
+        spec.arc,
+        host.action_manager,
+        action_type="MoveUnit",
+        actor=str(player.faction),
+        params=dict(params),
+        resolver=spec.owner_resolver,
+    )
+    if not result.ok:
+        host.action_manager.execute(SetArcCursor(None))
+        restore_routine_cursor(host)
+        await host._send_error(
+            player_id, "Movement arc rejected retreat path open"
+        )
+        return True
+
+    sync_movement_cursor_from_payload(host)
+    ok = ActionResult(success=True, action_id=str(uuid.uuid4()))
+    await host._send_message(player_id, ok.to_message())
+    await host._broadcast_state_update()
+    return True
 
 
 async def drive_movement_arc_event(
@@ -412,6 +457,7 @@ __all__ = [
     "begin_routine_slot",
     "combat_arc_spec",
     "drive_movement_arc_event",
+    "drive_movement_arc_retreat_open",
     "drive_overlay_arc_event",
     "finish_arc_dispatch",
     "lookup_arc_spec",

@@ -4,13 +4,11 @@ Authority-side **movement arc**: stepwise `MoveUnit`, interrupt handoff, and con
 See **Arc** / **Segment** vocabulary in `hexengine.state.movement_arc`. Attack and combat
 cleanup arcs live in `hexengine.server.arcs.authority_attack` and `authority_combat_cleanup`.
 
-**Stepwise open vs continuation:** when a multi-hex move or retreat path starts, this
-module writes the movement payload (`WriteHexengineMovementArc`) and calls
-``sync_movement_cursor_from_payload`` so the generic arc cursor matches the payload gate.
-Later steps use ``drive_movement_arc_event`` / ``continue_stepwise_move_unit``. Titles opt
-in via ``ArcHook.MOVEMENT_ARC`` returning ``ENGINE_MOVEMENT_ARC_PRESET`` (or a custom
-``ArcSpec``). Optional ``resolve_move_as_steps`` still opens stepwise moves here when no
-arc segment has started yet; consolidating that opener into the arc is future work.
+**Stepwise open vs continuation:** see ``movement_arc_decl`` for why mandatory retreats
+reuse this arc. Multi-hex retreats: title validation here, then
+``drive_movement_arc_retreat_open``. Normal ``resolve_move_as_steps`` still opens inline.
+Continuation: ``drive_movement_arc_event`` / ``continue_stepwise_move_unit``. Opt-in:
+``ArcHook.MOVEMENT_ARC`` → ``ENGINE_MOVEMENT_ARC_PRESET`` or custom ``ArcSpec``.
 """
 
 from __future__ import annotations
@@ -42,6 +40,7 @@ from .authority_arc_runtime import (
     COMBAT_ARC_REQUIRED_MSG,
     ArcDispatch,
     drive_movement_arc_event,
+    drive_movement_arc_retreat_open,
     finish_arc_dispatch,
     sync_movement_cursor_from_payload,
     try_arc_move_unit,
@@ -470,42 +469,16 @@ async def handle_authority_retreat_path_move_unit(
     if len(path) == 2:
         return False
 
-    unit = current_state.board.units.get(uid_for_move)
-    if unit is None:
-        await host._send_error(player_id, "Unknown unit")
-        return True
-    first_from, first_to = path[0], path[1]
-    if unit.position != first_from:
-        await host._send_error(player_id, "Unit position does not match retreat path")
+    if await drive_movement_arc_retreat_open(
+        host, player_id, player, dict(request.params)
+    ):
         return True
 
-    try:
-        host.action_manager.execute(MoveUnit(uid_for_move, first_from, first_to))
-    except Exception as e:
-        await host._send_error(player_id, f"Action failed: {e}")
-        return True
-
-    wire_path_out = [{"i": int(h.i), "j": int(h.j), "k": int(h.k)} for h in path]
-    base_flow: dict[str, Any] = {
-        "schema": MOVEMENT_ARC_SCHEMA,
-        "unit_id": uid_for_move,
-        "path": wire_path_out,
-        "step_index": 1,
-        "moving_faction": str(player.faction),
-        "budget_remaining": float(rem),
-        "retreat_fulfillment": True,
-        "gate": MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
-        "interrupt_queue": [],
-        "saved_turn": None,
-        "finalize_request": {
-            "unit_id": uid_for_move,
-            "from_hex": wire_path_out[0],
-            "to_hex": wire_path_out[-1],
-        },
-    }
-    host.action_manager.execute(WriteHexengineMovementArc(base_flow))
-    sync_movement_cursor_from_payload(host)
-    await host._send_move_unit_success_and_broadcast(player_id)
+    await host._send_error(
+        player_id,
+        "Retreat path continuation requires a declared movement arc "
+        "(bind ArcHook.MOVEMENT_ARC to ENGINE_MOVEMENT_ARC_PRESET or a custom ArcSpec)",
+    )
     return True
 
 

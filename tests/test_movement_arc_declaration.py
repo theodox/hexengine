@@ -11,6 +11,7 @@ from hexengine.arcs.movement_arc_decl import (
     SEG_CONTINUE,
     SEG_INTERRUPT,
     SEG_INTERRUPT_RESOLVE,
+    SEG_RETREAT_OPEN,
     SEG_STEP_RESOLVE,
     resolve_moving_faction,
 )
@@ -41,6 +42,12 @@ class _StubEffects(SimpleNamespace):
     def pass_interrupt(self, _ctx: ArcContext) -> list:
         return []
 
+    def matches_retreat_open(self, _ctx: ArcContext) -> bool:
+        return True
+
+    def open_retreat_step(self, _ctx: ArcContext) -> list:
+        return []
+
 
 def test_arc_builds_and_validates() -> None:
     build_movement_arc(_StubEffects())  # build() validates by default
@@ -56,6 +63,7 @@ def test_arc_id() -> None:
 
 def test_segment_owners() -> None:
     a = build_movement_arc(_StubEffects())
+    assert a.get(SEG_RETREAT_OPEN).owner is CURRENT
     assert a.get(SEG_CONTINUE).owner == OwnerRef(OWNER_MOVING)
     assert a.get(SEG_STEP_RESOLVE).owner is NO_OWNER
     assert a.get(SEG_INTERRUPT).owner is CURRENT
@@ -64,6 +72,7 @@ def test_segment_owners() -> None:
 
 def test_allowed_actions_match_gate_table() -> None:
     a = build_movement_arc(_StubEffects())
+    assert a.get(SEG_RETREAT_OPEN).allowed_actions == frozenset({"MoveUnit"})
     assert a.get(SEG_CONTINUE).allowed_actions == frozenset({"MoveUnit"})
     assert a.get(SEG_STEP_RESOLVE).allowed_actions == frozenset()
     assert a.get(SEG_INTERRUPT).allowed_actions == frozenset({"PassMovementInterrupt"})

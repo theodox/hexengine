@@ -315,3 +315,95 @@ def test_movement_arc_spec_for_host_uses_preset_via_host() -> None:
             return sentinel
 
     assert movement_arc_spec_for_host(Host()) is sentinel
+
+
+def test_drive_movement_arc_retreat_open_writes_payload() -> None:
+    import asyncio
+    from types import SimpleNamespace
+
+    from hexengine.hexes.math import neighbors
+    from hexengine.hooks.modification import ModificationHooks
+    from hexengine.server.arcs import drive_movement_arc_retreat_open
+    from hexengine.state.game_state import BoardState, TurnState, UnitState
+    from hexengine.state.engine_session_state import engine_bucket
+
+    h0 = Hex(0, 0, 0)
+    h1 = next(iter(neighbors(h0)))
+    h2 = next(n for n in neighbors(h1) if n != h0)
+    board = BoardState(
+        units={
+            "u": UnitState(
+                unit_id="u",
+                unit_type="inf",
+                faction="Red",
+                position=h0,
+                active=True,
+            ),
+        }
+    )
+    st = GameState(
+        board=board,
+        turn=TurnState("Red", "Move", 2, 1, 0, 0),
+        session_state={"retreat_obligations": {"u": 2}},
+        session_state_key="pack",
+    )
+
+    class Host:
+        def __init__(self) -> None:
+            self.hooks = StepwiseInterleaved(
+                ModificationHooks(
+                    retreat_obligation_hexes_remaining=lambda _s, uid: 2
+                    if uid == "u"
+                    else None,
+                )
+            ).hooks
+            self.action_manager = ActionManager(st)
+            self.messages: list = []
+
+        def movement_arc_spec(self):
+            from hexengine.server.arcs.movement_arc_spec import (
+                build_host_bound_movement_arc_spec,
+            )
+
+            return build_host_bound_movement_arc_spec(self)
+
+        async def _send_message(self, _pid: str, message: object) -> None:
+            self.messages.append(message)
+
+        async def _send_error(self, _pid: str, message: str) -> None:
+            self.messages.append(message)
+
+        async def _broadcast_state_update(self) -> None:
+            return None
+
+    host = Host()
+    params = {
+        "unit_id": "u",
+        "from_hex": {"i": h0.i, "j": h0.j, "k": h0.k},
+        "to_hex": {"i": h1.i, "j": h1.j, "k": h1.k},
+        "path": [
+            {"i": h0.i, "j": h0.j, "k": h0.k},
+            {"i": h1.i, "j": h1.j, "k": h1.k},
+            {"i": h2.i, "j": h2.j, "k": h2.k},
+        ],
+    }
+    assert (
+        asyncio.run(
+            drive_movement_arc_retreat_open(
+                host,
+                "p1",
+                SimpleNamespace(faction="Red"),
+                params,
+            )
+        )
+        is True
+    )
+    final = host.action_manager.current_state
+    assert final.board.units["u"].position == h1
+    arc = engine_bucket(final, HEXENGINE_MOVEMENT_ARC_KEY)
+    assert isinstance(arc, dict)
+    assert arc.get("retreat_fulfillment") is True
+    assert arc.get("step_index") == 1
+    assert read_arc_cursor(final) == ArcCursor(
+        arc_id=MOVEMENT_ARC_ID, segment_id=SEG_CONTINUE
+    )
