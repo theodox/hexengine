@@ -66,10 +66,7 @@ class ClientCombatMixin(ClientMapSelectionMixin):
         return segment_allows_action(seg, action_type)
 
     def _segment_blocks_attack_planning_ui(self) -> bool:
-        allowed = self._segment_allows_action("Attack")
-        if allowed is not None:
-            return not allowed
-        return False
+        return not self._attack_planning_allowed()
 
     def _sync_attack_plan_after_state_update(self) -> None:
         if not self._client_has_attack_planning_ui():
@@ -270,8 +267,8 @@ class ClientCombatMixin(ClientMapSelectionMixin):
             pass
 
     def _sync_attack_plan_ui(self) -> None:
+        st = self._interactive_game_state()
         tgt = self.attack_plan_target_hex
-        len(self.attack_plan_attacker_ids)
 
         attacker_ids = set(self.attack_plan_attacker_ids)
         target_unit_ids: set[str] = set()
