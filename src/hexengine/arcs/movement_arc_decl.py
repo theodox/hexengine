@@ -17,9 +17,10 @@ final fulfillment; this arc only walks the committed polyline. Titles opt in onc
 We accept cross-arc coupling: payload fields ``retreat_fulfillment`` and
 ``finalize_request`` hand back to the combat overlay when the path completes, and
 path/stack validation in ``authority_movement`` runs before
-``drive_movement_arc_retreat_open``. Single-hex retreats still use a plain ``MoveUnit``
-without ``retreat_open``. Normal ``resolve_move_as_steps`` opens inline in authority
-for now (not yet on this graph).
+``drive_movement_arc_retreat_open``. Retreat ``MoveUnit`` with ``path`` (two or more
+hexes) always opens here; without a ``path`` wire, combat overlay fulfillment applies.
+Normal ``resolve_move_as_steps`` opens inline in authority for now (not yet on this
+graph).
 """
 
 from __future__ import annotations

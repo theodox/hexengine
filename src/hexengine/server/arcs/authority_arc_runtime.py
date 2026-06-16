@@ -162,6 +162,43 @@ def restore_routine_cursor(host: ArcRuntimeHost) -> None:
     begin_routine_slot(host, idx)
 
 
+def tear_down_movement_arc_after_retreat(host: ArcRuntimeHost) -> None:
+    """Clear stepwise retreat payload once combat cleanup takes over."""
+
+    from ...arcs.movement_arc_decl import read_movement_payload
+    from ...state.actions import WriteHexengineMovementArc
+
+    flow = read_movement_payload(host.action_manager.current_state)
+    if not isinstance(flow, dict) or not flow.get("retreat_fulfillment"):
+        return
+    host.action_manager.execute(WriteHexengineMovementArc(None))
+    sync_movement_cursor_from_payload(host)
+
+
+def resume_combat_arc_after_retreat_fulfillment(host: ArcRuntimeHost) -> None:
+    """Run combat ``resolve`` auto transitions after movement-arc retreat fulfillment.
+
+    Movement-arc retreat completion clears obligations via the title binding but does not
+    pass through the combat arc ``resolve`` segment, which normally offers advance.
+    """
+
+    from ...arcs.runner import _auto_advance
+    from ...authoring.patterns.combat import SEG_RESOLVE
+
+    tear_down_movement_arc_after_retreat(host)
+
+    spec = combat_arc_spec(host.hooks)
+    if spec is None:
+        return
+    arc = spec.arc
+    host.action_manager.execute(
+        SetArcCursor(ArcCursor(arc_id=arc.id, segment_id=SEG_RESOLVE))
+    )
+    _auto_advance(arc, host.action_manager, spec.owner_resolver)
+    if read_arc_cursor(host.action_manager.current_state) is None:
+        restore_routine_cursor(host)
+
+
 def begin_combat_arc(host: ArcRuntimeHost) -> None:
     """Start the combat arc if the title declares one (no-op otherwise)."""
 
@@ -247,7 +284,7 @@ async def try_arc_move_unit(
         return ArcDispatch.NOT_DECLARED
 
     wire_path = params.get("path")
-    if is_retreat_fulfillment and isinstance(wire_path, list) and len(wire_path) > 2:
+    if is_retreat_fulfillment and isinstance(wire_path, list) and len(wire_path) >= 2:
         return ArcDispatch.NOT_DECLARED
 
     cur = active_overlay_arc_cursor(host.action_manager.current_state, host.hooks)
@@ -355,7 +392,7 @@ async def drive_movement_arc_retreat_open(
     player: PlayerInfo,
     params: dict[str, Any],
 ) -> bool:
-    """Open a multi-hex mandatory retreat via the movement arc ``retreat_open`` segment.
+    """Open a mandatory retreat path via the movement arc ``retreat_open`` segment.
 
     Returns True when this RPC is fully handled (success or error). False when no
     movement arc is declared.
@@ -465,8 +502,10 @@ __all__ = [
     "overlay_rpc_action_types",
     "resolve_active_segment_owner",
     "restore_routine_cursor",
+    "resume_combat_arc_after_retreat_fulfillment",
     "schedule_next_phase_info",
     "sync_movement_cursor_from_payload",
+    "tear_down_movement_arc_after_retreat",
     "title_declares_overlay_arc",
     "try_arc_move_unit",
     "try_arc_rpc",

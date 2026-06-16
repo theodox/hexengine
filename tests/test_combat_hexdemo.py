@@ -979,6 +979,86 @@ def test_combat_advance_after_defender_retreat(hexdemo_server: GameServer) -> No
     asyncio.run(run())
 
 
+def test_combat_advance_after_defender_retreat_via_path_wire(
+    hexdemo_server: GameServer,
+) -> None:
+    """Retreat path UI sends ``path`` on MoveUnit; attacker must still get advance offer."""
+    from hexengine.server.protocol import JoinGameRequest
+
+    server = hexdemo_server
+    server.players["p_u"] = PlayerInfo(
+        player_id="p_u", player_name="U", faction="union", connected=True
+    )
+    server.players["p_c"] = PlayerInfo(
+        player_id="p_c", player_name="C", faction="confederate", connected=True
+    )
+    server.faction_to_player["union"] = "p_u"
+    server.faction_to_player["confederate"] = "p_c"
+
+    st0 = server.action_manager.current_state
+    h_att = st0.board.units["u_att"].position
+    h_def = st0.board.units["u_def"].position
+    h_ret = next(h for h in neighbors(h_def) if h != h_att)
+
+    async def run() -> None:
+        errors: list[str] = []
+
+        def capture(_pid: str, m) -> None:
+            if m.type == "error":
+                errors.append(str(m.payload.get("error", "")))
+
+        server.add_message_handler(capture)
+        await server.handle_message(
+            "p_u", JoinGameRequest(player_name="U", faction="union").to_message()
+        )
+        await server.handle_message(
+            "p_c", JoinGameRequest(player_name="C", faction="confederate").to_message()
+        )
+
+        with patch("games.hexdemo.hooks.interaction.random.randrange", side_effect=[3, 1]):
+            req = ActionRequest(
+                action_type="Attack",
+                params={
+                    "attack_kind": "combined",
+                    "attacker_id": "u_att",
+                    "attacker_ids": ["u_att"],
+                    "defender_id": "u_def",
+                },
+                player_id="p_u",
+            )
+            await server.handle_message("p_u", req.to_message())
+
+        mv = ActionRequest(
+            action_type="MoveUnit",
+            params={
+                "unit_id": "u_def",
+                "from_hex": {"i": h_def.i, "j": h_def.j, "k": h_def.k},
+                "to_hex": {"i": h_ret.i, "j": h_ret.j, "k": h_ret.k},
+                "path": [
+                    {"i": h_def.i, "j": h_def.j, "k": h_def.k},
+                    {"i": h_ret.i, "j": h_ret.j, "k": h_ret.k},
+                ],
+            },
+            player_id="p_c",
+        )
+        await server.handle_message("p_c", mv.to_message())
+
+        st1 = server.action_manager.current_state
+        hx = engine_read_session_state(st1, "hexdemo")
+        adv = hx.get("advance")
+        assert isinstance(adv, dict)
+        assert adv.get("faction") == "union"
+
+        panels_u = server._interaction_panels_for_player_id("p_u")
+        assert panels_u is not None and len(panels_u) == 1
+        assert panels_u[0]["presentation_id"] == "advance_gate"
+        action_ids = {a["id"] for a in panels_u[0].get("actions") or []}
+        assert "combat_advance" in action_ids
+        assert not any("Movement arc rejected" in e for e in errors), errors
+
+    asyncio.run(run())
+
+
 def test_combat_advance_via_move_unit_optional_path(hexdemo_server: GameServer) -> None:
     """Player may also advance by issuing a MoveUnit into the vacated defender hex."""
     from hexengine.server.protocol import JoinGameRequest

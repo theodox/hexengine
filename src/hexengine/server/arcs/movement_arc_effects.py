@@ -244,7 +244,7 @@ class MovementArcEffects:
         if not uid:
             return False
         path = parse_wire_path(ctx.params.get("path"))
-        if len(path) < 3:
+        if len(path) < 2:
             return False
         rem_raw = self._host.hooks.modification.retreat_remaining(ctx.state, uid)
         if rem_raw is ENGINE_DEFAULT or rem_raw is None:

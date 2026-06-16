@@ -23,6 +23,7 @@ from hexengine.hooks.arcs import ArcsHooks
 from hexengine.hooks.core import ENGINE_MOVEMENT_ARC_PRESET
 from hexengine.hooks.modification import MoveContext, ModificationHooks, MovementStepContext
 from hexengine.hooks.title import TitleHooks
+from hexengine.hooks.title import TitleHooks
 from hexengine.server import GameServer
 from hexengine.server.arcs import (
     drive_movement_arc_event,
@@ -407,3 +408,140 @@ def test_drive_movement_arc_retreat_open_writes_payload() -> None:
     assert read_arc_cursor(final) == ArcCursor(
         arc_id=MOVEMENT_ARC_ID, segment_id=SEG_CONTINUE
     )
+
+
+def test_drive_movement_arc_retreat_open_single_hex_completes_via_binding() -> None:
+    import asyncio
+    from types import SimpleNamespace
+
+    from hexengine.hexes.math import neighbors
+    from hexengine.hooks.arcs import ArcsHooks
+    from hexengine.hooks.modification import ModificationHooks
+    from hexengine.server.arcs import (
+        drive_movement_arc_retreat_open,
+        handle_authority_retreat_path_move_unit,
+    )
+    from hexengine.server.protocol import ActionRequest
+    from hexengine.state.game_state import BoardState, TurnState, UnitState
+    from hexengine.state.engine_session_state import engine_read_session_state
+
+    h0 = Hex(0, 0, 0)
+    h1 = next(iter(neighbors(h0)))
+
+    class StubBinding:
+        def apply_retreat_step(self, ctx):
+            from hexengine.hooks.bucket import ApplyBucketPatch, BucketPatch
+
+            return [
+                ApplyBucketPatch(
+                    "pack",
+                    BucketPatch(values={"retreat_obligations": {}}),
+                )
+            ]
+
+    class Host:
+        def __init__(self) -> None:
+            self.hooks = TitleHooks(
+                modification=ModificationHooks(
+                    retreat_obligation_hexes_remaining=lambda _s, uid: 1
+                    if uid == "u"
+                    else None,
+                    retreat_blocked_hexes=lambda _s, _uid: None,
+                ),
+                arcs=ArcsHooks(
+                    movement_arc=lambda: ENGINE_MOVEMENT_ARC_PRESET,
+                    combat_rules_binding=lambda: StubBinding(),
+                ),
+            )
+            board = BoardState(
+                units={
+                    "u": UnitState(
+                        unit_id="u",
+                        unit_type="inf",
+                        faction="Red",
+                        position=h0,
+                        active=True,
+                    ),
+                }
+            )
+            self.action_manager = ActionManager(
+                GameState(
+                    board=board,
+                    turn=TurnState("Red", "Move", 2, 1, 0, 0),
+                    session_state={"retreat_obligations": {"u": 1}},
+                    session_state_key="pack",
+                )
+            )
+            self.logger = __import__("logging").getLogger("test")
+
+        def movement_arc_spec(self):
+            from hexengine.server.arcs.movement_arc_spec import (
+                build_host_bound_movement_arc_spec,
+            )
+
+            return build_host_bound_movement_arc_spec(self)
+
+        async def _send_message(self, _pid: str, message: object) -> None:
+            pass
+
+        async def _send_error(self, _pid: str, message: str) -> None:
+            raise AssertionError(message)
+
+        async def _broadcast_state_update(self) -> None:
+            pass
+
+        def _validate_move_unit_request(self, *_a, **_k) -> None:
+            return None
+
+        def _max_active_units_per_hex(self, *_a, **_k):
+            return None
+
+        def _zoc_hexes_for_unit(self, *_a, **_k):
+            return None
+
+        def _movement_step_cost_fn(self, *_a):
+            return None
+
+        def _retreat_obligation_hexes_remaining(self, _st, uid):
+            return 1 if uid == "u" else None
+
+        def _movement_budget_for_unit(self, *_a):
+            return 4.0
+
+        def _movement_step_total_cost(self, *_a, **_k):
+            return 1.0
+
+        async def _send_move_unit_success_and_broadcast(self, _pid: str) -> None:
+            pass
+
+    host = Host()
+    req = ActionRequest(
+        action_type="MoveUnit",
+        player_id="p1",
+        params={
+            "unit_id": "u",
+            "from_hex": {"i": h0.i, "j": h0.j, "k": h0.k},
+            "to_hex": {"i": h1.i, "j": h1.j, "k": h1.k},
+            "path": [
+                {"i": h0.i, "j": h0.j, "k": h0.k},
+                {"i": h1.i, "j": h1.j, "k": h1.k},
+            ],
+        },
+    )
+
+    async def run() -> None:
+        handled = await handle_authority_retreat_path_move_unit(
+            host,
+            "p1",
+            SimpleNamespace(faction="Red"),
+            req,
+            host.action_manager.current_state,
+            retreat_remaining=1,
+            uid_for_move="u",
+        )
+        assert handled is True
+
+    asyncio.run(run())
+    final = host.action_manager.current_state
+    assert final.board.units["u"].position == h1
+    assert not engine_read_session_state(final, "pack").get("retreat_obligations")

@@ -69,6 +69,7 @@ from .authority_movement import (
     handle_authority_retreat_path_move_unit,
     path_tuple_from_movement_arc,
     read_movement_arc,
+    retreat_path_wire_deferred_to_movement_arc,
 )
 
 __all__ = [
@@ -115,5 +116,6 @@ __all__ = [
     "optional_wire_hex_frozenset",
     "path_tuple_from_movement_arc",
     "read_movement_arc",
+    "retreat_path_wire_deferred_to_movement_arc",
     "sorted_unique_hexes_from_unit_ids",
 ]

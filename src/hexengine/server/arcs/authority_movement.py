@@ -18,6 +18,8 @@ from collections.abc import Callable
 from dataclasses import replace
 from typing import Any, Protocol
 
+from ...arcs import ArcContext, read_arc_cursor
+from ...arcs.movement_arc_decl import MOVEMENT_ARC_ID, path_complete
 from ...hexes.types import Hex
 from ...hooks.core import ENGINE_DEFAULT
 from ...hooks.modification import MoveContext, MovementStepContext
@@ -42,6 +44,7 @@ from .authority_arc_runtime import (
     drive_movement_arc_event,
     drive_movement_arc_retreat_open,
     finish_arc_dispatch,
+    resume_combat_arc_after_retreat_fulfillment,
     sync_movement_cursor_from_payload,
     try_arc_move_unit,
 )
@@ -67,6 +70,68 @@ def read_movement_arc(state: GameState) -> dict[str, Any] | None:
 
     raw = engine_bucket(state, HEXENGINE_MOVEMENT_ARC_KEY)
     return raw if raw else None
+
+
+def retreat_path_wire_deferred_to_movement_arc(params: dict[str, Any]) -> bool:
+    """True when ``MoveUnit`` carries a retreat ``path`` wire for the movement arc."""
+
+    wire_path = params.get("path")
+    return isinstance(wire_path, list) and len(wire_path) >= 2
+
+
+def retreat_finalize_request_from_params(
+    params: dict[str, Any], unit_id: str
+) -> dict[str, Any] | None:
+    """Build combat fulfillment params from a retreat ``path`` wire (endpoint move)."""
+
+    path = parse_wire_path(params.get("path"))
+    if len(path) < 2:
+        return None
+    wire_path = [{"i": int(h.i), "j": int(h.j), "k": int(h.k)} for h in path]
+    return {
+        "unit_id": unit_id,
+        "from_hex": wire_path[0],
+        "to_hex": wire_path[-1],
+    }
+
+
+def _retreat_movement_already_fulfilled(
+    host: AuthorityMovementHost, fin_params: dict[str, Any]
+) -> bool:
+    """True when the movement arc already placed the retreat stack on the path endpoint."""
+
+    uid = fin_params.get("unit_id")
+    th = fin_params.get("to_hex")
+    if not isinstance(uid, str) or not isinstance(th, dict):
+        return False
+    try:
+        to_hex = Hex(int(th["i"]), int(th["j"]), int(th["k"]))
+    except (KeyError, TypeError, ValueError):
+        return False
+    unit = host.action_manager.current_state.board.units.get(uid.strip())
+    return unit is not None and unit.position == to_hex
+
+
+def _retreat_fulfillment_actions_from_binding(
+    host: AuthorityMovementHost,
+    player: PlayerInfo,
+    fin_params: dict[str, Any],
+) -> list[Any] | None:
+    """Title combat binding actions to clear obligations after the movement arc finishes."""
+
+    binding = host.hooks.arcs.combat_rules_binding_spec()
+    if binding is ENGINE_DEFAULT:
+        return None
+    apply_fn = getattr(binding, "apply_retreat_step", None)
+    if not callable(apply_fn):
+        return None
+    ctx = ArcContext(
+        state=host.action_manager.current_state,
+        session_state_key=host.action_manager.current_state.session_state_key,
+        owner_faction=str(player.faction),
+        params=dict(fin_params),
+    )
+    return apply_fn(ctx)
 
 
 def path_tuple_from_movement_arc(arc: dict[str, Any]) -> tuple[Hex, ...]:
@@ -141,6 +206,9 @@ async def _complete_retreat_fulfillment_step(
     """
     Finish a stepwise retreat through the combat arc when declared.
 
+    When the movement arc already applied the move (combat overlay cursor inactive),
+    fall back to the title ``COMBAT_RULES_BINDING.apply_retreat_step``.
+
     Returns True when the RPC is fully handled (arc success or error).
     """
 
@@ -152,6 +220,25 @@ async def _complete_retreat_fulfillment_step(
         is_retreat_fulfillment=True,
         is_advance_fulfillment=False,
     )
+    if outcome == ArcDispatch.REJECTED and _retreat_movement_already_fulfilled(
+        host, fin_params
+    ):
+        outcome = ArcDispatch.NO_CURSOR
+    if outcome == ArcDispatch.HANDLED:
+        await finish_arc_dispatch(host, player_id, outcome)
+        return True
+    if outcome in (ArcDispatch.NO_CURSOR, ArcDispatch.NOT_DECLARED):
+        actions = _retreat_fulfillment_actions_from_binding(host, player, fin_params)
+        if actions is not None:
+            try:
+                for action in actions:
+                    host.action_manager.execute(action)
+            except Exception as e:
+                await host._send_error(player_id, str(e))
+                return True
+            resume_combat_arc_after_retreat_fulfillment(host)
+            await host._broadcast_state_update()
+            return True
     if outcome == ArcDispatch.NOT_DECLARED:
         await host._send_error(player_id, COMBAT_ARC_REQUIRED_MSG)
         return True
@@ -244,6 +331,28 @@ async def continue_stepwise_move_unit(
                 except Exception as e:
                     host.logger.error(f"Error in turn advancement: {e}", exc_info=True)
         return True
+
+    if flow.get("retreat_fulfillment"):
+        ctx = ArcContext(
+            state=host.action_manager.current_state,
+            session_state_key=host.action_manager.current_state.session_state_key,
+            owner_faction=str(player.faction),
+            params=dict(request.params),
+        )
+        if path_complete(ctx):
+            fin = flow.get("finalize_request")
+            if isinstance(fin, dict):
+                host.action_manager.execute(WriteHexengineMovementArc(None))
+                return await _complete_retreat_fulfillment_step(
+                    host,
+                    player_id,
+                    player,
+                    fin_params=dict(fin),
+                )
+        cur = read_arc_cursor(host.action_manager.current_state)
+        if cur is None or cur.arc_id != MOVEMENT_ARC_ID:
+            host.action_manager.execute(WriteHexengineMovementArc(None))
+            return True
 
     await host._send_error(player_id, "Movement arc rejected continuation move")
     return True
@@ -466,12 +575,20 @@ async def handle_authority_retreat_path_move_unit(
         await host._send_error(player_id, str(e))
         return True
 
-    if len(path) == 2:
-        return False
-
     if await drive_movement_arc_retreat_open(
         host, player_id, player, dict(request.params)
     ):
+        if read_movement_arc(host.action_manager.current_state) is None:
+            fin = retreat_finalize_request_from_params(
+                dict(request.params), uid_for_move
+            )
+            if fin is not None:
+                return await _complete_retreat_fulfillment_step(
+                    host,
+                    player_id,
+                    player,
+                    fin_params=fin,
+                )
         return True
 
     await host._send_error(
@@ -490,4 +607,6 @@ __all__ = [
     "handle_authority_retreat_path_move_unit",
     "path_tuple_from_movement_arc",
     "read_movement_arc",
+    "retreat_finalize_request_from_params",
+    "retreat_path_wire_deferred_to_movement_arc",
 ]

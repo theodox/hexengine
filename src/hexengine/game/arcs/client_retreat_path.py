@@ -359,6 +359,9 @@ class ClientRetreatPathMixin:
         if st is None or not uid:
             self.retreat_path_committed = None
             return
+        if self.retreat_obligation_hexes_remaining(st, uid) is None:
+            self.cancel_retreat_path()
+            return
         u = st.board.units.get(uid)
         if u is None or u.position != path[idx]:
             return

@@ -91,6 +91,7 @@ from .arcs import (
     read_movement_arc,
     resolve_active_segment_owner,
     restore_routine_cursor,
+    retreat_path_wire_deferred_to_movement_arc,
     schedule_next_phase_info,
     try_arc_move_unit,
     try_arc_rpc,
@@ -1437,8 +1438,16 @@ class GameServer:
             if await finish_arc_dispatch(self, player_id, move_outcome):
                 return
             if is_retreat_fulfillment or is_advance_fulfillment:
-                await self._send_error(player_id, COMBAT_ARC_REQUIRED_MSG)
-                return
+                if is_retreat_fulfillment and (
+                    retreat_path_wire_deferred_to_movement_arc(
+                        dict(request.params or {})
+                    )
+                    or read_movement_arc(self.action_manager.current_state) is not None
+                ):
+                    pass
+                else:
+                    await self._send_error(player_id, COMBAT_ARC_REQUIRED_MSG)
+                    return
 
         if not is_retreat_fulfillment:
             if not self._actor_may_act(player.faction, current_state):
