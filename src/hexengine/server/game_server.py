@@ -92,11 +92,15 @@ from .arcs import (
     resolve_active_segment_owner,
     restore_routine_cursor,
     retreat_path_wire_deferred_to_movement_arc,
-    schedule_next_phase_info,
     try_arc_move_unit,
     try_arc_rpc,
     turn_arc_registry_from_hooks,
     validate_retreat_fulfillment_stack,
+)
+from ..arcs.title.schedule import (
+    available_factions_from_definition,
+    next_phase_from_definition,
+    turn_order_entries_from_definition,
 )
 from .map_selection import compute_map_selection_preview
 from .preview import compute_marker_drag_preview, compute_unit_drag_preview
@@ -245,11 +249,7 @@ class GameServer:
         self._pending_game_log_events: deque[tuple[str, str, str]] = deque()
         self._movement_arc_spec_cache: ArcSpec | None = None
 
-        reg = self.turn_arc_registry()
-        if reg is not None:
-            self.turn_order = reg.schedule.turn_order_entries()
-        else:
-            self.turn_order = self._game_definition.turn_order()
+        self.turn_order = turn_order_entries_from_definition(self._game_definition)
         self.logger.info(f"Turn order: {self.turn_order}")
 
         self.begin_routine_slot(
@@ -410,10 +410,14 @@ class GameServer:
     def _get_next_phase(self) -> dict:
         """Get the next phase in the turn order."""
 
-        scheduled = schedule_next_phase_info(self)
-        if scheduled is not None:
-            return scheduled
-        return self._game_definition.get_next_phase(self.action_manager.current_state)
+        return next_phase_from_definition(
+            self._game_definition, self.action_manager.current_state
+        )
+
+    def _available_factions(self) -> list[str]:
+        """Factions players may join as (registry-first when declared)."""
+
+        return list(available_factions_from_definition(self._game_definition))
 
     def _suggested_focus_unit_id_for_player_id(self, player_id: str) -> str | None:
         """Per-viewer selection hint from optional GameDefinition focus hook."""
@@ -474,7 +478,7 @@ class GameServer:
 
     def _turn_rules_wire(self) -> dict[str, Any]:
         """Full turn rota + budget + fingerprint for thin clients (no game pack on disk)."""
-        entries = self._game_definition.turn_order()
+        entries = list(self.turn_order)
         budget = float(
             getattr(self._game_definition, "_movement_budget", DEFAULT_MOVEMENT_BUDGET)
         )
@@ -496,7 +500,7 @@ class GameServer:
                 out["max_active_units_per_hex"] = n
         # Optional title-provided UI metadata (labels, CSS class names, and CSS).
         try:
-            facs = list(self._game_definition.available_factions())
+            facs = self._available_factions()
         except Exception:
             facs = []
         if facs:
@@ -807,7 +811,7 @@ class GameServer:
         if isinstance(requested, str) and not requested.strip():
             requested = None
 
-        available_factions = self._game_definition.available_factions()
+        available_factions = self._available_factions()
         # Be forgiving about case for URL/querystring inputs ("Union" vs "union").
         if isinstance(requested, str):
             requested_norm = requested.strip().lower()

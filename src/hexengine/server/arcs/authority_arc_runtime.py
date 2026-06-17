@@ -468,18 +468,14 @@ async def drive_movement_arc_event(
 def schedule_next_phase_info(host: ArcRuntimeHost) -> dict[str, Any] | None:
     """Next schedule slot from the declared arc schedule, or None when undeclared."""
 
+    from ...arcs.title.schedule import next_phase_from_registry
+
     reg = turn_arc_registry_from_hooks(host.hooks)
     if reg is None:
         return None
-    slot, next_idx = reg.schedule.next_after(
-        host.action_manager.current_state.turn.schedule_index
+    return next_phase_from_registry(
+        reg, int(host.action_manager.current_state.turn.schedule_index)
     )
-    return {
-        "faction": slot.faction,
-        "phase": slot.phase,
-        "max_actions": int(slot.max_actions),
-        "schedule_index": next_idx,
-    }
 
 
 __all__ = [

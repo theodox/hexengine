@@ -13,6 +13,13 @@ class GameDefinition(Protocol):
     """
     Title-specific rules consulted by GameServer (turn schedule, factions).
 
+    When the title declares ``ArcHook.TURN_ARC_REGISTRY``, the registry is
+    authoritative for turn order, factions, and ``NextPhase`` scheduling. In that
+    case ``turn_order``, ``get_next_phase``, and ``available_factions`` on the
+    definition are optional (engine helpers read the registry from hooks).
+
+    Titles without a turn arc registry must implement those three methods.
+
     Implementations should be stateless regarding *match* data; do not store
     per-match state on `self` (derive from `hexengine.state.game_state.GameState`
     or inject closures when a title needs session-scoped behavior).

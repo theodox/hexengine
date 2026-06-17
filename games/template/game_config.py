@@ -1,20 +1,19 @@
 """
 Template match configuration — start here when cloning this pack.
 
-Turn rota is declared in ``turn_arc_schedule.py`` (``TurnArcRegistry`` on hooks).
-``turn_order()`` and ``get_next_phase()`` derive from that registry.
+Turn rota is declared in ``turn_arc_schedule.py`` and wired on
+``TitleHooks.arcs.turn_arc_registry`` from ``hooks.build_hooks``.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
+from hexengine.arcs.registry import TurnArcRegistry
 from hexengine.gamedef.game_data import GameData
 from hexengine.gamedef.game_data_toml import load_game_data_for_pack_root
 from hexengine.gamedef.protocol import GameDefinition
-from hexengine.state import GameState
 
 from .constants import TEMPLATE_FACTIONS
 from .turn_arc_schedule import build_template_turn_arc_registry
@@ -35,13 +34,15 @@ def default_match_config() -> TemplateMatchConfig:
 class TemplateGameDefinition:
     """Minimal GameDefinition: move-only schedule from ``TurnArcRegistry``."""
 
-    __slots__ = ("_config",)
+    __slots__ = ("_config", "_turn_registry")
 
     def __init__(self, config: TemplateMatchConfig) -> None:
         self._config = config
+        self._turn_registry = build_template_turn_arc_registry(config.factions)
 
-    def _turn_registry(self):
-        return build_template_turn_arc_registry(self._config.factions)
+    @property
+    def turn_registry(self) -> TurnArcRegistry:
+        return self._turn_registry
 
     @property
     def game_data(self) -> GameData:
@@ -51,28 +52,11 @@ class TemplateGameDefinition:
     def hooks(self):
         from .hooks import build_hooks
 
-        return build_hooks()
+        return build_hooks(self._turn_registry)
 
     @property
     def _movement_budget(self) -> float:
         return float(self._config.movement_budget)
-
-    def available_factions(self) -> list[str]:
-        return self._turn_registry().schedule.available_factions()
-
-    def turn_order(self) -> list[dict[str, Any]]:
-        return self._turn_registry().schedule.turn_order_entries()
-
-    def get_next_phase(self, state: GameState) -> dict[str, Any]:
-        slot, next_idx = self._turn_registry().schedule.next_after(
-            state.turn.schedule_index
-        )
-        return {
-            "faction": slot.faction,
-            "phase": slot.phase,
-            "max_actions": int(slot.max_actions),
-            "schedule_index": next_idx,
-        }
 
 
 def game_definition_from_config(config: TemplateMatchConfig) -> GameDefinition:

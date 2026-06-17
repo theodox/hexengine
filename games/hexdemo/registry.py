@@ -2,9 +2,8 @@
 Named entry points for `hexengine.gamedef.protocol.GameDefinition` factories.
 
 The engine loads this pack via hexengine_pack.toml (`hexdemo.registry.build_game_definition`).
-Match rules (turn order, factions, …) are assembled in hexdemo.game_config — edit
-HexdemoMatchConfig there (or build your own and extend this module) rather than only
-swapping ids here.
+Turn rota is declared in `arcs/turn_schedule.py` and wired via `hooks.build_hooks`.
+Match settings (factions, movement budget) live in `game_config.HexdemoMatchConfig`.
 """
 
 from __future__ import annotations

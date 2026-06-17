@@ -10,8 +10,7 @@ Typical changes:
   `resources/game_data.toml`, referenced from `hexengine_pack.toml` `[gamedata]`.
 - **Faction order** — `HEXDEMO_FACTIONS` in `hexdemo.constants` (first side opens
   the round; see `hexengine.gameroot.initial_turn_slot_for_game_definition`).
-- **Turn rota** — `arcs/turn_schedule.py` (`TurnArcRegistry`); not a parallel
-  static schedule table on this class.
+- **Turn rota** — `arcs/turn_schedule.py` via `ArcHook.TURN_ARC_REGISTRY` in hooks.
 - **Movement preview budget** — set `movement_budget` to match scenario feel.
 
 ``turn.current_phase`` on the wire remains a display label derived from the
@@ -24,15 +23,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from hexengine.arcs.registry import TurnArcRegistry
 from hexengine.gamedef.game_data import GameData
 from hexengine.gamedef.game_data_toml import load_game_data_for_pack_root
 from hexengine.gamedef.protocol import GameDefinition
 from hexengine.state import DEFAULT_MOVEMENT_BUDGET, GameState
 
-from .arcs.turn_schedule import (
-    build_hexdemo_turn_arc_registry,
-    hexdemo_four_phase_entries,
-)
+from .arcs.turn_schedule import build_hexdemo_turn_arc_registry
 from .combat import transitions as combat_transitions
 from .constants import HEXDEMO_FACTIONS
 from .hooks import build_hooks
@@ -44,20 +41,23 @@ _HEXDEMO_PACK_ROOT = Path(__file__).resolve().parent
 
 class HexdemoGameDefinition:
     """
-    Hexdemo match rules: turn rota from ``TurnArcRegistry``, title hooks, lifecycle.
+    Hexdemo match rules: hooks, declarative game data, and lifecycle hooks.
 
-    Turn geometry is declared in ``arcs/turn_schedule.py`` and exposed on
-    ``TitleHooks.arcs``; ``turn_order()`` here mirrors that registry for wire and
-    contract validation only.
+    Turn geometry lives in ``arcs/turn_schedule.py`` and is wired once on
+    ``TitleHooks.arcs.turn_arc_registry`` at hook assembly time.
     """
 
-    __slots__ = ("_config",)
+    __slots__ = ("_config", "_turn_registry")
 
     def __init__(self, config: HexdemoMatchConfig) -> None:
         self._config = config
+        self._turn_registry = build_hexdemo_turn_arc_registry(config.factions)
 
-    def _turn_registry(self):
-        return build_hexdemo_turn_arc_registry(self._config.factions)
+    @property
+    def turn_registry(self) -> TurnArcRegistry:
+        """Declared turn schedule + routine arc specs (same object as on hooks)."""
+
+        return self._turn_registry
 
     @property
     def game_data(self) -> GameData:
@@ -66,7 +66,7 @@ class HexdemoGameDefinition:
 
     @property
     def hooks(self):
-        return build_hooks()
+        return build_hooks(self._turn_registry)
 
     @property
     def marker_placement_rule(self):
@@ -76,23 +76,6 @@ class HexdemoGameDefinition:
     def _movement_budget(self) -> float:
         """Scalar schedule budget on the definition (used by server `turn_rules` wire)."""
         return float(self._config.movement_budget)
-
-    def available_factions(self) -> list[str]:
-        return self._turn_registry().schedule.available_factions()
-
-    def turn_order(self) -> list[dict[str, Any]]:
-        return self._turn_registry().schedule.turn_order_entries()
-
-    def get_next_phase(self, state: GameState) -> dict[str, Any]:
-        slot, next_idx = self._turn_registry().schedule.next_after(
-            state.turn.schedule_index
-        )
-        return {
-            "faction": slot.faction,
-            "phase": slot.phase,
-            "max_actions": int(slot.max_actions),
-            "schedule_index": next_idx,
-        }
 
     def focus_unit_id_after_state_sync(
         self, state: GameState, viewer_faction: str | None
@@ -139,7 +122,7 @@ class HexdemoMatchConfig:
 
 
 def game_definition_from_config(config: HexdemoMatchConfig) -> GameDefinition:
-    """Return a fresh `GameDefinition` for `config` (registry-backed four-phase rota)."""
+    """Return a fresh `GameDefinition` for `config`."""
     return HexdemoGameDefinition(config)
 
 
@@ -153,5 +136,4 @@ __all__ = [
     "HexdemoMatchConfig",
     "default_match_config",
     "game_definition_from_config",
-    "hexdemo_four_phase_entries",
 ]

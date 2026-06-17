@@ -46,15 +46,9 @@ from .gamedef.title_load import TitleLoadContext, TitleLoadResult
 
 def initial_turn_slot_for_game_definition(game: GameDefinition) -> dict[str, Any]:
     """First slot in the flat turn rota (faction, phase, max_actions) for bootstrap."""
-    order = game.turn_order()
-    if not order:
-        raise ValueError("GameDefinition.turn_order() returned an empty list")
-    slot = order[0]
-    return {
-        "faction": str(slot["faction"]),
-        "phase": str(slot["phase"]),
-        "max_actions": int(slot["max_actions"]),
-    }
+    from hexengine.arcs.title.schedule import initial_turn_slot_from_definition
+
+    return initial_turn_slot_from_definition(game)
 
 
 def initial_faction_for_game_definition(game: GameDefinition) -> str:

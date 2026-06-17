@@ -7,6 +7,7 @@ Hexdemo hook implementations.
 
 from __future__ import annotations
 
+from hexengine.arcs.registry import TurnArcRegistry
 from hexengine.hooks.title import TitleHooks
 from hexengine.hooks.wiring import assemble_title_hooks
 
@@ -23,7 +24,12 @@ from . import (
 )
 
 
-def build_hooks() -> TitleHooks:
+def build_hooks(turn_registry: TurnArcRegistry | None = None) -> TitleHooks:
+    if turn_registry is None:
+        from ..arcs.turn_schedule import build_hexdemo_turn_arc_registry
+
+        turn_registry = build_hexdemo_turn_arc_registry()
+    arcs_override = {"turn_arc_registry": lambda: turn_registry}
     return assemble_title_hooks(
         modification,
         interaction,
@@ -34,6 +40,7 @@ def build_hooks() -> TitleHooks:
         segment_presentation,
         segment_ui_registry,
         markers,
+        arcs=arcs_override,
     )
 
 

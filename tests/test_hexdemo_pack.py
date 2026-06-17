@@ -51,13 +51,14 @@ def test_try_pack_title_load_server_no_hook_is_safe() -> None:
 
 
 def test_load_game_definition_for_hexdemo_scenario() -> None:
+    from hexengine.arcs.title.schedule import available_factions_from_definition
     from hexengine.gameroot import (
         initial_faction_for_game_definition,
         load_game_definition_for_scenario,
     )
 
     gd = load_game_definition_for_scenario(HEXDEMO_SCENARIO)
-    assert gd.available_factions() == ["union", "confederate"]
+    assert available_factions_from_definition(gd) == ["union", "confederate"]
     assert initial_faction_for_game_definition(gd) == "union"
 
 
@@ -77,8 +78,10 @@ def test_hexdemo_registry_build() -> None:
         sys.path.insert(0, games)
     from hexdemo.registry import build_game_definition
 
+    from hexengine.arcs.title.schedule import available_factions_from_definition
+
     gd = build_game_definition()
-    assert gd.available_factions() == ["union", "confederate"]
+    assert available_factions_from_definition(gd) == ["union", "confederate"]
 
 
 def test_hexdemo_default_turn_order_four_phases() -> None:
@@ -90,8 +93,10 @@ def test_hexdemo_default_turn_order_four_phases() -> None:
         sys.path.insert(0, games)
     from hexdemo.registry import build_game_definition
 
+    from hexengine.arcs.title.schedule import turn_order_entries_from_definition
+
     gd = build_game_definition()
-    order = gd.turn_order()
+    order = turn_order_entries_from_definition(gd)
     assert len(order) == 4
     assert order[0] == {"faction": "union", "phase": "Move", "max_actions": 4}
     assert order[1] == {"faction": "union", "phase": "Combat", "max_actions": 2}
@@ -100,28 +105,32 @@ def test_hexdemo_default_turn_order_four_phases() -> None:
 
 
 def test_hexdemo_turn_order_matches_registry() -> None:
-    """Flat turn_order() derives from the same registry as ArcHook.TURN_ARC_REGISTRY."""
+    """Hooks and ``HexdemoGameDefinition.turn_registry`` share one schedule object."""
     import sys
 
     games = str(REPO_ROOT / "games")
     if games not in sys.path:
         sys.path.insert(0, games)
-    from hexdemo.arcs.turn_schedule import (
-        build_hexdemo_turn_arc_registry,
-        hexdemo_four_phase_entries,
-    )
+    from hexdemo.arcs.turn_schedule import build_hexdemo_turn_arc_registry
     from hexdemo.registry import build_game_definition
 
-    gd = build_game_definition()
-    reg = build_hexdemo_turn_arc_registry()
-    assert gd.turn_order() == reg.schedule.turn_order_entries()
-    assert tuple(gd.turn_order()) == hexdemo_four_phase_entries(
-        ("union", "confederate")
+    from hexengine.arcs.title.schedule import (
+        turn_arc_registry_from_definition,
+        turn_order_entries_from_definition,
     )
+
+    gd = build_game_definition()
+    reg = turn_arc_registry_from_definition(gd)
+    assert reg is not None
+    assert turn_order_entries_from_definition(gd) == reg.schedule.turn_order_entries()
+    assert gd.turn_registry is reg
+    assert reg.schedule.turn_order_entries() == build_hexdemo_turn_arc_registry(
+        ("union", "confederate")
+    ).schedule.turn_order_entries()
 
 
 def test_hexdemo_game_config_matches_registry() -> None:
-    """`build_game_definition` matches `game_definition_from_config(default_match_config())`."""
+    """``build_game_definition`` matches ``game_definition_from_config(default_match_config())``."""
     import sys
 
     games = str(REPO_ROOT / "games")
@@ -130,10 +139,14 @@ def test_hexdemo_game_config_matches_registry() -> None:
     from hexdemo.game_config import default_match_config, game_definition_from_config
     from hexdemo.registry import build_game_definition
 
+    from hexengine.arcs.title.schedule import turn_order_entries_from_definition
+
     reg = build_game_definition()
     cfg = game_definition_from_config(default_match_config())
     assert type(reg) is type(cfg)
-    assert reg.turn_order() == cfg.turn_order()
+    assert turn_order_entries_from_definition(reg) == turn_order_entries_from_definition(
+        cfg
+    )
 
 
 def _ensure_games_on_path() -> None:
