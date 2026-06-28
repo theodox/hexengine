@@ -16,3 +16,4 @@
 | [`SERVER_ARCHITECTURE.md`](SERVER_ARCHITECTURE.md) | Server architecture |
 | [`WIRE_COMPATIBILITY.md`](WIRE_COMPATIBILITY.md) | Wire compatibility policy |
 | [`RULE_COMPOSITION.md`](RULE_COMPOSITION.md) | Future rule-composition vision (not implemented) |
+| [`RULES_EXPANSION.md`](RULES_EXPANSION.md) | `rules_expansion` branch — M&S reference and tracker |

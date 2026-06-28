@@ -20,6 +20,8 @@ Hooks remain the **integration layer** (when the server asks); composed **rules*
 
 **Composable arcs (shipped):** turn/combat/movement flow is declared as arc graphs in `hexengine.authoring` and driven by the generic runner; hooks supply title-bound effects. See [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) (arc graphs, turn schedule) and [`TURN_ACTION_DOCK_CONTRACT.md`](TURN_ACTION_DOCK_CONTRACT.md) (draft locus, prompt segments).
 
+**Active rules work:** [`RULES_EXPANSION.md`](RULES_EXPANSION.md) (`rules_expansion` branch — Musket & Saber reference, system tracker, friction log).
+
 ## Preferred model: import and compose (not a DSL)
 
 Authors should not need a new construct to mix engine and custom behavior. The engine exposes **small, documented pure functions**; titles write ordinary Python that calls them.
