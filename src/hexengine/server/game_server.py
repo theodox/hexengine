@@ -91,6 +91,7 @@ from .arcs import (
     read_movement_arc,
     resolve_active_segment_owner,
     restore_routine_cursor,
+    retreat_legality_deferred_to_movement_arc,
     retreat_path_wire_deferred_to_movement_arc,
     try_arc_move_unit,
     try_arc_rpc,
@@ -1411,24 +1412,27 @@ class GameServer:
             if unit is None or unit.faction != player.faction:
                 await self._send_error(player_id, "That unit is not yours")
                 return
-            try:
-                self._validate_move_unit_request(
-                    current_state,
-                    request.params,
-                    player,
-                    is_retreat_fulfillment=True,
-                )
-                if uid_for_move is not None:
-                    validate_retreat_fulfillment_stack(
-                        self,
-                        st_before=current_state,
-                        uid_for_move=uid_for_move,
-                        player=player,
-                        request=request,
+            if not retreat_legality_deferred_to_movement_arc(
+                current_state, dict(request.params or {})
+            ):
+                try:
+                    self._validate_move_unit_request(
+                        current_state,
+                        request.params,
+                        player,
+                        is_retreat_fulfillment=True,
                     )
-            except ValueError as e:
-                await self._send_error(player_id, str(e))
-                return
+                    if uid_for_move is not None:
+                        validate_retreat_fulfillment_stack(
+                            self,
+                            st_before=current_state,
+                            uid_for_move=uid_for_move,
+                            player=player,
+                            request=request,
+                        )
+                except ValueError as e:
+                    await self._send_error(player_id, str(e))
+                    return
 
         if request.action_type == "MoveUnit":
             move_outcome = await try_arc_move_unit(

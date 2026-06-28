@@ -1,6 +1,6 @@
 # Title authoring guide
 
-**Combat / movement author interface (done):** hexdemo uses one `CombatRulesBinding` in [`combat/rules.py`](../games/hexdemo/combat/rules.py) and movement policy in [`movement/rules.py`](../games/hexdemo/movement/rules.py); see [§ Modification vs interaction](#modification-vs-interaction) and [§ Combat and movement (hexdemo)](#combat-and-movement-hexdemo). Phase history: [`archive/TITLE_AUTHOR_INTERFACE_PLAN.md`](archive/TITLE_AUTHOR_INTERFACE_PLAN.md).
+**Combat / movement author interface (done):** hexdemo uses one `CombatRulesBinding` in [`combat/rules.py`](../games/hexdemo/combat/rules.py) and movement policy in [`movement/rules.py`](../games/hexdemo/movement/rules.py); see [§ Modification vs interaction](#modification-vs-interaction) and [§ Combat and movement (hexdemo)](#combat-and-movement-hexdemo).
 
 **Start here** if you are building or extending a game pack (title) on hexengine. This page gives **high-level summaries** and **API entry points**; deep wire schemas and client behavior live in linked contract docs.
 
@@ -90,7 +90,7 @@ Normative boundary: [`ENGINE_TITLE_CHARTER.md`](ENGINE_TITLE_CHARTER.md).
 | 10 | [`games/hexdemo/arcs/README.md`](../games/hexdemo/arcs/README.md) | Turn rota + arc hook wiring |
 | 11 | [`games/hexdemo/combat/README.md`](../games/hexdemo/combat/README.md) | Interaction aftermath graph (if combat) |
 
-**Planning only (not API):** [`SKINNING_AFFORDANCES_PLAN.md`](SKINNING_AFFORDANCES_PLAN.md) (roadmap/status), [`RULE_COMPOSITION.md`](RULE_COMPOSITION.md) (future rule catalog). Doc index and archived plans: [`README.md`](README.md), [`archive/README.md`](archive/README.md).
+**Planning only (not API):** [`SKINNING_AFFORDANCES_PLAN.md`](SKINNING_AFFORDANCES_PLAN.md) (roadmap/status), [`RULE_COMPOSITION.md`](RULE_COMPOSITION.md) (future rule catalog). Doc index: [`README.md`](README.md).
 
 ### Pack reading order (hexdemo, flow-first)
 
@@ -398,7 +398,7 @@ Feature: `server_drag_previews`. Server: [`compute_unit_drag_preview`](../src/he
 
 ### SEQUENCE — multi-step UX
 
-**Player prompts** (scripted events, season cards, acknowledge-then-continue) are prompt sequences: INFORM on the dock (`headline` / `html`) then DECIDE; blocking is a **prompt segment** in the turn arc. See [`TURN_ACTION_DOCK_CONTRACT.md` § Player prompts](TURN_ACTION_DOCK_CONTRACT.md#player-prompts) and [`archive/COMPOSABLE_ARCS_PLAN.md` § Prompt segments](archive/COMPOSABLE_ARCS_PLAN.md#prompt-segments).
+**Player prompts** (scripted events, season cards, acknowledge-then-continue) are prompt sequences: INFORM on the dock (`headline` / `html`) then DECIDE; blocking is a **prompt segment** in the turn arc. See [`TURN_ACTION_DOCK_CONTRACT.md` § Player prompts](TURN_ACTION_DOCK_CONTRACT.md#player-prompts) and [§ Prompt segments](TURN_ACTION_DOCK_CONTRACT.md#prompt-segments).
 
 | Source | Responsibility |
 |--------|----------------|
@@ -511,11 +511,6 @@ When you change player UX or hook contracts:
 |-----|----------|
 | [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) | Title authors (this page) |
 | [`ENGINE_TITLE_CHARTER.md`](ENGINE_TITLE_CHARTER.md) | Engine vs title ownership (normative) |
-| [`archive/ENGINE_TITLE_CHARTER_PLAN.md`](archive/ENGINE_TITLE_CHARTER_PLAN.md) | Charter migration (archived phase history) |
-| [`archive/COMBAT_ARC_GRAPH_PLAN.md`](archive/COMBAT_ARC_GRAPH_PLAN.md) | Pack-visible interaction graph (archived phase history) |
-| [`archive/TITLE_AUTHOR_INTERFACE_PLAN.md`](archive/TITLE_AUTHOR_INTERFACE_PLAN.md) | Combat/movement interface (archived phase history) |
-| [`archive/COMPOSABLE_ARCS_PLAN.md`](archive/COMPOSABLE_ARCS_PLAN.md) | Composable arcs (archived phase history) |
-| [`archive/ENGINE_BOUNDARY_2_PLAN.md`](archive/ENGINE_BOUNDARY_2_PLAN.md) | Engine boundary 2 (archived phase history) |
 | [`TURN_ACTION_DOCK_CONTRACT.md`](TURN_ACTION_DOCK_CONTRACT.md) | Wire + primitives (API detail) |
 | [`PACK_HOOK_CONTRACTS.md`](PACK_HOOK_CONTRACTS.md) | Wire schemas + hook roadmap |
 | [`SKINNING_AFFORDANCES_PLAN.md`](SKINNING_AFFORDANCES_PLAN.md) | Implementation status / roadmap |

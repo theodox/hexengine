@@ -34,6 +34,7 @@ from ...arcs.movement_arc_decl import (
     SEG_CONTINUE,
     SEG_INTERRUPT,
     SEG_RETREAT_OPEN,
+    SEG_STEPWISE_OPEN,
     read_movement_payload,
 )
 from ...hooks.title import TitleHooks
@@ -63,6 +64,14 @@ class ArcDispatch(str, Enum):
     NOT_DECLARED = "not_declared"
     HANDLED = "handled"
     NO_CURSOR = "no_cursor"
+    REJECTED = "rejected"
+
+
+class MovementArcDriveOutcome(str, Enum):
+    """Result of offering a movement arc open RPC."""
+
+    NOT_DECLARED = "not_declared"
+    ACCEPTED = "accepted"
     REJECTED = "rejected"
 
 
@@ -352,10 +361,9 @@ def movement_arc_spec(host: ArcRuntimeHost) -> ArcSpec | None:
 def sync_movement_cursor_from_payload(host: ArcRuntimeHost) -> None:
     """Align the generic arc cursor with the movement payload gate mirror.
 
-    Stepwise paths open by writing ``engine_state[hexengine_movement_arc]`` in
-    ``authority_movement`` (normal ``resolve_move_as_steps``) or via the movement arc
-    ``retreat_open`` segment (``drive_movement_arc_retreat_open``). This function sets
-    ``SetArcCursor`` to the interrupt or continue segment so ``drive_movement_arc_event``
+    Stepwise paths open via the movement arc ``stepwise_open`` segment (normal
+    ``resolve_move_as_steps``) or ``retreat_open`` (``drive_movement_arc_retreat_open``).
+    This function sets ``SetArcCursor`` to the interrupt or continue segment so ``drive_movement_arc_event``
     can dispatch ``PassMovementInterrupt`` and continuation ``MoveUnit`` RPCs.
     """
 
@@ -391,16 +399,12 @@ async def drive_movement_arc_retreat_open(
     player_id: str,
     player: PlayerInfo,
     params: dict[str, Any],
-) -> bool:
-    """Open a mandatory retreat path via the movement arc ``retreat_open`` segment.
-
-    Returns True when this RPC is fully handled (success or error). False when no
-    movement arc is declared.
-    """
+) -> MovementArcDriveOutcome:
+    """Open a mandatory retreat path via the movement arc ``retreat_open`` segment."""
 
     spec = movement_arc_spec(host)
     if spec is None:
-        return False
+        return MovementArcDriveOutcome.NOT_DECLARED
 
     host.action_manager.execute(
         SetArcCursor(
@@ -421,13 +425,53 @@ async def drive_movement_arc_retreat_open(
         await host._send_error(
             player_id, "Movement arc rejected retreat path open"
         )
-        return True
+        return MovementArcDriveOutcome.REJECTED
 
     sync_movement_cursor_from_payload(host)
     ok = ActionResult(success=True, action_id=str(uuid.uuid4()))
     await host._send_message(player_id, ok.to_message())
     await host._broadcast_state_update()
-    return True
+    return MovementArcDriveOutcome.ACCEPTED
+
+
+async def drive_movement_arc_stepwise_open(
+    host: ArcRuntimeHost,
+    player_id: str,
+    player: PlayerInfo,
+    params: dict[str, Any],
+) -> MovementArcDriveOutcome:
+    """Open a normal stepwise move via the movement arc ``stepwise_open`` segment."""
+
+    spec = movement_arc_spec(host)
+    if spec is None:
+        return MovementArcDriveOutcome.NOT_DECLARED
+
+    host.action_manager.execute(
+        SetArcCursor(
+            ArcCursor(arc_id=MOVEMENT_ARC_ID, segment_id=SEG_STEPWISE_OPEN)
+        )
+    )
+    result = submit_event(
+        spec.arc,
+        host.action_manager,
+        action_type="MoveUnit",
+        actor=str(player.faction),
+        params=dict(params),
+        resolver=spec.owner_resolver,
+    )
+    if not result.ok:
+        host.action_manager.execute(SetArcCursor(None))
+        restore_routine_cursor(host)
+        await host._send_error(
+            player_id, "Movement arc rejected stepwise open"
+        )
+        return MovementArcDriveOutcome.REJECTED
+
+    sync_movement_cursor_from_payload(host)
+    ok = ActionResult(success=True, action_id=str(uuid.uuid4()))
+    await host._send_message(player_id, ok.to_message())
+    await host._broadcast_state_update()
+    return MovementArcDriveOutcome.ACCEPTED
 
 
 async def drive_movement_arc_event(
@@ -485,12 +529,14 @@ __all__ = [
     "COMBAT_NO_CURSOR_MSG",
     "COMBAT_REJECTED_MSG",
     "INTERACTION_AFTERMATH_WIRE_VERBS",
+    "MovementArcDriveOutcome",
     "active_overlay_arc_cursor",
     "begin_combat_arc",
     "begin_routine_slot",
     "combat_arc_spec",
     "drive_movement_arc_event",
     "drive_movement_arc_retreat_open",
+    "drive_movement_arc_stepwise_open",
     "drive_overlay_arc_event",
     "finish_arc_dispatch",
     "lookup_arc_spec",

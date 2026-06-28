@@ -14,7 +14,7 @@ from ...arcs import ArcContext
 from ...arcs.movement_arc_decl import path_tuple_from_payload, read_movement_payload
 from ...hexes.types import Hex
 from ...hooks.core import ENGINE_DEFAULT
-from ...hooks.modification import MovementStepContext
+from ...hooks.modification import MoveContext, MovementStepContext
 from ...retreat_path import parse_wire_path
 from ...state.action_manager import StateAction
 from ...state.actions import (
@@ -23,7 +23,7 @@ from ...state.actions import (
     WriteHexengineMovementArc,
 )
 from ...state.game_state import GameState
-from ...state.logic import is_valid_move
+from ...state.logic import is_valid_move, shortest_move_path
 from ...state.movement_arc import (
     MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
     MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
@@ -62,6 +62,133 @@ def build_retreat_fulfillment_flow(
             "to_hex": wire_path[-1],
         },
     }
+
+
+def build_stepwise_flow(
+    *,
+    unit_id: str,
+    path: tuple[Hex, ...],
+    moving_faction: str,
+    budget_remaining: float,
+    step_index: int,
+) -> dict[str, Any]:
+    """Movement arc payload for title-driven stepwise resolve (non-retreat)."""
+
+    wire_path = [{"i": int(h.i), "j": int(h.j), "k": int(h.k)} for h in path]
+    return {
+        "schema": MOVEMENT_ARC_SCHEMA,
+        "unit_id": unit_id,
+        "path": wire_path,
+        "step_index": int(step_index),
+        "moving_faction": str(moving_faction).strip(),
+        "budget_remaining": float(budget_remaining),
+        "gate": MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
+        "interrupt_queue": [],
+        "saved_turn": None,
+    }
+
+
+def compute_stepwise_path(
+    host: AuthorityMovementHost,
+    state: GameState,
+    unit_id: str,
+    to_hex: Hex,
+) -> tuple[Hex, ...] | None:
+    """Shortest legal path for a stepwise open, or None when unavailable."""
+
+    budget = float(host._movement_budget_for_unit(state, unit_id))
+    zoc = host._zoc_hexes_for_unit(state, unit_id)
+    max_stack = host._max_active_units_per_hex(state, unit_id)
+    step_fn = host._movement_step_cost_fn(unit_id)
+    path = shortest_move_path(
+        state,
+        unit_id,
+        to_hex,
+        budget,
+        zoc_hexes=zoc,
+        blocked_hexes=None,
+        max_active_units_per_hex=max_stack,
+        step_cost=step_fn,
+    )
+    if path is None or len(path) < 2:
+        return None
+    return path
+
+
+class _OpenStepwiseMovementArcAfterFirstStep(StateAction):
+    """After the first hex of a stepwise open, write payload and maybe open interrupts."""
+
+    def __init__(
+        self,
+        host: AuthorityMovementHost,
+        *,
+        unit_id: str,
+        path: tuple[Hex, ...],
+        moving_faction: str,
+        budget_remaining: float,
+    ) -> None:
+        self._host = host
+        self._unit_id = unit_id
+        self._path = path
+        self._moving_faction = moving_faction
+        self._budget_remaining = budget_remaining
+        self._prev_ext: dict[str, Any] | None = None
+        self._prev_turn = None
+
+    def apply(self, state: GameState) -> GameState:
+        from ...state.movement_arc import HEXENGINE_MOVEMENT_ARC_KEY
+        from ...state.engine_session_state import with_engine_bucket
+
+        self._prev_ext = dict(state.engine_state)
+        self._prev_turn = state.turn
+
+        new_flow = build_stepwise_flow(
+            unit_id=self._unit_id,
+            path=self._path,
+            moving_faction=self._moving_faction,
+            budget_remaining=self._budget_remaining,
+            step_index=1,
+        )
+        step_ctx = MovementStepContext(
+            state=state,
+            unit_id=self._unit_id,
+            path=self._path,
+            arrived_at_index=1,
+            player_faction=self._moving_faction,
+        )
+        iq_raw = self._host.hooks.modification.interrupt_factions_after_step(step_ctx)
+        if iq_raw is ENGINE_DEFAULT:
+            interrupts: tuple[str, ...] = ()
+        else:
+            interrupts = dedupe_faction_ids(
+                tuple(str(x) for x in iq_raw if str(x).strip())
+            )
+
+        if interrupts:
+            new_flow["saved_turn"] = turn_state_to_movement_arc_snapshot(state.turn)
+            new_flow["interrupt_queue"] = list(interrupts)
+            new_flow["gate"] = MOVEMENT_ARC_GATE_AWAITING_INTERRUPT
+            st = with_engine_bucket(state, HEXENGINE_MOVEMENT_ARC_KEY, new_flow)
+            nt = replace(
+                st.turn,
+                current_faction=interrupts[0],
+                current_phase=MOVEMENT_INTERRUPT_PHASE,
+                phase_actions_remaining=1,
+            )
+            return st.with_turn(nt)
+
+        return with_engine_bucket(state, HEXENGINE_MOVEMENT_ARC_KEY, new_flow)
+
+    def revert(self, state: GameState) -> GameState:
+        if self._prev_ext is None or self._prev_turn is None:
+            return state
+        return state.with_engine_state(self._prev_ext).with_turn(self._prev_turn)
+
+    def should_revert_prior(self) -> bool:
+        return False
+
+    def __repr__(self) -> str:
+        return "<OpenStepwiseMovementArcAfterFirstStep>"
 
 
 class _AdvanceMovementArcAfterStep(StateAction):
@@ -287,5 +414,90 @@ class MovementArcEffects:
             WriteHexengineMovementArc(flow),
         ]
 
+    def matches_stepwise_open(self, ctx: ArcContext) -> bool:
+        if read_movement_payload(ctx.state):
+            return False
+        uid = str(ctx.params.get("unit_id", "")).strip()
+        if not uid:
+            return False
+        fh, th = ctx.params.get("from_hex"), ctx.params.get("to_hex")
+        if not isinstance(fh, dict) or not isinstance(th, dict):
+            return False
+        from_hex = Hex(int(fh["i"]), int(fh["j"]), int(fh["k"]))
+        to_hex = Hex(int(th["i"]), int(th["j"]), int(th["k"]))
+        unit = ctx.state.board.units.get(uid)
+        if unit is None or unit.position != from_hex:
+            return False
+        rem_raw = self._host.hooks.modification.retreat_remaining(ctx.state, uid)
+        if rem_raw is not ENGINE_DEFAULT and rem_raw is not None:
+            try:
+                if int(rem_raw) > 0:
+                    return False
+            except (TypeError, ValueError):
+                pass
+        move_ctx = MoveContext(
+            state=ctx.state,
+            unit_id=uid,
+            from_hex=from_hex,
+            to_hex=to_hex,
+            player_faction=str(ctx.owner_faction or ""),
+            is_retreat_fulfillment=False,
+        )
+        stepwise_raw = self._host.hooks.modification.stepwise_enabled(move_ctx)
+        if stepwise_raw is ENGINE_DEFAULT or not bool(stepwise_raw):
+            return False
+        path = compute_stepwise_path(self._host, ctx.state, uid, to_hex)
+        if path is None or len(path) <= 2:
+            return False
+        if from_hex != path[0] or to_hex != path[-1]:
+            return False
+        budget_rem = float(self._host._movement_budget_for_unit(ctx.state, uid))
+        max_stack = self._host._max_active_units_per_hex(ctx.state, uid)
+        zoc = self._host._zoc_hexes_for_unit(ctx.state, uid)
+        step_fn = self._host._movement_step_cost_fn(uid)
+        return is_valid_move(
+            ctx.state,
+            uid,
+            path[1],
+            budget_rem,
+            zoc_hexes=zoc,
+            blocked_hexes=None,
+            max_active_units_per_hex=max_stack,
+            step_cost=step_fn,
+        )
 
-__all__ = ["MovementArcEffects", "build_retreat_fulfillment_flow"]
+    def open_stepwise_step(self, ctx: ArcContext) -> list[StateAction]:
+        uid = str(ctx.params.get("unit_id", "")).strip()
+        fh, th = ctx.params.get("from_hex"), ctx.params.get("to_hex")
+        if not isinstance(fh, dict) or not isinstance(th, dict):
+            return []
+        to_hex = Hex(int(th["i"]), int(th["j"]), int(th["k"]))
+        path = compute_stepwise_path(self._host, ctx.state, uid, to_hex)
+        if path is None or len(path) <= 2:
+            return []
+        first_from, first_to = path[0], path[1]
+        budget = float(self._host._movement_budget_for_unit(ctx.state, uid))
+        step_cost = self._host._movement_step_total_cost(
+            ctx.state, uid, first_from, first_to
+        )
+        if step_cost == float("inf"):
+            return []
+        budget_rem = budget - step_cost
+        return [
+            MoveUnit(uid, from_hex=first_from, to_hex=first_to),
+            _OpenStepwiseMovementArcAfterFirstStep(
+                self._host,
+                unit_id=uid,
+                path=path,
+                moving_faction=str(ctx.owner_faction or ""),
+                budget_remaining=budget_rem,
+            ),
+        ]
+
+
+__all__ = [
+    "MovementArcEffects",
+    "build_retreat_fulfillment_flow",
+    "build_stepwise_flow",
+    "compute_stepwise_path",
+]

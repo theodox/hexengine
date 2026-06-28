@@ -1,8 +1,8 @@
 # Hexdemo arcs (match flow)
 
-**Turn rota:** [`turn_schedule.py`](turn_schedule.py) — faction × phase schedule, flat `hexdemo_turn_order_entries`, and `build_hexdemo_turn_arc_registry` (authoritative).
+**Turn rota:** [`turn_schedule.py`](turn_schedule.py) — `hexdemo_schedule_slots` and `build_hexdemo_turn_arc_registry` (authoritative). Wired once on `ArcHook.TURN_ARC_REGISTRY` via [`wiring.py`](wiring.py) → `hooks.build_hooks()`.
 
-**Arc hook wiring:** [`wiring.py`](wiring.py) — `@bind_title_hook(ArcHook.…)` for turn registry, movement arc preset (`ENGINE_MOVEMENT_ARC_PRESET`), combat arc spec, and combat rules binding. Assembled via [`../hooks/__init__.py`](../hooks/__init__.py) `build_hooks()`.
+**Arc hook wiring:** [`wiring.py`](wiring.py) — `@bind_title_hook(ArcHook.…)` for turn registry, movement arc preset (`ENGINE_MOVEMENT_ARC_PRESET`), combat arc spec, and combat rules binding.
 
 **Combat subgraph:** [`../combat/graph.py`](../combat/graph.py) — post-attack FSM (read for segment topology).
 

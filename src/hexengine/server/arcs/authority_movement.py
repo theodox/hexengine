@@ -6,43 +6,42 @@ cleanup arcs live in `hexengine.server.arcs.authority_attack` and `authority_com
 
 **Stepwise open vs continuation:** see ``movement_arc_decl`` for why mandatory retreats
 reuse this arc. Multi-hex retreats: title validation here, then
-``drive_movement_arc_retreat_open``. Normal ``resolve_move_as_steps`` still opens inline.
-Continuation: ``drive_movement_arc_event`` / ``continue_stepwise_move_unit``. Opt-in:
-``ArcHook.MOVEMENT_ARC`` → ``ENGINE_MOVEMENT_ARC_PRESET`` or custom ``ArcSpec``.
+``drive_movement_arc_retreat_open``. Normal ``resolve_move_as_steps`` opens via
+``drive_movement_arc_stepwise_open``. Continuation: ``drive_movement_arc_event`` /
+``continue_stepwise_move_unit``. Opt-in: ``ArcHook.MOVEMENT_ARC`` →
+``ENGINE_MOVEMENT_ARC_PRESET`` or custom ``ArcSpec``.
 """
 
 from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import replace
 from typing import Any, Protocol
 
 from ...arcs import ArcContext, read_arc_cursor
 from ...arcs.movement_arc_decl import MOVEMENT_ARC_ID, path_complete
 from ...hexes.types import Hex
 from ...hooks.core import ENGINE_DEFAULT
-from ...hooks.modification import MoveContext, MovementStepContext
+from ...hooks.modification import MoveContext
 from ...hooks.title import TitleHooks
 from ...retreat_path import parse_wire_path, validate_retreat_path
 from ...state import ActionManager, GameState
 from ...state.engine_session_state import engine_bucket
-from ...state.actions import MoveUnit, SetTurnState, WriteHexengineMovementArc
+from ...state.actions import MoveUnit, WriteHexengineMovementArc
 from ...state.logic import is_valid_move, shortest_move_path
 from ...state.movement_arc import (
     HEXENGINE_MOVEMENT_ARC_KEY,
     MOVEMENT_ARC_GATE_AWAITING_CONTINUE,
     MOVEMENT_ARC_GATE_AWAITING_INTERRUPT,
-    MOVEMENT_ARC_SCHEMA,
-    MOVEMENT_INTERRUPT_PHASE,
-    turn_state_to_movement_arc_snapshot,
 )
 from ..protocol import ActionRequest, Message, PlayerInfo
 from .authority_arc_runtime import (
     COMBAT_ARC_REQUIRED_MSG,
     ArcDispatch,
+    MovementArcDriveOutcome,
     drive_movement_arc_event,
     drive_movement_arc_retreat_open,
+    drive_movement_arc_stepwise_open,
     finish_arc_dispatch,
     resume_combat_arc_after_retreat_fulfillment,
     sync_movement_cursor_from_payload,
@@ -77,6 +76,17 @@ def retreat_path_wire_deferred_to_movement_arc(params: dict[str, Any]) -> bool:
 
     wire_path = params.get("path")
     return isinstance(wire_path, list) and len(wire_path) >= 2
+
+
+def retreat_legality_deferred_to_movement_arc(
+    state: GameState, params: dict[str, Any]
+) -> bool:
+    """True when stepwise retreat validation belongs to the movement arc, not single-hop checks."""
+
+    if retreat_path_wire_deferred_to_movement_arc(params):
+        return True
+    flow = read_movement_arc(state)
+    return isinstance(flow, dict) and bool(flow.get("retreat_fulfillment"))
 
 
 def retreat_finalize_request_from_params(
@@ -207,7 +217,9 @@ async def _complete_retreat_fulfillment_step(
     Finish a stepwise retreat through the combat arc when declared.
 
     When the movement arc already applied the move (combat overlay cursor inactive),
-    fall back to the title ``COMBAT_RULES_BINDING.apply_retreat_step``.
+    fall back to the title ``COMBAT_RULES_BINDING.apply_retreat_step`` and then
+    ``resume_combat_arc_after_retreat_fulfillment`` so combat ``resolve`` can offer
+    advance (movement-arc path completion skips the combat ``retreat_gate`` segment).
 
     Returns True when the RPC is fully handled (arc success or error).
     """
@@ -432,61 +444,14 @@ async def handle_authority_move_unit_normal(
     if len(path) <= 2:
         return False
 
-    step_cost = host._movement_step_total_cost(current_state, unit_id, path[0], path[1])
-    if step_cost == float("inf"):
-        await host._send_error(player_id, "Illegal stepwise move")
-        return True
-    budget_rem = budget - step_cost
-    first_from, first_to = path[0], path[1]
-    try:
-        host.action_manager.execute(MoveUnit(unit_id, first_from, first_to))
-    except Exception as e:
-        await host._send_error(player_id, f"Action failed: {e}")
-        return True
-
-    st1 = host.action_manager.current_state
-    step_ctx = MovementStepContext(
-        state=st1,
-        unit_id=unit_id,
-        path=path,
-        arrived_at_index=1,
-        player_faction=str(player.faction),
+    outcome = await drive_movement_arc_stepwise_open(
+        host, player_id, player, dict(request.params)
     )
-    iq_raw = host.hooks.modification.interrupt_factions_after_step(step_ctx)
-    if iq_raw is ENGINE_DEFAULT:
-        interrupts = ()
-    else:
-        interrupts = dedupe_faction_ids(tuple(str(x) for x in iq_raw if str(x).strip()))
-
-    wire_path = [{"i": int(h.i), "j": int(h.j), "k": int(h.k)} for h in path]
-    base_flow: dict[str, Any] = {
-        "schema": MOVEMENT_ARC_SCHEMA,
-        "unit_id": unit_id,
-        "path": wire_path,
-        "step_index": 1,
-        "moving_faction": str(player.faction),
-        "budget_remaining": float(budget_rem),
-    }
-    if interrupts:
-        base_flow["saved_turn"] = turn_state_to_movement_arc_snapshot(st1.turn)
-        base_flow["interrupt_queue"] = list(interrupts)
-        base_flow["gate"] = MOVEMENT_ARC_GATE_AWAITING_INTERRUPT
-        host.action_manager.execute(WriteHexengineMovementArc(base_flow))
-        nt = replace(
-            host.action_manager.current_state.turn,
-            current_faction=interrupts[0],
-            current_phase=MOVEMENT_INTERRUPT_PHASE,
-            phase_actions_remaining=1,
-        )
-        host.action_manager.execute(SetTurnState(nt))
-    else:
-        base_flow["gate"] = MOVEMENT_ARC_GATE_AWAITING_CONTINUE
-        base_flow["interrupt_queue"] = []
-        base_flow["saved_turn"] = None
-        host.action_manager.execute(WriteHexengineMovementArc(base_flow))
-
-    sync_movement_cursor_from_payload(host)
-    await host._send_move_unit_success_and_broadcast(player_id)
+    if outcome != MovementArcDriveOutcome.NOT_DECLARED:
+        return True
+    await host._send_error(
+        player_id, "Stepwise movement requires a declared movement arc"
+    )
     return True
 
 
@@ -564,20 +529,31 @@ async def handle_authority_retreat_path_move_unit(
             step_cost=step_fn,
             validate_endpoint=_validate_endpoint,
         )
-        validate_retreat_fulfillment_stack(
-            host,
-            st_before=current_state,
-            uid_for_move=uid_for_move,
-            player=player,
-            request=request,
-        )
+        if not retreat_legality_deferred_to_movement_arc(
+            current_state, dict(request.params or {})
+        ):
+            validate_retreat_fulfillment_stack(
+                host,
+                st_before=current_state,
+                uid_for_move=uid_for_move,
+                player=player,
+                request=request,
+            )
     except ValueError as e:
         await host._send_error(player_id, str(e))
         return True
 
-    if await drive_movement_arc_retreat_open(
+    outcome = await drive_movement_arc_retreat_open(
         host, player_id, player, dict(request.params)
-    ):
+    )
+    if outcome == MovementArcDriveOutcome.NOT_DECLARED:
+        await host._send_error(
+            player_id,
+            "Retreat path continuation requires a declared movement arc "
+            "(bind ArcHook.MOVEMENT_ARC to ENGINE_MOVEMENT_ARC_PRESET or a custom ArcSpec)",
+        )
+        return True
+    if outcome == MovementArcDriveOutcome.ACCEPTED:
         if read_movement_arc(host.action_manager.current_state) is None:
             fin = retreat_finalize_request_from_params(
                 dict(request.params), uid_for_move
@@ -589,13 +565,6 @@ async def handle_authority_retreat_path_move_unit(
                     player,
                     fin_params=fin,
                 )
-        return True
-
-    await host._send_error(
-        player_id,
-        "Retreat path continuation requires a declared movement arc "
-        "(bind ArcHook.MOVEMENT_ARC to ENGINE_MOVEMENT_ARC_PRESET or a custom ArcSpec)",
-    )
     return True
 
 
@@ -608,5 +577,6 @@ __all__ = [
     "path_tuple_from_movement_arc",
     "read_movement_arc",
     "retreat_finalize_request_from_params",
+    "retreat_legality_deferred_to_movement_arc",
     "retreat_path_wire_deferred_to_movement_arc",
 ]

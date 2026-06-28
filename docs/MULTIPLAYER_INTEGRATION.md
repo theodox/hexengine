@@ -86,7 +86,7 @@ The browser client should not infer title rules by inspecting `GameState.session
 - **Pack manifest**: ship `games/<pack_id>/hexengine_pack.toml` with `pack.id` (must match the directory name), `python.path_add`, `python.entry_module`, and `python.entry_callable`. The engine resolves the pack from the scenario path and loads rules through that entry (see `hexengine.game_packs.registry`).
 - **Turn schedule / budgets**: ensure the server includes `StateUpdate.turn_rules` (engine always sends it) and set `movement_budget_attribute_key` if the title uses per-unit budgets.
 - **Focus/selection UX**: implement `focus_unit_id_after_state_sync(...)` on the server `GameDefinition`; the server will publish `StateUpdate.suggested_focus_unit_id` per viewer.
-- **Mandatory retreat UX**: implement `retreat_obligation_hexes_remaining(...)` on the server `GameDefinition`; the server will publish `StateUpdate.retreat_obligations` per viewer (unit id → hexes remaining). The browser `Game` uses this for drag gating and previews.
+- **Mandatory retreat UX**: bind `ModificationHook.RETREAT_OBLIGATION_HEXES_REMAINING` (hexdemo: `hooks/modification.py` → `movement/rules.py`); the server publishes `StateUpdate.retreat_obligations` per viewer (unit id → hexes remaining). The browser `Game` uses this for drag gating and previews.
 - **Capabilities**: `turn_rules.client_contract` is a lightweight manifest (schema + features) to help detect missing wire fields during development. You can enable a warning on the client with `HEXENGINE_STRICT_TITLE_SYNC=1`.
 
 ### `WebSocketClient`

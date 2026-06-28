@@ -16,6 +16,7 @@ from .movement_arc_decl import (
     SEG_INTERRUPT,
     SEG_INTERRUPT_RESOLVE,
     SEG_RETREAT_OPEN,
+    SEG_STEPWISE_OPEN,
     SEG_STEP_RESOLVE,
     MovementArcEffectsBinding,
     interrupt_queue_empty,
@@ -35,6 +36,7 @@ from .spec import (
     Segment,
     Transition,
 )
+from ..authoring.patterns.combat import OWNER_RETREATING
 
 
 def build_movement_arc(effects: MovementArcEffectsBinding) -> Arc:
@@ -46,12 +48,24 @@ def build_movement_arc(effects: MovementArcEffectsBinding) -> Arc:
         segments=(
             Segment(
                 id=SEG_RETREAT_OPEN,
-                owner=CURRENT,
+                owner=OwnerRef(OWNER_RETREATING),
                 transitions=(
                     Transition(
                         trigger=Event("MoveUnit"),
                         guard=effects.matches_retreat_open,
                         effect=effects.open_retreat_step,
+                        target=Goto(segment=SEG_STEP_RESOLVE),
+                    ),
+                ),
+            ),
+            Segment(
+                id=SEG_STEPWISE_OPEN,
+                owner=CURRENT,
+                transitions=(
+                    Transition(
+                        trigger=Event("MoveUnit"),
+                        guard=effects.matches_stepwise_open,
+                        effect=effects.open_stepwise_step,
                         target=Goto(segment=SEG_STEP_RESOLVE),
                     ),
                 ),

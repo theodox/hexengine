@@ -8,8 +8,7 @@ does not bind ``ArcHook.COMBAT_ARC``. When you enable interaction:
 2. Wire guards/effects in ``combat/rules.py`` (``CombatRulesBinding``).
 3. Keep gate ``ui_mode`` strings aligned across ``combat/transitions.py``,
    graph segment args, and ``ui/segment_registry.py`` (or ``segment_ui.py``).
-4. Expose ``ArcSpec`` from ``combat/arc.py`` and bind via ``hooks/arcs.py`` or
-   ``arcs/wiring.py``.
+4. Expose ``ArcSpec`` from ``combat/arc.py`` and bind via ``arcs/wiring.py`` (see hexdemo).
 
 Until then, ``games/template/combat_arc.py`` can use
 ``combat_rules_binding_to_arc_spec`` (engine convenience — graph lives in

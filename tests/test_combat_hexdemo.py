@@ -1056,6 +1056,185 @@ def test_combat_advance_after_defender_retreat_via_path_wire(
         assert "combat_advance" in action_ids
         assert not any("Movement arc rejected" in e for e in errors), errors
 
+        adv_req = ActionRequest(
+            action_type="CombatAdvance",
+            params={},
+            player_id="p_u",
+        )
+        await server.handle_message("p_u", adv_req.to_message())
+
+        st2 = server.action_manager.current_state
+        assert st2.board.units["u_att"].position == h_def
+        assert st2.board.units["u_def"].position == h_ret
+        hx2 = engine_read_session_state(st2, "hexdemo")
+        assert hx2.get("advance") is None
+        assert not hx2.get("retreat_obligations")
+
+    asyncio.run(run())
+
+
+def test_combat_advance_after_multi_step_retreat_path(
+) -> None:
+    """Stepwise retreat path (open + continue) still offers advance via combat resolve."""
+    from hexengine.arcs import read_arc_cursor
+    from hexengine.server.protocol import JoinGameRequest
+    from hexengine.state.game_state import BoardState, LocationState, TurnState, UnitState
+    from hexengine.state.movement_arc import HEXENGINE_MOVEMENT_ARC_KEY
+    from hexengine.state.engine_session_state import engine_bucket
+
+    h_att = Hex(0, 0, 0)
+    h_def = Hex(1, -1, 0)
+    h1 = Hex(2, -2, 0)
+    h2 = Hex(3, -3, 0)
+
+    def _loc(h: Hex) -> LocationState:
+        return LocationState(position=h, terrain_type="t", movement_cost=1.0)
+
+    board = BoardState(
+        locations={h_att: _loc(h_att), h_def: _loc(h_def), h1: _loc(h1), h2: _loc(h2)},
+        units={
+            "u_att": UnitState(
+                unit_id="u_att",
+                unit_type="inf",
+                faction="union",
+                position=h_att,
+                health=100,
+                active=True,
+            ),
+            "u_def": UnitState(
+                unit_id="u_def",
+                unit_type="inf",
+                faction="confederate",
+                position=h_def,
+                health=100,
+                active=True,
+            ),
+        },
+    )
+    turn = TurnState(
+        current_faction="union",
+        current_phase="Combat",
+        phase_actions_remaining=2,
+        turn_number=1,
+        schedule_index=1,
+    )
+    gd = game_definition_from_config(default_match_config())
+    server = GameServer(
+        initial_state=GameState(
+            board=board,
+            turn=turn,
+            session_state={},
+            session_state_key="hexdemo",
+            rng_log=(),
+        ),
+        game_definition=gd,
+    )
+    server.players["p_u"] = PlayerInfo(
+        player_id="p_u", player_name="U", faction="union", connected=True
+    )
+    server.players["p_c"] = PlayerInfo(
+        player_id="p_c", player_name="C", faction="confederate", connected=True
+    )
+    server.faction_to_player["union"] = "p_u"
+    server.faction_to_player["confederate"] = "p_c"
+
+    async def run() -> None:
+        errors: list[str] = []
+
+        def capture(_pid: str, m) -> None:
+            if m.type == "error":
+                errors.append(str(m.payload.get("error", "")))
+
+        server.add_message_handler(capture)
+        await server.handle_message(
+            "p_u", JoinGameRequest(player_name="U", faction="union").to_message()
+        )
+        await server.handle_message(
+            "p_c", JoinGameRequest(player_name="C", faction="confederate").to_message()
+        )
+
+        with patch("games.hexdemo.hooks.interaction.random.randrange", side_effect=[3, 1]):
+            req = ActionRequest(
+                action_type="Attack",
+                params={
+                    "attack_kind": "combined",
+                    "attacker_id": "u_att",
+                    "attacker_ids": ["u_att"],
+                    "defender_id": "u_def",
+                },
+                player_id="p_u",
+            )
+            await server.handle_message("p_u", req.to_message())
+
+        st_after = server.action_manager.current_state
+        hx_after = dict(engine_read_session_state(st_after, "hexdemo"))
+        # Attack yields a 1-hex obligation; bump to 2 so open + continue both run.
+        hx_after["retreat_obligations"] = {"u_def": 2}
+        server.action_manager.replace_state(
+            st_after.with_session_state(hx_after, session_state_key="hexdemo")
+        )
+
+        path_wire = [
+            {"i": h_def.i, "j": h_def.j, "k": h_def.k},
+            {"i": h1.i, "j": h1.j, "k": h1.k},
+            {"i": h2.i, "j": h2.j, "k": h2.k},
+        ]
+        open_mv = ActionRequest(
+            action_type="MoveUnit",
+            params={
+                "unit_id": "u_def",
+                "from_hex": {"i": h_def.i, "j": h_def.j, "k": h_def.k},
+                "to_hex": {"i": h1.i, "j": h1.j, "k": h1.k},
+                "path": path_wire,
+            },
+            player_id="p_c",
+        )
+        await server.handle_message("p_c", open_mv.to_message())
+
+        st_mid = server.action_manager.current_state
+        assert st_mid.board.units["u_def"].position == h1
+        arc_mid = engine_bucket(st_mid, HEXENGINE_MOVEMENT_ARC_KEY)
+        assert isinstance(arc_mid, dict)
+        assert arc_mid.get("retreat_fulfillment") is True
+        assert engine_read_session_state(st_mid, "hexdemo").get("advance") is None
+
+        cont_mv = ActionRequest(
+            action_type="MoveUnit",
+            params={
+                "unit_id": "u_def",
+                "from_hex": {"i": h1.i, "j": h1.j, "k": h1.k},
+                "to_hex": {"i": h2.i, "j": h2.j, "k": h2.k},
+            },
+            player_id="p_c",
+        )
+        await server.handle_message("p_c", cont_mv.to_message())
+
+        st1 = server.action_manager.current_state
+        assert st1.board.units["u_def"].position == h2
+        assert HEXENGINE_MOVEMENT_ARC_KEY not in st1.engine_state
+        hx = engine_read_session_state(st1, "hexdemo")
+        adv = hx.get("advance")
+        assert isinstance(adv, dict)
+        assert adv.get("faction") == "union"
+        assert not hx.get("retreat_obligations")
+
+        cur = read_arc_cursor(st1)
+        assert cur is not None
+        assert cur.arc_id == "combat"
+        assert cur.segment_id == "advance_gate"
+
+        adv_req = ActionRequest(
+            action_type="CombatAdvance",
+            params={},
+            player_id="p_u",
+        )
+        await server.handle_message("p_u", adv_req.to_message())
+
+        st2 = server.action_manager.current_state
+        assert st2.board.units["u_att"].position == h_def
+        assert engine_read_session_state(st2, "hexdemo").get("advance") is None
+        assert not any("Movement arc rejected" in e for e in errors), errors
+
     asyncio.run(run())
 
 

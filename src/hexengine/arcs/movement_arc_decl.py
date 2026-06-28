@@ -19,8 +19,8 @@ We accept cross-arc coupling: payload fields ``retreat_fulfillment`` and
 path/stack validation in ``authority_movement`` runs before
 ``drive_movement_arc_retreat_open``. Retreat ``MoveUnit`` with ``path`` (two or more
 hexes) always opens here; without a ``path`` wire, combat overlay fulfillment applies.
-Normal ``resolve_move_as_steps`` opens inline in authority for now (not yet on this
-graph).
+Normal ``resolve_move_as_steps`` opens via ``SEG_STEPWISE_OPEN`` (same stepwise payload
+and continuation/interrupt machinery as retreat paths).
 """
 
 from __future__ import annotations
@@ -43,6 +43,7 @@ MOVEMENT_ARC_ID = "movement"
 
 SEG_CONTINUE = "continue"
 SEG_RETREAT_OPEN = "retreat_open"
+SEG_STEPWISE_OPEN = "stepwise_open"
 SEG_STEP_RESOLVE = "step_resolve"
 SEG_INTERRUPT = "interrupt"
 SEG_INTERRUPT_RESOLVE = "interrupt_resolve"
@@ -69,6 +70,10 @@ class MovementArcEffectsBinding(Protocol):
     def matches_retreat_open(self, ctx: ArcContext) -> bool: ...
 
     def open_retreat_step(self, ctx: ArcContext) -> list[StateAction]: ...
+
+    def matches_stepwise_open(self, ctx: ArcContext) -> bool: ...
+
+    def open_stepwise_step(self, ctx: ArcContext) -> list[StateAction]: ...
 
 
 def read_movement_payload(state: GameState) -> dict[str, Any] | None:
@@ -145,6 +150,7 @@ __all__ = [
     "OWNER_MOVING",
     "SEG_CONTINUE",
     "SEG_RETREAT_OPEN",
+    "SEG_STEPWISE_OPEN",
     "SEG_INTERRUPT",
     "SEG_INTERRUPT_RESOLVE",
     "SEG_STEP_RESOLVE",

@@ -1,10 +1,10 @@
 # Engine / title charter
 
-**Status:** normative target for pack authoring and engine refactors. Charter migration (phases 0–7) is **shipped**; see [`archive/ENGINE_TITLE_CHARTER_PLAN.md`](archive/ENGINE_TITLE_CHARTER_PLAN.md) for phase history.
+**Status:** normative target for pack authoring and engine refactors. Charter migration (phases 0–7) is **shipped**.
 
 **Audience:** title authors and engine maintainers.
 
-**Related:** [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) (how-to), [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md) (inventory), [`games/hexdemo/combat/graph.py`](../games/hexdemo/combat/graph.py) (reference interaction graph), [`archive/COMPOSABLE_ARCS_PLAN.md`](archive/COMPOSABLE_ARCS_PLAN.md) (arc runtime history).
+**Related:** [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md) (how-to), [`engine_game_boundary_matrix.md`](engine_game_boundary_matrix.md) (inventory), [`games/hexdemo/combat/graph.py`](../games/hexdemo/combat/graph.py) (reference interaction graph).
 
 ---
 
@@ -193,15 +193,17 @@ A **static four-phase rota** for prototypes is a **pattern that emits `TurnArcRe
 
 ## Migration backlog (engine and hexdemo)
 
-**Shipped** — all items below landed in phases 0–7. Phase history: [`archive/ENGINE_TITLE_CHARTER_PLAN.md`](archive/ENGINE_TITLE_CHARTER_PLAN.md).
+**Shipped** — all items below landed in phases 0–7.
 
-1. **Retire dual turn model in hexdemo** ✅ — single `TurnArcRegistry`; `HexdemoGameDefinition` derives `turn_order()` from `arcs/turn_schedule.py` (phase 1).
+**Post-shipment follow-ups (also shipped):** movement arc cutover (`SEG_STEPWISE_OPEN` for normal stepwise moves); retreat-path → combat advance handoff (`resume_combat_arc_after_retreat_fulfillment`, multi-hex path validation deferral).
+
+1. **Retire dual turn model in hexdemo** ✅ — single `TurnArcRegistry` in `arcs/turn_schedule.py`, wired via `arcs/wiring.py` → `build_hooks()`; server rota and `NextPhase` use `hexengine.arcs.title.schedule` helpers (no parallel `GameDefinition.turn_order()` on hexdemo).
 2. **Decouple authority from pattern ids** ✅ — `arc_supports_action_type` / `arc_commit_segment_for_action`; authority_attack scans Event("Attack") (phase 2).
 3. **Generic RPC routing** ✅ — `try_arc_rpc` / `overlay_rpc_action_types`; single GameServer branch for aftermath verbs (phase 3).
 4. **Soften or remove phase-name contract heuristics** ✅ — opt-in interaction bundle only; phase names do not require interaction hooks (phase 4).
 5. **Move pattern modules toward reference packs** ✅ — no silent movement arc; titles opt in via `ENGINE_MOVEMENT_ARC_PRESET` (phase 5).
 6. **Strip client/engine hexdemo fallbacks** ✅ — generic dock CSS swap, neutral highlight fallback, shell_ui copy from title (phase 6).
-7. **Document terminology** ✅ — modification / interaction in [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md); hook enums `ModificationHook` / `InteractionHook` and `TitleHooks.modification` / `.interaction` (phase 7). Phase history: [`archive/ENGINE_TITLE_CHARTER_PLAN.md`](archive/ENGINE_TITLE_CHARTER_PLAN.md).
+7. **Document terminology** ✅ — modification / interaction in [`TITLE_AUTHORING.md`](TITLE_AUTHORING.md); hook enums `ModificationHook` / `InteractionHook` and `TitleHooks.modification` / `.interaction` (phase 7).
 
 ---
 

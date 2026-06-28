@@ -324,7 +324,10 @@ def test_drive_movement_arc_retreat_open_writes_payload() -> None:
 
     from hexengine.hexes.math import neighbors
     from hexengine.hooks.modification import ModificationHooks
-    from hexengine.server.arcs import drive_movement_arc_retreat_open
+    from hexengine.server.arcs import (
+        MovementArcDriveOutcome,
+        drive_movement_arc_retreat_open,
+    )
     from hexengine.state.game_state import BoardState, TurnState, UnitState
     from hexengine.state.engine_session_state import engine_bucket
 
@@ -397,7 +400,7 @@ def test_drive_movement_arc_retreat_open_writes_payload() -> None:
                 params,
             )
         )
-        is True
+        == MovementArcDriveOutcome.ACCEPTED
     )
     final = host.action_manager.current_state
     assert final.board.units["u"].position == h1

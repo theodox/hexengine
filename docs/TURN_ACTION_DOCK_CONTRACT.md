@@ -48,7 +48,18 @@ Map SELECT drafts are **client-local until commit**. The server never persists i
 
 Titles that need pre-commit server-visible state must opt in explicitly (e.g. `session_state` keys) and document that escape hatch; it is not the default SELECT model.
 
-See also: [`archive/COMPOSABLE_ARCS_PLAN.md` § Drafts are nested client-local sub-arcs](archive/COMPOSABLE_ARCS_PLAN.md#drafts-are-nested-client-local-sub-arcs-not-guards).
+### Drafts vs guards
+
+A **draft** (multi-step input before one commit RPC) is a nested **client-local sub-arc**, not a guard on a parent transition:
+
+- A **guard** answers “may this transition fire?” and must be server-evaluable (`owner`, `allowed_actions`, legality). Draft completeness (`confirm_enabled`) is client-only and must not live in the authority gate (the server validates the committed RPC regardless).
+- A **guard admits the event; a draft produces the event.** The draft is input construction; its terminal transition emits the authoritative RPC into the parent server segment.
+
+- **Entering** a draft is gated by the parent segment — the draft is offered only when its commit action is in `allowed_actions` for the current owner.
+- **Internal validity** (eligible attackers, `confirm_enabled`) is the sub-arc’s terminal condition — client-local.
+- **Committing** emits the RPC; the parent segment’s guard plus server validation admits or rejects it.
+
+Single-click actions have no draft; multi-step composition uses a draft sub-arc.
 
 ---
 
@@ -96,7 +107,23 @@ Blocking scripted events (season cards, scenario intros, “click Continue”) u
 
 Do **not** use `ui_popup` for blocking prompts — that lane is hex-anchored, ephemeral INFORM. Do **not** put `onclick` in prompt HTML; every commit is a dock action row.
 
-Longer flows add SELECT between INFORM and DECIDE (attack plan, retreat path). Authority-side blocking is a **prompt segment** in the turn arc — see [`archive/COMPOSABLE_ARCS_PLAN.md` § Prompt segments](archive/COMPOSABLE_ARCS_PLAN.md#prompt-segments).
+Longer flows add SELECT between INFORM and DECIDE (attack plan, retreat path). Authority-side blocking is a **prompt segment** in the turn arc — see below.
+
+### Prompt segments
+
+A **prompt segment** is a server-authoritative arc segment that narrows `allowed_actions` until the player resolves a [player prompt](#player-prompts). Routine turn actions stay illegal until the prompt is cleared.
+
+Same shape as combat **gate** segments (`retreat_gate`, `advance_gate`) but UX-neutral: season events, scenario beats, and combat obligations all use **interrupt** plus narrowed `allowed_actions`, not a separate mechanism.
+
+Typical authoring:
+
+- **Enter** via automatic transition when title script fires (phase entry, bucket flag, arc effect).
+- **`owner`** — faction that must acknowledge, or per-viewer policy composed in the dock hook.
+- **`allowed_actions`** — only acknowledge / branch RPCs (e.g. `AcknowledgeEvent`).
+- **Exit** on DECIDE commit: clear prompt state in `session_state`, resume the suspended segment or advance the cursor.
+- **Not a draft** — no client-local SELECT sub-arc; validity is server-side on commit.
+
+In title docs, prefer **prompt segment** for narrative or scripted interrupts. Reserve **gate** for segments whose `ui_mode` is combat-shaped (`awaiting_retreat`, `awaiting_advance`, …) unless you explicitly mean this segment shape.
 
 ### SELECT — draft shapes (same wire, title policy)
 
